@@ -1,7 +1,7 @@
 ///|
 fn read_utf8_text(path : String) -> String {
   @fs.read_file_to_string(path, encoding="utf8") catch {
-    e => abort("read failed: " + e.to_string())
+    e => abort("read failed: " + (e : Error).to_string())
   }
 }
 

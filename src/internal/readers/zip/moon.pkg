@@ -1,7 +1,6 @@
 import {
-  "bikallem/blit",
-  "bikallem/compress/checksum",
-  "bikallem/compress/flate",
+  "moonbit-community/flate/checksum",
+  "moonbit-community/flate",
 }
 
 import {

@@ -5,7 +5,7 @@
 pub fn parse_html_document(text : String) -> HtmlDocument raise {
   let normalized = normalize_html_source(text)
   let tokens = tokenize_normalized_html_document(normalized)
-  let parser = HtmlParser::{ tokens, pos: 0 }
+  let parser = HtmlParser::{ tokens, pos: 0, }
   parser.parse_document(count_html_source_chars(normalized))
 }
 
@@ -13,7 +13,7 @@ pub fn parse_html_document(text : String) -> HtmlDocument raise {
 pub fn analyze_html_source(text : String) -> HtmlSourceAnalysis raise {
   let normalized = normalize_html_source(text)
   let scan = tokenize_normalized_html_event_scan(normalized)
-  let parser = HtmlParser::{ tokens: scan.tokens, pos: 0 }
+  let parser = HtmlParser::{ tokens: scan.tokens, pos: 0, }
   {
     document: parser.parse_document(count_html_source_chars(normalized)),
     events: scan.events,
@@ -54,7 +54,7 @@ pub fn classify_html_error(err : HtmlError) -> HtmlErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|
@@ -89,17 +89,17 @@ fn HtmlParser::parse_document(
     match self.tokens[self.pos] {
       Text(text, span) => {
         if stack.length() > 0 || text.trim() != "" {
-          push_node(nodes, stack, Text({ text, span }))
+          push_node(nodes, stack, Text({ text, span, }))
         }
         self.pos += 1
       }
       Comment(text, span) => {
-        push_node(nodes, stack, Comment({ text, span }))
+        push_node(nodes, stack, Comment({ text, span, }))
         self.pos += 1
       }
       Doctype(text, span) => {
         has_doctype = true
-        push_node(nodes, stack, Doctype({ text, span }))
+        push_node(nodes, stack, Doctype({ text, span, }))
         self.pos += 1
       }
       StartTag(tag_name, attributes, explicit_self_closing, span) => {
@@ -246,7 +246,7 @@ fn HtmlParser::parse_document(
     })
   }
 
-  { nodes, source_length, has_doctype, issues }
+  { nodes, source_length, has_doctype, issues, }
 }
 
 ///|

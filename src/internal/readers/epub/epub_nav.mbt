@@ -22,7 +22,7 @@ fn parse_nav_points(xml : String) -> Array[EpubNavPoint] {
       Some(text) => {
         let label = xml_entity_decode(text.trim().to_owned())
         if label != "" {
-          out.push({ label, href, depth: 0, source_path: None })
+          out.push({ label, href, depth: 0, source_path: None, })
         }
       }
       None => ()
@@ -68,7 +68,7 @@ fn parse_ncx_nav_points_from_elements(
       None => ""
     }
     if label != "" && href != "" {
-      out.push({ label, href, depth, source_path: Some(source_path) })
+      out.push({ label, href, depth, source_path: Some(source_path), })
     }
 
     let child_nav_points = collect_direct_child_elements(

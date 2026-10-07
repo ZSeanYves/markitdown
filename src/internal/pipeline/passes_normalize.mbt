@@ -27,7 +27,7 @@ pub fn normalize_whitespace_pass() -> IRPass {
 ///|
 fn normalize_block_text(block : @core.CoreBlock) -> @core.CoreBlock {
   let next = @core.block_with_children(
-    { ..block, text: block.text.trim().to_owned() },
+    { ..block, text: block.text.trim().to_owned(), },
     block.children.map(child => normalize_block_text(child)),
   )
   next
@@ -46,7 +46,7 @@ fn normalize_block_whitespace(block : @core.CoreBlock) -> @core.CoreBlock {
     _ => collapse_whitespace(block.text)
   }
   let next = @core.block_with_children(
-    { ..block, text: next_text },
+    { ..block, text: next_text, },
     block.children.map(child => normalize_block_whitespace(child)),
   )
   next

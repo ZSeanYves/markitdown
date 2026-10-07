@@ -3,7 +3,7 @@ fn pdf_product_wbtest_object(
   object_id : Int,
   dict_text : String,
 ) -> PdfNativeObject {
-  { object_id, dict_text, stream: None }
+  { object_id, dict_text, stream: None, }
 }
 
 ///|

@@ -418,7 +418,7 @@ fn eml_html_inline_boundary_spacing(
         text.has_suffix(mark) &&
         !text.has_suffix(" " + mark) {
         let prefix = text[:text.length() - mark.length()].to_owned()
-        return [{ ..blocks[0], text: prefix + " " + mark }]
+        return [{ ..blocks[0], text: prefix + " " + mark, }]
       }
     }
   }

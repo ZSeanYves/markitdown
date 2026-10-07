@@ -31,7 +31,7 @@ fn parse_pipe_table_literal(text : String) -> TextMarkupTable? {
   for i in 1..<rows.length() {
     body_rows.push(rows[i])
   }
-  Some({ header: rows[0], rows: body_rows })
+  Some({ header: rows[0], rows: body_rows, })
 }
 
 ///|
@@ -78,7 +78,7 @@ fn parse_rst_simple_table(text : String) -> TextMarkupTable? {
     }
     rows.push(content[i])
   }
-  Some({ header: content[0], rows })
+  Some({ header: content[0], rows, })
 }
 
 ///|
@@ -185,7 +185,7 @@ fn parse_asciidoc_table_block(text : String) -> TextMarkupTable? {
   if rows.length() == 0 {
     return None
   }
-  Some({ header, rows })
+  Some({ header, rows, })
 }
 
 ///|
@@ -221,7 +221,7 @@ fn parse_tex_table_block(text : String) -> TextMarkupTable? {
   for i in 1..<rows.length() {
     body_rows.push(rows[i])
   }
-  Some({ header: rows[0], rows: body_rows })
+  Some({ header: rows[0], rows: body_rows, })
 }
 
 ///|

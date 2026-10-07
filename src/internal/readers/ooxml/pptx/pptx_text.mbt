@@ -17,7 +17,7 @@ fn parse_text_body(
       if paragraphs.length() == 0 {
         None
       } else {
-        Some({ paragraphs, source_key })
+        Some({ paragraphs, source_key, })
       }
     }
     None => None
@@ -98,7 +98,10 @@ fn parse_runs(
       if gt < 0 {
         break
       }
-      out.push({ inlines: [Break], source_key: pptx_source_key(part_name, key) })
+      out.push({
+        inlines: [Break],
+        source_key: pptx_source_key(part_name, key),
+      })
       pos = gt + 1
     } else {
       match slice_full_element(paragraph_xml, next, kind) {
@@ -118,7 +121,7 @@ fn parse_runs(
               }
           }
           if inlines.length() > 0 {
-            out.push({ inlines, source_key: pptx_source_key(part_name, key) })
+            out.push({ inlines, source_key: pptx_source_key(part_name, key), })
           }
           pos = next_pos
         }
@@ -187,7 +190,12 @@ fn read_list_hint(paragraph_xml : Bytes) -> PptxListHint? raise {
     })
   }
   if level > 0 {
-    return Some({ level, bullet: None, source: "a:pPr/lvl", confidence: Medium })
+    return Some({
+      level,
+      bullet: None,
+      source: "a:pPr/lvl",
+      confidence: Medium,
+    })
   }
   None
 }

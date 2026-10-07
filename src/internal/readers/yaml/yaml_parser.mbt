@@ -27,7 +27,7 @@ pub fn parse_yaml_structure_document(
       )
     None => ()
   }
-  { document, events }
+  { document, events, }
 }
 
 ///|
@@ -54,7 +54,7 @@ pub fn profile_yaml_document(text : String) -> YamlProfiledDocument raise {
     Some(totals),
   )
   yaml_parse_profile_finish_totals(Some(report), Some(totals))
-  { document, report }
+  { document, report, }
 }
 
 ///|
@@ -87,7 +87,7 @@ pub fn classify_yaml_error(err : YamlError) -> YamlErrorInfo {
   } else {
     Unknown
   }
-  { kind, detail: err.to_string() }
+  { kind, detail: err.to_string(), }
 }
 
 ///|
@@ -133,7 +133,7 @@ fn parse_yaml_document_with_profile(
         None => documents.push(Null)
       }
     }
-    return { root: Some(Sequence(documents)) }
+    return { root: Some(Sequence(documents)), }
   }
   let text = if document_texts.length() == 1 { document_texts[0] } else { "" }
   let lines = prepare_yaml_lines(
@@ -143,7 +143,7 @@ fn parse_yaml_document_with_profile(
   )
   if lines.length() == 0 {
     let build_started = yaml_parse_profile_stage_started(profile)
-    let doc = { root: None }
+    let doc = { root: None, }
     match profile {
       Some(_) =>
         yaml_parse_profile_stage_finished(
@@ -178,10 +178,10 @@ fn parse_yaml_document_with_profile(
 
   let build_started = yaml_parse_profile_stage_started(profile)
   let doc = if may_have_references {
-    let resolver = { anchors: Map([]), anchor_count: 0, alias_count: 0 }
-    { root: Some(resolve_yaml_aliases(root, resolver)) }
+    let resolver = { anchors: Map([]), anchor_count: 0, alias_count: 0, }
+    { root: Some(resolve_yaml_aliases(root, resolver)), }
   } else {
-    { root: Some(root) }
+    { root: Some(root), }
   }
   match profile {
     Some(_) =>
@@ -474,7 +474,7 @@ fn consume_mapping_members(
       Null
     }
 
-    members.push({ key, value })
+    members.push({ key, value, })
     i = next
   }
 
@@ -660,7 +660,7 @@ fn parse_sequence_item(
         Null
       }
 
-      members.push({ key, value: first_value })
+      members.push({ key, value: first_value, })
 
       if next < lines.length() && lines[next].indent > indent {
         let continuation_indent = lines[next].indent
@@ -860,7 +860,7 @@ fn yaml_optional_line_suffix(line_no : Int) -> String {
 
 ///|
 fn yaml_anchor_wrapper(name : String, value : YamlValue) -> YamlValue {
-  Mapping([{ key: yaml_anchor_marker_prefix + name, value }])
+  Mapping([{ key: yaml_anchor_marker_prefix + name, value, }])
 }
 
 ///|
@@ -923,7 +923,7 @@ fn resolve_yaml_mapping_members(
     if entry.key == "<<" {
       append_yaml_merge_members(merged, resolved)
     } else {
-      explicit.push({ key: entry.key, value: resolved })
+      explicit.push({ key: entry.key, value: resolved, })
     }
   }
   let explicit_keys : Map[String, Bool] = Map([])

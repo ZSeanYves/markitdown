@@ -45,7 +45,7 @@ pub fn make_pdf_native_text_line(
   source_ref? : @core.SourceRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeTextLine {
-  { spans, bbox, source_ref, reading_order_index }
+  { spans, bbox, source_ref, reading_order_index, }
 }
 
 ///|
@@ -63,7 +63,7 @@ pub fn make_pdf_native_text_block(
   source_ref? : @core.SourceRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeTextBlock {
-  { lines, bbox, source_ref, reading_order_index }
+  { lines, bbox, source_ref, reading_order_index, }
 }
 
 ///|
@@ -81,7 +81,7 @@ pub fn make_pdf_native_image_candidate(
   asset_ref? : @core.AssetRef? = None,
   reading_order_index? : Int? = None,
 ) -> PdfNativeImageCandidate {
-  { bbox, source_ref, asset_ref, reading_order_index }
+  { bbox, source_ref, asset_ref, reading_order_index, }
 }
 
 ///|
@@ -103,7 +103,7 @@ pub fn make_pdf_native_link_candidate(
   annotation_index? : Int? = None,
   annotation_object_id? : Int? = None,
 ) -> PdfNativeLinkCandidate {
-  { bbox, href, text, source_ref, annotation_index, annotation_object_id }
+  { bbox, href, text, source_ref, annotation_index, annotation_object_id, }
 }
 
 ///|
@@ -299,7 +299,7 @@ pub fn make_pdf_native_table_candidate(
   column_count? : Int? = None,
   cell_bboxes? : Array[PdfBBox] = [],
 ) -> PdfNativeTableCandidate {
-  { bbox, source_ref, row_count, column_count, cell_bboxes }
+  { bbox, source_ref, row_count, column_count, cell_bboxes, }
 }
 
 ///|
@@ -315,7 +315,7 @@ pub fn make_pdf_native_artifact_candidate(
   bbox : PdfBBox,
   source_ref? : @core.SourceRef? = None,
 ) -> PdfNativeArtifactCandidate {
-  { kind, bbox, source_ref }
+  { kind, bbox, source_ref, }
 }
 
 ///|

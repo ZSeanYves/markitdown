@@ -95,7 +95,7 @@ fn xlsx_append_sparse_sheet_view_blocks(
 
 ///|
 fn xlsx_trim_lowered_block_text(block : @core.CoreBlock) -> @core.CoreBlock {
-  { ..block, text: block.text.trim().to_owned() }
+  { ..block, text: block.text.trim().to_owned(), }
 }
 
 ///|

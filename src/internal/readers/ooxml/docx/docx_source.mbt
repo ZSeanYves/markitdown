@@ -19,7 +19,7 @@ pub fn parse_docx_source_from_package(
     Some(pkg),
     warnings,
   )
-  let part : DocxSourcePart = { part_name: main_part, blocks, warnings }
+  let part : DocxSourcePart = { part_name: main_part, blocks, warnings, }
   let styles = parse_docx_styles_from_package(
     pkg, main_part, relationships, blocks, warnings,
   )
@@ -109,14 +109,14 @@ fn parse_docx_source_document_xml_with_relationships(
     None,
     warnings,
   )
-  let part : DocxSourcePart = { part_name, blocks, warnings }
+  let part : DocxSourcePart = { part_name, blocks, warnings, }
   {
     main_part: part_name,
     metadata: empty_docx_document_metadata(),
     part_graph: docx_empty_part_graph(part_name),
     parts: [part],
-    styles: { part_name: None, styles: [] },
-    numbering: { part_name: None, nums: [], levels: [] },
+    styles: { part_name: None, styles: [], },
+    numbering: { part_name: None, nums: [], levels: [], },
     footnotes: [],
     endnotes: [],
     comments: [],

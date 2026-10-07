@@ -68,7 +68,7 @@ fn docx_model_styles(source : DocxSourceStyles) -> DocxStyles {
       source_key: style.source_key,
     })
   }
-  { part_name: source.part_name, styles }
+  { part_name: source.part_name, styles, }
 }
 
 ///|
@@ -96,7 +96,7 @@ fn docx_model_numbering(source : DocxSourceNumbering) -> DocxNumbering {
       source_key: level.source_key,
     })
   }
-  { part_name: source.part_name, nums, levels }
+  { part_name: source.part_name, nums, levels, }
 }
 
 ///|
@@ -381,7 +381,7 @@ fn docx_model_block(
           if !docx_warning_at_source_exists(warnings, warning) {
             warnings.push(warning)
           }
-          TablePlaceholder({ source_key: block.source_key })
+          TablePlaceholder({ source_key: block.source_key, })
         }
       }
     ContentControl =>
@@ -746,7 +746,7 @@ fn docx_model_inlines(
           }),
         )
       Hyphen(hyphen) =>
-        out.push(Hyphen({ kind: hyphen.kind, source_key: hyphen.source_key }))
+        out.push(Hyphen({ kind: hyphen.kind, source_key: hyphen.source_key, }))
       FootnoteRef(id) => out.push(FootnoteRef(id))
       EndnoteRef(id) => out.push(EndnoteRef(id))
       CommentRef(id) => out.push(CommentRef(id))
@@ -1267,7 +1267,7 @@ pub fn docx_resolve_numbering_level_by_id(
   num_id : String,
   ilvl : String?,
 ) -> DocxNumberingLevel? {
-  docx_resolve_numbering_level(numbering, { num_id, ilvl })
+  docx_resolve_numbering_level(numbering, { num_id, ilvl, })
 }
 
 ///|

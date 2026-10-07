@@ -23,7 +23,10 @@ fn select_manifest_rows(request : SelectRequest) -> Array[BenchRow] {
   let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
     err =>
       abort(
-        "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
+        "bench manifest read failed: " +
+        manifest_path +
+        " : " +
+        (err : Error).to_string(),
       )
   }
   select_rows_from_manifest(content, manifest_path, root, request)
@@ -67,7 +70,10 @@ pub fn selector_stats_json(request : SelectRequest) -> Json {
   let content = @fs.read_file_to_string(manifest_path, encoding="utf8") catch {
     err =>
       abort(
-        "bench manifest read failed: " + manifest_path + " : " + err.to_string(),
+        "bench manifest read failed: " +
+        manifest_path +
+        " : " +
+        (err : Error).to_string(),
       )
   }
   selector_stats_from_manifest(content, manifest_path, root, request)

@@ -101,7 +101,7 @@ fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
           max_depth = child.max_depth
         }
       }
-      { node_count, scalar_count, array_count, table_like_count, max_depth }
+      { node_count, scalar_count, array_count, table_like_count, max_depth, }
     }
     Array(values) => {
       let mut node_count = 1
@@ -119,7 +119,7 @@ fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
           max_depth = child.max_depth
         }
       }
-      { node_count, scalar_count, array_count, table_like_count, max_depth }
+      { node_count, scalar_count, array_count, table_like_count, max_depth, }
     }
     String(_) | Integer(_) | Float(_) | Bool(_) | Datetime(_) =>
       {

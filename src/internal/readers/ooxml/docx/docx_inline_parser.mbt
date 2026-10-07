@@ -327,15 +327,15 @@ fn find_docx_media_relationship_ref(
 ///|
 fn read_docx_blip_relationship_ref(tag : String) -> DocxMediaRelationshipRef {
   match read_docx_attr_value(tag, "r:embed") {
-    Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed }
+    Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed, }
     None =>
       match read_docx_attr_value(tag, "r:link") {
-        Some(rid) => { relationship_id: Some(rid), relationship_kind: Link }
+        Some(rid) => { relationship_id: Some(rid), relationship_kind: Link, }
         None =>
           match read_docx_attr_value(tag, "r:id") {
             Some(rid) =>
-              { relationship_id: Some(rid), relationship_kind: Unknown }
-            None => { relationship_id: None, relationship_kind: Unknown }
+              { relationship_id: Some(rid), relationship_kind: Unknown, }
+            None => { relationship_id: None, relationship_kind: Unknown, }
           }
       }
   }
@@ -346,14 +346,15 @@ fn read_docx_vml_image_relationship_ref(
   tag : String,
 ) -> DocxMediaRelationshipRef {
   match read_docx_attr_value(tag, "r:id") {
-    Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed }
+    Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed, }
     None =>
       match read_docx_attr_value(tag, "r:embed") {
-        Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed }
+        Some(rid) => { relationship_id: Some(rid), relationship_kind: Embed, }
         None =>
           match read_docx_attr_value(tag, "r:link") {
-            Some(rid) => { relationship_id: Some(rid), relationship_kind: Link }
-            None => { relationship_id: None, relationship_kind: Unknown }
+            Some(rid) =>
+              { relationship_id: Some(rid), relationship_kind: Link, }
+            None => { relationship_id: None, relationship_kind: Unknown, }
           }
       }
   }
@@ -501,7 +502,7 @@ fn parse_docx_hyperlink(
         })
     }
   }
-  { relationship_id, anchor, target, text, target_mode, source_key: key }
+  { relationship_id, anchor, target, text, target_mode, source_key: key, }
 }
 
 ///|
@@ -572,7 +573,7 @@ fn parse_docx_break_inline(
       }
     None => Line
   }
-  Break({ kind, break_type, source_key: key })
+  Break({ kind, break_type, source_key: key, })
 }
 
 ///|

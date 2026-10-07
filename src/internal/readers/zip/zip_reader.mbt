@@ -79,10 +79,10 @@ fn build_zip_archive(
     source_read_at,
     inspect_cache: Ref(None),
     read_entry_cache: Map([]),
-    inspect_hit_count: { val: 0 },
-    inspect_miss_count: { val: 0 },
-    read_hit_count: { val: 0 },
-    read_miss_count: { val: 0 },
+    inspect_hit_count: { val: 0, },
+    inspect_miss_count: { val: 0, },
+    read_hit_count: { val: 0, },
+    read_miss_count: { val: 0, },
   }
 }
 
@@ -399,7 +399,7 @@ fn read_entry_data_slice_from_meta(
   if data_start < 0 || data_end < data_start || data_end > archive.source_size {
     raise UnexpectedEOF("entry data")
   }
-  { entry, data_start, data_end }
+  { entry, data_start, data_end, }
 }
 
 ///|
@@ -452,7 +452,7 @@ fn visit_inflated_entry_chunks_from_reader(
   let chunk_size = if chunk_size <= 0 { 64 * 1024 } else { chunk_size }
   let entry = slice.entry
   let mut emitted_bytes = 0
-  let crc = @checksum.CRC32::new()
+  let crc = @checksum.Crc32()
   match entry.compression_method {
     Store => {
       let mut pos = slice.data_start
@@ -472,24 +472,52 @@ fn visit_inflated_entry_chunks_from_reader(
       }
     }
     DeflateRaw => {
-      let inflater = @flate.Inflater::new()
+      let inflater = @flate.Inflater()
+      let output = FixedArray::make(chunk_size.min(64 * 1024), b'\x00')
       let mut pos = slice.data_start
       let mut done = false
       while !done {
         let feed_end = (pos + chunk_size).min(slice.data_end)
-        if pos < feed_end {
-          let compressed = match
-            read_zip_source_fully(read_at, pos, feed_end - pos) {
-            Ok(value) => value
-            Err(err) => return Err(err)
-          }
-          inflater.src(compressed[:])
-          pos = feed_end
+        let compressed = match
+          read_zip_source_fully(read_at, pos, feed_end - pos) {
+          Ok(value) => value
+          Err(err) => return Err(err)
         }
+        pos = feed_end
+        let mut consumed = 0
         let mut needs_more_input = false
         while !done && !needs_more_input {
-          match inflater.decode() {
-            Await =>
+          let status = inflater.step(
+            compressed[consumed:],
+            output.mut_view(),
+            end=pos == slice.data_end,
+          ) catch {
+            @flate.InflateError(_, message) =>
+              return Err("decode failed for `" + entry.name + "`: " + message)
+          }
+          consumed += inflater.last_consumed()
+          let produced = inflater.last_produced()
+          if produced > entry.uncompressed_size - emitted_bytes {
+            return Err(
+              "invalid zip structure: decoded size overflow for entry: " +
+              entry.name +
+              " expected=" +
+              entry.uncompressed_size.to_string() +
+              " actual=" +
+              (emitted_bytes + produced).to_string(),
+            )
+          }
+          if produced > 0 {
+            let chunk = Bytes::makei(produced, i => output[i])
+            emitted_bytes += produced
+            crc.update(chunk[:])
+            match on_chunk(chunk) {
+              Ok(_) => ()
+              Err(err) => return Err(err)
+            }
+          }
+          match status {
+            NeedMoreInput =>
               if pos >= slice.data_end {
                 return Err(
                   "zip decode failed for `" + entry.name + "`: unexpected EOF",
@@ -497,39 +525,18 @@ fn visit_inflated_entry_chunks_from_reader(
               } else {
                 needs_more_input = true
               }
-            Data(out) => {
-              let chunk = out.to_owned()
-              emitted_bytes += chunk.length()
-              crc.update(chunk[:])
-              if emitted_bytes > entry.uncompressed_size {
+            NeedMoreOutput => ()
+            Done => {
+              if consumed != compressed.length() || pos != slice.data_end {
                 return Err(
-                  "invalid zip structure: decoded size overflow for entry: " +
-                  entry.name +
-                  " expected=" +
-                  entry.uncompressed_size.to_string() +
-                  " actual=" +
-                  emitted_bytes.to_string(),
+                  "invalid zip structure: decoded entry left trailing compressed bytes: " +
+                  entry.name,
                 )
               }
-              match on_chunk(chunk) {
-                Ok(_) => ()
-                Err(err) => return Err(err)
-              }
+              done = true
             }
-            End => done = true
-            Error(err) =>
-              return Err(
-                "decode failed for `" + entry.name + "`: " + err.to_string(),
-              )
           }
         }
-      }
-      let remaining = inflater.remaining()
-      if remaining.length() > 0 {
-        return Err(
-          "invalid zip structure: decoded entry left trailing compressed bytes: " +
-          entry.name,
-        )
       }
     }
     Unsupported(code) =>
@@ -545,7 +552,7 @@ fn visit_inflated_entry_chunks_from_reader(
       emitted_bytes.to_string(),
     )
   }
-  let actual_crc = crc.checksum().reinterpret_as_int()
+  let actual_crc = crc.finish().reinterpret_as_int()
   if actual_crc != entry.crc32 {
     return Err(
       "invalid zip structure: crc32 mismatch for entry: " +

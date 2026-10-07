@@ -43,7 +43,7 @@ pub fn decompress(
 
   let out = match compression_method {
     Store => compressed
-    DeflateRaw => decompress_deflate_raw_backend(compressed)
+    DeflateRaw => decompress_deflate_raw_backend(compressed, max_output_size)
     Unsupported(code) => raise UnsupportedCompressionMethod(code)
   }
 

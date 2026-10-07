@@ -47,7 +47,7 @@ fn pdf_parser_test_core_bbox(
   x1 : Double,
   y1 : Double,
 ) -> @core.BBox {
-  { x0, y0, x1, y1 }
+  { x0, y0, x1, y1, }
 }
 
 ///|

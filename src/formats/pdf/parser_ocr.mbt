@@ -46,7 +46,7 @@ pub fn pdf_ocr_parser_result(
       pdf_page_route_uses_ocr(route)
     })
   }
-  let pdf_raster_wall_ms : Ref[UInt64] = { val: 0 }
+  let pdf_raster_wall_ms : Ref[UInt64] = { val: 0, }
   let rasterized = if needs_raster {
     let started = @env.now()
     match rasterizer(source) {
@@ -93,12 +93,12 @@ pub fn pdf_ocr_parser_result(
   let ocr_image_paths : Array[String] = []
   let page_image_paths : Map[Int, String] = Map([])
   let ocr_blocks_by_page : Map[Int, Array[@core.CoreBlock]] = Map([])
-  let ocr_provider_wall_ms : Ref[UInt64] = { val: 0 }
-  let ocr_process_invocation_count : Ref[Int] = { val: 0 }
-  let ocr_batch_job_count : Ref[Int] = { val: 0 }
-  let raster_page_success_count : Ref[Int] = { val: 0 }
-  let provider_name : Ref[String?] = { val: None }
-  let provider_version : Ref[String?] = { val: None }
+  let ocr_provider_wall_ms : Ref[UInt64] = { val: 0, }
+  let ocr_process_invocation_count : Ref[Int] = { val: 0, }
+  let ocr_batch_job_count : Ref[Int] = { val: 0, }
+  let raster_page_success_count : Ref[Int] = { val: 0, }
+  let provider_name : Ref[String?] = { val: None, }
+  let provider_version : Ref[String?] = { val: None, }
   if needs_raster {
     for page in raster_result.pages {
       let page_index = page.page_index + 1
@@ -333,7 +333,7 @@ pub async fn pdf_ocr_parser_result_async(
       pdf_page_route_uses_ocr(route)
     })
   }
-  let pdf_raster_wall_ms : Ref[UInt64] = { val: 0 }
+  let pdf_raster_wall_ms : Ref[UInt64] = { val: 0, }
   let rasterized = if needs_raster {
     let started = @env.now()
     match rasterizer(source) {
@@ -379,12 +379,12 @@ pub async fn pdf_ocr_parser_result_async(
   let ocr_image_paths : Array[String] = []
   let page_image_paths : Map[Int, String] = Map([])
   let ocr_blocks_by_page : Map[Int, Array[@core.CoreBlock]] = Map([])
-  let ocr_provider_wall_ms : Ref[UInt64] = { val: 0 }
-  let ocr_process_invocation_count : Ref[Int] = { val: 0 }
-  let ocr_batch_job_count : Ref[Int] = { val: 0 }
-  let raster_page_success_count : Ref[Int] = { val: 0 }
-  let provider_name : Ref[String?] = { val: None }
-  let provider_version : Ref[String?] = { val: None }
+  let ocr_provider_wall_ms : Ref[UInt64] = { val: 0, }
+  let ocr_process_invocation_count : Ref[Int] = { val: 0, }
+  let ocr_batch_job_count : Ref[Int] = { val: 0, }
+  let raster_page_success_count : Ref[Int] = { val: 0, }
+  let provider_name : Ref[String?] = { val: None, }
+  let provider_version : Ref[String?] = { val: None, }
   if needs_raster {
     for page in raster_result.pages {
       let page_index = page.page_index + 1

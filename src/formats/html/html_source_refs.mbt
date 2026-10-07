@@ -468,7 +468,7 @@ fn html_trim_core_inlines_edges(
         Text => {
           let next_text = html_trim_leading_spaces(inline.text)
           if next_text != "" {
-            left_trimmed.push({ ..inline, text: next_text })
+            left_trimmed.push({ ..inline, text: next_text, })
             seen_content = true
           }
         }
@@ -492,7 +492,7 @@ fn html_trim_core_inlines_edges(
         Text => {
           let next_text = html_trim_trailing_spaces(inline.text)
           if next_text != "" {
-            out_rev.push({ ..inline, text: next_text })
+            out_rev.push({ ..inline, text: next_text, })
             trimmed_right = true
           }
         }

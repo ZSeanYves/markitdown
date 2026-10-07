@@ -113,12 +113,12 @@ pub fn open_epub_archive(
     inspect_cache: Ref(None),
     inventory_cache: Ref(None),
     text_part_cache: Map([]),
-    text_hit_count: { val: 0 },
-    text_miss_count: { val: 0 },
-    inspect_hit_count: { val: 0 },
-    inspect_miss_count: { val: 0 },
-    inventory_hit_count: { val: 0 },
-    inventory_miss_count: { val: 0 },
+    text_hit_count: { val: 0, },
+    text_miss_count: { val: 0, },
+    inspect_hit_count: { val: 0, },
+    inspect_miss_count: { val: 0, },
+    inventory_hit_count: { val: 0, },
+    inventory_miss_count: { val: 0, },
   }
   pkg
 }
@@ -893,7 +893,7 @@ fn push_metadata_entry(
   value : String?,
 ) -> Unit {
   match value {
-    Some(v) => if v.trim() != "" { out.push({ name, value: v }) }
+    Some(v) => if v.trim() != "" { out.push({ name, value: v, }) }
     None => ()
   }
 }

@@ -11,7 +11,7 @@ fn xlsx_wbtest_sheet_info() -> XlsxSheetInfo {
 
 ///|
 fn xlsx_wbtest_styles() -> XlsxStyles {
-  { xf_numfmts: [], custom_numfmts: Map([]) }
+  { xf_numfmts: [], custom_numfmts: Map([]), }
 }
 
 ///|

@@ -28,12 +28,15 @@ priv struct TextParseProfileTotals {
 
 ///|
 fn new_text_parse_profile_report() -> TextParseProfileReport {
-  { stages: [] }
+  { stages: [], }
 }
 
 ///|
 fn new_text_parse_profile_totals() -> TextParseProfileTotals {
-  { line_build_elapsed_ms: { val: 0 }, paragraph_build_elapsed_ms: { val: 0 } }
+  {
+    line_build_elapsed_ms: { val: 0, },
+    paragraph_build_elapsed_ms: { val: 0, },
+  }
 }
 
 ///|
@@ -44,7 +47,7 @@ fn text_parse_profile_push_stage(
   detail : String?,
 ) -> Unit {
   match report {
-    Some(rep) => rep.stages.push({ name, elapsed_ms, detail })
+    Some(rep) => rep.stages.push({ name, elapsed_ms, detail, })
     None => ()
   }
 }

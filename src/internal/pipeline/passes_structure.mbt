@@ -273,7 +273,7 @@ fn copy_block_attrs(
   from : @core.CoreBlock,
   to : @core.CoreBlock,
 ) -> @core.CoreBlock {
-  let next = { ..to, style: from.style }
+  let next = { ..to, style: from.style, }
   for entry in from.attrs.to_array() {
     next.attrs.set(entry.0, entry.1)
   }

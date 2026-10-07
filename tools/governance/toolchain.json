@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "moon_version": "0.1.20260803",
-  "moonc_version": "v0.10.6+80dc50f24",
-  "moonrun_version": "0.1.20260803",
+  "moon_version": "0.1.20260920",
+  "moonc_version": "v0.10.14+7d59c7ec9",
+  "moonrun_version": "0.1.20260920",
   "native_backend": "c",
   "native_backend_env": {
     "MOONBIT_NEW_NATIVE": "0"

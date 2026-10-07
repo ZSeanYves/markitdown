@@ -58,7 +58,7 @@ pub fn make_audio_transcript_metadata(
   codec? : String? = None,
   language? : String? = None,
 ) -> AudioTranscriptMetadata {
-  { duration_ms, sample_rate_hz, channel_count, codec, language }
+  { duration_ms, sample_rate_hz, channel_count, codec, language, }
 }
 
 ///|
@@ -72,7 +72,16 @@ pub fn make_audio_transcript_segment(
   confidence? : Double? = None,
   language? : String? = None,
 ) -> AudioTranscriptSegment {
-  { segment_id, start_ms, end_ms, text, speaker, channel, confidence, language }
+  {
+    segment_id,
+    start_ms,
+    end_ms,
+    text,
+    speaker,
+    channel,
+    confidence,
+    language,
+  }
 }
 
 ///|
@@ -83,5 +92,5 @@ pub fn make_audio_transcript_result(
   provider_version? : String? = None,
   diagnostics? : Array[String] = [],
 ) -> AudioTranscriptResult {
-  { provider_name, provider_version, metadata, segments, diagnostics }
+  { provider_name, provider_version, metadata, segments, diagnostics, }
 }

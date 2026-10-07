@@ -271,9 +271,9 @@ fn open_txt_event_stream(
     }
     line_no.val += 1
     if is_blank {
-      { kind: BlankLine, text: "", source_ref: Some(source_ref) }
+      { kind: BlankLine, text: "", source_ref: Some(source_ref), }
     } else {
-      { kind: TextLine, text, source_ref: Some(source_ref) }
+      { kind: TextLine, text, source_ref: Some(source_ref), }
     }
   }
   Ok(
@@ -548,7 +548,7 @@ fn truncate_text_event_lines(
   event : @core.CoreEvent,
   max_line_chars : Int,
 ) -> @core.CoreEvent {
-  { ..event, text: truncate_text_lines(event.text, max_line_chars) }
+  { ..event, text: truncate_text_lines(event.text, max_line_chars), }
 }
 
 ///|

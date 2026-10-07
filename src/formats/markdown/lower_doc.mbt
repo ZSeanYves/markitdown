@@ -93,7 +93,7 @@ fn markdown_blocks_from_scanned_document(
   base_source_ref? : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
-  let image_asset_index : Ref[Int] = { val: 0 }
+  let image_asset_index : Ref[Int] = { val: 0, }
   let defined_footnotes = if lowering_mode == BlockStreamingLight &&
     !markdown_blocks_may_define_footnotes(scanned.blocks) {
     Map([])

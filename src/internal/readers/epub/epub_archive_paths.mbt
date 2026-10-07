@@ -222,7 +222,7 @@ fn append_archive_entry_plan(
   }
 
   entry_index.set(normalized, raw_name)
-  out.push({ raw_path: raw_name, path: normalized, uncompressed_size })
+  out.push({ raw_path: raw_name, path: normalized, uncompressed_size, })
 }
 
 ///|

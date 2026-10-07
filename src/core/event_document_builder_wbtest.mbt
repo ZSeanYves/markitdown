@@ -4,7 +4,7 @@ fn event_builder_event(
   text : String,
   source_ref? : SourceRef? = None,
 ) -> CoreEvent {
-  { kind, text, source_ref }
+  { kind, text, source_ref, }
 }
 
 ///|
@@ -83,7 +83,7 @@ test "event document builder materializes code paragraphs and tables" {
 
 ///|
 fn generic_builder_ref(inline_kind? : String? = None) -> SourceRef {
-  let source_ref = { ..empty_source_ref(), page: Some(2) }
+  let source_ref = { ..empty_source_ref(), page: Some(2), }
   source_ref.extra.set("ir_event_encoding", "generic_block")
   source_ref.extra.set("keep", "yes")
   match inline_kind {

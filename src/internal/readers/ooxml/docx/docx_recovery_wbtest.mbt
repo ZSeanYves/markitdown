@@ -283,7 +283,7 @@ test "DOCX model resolves textbox identities conservatively and diagnoses linked
   let boxes = [box_a, box_b, other]
   assert_true(!docx_textboxes_are_equivalent(box_a, other))
   assert_true(
-    docx_textboxes_are_equivalent(box_a, { ..box_a, anchor_id: "same-doc-pr" }),
+    docx_textboxes_are_equivalent(box_a, { ..box_a, anchor_id: "same-doc-pr", }),
   )
   assert_true(
     docx_textboxes_are_equivalent(box_b, {
@@ -294,8 +294,8 @@ test "DOCX model resolves textbox identities conservatively and diagnoses linked
   )
   assert_true(docx_textbox_doc_pr_name_matches_shape_id(box_a, box_a))
   let merged = docx_merge_textboxes(
-    { ..box_a, relationship_id: None, title: Some("") },
-    { ..box_a, relationship_id: Some("rTextbox"), title: Some("Title") },
+    { ..box_a, relationship_id: None, title: Some(""), },
+    { ..box_a, relationship_id: Some("rTextbox"), title: Some("Title"), },
   )
   assert_true(merged.relationship_id == Some("rTextbox"))
   assert_true(merged.title == Some("Title"))

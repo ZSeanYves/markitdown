@@ -7,7 +7,7 @@ fn markdown_generic_ref() -> @core.SourceRef {
 
 ///|
 fn xml_outline_test_ref(encoding : String, depth : Int) -> @core.SourceRef {
-  let source_ref = { ..@core.empty_source_ref(), format: Some("xml") }
+  let source_ref = { ..@core.empty_source_ref(), format: Some("xml"), }
   source_ref.extra.set("ir_event_encoding", encoding)
   source_ref.extra.set("xml_outline_depth", depth.to_string())
   source_ref
@@ -318,8 +318,8 @@ test "incremental renderer covers JSON XML subtitle line and generic routes" {
   ]
   assert_eq(render_events_through_sink(xml), render_markdown_events(xml))
 
-  let subtitle_ref = { ..@core.empty_source_ref(), format: Some("srt") }
-  let nested_subtitle_ref = { ..@core.empty_source_ref(), format: Some("srt") }
+  let subtitle_ref = { ..@core.empty_source_ref(), format: Some("srt"), }
+  let nested_subtitle_ref = { ..@core.empty_source_ref(), format: Some("srt"), }
   nested_subtitle_ref.extra.set("ir_event_encoding", "generic_block")
   let subtitles = [
     rag_test_event(

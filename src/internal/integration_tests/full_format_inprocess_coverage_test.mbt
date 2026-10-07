@@ -98,7 +98,8 @@ test "seekable package formats preserve Path Bytes and short Reader results" {
   for fixture in fixtures {
     let (path, format) = fixture
     let bytes = @fs.read_file_to_bytes(path) catch {
-      err => fail("read equivalence fixture failed: " + err.to_string())
+      err =>
+        fail("read equivalence fixture failed: " + (err : Error).to_string())
     }
     let source_name = path.split("/").last().unwrap_or(path).to_owned()
     let path_result = convert_binary_source_for_equivalence(

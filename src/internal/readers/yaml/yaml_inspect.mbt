@@ -131,7 +131,7 @@ fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
           max_depth = child.max_depth
         }
       }
-      { node_count, mapping_count, sequence_count, scalar_count, max_depth }
+      { node_count, mapping_count, sequence_count, scalar_count, max_depth, }
     }
     Sequence(values) => {
       let mut node_count = 1
@@ -149,7 +149,7 @@ fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
           max_depth = child.max_depth
         }
       }
-      { node_count, mapping_count, sequence_count, scalar_count, max_depth }
+      { node_count, mapping_count, sequence_count, scalar_count, max_depth, }
     }
     String(_) | Number(_) | Bool(_) | Null =>
       {

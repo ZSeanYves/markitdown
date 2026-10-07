@@ -46,7 +46,7 @@ struct CliFailure {
 
 ///|
 fn cli_failure(kind : CliFailureKind, message : String) -> CliFailure {
-  { kind, message }
+  { kind, message, }
 }
 
 ///|

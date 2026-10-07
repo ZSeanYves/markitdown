@@ -30,7 +30,7 @@ fn html_lower_block_stream_document(
     Err(_) => {
       diagnostics.metrics.set("html_block_stream_reparse", "false")
       diagnostics.metrics.set("html_block_stream_token_path", "unavailable")
-      { blocks: [], metadata: Map([]), assets: [] }
+      { blocks: [], metadata: Map([]), assets: [], }
     }
   }
 }
@@ -73,7 +73,7 @@ fn html_lower_child_text_block_stream_document(
       diagnostics.metrics.set("html_block_stream_token_path", "true")
       diagnostics.metrics.set("scope_plan_count", "0")
       diagnostics.metrics.set("scope_plan_labels", "child_text_fast_failed")
-      { blocks: [], metadata: Map([]), assets: [] }
+      { blocks: [], metadata: Map([]), assets: [], }
     }
   }
 }
@@ -97,7 +97,7 @@ fn html_lower_child_text_block_stream_document_from_events(
     events,
     has_table=html_child_events_contain_tag(events, "table"),
   )
-  { blocks: lowered.0, metadata: Map([]), assets: lowered.1 }
+  { blocks: lowered.0, metadata: Map([]), assets: lowered.1, }
 }
 
 ///|
@@ -114,7 +114,7 @@ fn html_lower_child_text_block_stream_document_scanned(
   let lowered = html_lower_child_text_blocks_scanned(
     source, normalized, diagnostics,
   )
-  { blocks: lowered.0, metadata: Map([]), assets: lowered.1 }
+  { blocks: lowered.0, metadata: Map([]), assets: lowered.1, }
 }
 
 ///|
@@ -166,7 +166,7 @@ fn html_lower_block_stream_document_with_scope_plans(
   }
   diagnostics.metrics.set("scope_plan_labels", scope_labels.join(","))
 
-  { blocks, metadata, assets: [] }
+  { blocks, metadata, assets: [], }
 }
 
 ///|
@@ -490,7 +490,7 @@ fn html_child_text_state(
   compact_provenance? : Bool = false,
 ) -> HtmlChildTextState {
   {
-    lowering_state: { assets: [] },
+    lowering_state: { assets: [], },
     diagnostics,
     blocks: [],
     close_index,

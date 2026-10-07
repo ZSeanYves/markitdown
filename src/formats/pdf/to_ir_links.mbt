@@ -34,7 +34,7 @@ fn pdf_native_lowered_paragraph(
         }
         None => ()
       }
-      Some({ text, source_ref, rich_inlines: None, consumed_link_indexes: [] })
+      Some({ text, source_ref, rich_inlines: None, consumed_link_indexes: [], })
     }
     None => None
   }

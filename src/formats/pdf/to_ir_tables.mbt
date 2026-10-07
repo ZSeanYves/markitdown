@@ -208,7 +208,7 @@ fn pdf_native_table_candidates(
     )
   }
   if table_row_candidates.length() == 0 {
-    return { strategy, row_count: 0, candidates: [], skipped_reason: None }
+    return { strategy, row_count: 0, candidates: [], skipped_reason: None, }
   }
   let region_candidates : Array[PdfNativeTableRegionCandidate] = []
   let page_nos : Array[Int] = []

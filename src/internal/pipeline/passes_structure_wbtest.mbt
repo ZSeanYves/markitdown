@@ -66,7 +66,7 @@ test "structure passes preserve input shapes and publish metrics" {
   let context = make_pass_context(false, "balanced")
   let heading = structure_list_candidate("Heading", "1", false)
     |> @core.block_with_attr("heading_level", "2")
-  let document = { ..@core.empty_document_ir(), blocks: [heading] }
+  let document = { ..@core.empty_document_ir(), blocks: [heading], }
   match (resolve_heading_pass().run)(context, Document(document)).unwrap() {
     Document(next) => {
       assert_true(next.blocks[0].kind == Heading)
@@ -87,7 +87,7 @@ test "structure passes preserve input shapes and publish metrics" {
   assert_true(
     context.diagnostics.val.metrics.get("resolved_list_count") == Some("1"),
   )
-  let event : @core.CoreEvent = { kind: Text, text: "event", source_ref: None }
+  let event : @core.CoreEvent = { kind: Text, text: "event", source_ref: None, }
   match (resolve_list_pass().run)(context, EventStream([event])).unwrap() {
     EventStream(events) => assert_eq(events.length(), 1)
     _ => fail("expected event stream")

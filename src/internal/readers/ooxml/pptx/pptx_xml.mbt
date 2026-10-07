@@ -5,12 +5,12 @@ fn pat(s : String) -> Bytes {
 
 ///|
 fn pptx_source_key(part_name : String, node_key : String) -> PptxSourceKey {
-  { part_name, node_key }
+  { part_name, node_key, }
 }
 
 ///|
 fn pptx_source_span(part_name : String, node_key : String) -> PptxSourceSpan {
-  { part_name, node_key, start_offset: None, end_offset: None }
+  { part_name, node_key, start_offset: None, end_offset: None, }
 }
 
 ///|

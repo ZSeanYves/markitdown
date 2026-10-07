@@ -216,7 +216,7 @@ fn merge_paragraph_blocks(
   right : @core.CoreBlock,
 ) -> @core.CoreBlock {
   let merged_text = merge_text_line_strings(left.text, right.text)
-  let next = { ..left, text: merged_text }
+  let next = { ..left, text: merged_text, }
   let left_ref = @core.block_source_ref(left).unwrap_or(
     @core.empty_source_ref(),
   )
@@ -229,7 +229,7 @@ fn merge_paragraph_blocks(
     line_start: min_optional_int(left_ref.line_start, right_ref.line_start),
     line_end: max_optional_int(left_ref.line_end, right_ref.line_end),
   }
-  { ..next, source_ref: Some(merged_ref), compact_source_ref: None }
+  { ..next, source_ref: Some(merged_ref), compact_source_ref: None, }
 }
 
 ///|

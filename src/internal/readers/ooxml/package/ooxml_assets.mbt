@@ -67,7 +67,11 @@ fn collect_asset_refs(
     let rels = read_part_relationships(pkg, source) catch { _ => continue }
     for rel in rels {
       if rel.target_mode == Internal && rel.resolved_target == media_part {
-        out.push({ source_part: source, rel_id: rel.id, rel_type: rel.rel_type })
+        out.push({
+          source_part: source,
+          rel_id: rel.id,
+          rel_type: rel.rel_type,
+        })
       }
     }
   }

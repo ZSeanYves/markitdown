@@ -118,7 +118,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
       return exit_cli_error(
         cli_failure(
           OutputFailure,
-          "create batch output dir failed: " + err.to_string(),
+          "create batch output dir failed: " + (err : Error).to_string(),
         ),
       )
   }
@@ -144,7 +144,7 @@ fn run_batch_cli_app(cli_args : Array[String]) -> Int {
       return exit_cli_error(
         cli_failure(
           OutputFailure,
-          "write batch manifest failed: " + err.to_string(),
+          "write batch manifest failed: " + (err : Error).to_string(),
         ),
       )
   }
@@ -206,7 +206,7 @@ fn parse_batch_cli_options(
     return Err("batch requires <input> <output_dir>")
   }
   match opts.output {
-    Some(output_dir) => Ok(({ ..opts, output: None }, output_dir))
+    Some(output_dir) => Ok(({ ..opts, output: None, }, output_dir))
     None => Err("batch requires <input> <output_dir>")
   }
 }
@@ -268,7 +268,7 @@ fn fs_read_dir(path : String) -> Array[String] {
   if !@fs.path_exists(path) {
     return []
   }
-  @fs.read_dir(path) catch {
+  @fs.read_dir(path).to_array() catch {
     _ => []
   }
 }
@@ -348,7 +348,7 @@ fn run_single_batch_task(
     relative_path,
     base_opts.output_mode,
   )
-  let opts = { ..base_opts, input: task_input, output: Some(output_path) }
+  let opts = { ..base_opts, input: task_input, output: Some(output_path), }
   let convert_options = @convert.make_convert_options(
     opts.convert_mode,
     opts.output_mode,
@@ -503,7 +503,7 @@ fn resolve_cli_assets(
     warnings.push(warning)
     rendered.val = cli_replace_unavailable_image(rendered.val, asset, source)
   }
-  { content: rendered.val, assets: available, warnings }
+  { content: rendered.val, assets: available, warnings, }
 }
 
 ///|
@@ -524,7 +524,7 @@ fn resolve_cli_assets_for_stdout(
       diagnostic_label="Asset not materialized on stdout",
     )
   }
-  { content: rendered.val, assets: [], warnings }
+  { content: rendered.val, assets: [], warnings, }
 }
 
 ///|

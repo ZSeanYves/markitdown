@@ -11,7 +11,7 @@ pub fn make_parser(
     String,
   ])? = None,
 ) -> Parser {
-  { name, mode, capability, parse, stream_events }
+  { name, mode, capability, parse, stream_events, }
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn make_parse_event_stream(
   next : () -> Result[@core.CoreEvent?, String],
   finish : () -> Result[ParseStreamSummary, String],
 ) -> ParseEventStream {
-  { next, finish }
+  { next, finish, }
 }
 
 ///|
@@ -59,7 +59,7 @@ pub fn make_async_parser(
     String,
   ],
 ) -> AsyncParser {
-  { name, mode, capability, parse }
+  { name, mode, capability, parse, }
 }
 
 ///|

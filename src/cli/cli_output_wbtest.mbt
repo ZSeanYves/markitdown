@@ -1,7 +1,10 @@
 ///|
 fn cli_output_read_contract_bytes(path : String) -> Bytes raise {
   @fs.read_file_to_bytes(path) catch {
-    e => fail("read contract sample failed: " + path + " : " + e.to_string())
+    e =>
+      fail(
+        "read contract sample failed: " + path + " : " + (e : Error).to_string(),
+      )
   }
 }
 
@@ -386,10 +389,10 @@ test "main cli persists markdown local assets only at output boundary" {
   let source_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/html/img_red.jpg",
   ) catch {
-    e => fail("read markdown asset sample failed: " + e.to_string())
+    e => fail("read markdown asset sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(image_dir + "/img_red.jpg", source_bytes) catch {
-    e => fail("write markdown asset sample failed: " + e.to_string())
+    e => fail("write markdown asset sample failed: " + (e : Error).to_string())
   }
 
   let rendered = match
@@ -411,7 +414,7 @@ test "main cli persists markdown local assets only at output boundary" {
   assert_true(@fs.path_exists(copied_asset_path))
   assert_true(!@fs.path_exists(out_dir + "/assets/image02.png"))
   let copied_bytes = @fs.read_file_to_bytes(copied_asset_path) catch {
-    e => fail("read copied markdown asset failed: " + e.to_string())
+    e => fail("read copied markdown asset failed: " + (e : Error).to_string())
   }
   assert_true(copied_bytes.to_array() == source_bytes.to_array())
 }
@@ -431,17 +434,27 @@ test "main cli persists markdown inline local assets with surrounding text" {
   let source_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/html/img_red.jpg",
   ) catch {
-    e => fail("read markdown inline asset sample failed: " + e.to_string())
+    e =>
+      fail(
+        "read markdown inline asset sample failed: " + (e : Error).to_string(),
+      )
   }
   @fs.write_bytes_to_file(input_dir + "/img/img_red.jpg", source_bytes) catch {
-    e => fail("write markdown inline asset sample failed: " + e.to_string())
+    e =>
+      fail(
+        "write markdown inline asset sample failed: " + (e : Error).to_string(),
+      )
   }
   let rendered = run_cli(
     cli_options(input_path, Some(output_path), Some(Markdown), Markdown),
   ).unwrap()
   assert_true(rendered.contains("Before ![inline](assets/image01.jpg) after."))
   let copied = @fs.read_file_to_bytes(out_dir + "/assets/image01.jpg") catch {
-    e => fail("read persisted markdown inline asset failed: " + e.to_string())
+    e =>
+      fail(
+        "read persisted markdown inline asset failed: " +
+        (e : Error).to_string(),
+      )
   }
   assert_true(copied.to_array() == source_bytes.to_array())
 }
@@ -752,34 +765,34 @@ test "main cli restores docx xlsx pptx and native-text pdf" {
   let docx_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
   ) catch {
-    e => fail("read docx sample failed: " + e.to_string())
+    e => fail("read docx sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(docx_path, docx_bytes) catch {
-    e => fail("write docx sample failed: " + e.to_string())
+    e => fail("write docx sample failed: " + (e : Error).to_string())
   }
   let pptx_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/pptx/pptx_hidden_slide_basic.pptx",
   ) catch {
-    e => fail("read pptx sample failed: " + e.to_string())
+    e => fail("read pptx sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(pptx_path, pptx_bytes) catch {
-    e => fail("write pptx sample failed: " + e.to_string())
+    e => fail("write pptx sample failed: " + (e : Error).to_string())
   }
   let xlsx_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
   ) catch {
-    e => fail("read xlsx sample failed: " + e.to_string())
+    e => fail("read xlsx sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(xlsx_path, xlsx_bytes) catch {
-    e => fail("write xlsx sample failed: " + e.to_string())
+    e => fail("write xlsx sample failed: " + (e : Error).to_string())
   }
   let pdf_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
   ) catch {
-    e => fail("read pdf sample failed: " + e.to_string())
+    e => fail("read pdf sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(pdf_path, pdf_bytes) catch {
-    e => fail("write pdf sample failed: " + e.to_string())
+    e => fail("write pdf sample failed: " + (e : Error).to_string())
   }
 
   let docx = run_cli(cli_options(docx_path, None, None, Markdown))
@@ -913,7 +926,7 @@ test "main cli lowers generated native pdf uri links into markdown links" {
 
   let pdf_path = root + "/uri-link.pdf"
   @fs.write_bytes_to_file(pdf_path, cli_output_generated_link_pdf_bytes()) catch {
-    e => fail("write generated link pdf failed: " + e.to_string())
+    e => fail("write generated link pdf failed: " + (e : Error).to_string())
   }
 
   let markdown = match
@@ -936,7 +949,7 @@ test "main cli lowers generated native pdf tables into markdown tables" {
 
   let pdf_path = root + "/table.pdf"
   @fs.write_bytes_to_file(pdf_path, cli_output_generated_table_pdf_bytes()) catch {
-    e => fail("write generated table pdf failed: " + e.to_string())
+    e => fail("write generated table pdf failed: " + (e : Error).to_string())
   }
 
   let markdown = match
@@ -970,10 +983,10 @@ test "main cli persists html local assets only at output boundary" {
   let source_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/html/img_red.jpg",
   ) catch {
-    e => fail("read html asset sample failed: " + e.to_string())
+    e => fail("read html asset sample failed: " + (e : Error).to_string())
   }
   @fs.write_bytes_to_file(image_dir + "/img_red.jpg", source_bytes) catch {
-    e => fail("write html asset sample failed: " + e.to_string())
+    e => fail("write html asset sample failed: " + (e : Error).to_string())
   }
 
   let rendered = match
@@ -991,7 +1004,7 @@ test "main cli persists html local assets only at output boundary" {
   assert_true(@fs.path_exists(copied_asset_path))
   assert_true(!@fs.path_exists(out_dir + "/assets/image02.png"))
   let copied_bytes = @fs.read_file_to_bytes(copied_asset_path) catch {
-    e => fail("read copied html asset failed: " + e.to_string())
+    e => fail("read copied html asset failed: " + (e : Error).to_string())
   }
   assert_true(copied_bytes.to_array() == source_bytes.to_array())
 }
@@ -1087,7 +1100,8 @@ test "main cli persists TeX RST and AsciiDoc sidecar images" {
   let source_bytes = @fs.read_file_to_bytes(
     "samples/fixtures/contracts/pptx/pptx_image_single.assets/image01.png",
   ) catch {
-    e => fail("read text markup asset sample failed: " + e.to_string())
+    e =>
+      fail("read text markup asset sample failed: " + (e : Error).to_string())
   }
   let cases = [
     ("tex", "\\includegraphics{local.png}", @input.DetectedFormat::Tex),
@@ -1102,7 +1116,7 @@ test "main cli persists TeX RST and AsciiDoc sidecar images" {
     let output_path = output_root + "/result.md"
     write_utf8_text(input_path, item.1)
     @fs.write_bytes_to_file(case_root + "/local.png", source_bytes) catch {
-      e => fail("write text markup sidecar failed: " + e.to_string())
+      e => fail("write text markup sidecar failed: " + (e : Error).to_string())
     }
     let rendered = run_cli(
       cli_options(input_path, Some(output_path), Some(item.2), Markdown),
@@ -1112,7 +1126,11 @@ test "main cli persists TeX RST and AsciiDoc sidecar images" {
     let persisted = output_root + "/" + expected_asset
     assert_true(@fs.path_exists(persisted))
     let persisted_bytes = @fs.read_file_to_bytes(persisted) catch {
-      e => fail("read persisted text markup sidecar failed: " + e.to_string())
+      e =>
+        fail(
+          "read persisted text markup sidecar failed: " +
+          (e : Error).to_string(),
+        )
     }
     assert_true(persisted_bytes.to_array() == source_bytes.to_array())
   }

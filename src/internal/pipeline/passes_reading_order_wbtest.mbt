@@ -134,14 +134,14 @@ test "reading order pass merges compatible PDF lines and provenance" {
     "group",
     "1",
     3,
-    Some({ x0: 10.0, y0: 20.0, x1: 30.0, y1: 40.0 }),
+    Some({ x0: 10.0, y0: 20.0, x1: 30.0, y1: 40.0, }),
   )
   let second = pdf_line_block(
     "ated",
     "group",
     "1",
     4,
-    Some({ x0: 5.0, y0: 25.0, x1: 35.0, y1: 50.0 }),
+    Some({ x0: 5.0, y0: 25.0, x1: 35.0, y1: 50.0, }),
   )
   let merged = merge_text_line_blocks([first, second])
   assert_eq(merged.length(), 1)
@@ -217,7 +217,7 @@ test "reading order passes preserve IR shapes and publish metrics" {
   assert_true(
     context.diagnostics.val.metrics.get("merged_text_line_count") == Some("1"),
   )
-  let event : @core.CoreEvent = { kind: Text, text: "event", source_ref: None }
+  let event : @core.CoreEvent = { kind: Text, text: "event", source_ref: None, }
   match
     (resolve_reading_order_pass().run)(context, EventStream([event])).unwrap() {
     EventStream(events) => assert_eq(events.length(), 1)
@@ -244,7 +244,7 @@ test "reading order passes preserve IR shapes and publish metrics" {
 
 ///|
 test "reading order optional geometry helpers cover absent bounds" {
-  let bbox : @core.BBox = { x0: 1.0, y0: 2.0, x1: 3.0, y1: 4.0 }
+  let bbox : @core.BBox = { x0: 1.0, y0: 2.0, x1: 3.0, y1: 4.0, }
   assert_true(merge_source_bbox(Some(bbox), None).unwrap().x0 == 1.0)
   assert_true(merge_source_bbox(None, Some(bbox)).unwrap().y1 == 4.0)
   assert_true(merge_source_bbox(None, None) is None)

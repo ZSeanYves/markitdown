@@ -3,7 +3,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "moonbitlang/x/crypto",
-  "tonyfettes/encoding",
+  "moonbitlang/core/encoding/utf16",
 }
 
 options(

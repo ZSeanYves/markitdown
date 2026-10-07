@@ -68,19 +68,25 @@ fn allocate_run_id(args : Array[String]) -> Result[String, BenchError] {
         ensure_dir_tree(results_root(candidate)) catch {
           err =>
             return Err(
-              RuntimeFailure("init run dirs failed: " + err.to_string()),
+              RuntimeFailure(
+                "init run dirs failed: " + (err : Error).to_string(),
+              ),
             )
         }
         ensure_dir_tree(reports_root(candidate)) catch {
           err =>
             return Err(
-              RuntimeFailure("init run dirs failed: " + err.to_string()),
+              RuntimeFailure(
+                "init run dirs failed: " + (err : Error).to_string(),
+              ),
             )
         }
         ensure_dir_tree(outputs_root(candidate)) catch {
           err =>
             return Err(
-              RuntimeFailure("init run dirs failed: " + err.to_string()),
+              RuntimeFailure(
+                "init run dirs failed: " + (err : Error).to_string(),
+              ),
             )
         }
         return Ok(candidate)
@@ -90,7 +96,9 @@ fn allocate_run_id(args : Array[String]) -> Result[String, BenchError] {
           suffix += 1
           continue
         }
-        return Err(RuntimeFailure("init run dirs failed: " + err.to_string()))
+        return Err(
+          RuntimeFailure("init run dirs failed: " + (err : Error).to_string()),
+        )
       }
     }
   }

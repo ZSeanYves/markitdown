@@ -54,7 +54,7 @@ pub fn validate_xml_document(doc : XmlDocument) -> XmlValidationReport {
     }
   }
 
-  { issue_count: issues.length(), warning_count, error_count, issues }
+  { issue_count: issues.length(), warning_count, error_count, issues, }
 }
 
 ///|

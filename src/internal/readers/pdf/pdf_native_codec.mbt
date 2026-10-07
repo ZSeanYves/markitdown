@@ -1,7 +1,7 @@
 ///|
 pub fn inflate_pdf_stream(compressed : Bytes) -> Result[Bytes, String] {
-  try @zlib.decompress(compressed) |> Ok catch {
-    err => Err(err.to_string())
+  try @zlib.zlib_decompress(compressed) |> Ok catch {
+    @zlib.ZlibError(_, message) => Err(message)
   }
 }
 

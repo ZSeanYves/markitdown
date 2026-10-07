@@ -117,7 +117,7 @@ fn run_cli_with_image_ocr_provider_and_pdf_rasterizer(
       return Err(
         cli_failure(
           OutputFailure,
-          "write provenance failed: " + err.to_string(),
+          "write provenance failed: " + (err : Error).to_string(),
         ),
       )
   }
@@ -160,7 +160,7 @@ fn cli_convert_to_atomic_stream_file(
       return Err(
         cli_failure(
           OutputFailure,
-          "create output dir failed: " + error.to_string(),
+          "create output dir failed: " + (error : Error).to_string(),
         ),
       )
   }
@@ -235,7 +235,7 @@ fn cli_convert_to_atomic_stream_file(
         return Err(
           cli_failure(
             OutputFailure,
-            "read streamed output failed: " + error.to_string(),
+            "read streamed output failed: " + (error : Error).to_string(),
           ),
         )
     }
@@ -321,14 +321,17 @@ fn cli_render_convert_result(
           return Err(
             cli_failure(
               OutputFailure,
-              "create output dir failed: " + e.to_string(),
+              "create output dir failed: " + (e : Error).to_string(),
             ),
           )
       }
       @fs.write_string_to_file(path, persisted_content, encoding="utf8") catch {
         e =>
           return Err(
-            cli_failure(OutputFailure, "write output failed: " + e.to_string()),
+            cli_failure(
+              OutputFailure,
+              "write output failed: " + (e : Error).to_string(),
+            ),
           )
       }
       persist_cli_assets(opts.input, path, resolved.assets) catch {
@@ -336,7 +339,7 @@ fn cli_render_convert_result(
           return Err(
             cli_failure(
               OutputFailure,
-              "write asset output failed: " + e.to_string(),
+              "write asset output failed: " + (e : Error).to_string(),
             ),
           )
       }

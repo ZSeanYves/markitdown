@@ -1,7 +1,7 @@
 ///|
 /// Create a filesystem-path input.
 pub fn Input::from_path(path : String) -> Input {
-  { source: @input.input_from_path(path), kind: Path }
+  { source: @input.input_from_path(path), kind: Path, }
 }
 
 ///|
@@ -10,7 +10,7 @@ pub fn Input::from_text(
   text : String,
   source_name? : String = "input.txt",
 ) -> Input {
-  { source: @input.input_from_text(text, source_name~), kind: Text }
+  { source: @input.input_from_text(text, source_name~), kind: Text, }
 }
 
 ///|
@@ -19,7 +19,7 @@ pub fn Input::from_bytes(
   bytes : Bytes,
   source_name? : String = "input.bin",
 ) -> Input {
-  { source: @input.input_from_bytes(bytes, source_name~), kind: Bytes }
+  { source: @input.input_from_bytes(bytes, source_name~), kind: Bytes, }
 }
 
 ///|
@@ -33,7 +33,7 @@ pub fn Input::from_reader(
     Some(value) => @input.make_input_reader(read_at, size=value)
     None => @input.make_input_reader(read_at)
   }
-  { source: @input.input_from_reader(reader, source_name~), kind: Reader }
+  { source: @input.input_from_reader(reader, source_name~), kind: Reader, }
 }
 
 ///|

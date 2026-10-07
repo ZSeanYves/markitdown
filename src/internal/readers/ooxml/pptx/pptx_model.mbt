@@ -524,12 +524,12 @@ fn infer_slide_layout_regions(
   budget : PptxParseBudget,
 ) -> PptxSlideLayoutInference {
   let infos : Array[PptxLayoutObjectInfo] = []
-  let order_ref : Ref[Int] = { val: 0 }
+  let order_ref : Ref[Int] = { val: 0, }
   collect_layout_object_infos(infos, objects, order_ref)
   let pairs = infer_image_caption_pairs(slide_part, infos, budget)
   let regions = layout_regions_from_pairs(pairs)
   append_inferred_shape_regions(regions, infos, pairs, budget)
-  { layout_regions: regions, image_caption_pairs: pairs }
+  { layout_regions: regions, image_caption_pairs: pairs, }
 }
 
 ///|

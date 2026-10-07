@@ -2,7 +2,7 @@
 test "atomic file writer commits complete output" {
   let root = test_tmp_root() + "/atomic-file-sink"
   ensure_dir_tree(root) catch {
-    error => fail(error.to_string())
+    error => fail((error : Error).to_string())
   }
   let path = root + "/output.md"
   let writer = open_atomic_file_writer(path).unwrap()
@@ -16,7 +16,7 @@ test "atomic file writer commits complete output" {
 test "atomic file writer abort does not publish a partial target" {
   let root = test_tmp_root() + "/atomic-file-abort"
   ensure_dir_tree(root) catch {
-    error => fail(error.to_string())
+    error => fail((error : Error).to_string())
   }
   let path = root + "/output.md"
   let writer = open_atomic_file_writer(path).unwrap()

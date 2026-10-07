@@ -423,9 +423,9 @@ fn image_ocr_segments_with_columns(
         if left_distance > tolerance && right_distance > tolerance {
           segment
         } else if left_distance <= right_distance {
-          { ..segment, column_index: Some(0) }
+          { ..segment, column_index: Some(0), }
         } else {
-          { ..segment, column_index: Some(1) }
+          { ..segment, column_index: Some(1), }
         }
       }
       None => segment
@@ -1124,7 +1124,7 @@ pub fn ocr_source_ref(
     Some(line_start),
     Some(line_end),
   )
-  { ..base, page: Some(page_number), bbox }
+  { ..base, page: Some(page_number), bbox, }
 }
 
 ///|

@@ -125,9 +125,9 @@ fn eml_lower_entity_body(
           eml_recovered_raw_part(children[i], child_pointer)
         }
       }
-      lowered.push({ ..child, index: i })
+      lowered.push({ ..child, index: i, })
     }
-    { ..part, children: lowered }
+    { ..part, children: lowered, }
   } else if part.summary.mime_type == "message/rfc822" {
     let decoded = eml_decode_body_text(
       body_text,
@@ -177,7 +177,7 @@ fn eml_lower_entity_body(
   } else {
     let attachment = eml_maybe_attachment(part, body_text)
     match attachment {
-      Some(value) => { ..part, attachments: [value] }
+      Some(value) => { ..part, attachments: [value], }
       None => {
         let decoded = eml_decode_body_text(
           body_text,
@@ -189,7 +189,7 @@ fn eml_lower_entity_body(
           decoded: decoded.1,
           charset: part.summary.charset,
         }
-        { ..part, body_text: Some(body) }
+        { ..part, body_text: Some(body), }
       }
     }
   }
@@ -228,7 +228,7 @@ fn eml_recovered_raw_part(raw : String, pointer : String) -> EmlPart {
       content_transfer_encoding: None,
     },
     summary,
-    body_text: Some({ text: raw, decoded: false, charset: None }),
+    body_text: Some({ text: raw, decoded: false, charset: None, }),
     attachments: [],
     child_message: None,
     children: [],
@@ -402,7 +402,7 @@ fn eml_parse_headers(header_text : String) -> Array[EmlHeader] raise {
       return
     }
     let joined = current_value.join(" ").trim().to_owned()
-    out.push({ name: current_name, value: joined })
+    out.push({ name: current_name, value: joined, })
     current_value.clear()
   }
   for line in lines {

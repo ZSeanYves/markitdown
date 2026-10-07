@@ -45,7 +45,7 @@ fn render_markdown_input(
         "applied_render_profile",
         @product.render_profile_name(context.render_profile),
       )
-      { content: render_markdown_blocks(profiled), diagnostics, chunks: None }
+      { content: render_markdown_blocks(profiled), diagnostics, chunks: None, }
     }
     EventStream(events) => {
       let diagnostics = stream_input_diagnostics(

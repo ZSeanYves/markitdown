@@ -8,10 +8,10 @@ test "PDF OCR raster runtime materializes bytes enumerates pages and cleans outp
   let result = rasterize_pdf_with_pdftoppm(source, fn(_program, argv) {
     let prefix = argv[argv.length() - 1]
     @fs.write_bytes_to_file(prefix + "-1.png", @utf8.encode("page-one")) catch {
-      err => return Err(ExecutionFailed(err.to_string()))
+      err => return Err(ExecutionFailed((err : Error).to_string()))
     }
     @fs.write_bytes_to_file(prefix + "-2.png", @utf8.encode("page-two")) catch {
-      err => return Err(ExecutionFailed(err.to_string()))
+      err => return Err(ExecutionFailed((err : Error).to_string()))
     }
     Ok((0, "rendered", "warning"))
   }).unwrap()
@@ -115,10 +115,12 @@ test "PDF raster default path and utility branches remain deterministic" {
   let root = ".tmp/tests/pdf_ocr/utilities"
   pdf_ocr_cleanup_temp_dir(root)
   pdf_ocr_ensure_dir_tree(root + "/./nested") catch {
-    err => fail("create PDF OCR utility directory: " + err.to_string())
+    err =>
+      fail("create PDF OCR utility directory: " + (err : Error).to_string())
   }
   pdf_ocr_ensure_dir_tree(root + "/nested") catch {
-    err => fail("repeat PDF OCR utility directory: " + err.to_string())
+    err =>
+      fail("repeat PDF OCR utility directory: " + (err : Error).to_string())
   }
   defer pdf_ocr_cleanup_temp_dir(root)
   let path_source = @input.input_from_path(

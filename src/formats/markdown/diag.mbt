@@ -291,20 +291,20 @@ priv struct MarkdownBlockReportAccumulator {
 ///|
 fn markdown_new_block_report_accumulator() -> MarkdownBlockReportAccumulator {
   {
-    paragraph_count: { val: 0 },
-    list_count: { val: 0 },
-    table_count: { val: 0 },
-    code_block_count: { val: 0 },
-    blockquote_count: { val: 0 },
-    link_count: { val: 0 },
-    image_count: { val: 0 },
-    raw_html_count: { val: 0 },
-    unsafe_link_count: { val: 0 },
-    unsafe_html_count: { val: 0 },
-    asset_count: { val: 0 },
-    max_list_depth: { val: 0 },
-    footnote_definition_count: { val: 0 },
-    footnote_reference_count: { val: 0 },
+    paragraph_count: { val: 0, },
+    list_count: { val: 0, },
+    table_count: { val: 0, },
+    code_block_count: { val: 0, },
+    blockquote_count: { val: 0, },
+    link_count: { val: 0, },
+    image_count: { val: 0, },
+    raw_html_count: { val: 0, },
+    unsafe_link_count: { val: 0, },
+    unsafe_html_count: { val: 0, },
+    asset_count: { val: 0, },
+    max_list_depth: { val: 0, },
+    footnote_definition_count: { val: 0, },
+    footnote_reference_count: { val: 0, },
   }
 }
 

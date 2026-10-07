@@ -286,7 +286,7 @@ fn delimited_parser(
           })
         }
         if effective_col_count > 0 {
-          events.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
+          events.push({ kind: RowBreak, text: "", source_ref: Some(row_ref), })
         }
       }
       diagnostics.metrics.set("event_count", events.length().to_string())

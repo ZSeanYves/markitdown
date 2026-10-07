@@ -1,13 +1,13 @@
 ///|
 /// Create an empty parser registry.
 pub fn empty_registry() -> ParserRegistry {
-  { parsers: Map([]) }
+  { parsers: Map([]), }
 }
 
 ///|
 /// Create an empty async parser registry.
 pub fn empty_async_registry() -> AsyncParserRegistry {
-  { parsers: Map([]) }
+  { parsers: Map([]), }
 }
 
 ///|

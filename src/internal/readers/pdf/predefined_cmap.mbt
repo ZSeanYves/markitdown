@@ -440,7 +440,7 @@ fn pdf_predefined_decode_mapped_codes(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -530,7 +530,7 @@ fn pdf_predefined_decode_next_mapped_unit_at_width(
     Some(value) => value
     None => return None
   }
-  Some({ byte_width: width, charcode: code, cid: Some(cid), gid: None, text })
+  Some({ byte_width: width, charcode: code, cid: Some(cid), gid: None, text, })
 }
 
 ///|
@@ -553,13 +553,19 @@ fn pdf_predefined_decode_cid_identity(
       None => break
     }
     parts.push(text)
-    units.push({ byte_width: 2, charcode: cid, cid: Some(cid), gid: None, text })
+    units.push({
+      byte_width: 2,
+      charcode: cid,
+      cid: Some(cid),
+      gid: None,
+      text,
+    })
     index += 2
   }
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -592,7 +598,7 @@ fn pdf_predefined_decode_identity_ascii(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -626,13 +632,13 @@ fn pdf_predefined_decode_utf16be(
     }
     let text = pdf_string_from_codepoints([first])
     parts.push(text)
-    units.push({ byte_width: 2, charcode: first, cid: None, gid: None, text })
+    units.push({ byte_width: 2, charcode: first, cid: None, gid: None, text, })
     index += 2
   }
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -664,7 +670,7 @@ fn pdf_predefined_decode_utf32be(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 
@@ -713,7 +719,7 @@ fn pdf_predefined_decode_utf8(
   if units.length() == 0 {
     None
   } else {
-    Some({ text: parts.join(""), units })
+    Some({ text: parts.join(""), units, })
   }
 }
 

@@ -303,7 +303,7 @@ fn odp_lower_common(
       blocks.push(lowered)
     }
   }
-  { blocks, metadata, assets, source_map }
+  { blocks, metadata, assets, source_map, }
 }
 
 ///|

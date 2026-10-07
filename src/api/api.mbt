@@ -17,7 +17,7 @@ pub fn convert(
 ///|
 /// Return the marker for the frozen 0.8 compatibility surface.
 pub fn api_v0_8() -> ApiV0_8 {
-  { marker: () }
+  { marker: (), }
 }
 
 ///|

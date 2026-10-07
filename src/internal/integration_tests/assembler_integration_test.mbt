@@ -38,10 +38,10 @@ test "assembler resolves asset ownership from block asset ids" {
   image.attrs.set("path", "assets/image01.jpg")
 
   let asset = @core.make_asset_ref(Image, "asset-image-1", source_ref~)
-  let asset = { ..asset, path: Some("assets/image01.jpg") }
+  let asset = { ..asset, path: Some("assets/image01.jpg"), }
 
   let document = @pipeline.build_document_with_default_pipeline(
-    Document({ ..@core.document_from_blocks([image]), assets: [asset] }),
+    Document({ ..@core.document_from_blocks([image]), assets: [asset], }),
     @pipeline.make_pass_context(false, "balanced"),
   )
   let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())

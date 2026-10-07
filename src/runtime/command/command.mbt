@@ -26,7 +26,7 @@ pub fn make_resolved_command(
   display_command : String,
   source : ResolvedCommandSource,
 ) -> ResolvedCommand {
-  { program, display_command, source }
+  { program, display_command, source, }
 }
 
 ///|

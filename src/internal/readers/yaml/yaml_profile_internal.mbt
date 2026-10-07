@@ -31,17 +31,17 @@ priv struct YamlParseProfileTotals {
 
 ///|
 fn new_yaml_parse_profile_report() -> YamlParseProfileReport {
-  { stages: [] }
+  { stages: [], }
 }
 
 ///|
 fn new_yaml_parse_profile_totals() -> YamlParseProfileTotals {
   {
-    normalize_lines_elapsed_ms: { val: 0 },
-    scan_lines_elapsed_ms: { val: 0 },
-    parse_mapping_elapsed_ms: { val: 0 },
-    parse_sequence_elapsed_ms: { val: 0 },
-    parse_scalar_elapsed_ms: { val: 0 },
+    normalize_lines_elapsed_ms: { val: 0, },
+    scan_lines_elapsed_ms: { val: 0, },
+    parse_mapping_elapsed_ms: { val: 0, },
+    parse_sequence_elapsed_ms: { val: 0, },
+    parse_scalar_elapsed_ms: { val: 0, },
   }
 }
 
@@ -53,7 +53,7 @@ fn yaml_parse_profile_push_stage(
   detail : String?,
 ) -> Unit {
   match report {
-    Some(rep) => rep.stages.push({ name, elapsed_ms, detail })
+    Some(rep) => rep.stages.push({ name, elapsed_ms, detail, })
     None => ()
   }
 }

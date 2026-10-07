@@ -18,7 +18,7 @@ fn pdf_ocr_finalize_result(
   }
   let native_facts_present = pdf_document_has_native_facts(native_document_ir)
   let document = if native_facts_present {
-    { ..native_document_ir, blocks: final_blocks }
+    { ..native_document_ir, blocks: final_blocks, }
   } else {
     @core.document_from_blocks(final_blocks)
   }

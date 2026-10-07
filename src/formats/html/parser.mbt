@@ -631,7 +631,7 @@ fn html_lower_semantic_block_stream_document(
       diagnostics.metrics.set(
         "scope_plan_labels", "semantic_block_stream_failed",
       )
-      { blocks: [], metadata: Map([]), assets: [] }
+      { blocks: [], metadata: Map([]), assets: [], }
     }
   }
 }
@@ -676,7 +676,7 @@ fn html_lower_child_semantic_block_stream_document(
       diagnostics.metrics.set(
         "scope_plan_labels", "child_semantic_block_stream_failed",
       )
-      { blocks: [], metadata: Map([]), assets: [] }
+      { blocks: [], metadata: Map([]), assets: [], }
     }
   }
 }

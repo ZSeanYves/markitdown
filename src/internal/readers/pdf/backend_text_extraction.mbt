@@ -591,7 +591,7 @@ fn pdf_parse_literal_token(
       depth -= 1
       if depth == 0 {
         return (
-          { decoded: String::from_array(out), terminated: true },
+          { decoded: String::from_array(out), terminated: true, },
           index + 1,
         )
       }
@@ -602,7 +602,7 @@ fn pdf_parse_literal_token(
     out.push(ch)
     index += 1
   }
-  ({ decoded: String::from_array(out), terminated: false }, index)
+  ({ decoded: String::from_array(out), terminated: false, }, index)
 }
 
 ///|
@@ -809,9 +809,9 @@ fn pdf_append_text_operand_fragment(
     None => false
   }
   if vertical_writing {
-    { ..text_matrix, f: text_matrix.f - advance }
+    { ..text_matrix, f: text_matrix.f - advance, }
   } else {
-    { ..text_matrix, e: text_matrix.e + advance }
+    { ..text_matrix, e: text_matrix.e + advance, }
   }
 }
 
@@ -1241,7 +1241,7 @@ fn pdf_finalize_text_block(
     0.0,
     reading_order_index=first_line.reading_order_index,
   )
-  let next = { ..block_source_ref, line_end: Some(last_line_no) }
+  let next = { ..block_source_ref, line_end: Some(last_line_no), }
   next.extra.set("pdf_text_block_index", block_index.to_string())
   make_pdf_native_text_block(
     lines,

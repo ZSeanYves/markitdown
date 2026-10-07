@@ -79,7 +79,7 @@ pub fn make_ocr_provider_request(
   provider_kind : OcrProviderKind,
   language? : String? = None,
 ) -> OcrProviderRequest {
-  { image_path, image_paths: [image_path], language, provider_kind }
+  { image_path, image_paths: [image_path], language, provider_kind, }
 }
 
 ///|
@@ -90,7 +90,7 @@ pub fn make_ocr_provider_batch_request(
   language? : String? = None,
 ) -> OcrProviderRequest {
   let first_path = if image_paths.length() > 0 { image_paths[0] } else { "" }
-  { image_path: first_path, image_paths, language, provider_kind }
+  { image_path: first_path, image_paths, language, provider_kind, }
 }
 
 ///|
@@ -111,7 +111,7 @@ pub fn make_ocr_provider_job_result(
   pages : Array[OcrPageModel],
   diagnostics? : Array[String] = [],
 ) -> OcrProviderJobResult {
-  { image_path, status, error_kind, error_message, pages, diagnostics }
+  { image_path, status, error_kind, error_message, pages, diagnostics, }
 }
 
 ///|
@@ -123,7 +123,7 @@ pub fn make_ocr_provider_result(
   diagnostics? : Array[String] = [],
   jobs? : Array[OcrProviderJobResult] = [],
 ) -> OcrProviderResult {
-  { pages, provider_name, provider_version, diagnostics, jobs }
+  { pages, provider_name, provider_version, diagnostics, jobs, }
 }
 
 ///|

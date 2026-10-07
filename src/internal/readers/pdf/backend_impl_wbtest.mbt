@@ -433,17 +433,17 @@ fn pdf_wbtest_xref_stream_pdf_bytes(
   let xref_hex_parts : Array[String] = []
   for object_id in 0..<size {
     let entry : PdfWbtestXrefEntry = if object_id == 0 {
-      { object_id, entry_type: 0, field1: 0, field2: 0xFF }
+      { object_id, entry_type: 0, field1: 0, field2: 0xFF, }
     } else if object_id == xref_object_id {
-      { object_id, entry_type: 1, field1: xref_offset, field2: 0 }
+      { object_id, entry_type: 1, field1: xref_offset, field2: 0, }
     } else {
       match entry_overrides.get(object_id) {
         Some(value) => value
         None =>
           match object_offsets.get(object_id) {
             Some(offset) =>
-              { object_id, entry_type: 1, field1: offset, field2: 0 }
-            None => { object_id, entry_type: 0, field1: 0, field2: 0 }
+              { object_id, entry_type: 1, field1: offset, field2: 0, }
+            None => { object_id, entry_type: 0, field1: 0, field2: 0, }
           }
       }
     }
@@ -768,8 +768,8 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     is None,
   )
   let cycle : Map[Int, PdfNativeObject] = Map([])
-  cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None })
-  cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None })
+  cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None, })
+  cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None, })
   assert_true(
     pdf_resolve_image_color_space_value(Reference(7, 0), cycle, 0, []) is None,
   )
@@ -781,7 +781,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
       stream: None,
     })
   }
-  deep.set(11, { object_id: 11, dict_text: "/DeviceRGB", stream: None })
+  deep.set(11, { object_id: 11, dict_text: "/DeviceRGB", stream: None, })
   assert_true(
     pdf_resolve_image_color_space_value(Reference(1, 0), deep, 0, []) is None,
   )
@@ -1592,8 +1592,8 @@ test "pdf native backend expands object streams referenced from xref streams" {
       5,
       7,
       extra_entries=[
-        { object_id: 1, entry_type: 2, field1: 6, field2: 0 },
-        { object_id: 3, entry_type: 2, field1: 6, field2: 1 },
+        { object_id: 1, entry_type: 2, field1: 6, field2: 0, },
+        { object_id: 3, entry_type: 2, field1: 6, field2: 1, },
       ],
     ),
     "xref-stream-objstm.pdf",
@@ -1980,7 +1980,7 @@ fn pdf_wbtest_decode_params(
   columns? : Int? = None,
   early_change? : Int? = None,
 ) -> PdfStreamDecodeParams {
-  { predictor, colors, bits_per_component, columns, early_change }
+  { predictor, colors, bits_per_component, columns, early_change, }
 }
 
 ///|
@@ -2143,7 +2143,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
     Ok(value) => assert_true(pdf_wbtest_byte_ints(value) == [1, 3, 6])
     Err(error) => fail(error)
   }
-  let adaptive = { ..fixed, predictor: Some(15) }
+  let adaptive = { ..fixed, predictor: Some(15), }
   match
     pdf_apply_png_predictor(
       Bytes::from_array([0, 1, 2, 3, 2, 1, 1, 1].map(Int::to_byte)),
@@ -2161,7 +2161,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
     Ok(_) => fail("adaptive PNG row mismatch must fail")
   }
   match
-    pdf_apply_png_predictor(Bytes::new(0), { ..fixed, predictor: Some(9) }) {
+    pdf_apply_png_predictor(Bytes::new(0), { ..fixed, predictor: Some(9), }) {
     Err(error) => assert_true(error.contains("unsupported"))
     Ok(_) => fail("unsupported predictor must fail")
   }

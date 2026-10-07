@@ -324,7 +324,7 @@ fn xml_stream_probe_summary_from_tokens(
       EndTag(_, _) => if depth > 0 { depth -= 1 }
     }
   }
-  { node_count, max_depth }
+  { node_count, max_depth, }
 }
 
 ///|

@@ -81,7 +81,7 @@ fn bench_cleanup_temp_dir(path : String) -> Unit {
 ///|
 fn bench_read_utf8_text(path : String) -> String {
   @fs.read_file_to_string(path, encoding="utf8") catch {
-    err => abort("read failed: " + err.to_string())
+    err => abort("read failed: " + (err : Error).to_string())
   }
 }
 
@@ -519,17 +519,18 @@ test "bench JSON progress is structured and output retention keeps failures" {
   let success_assets = root + "/assets/nested"
   bench_ensure_dir_tree(success_assets)
   @fs.write_string_to_file(success_path, "ok", encoding="utf8") catch {
-    err => fail("write success fixture failed: " + err.to_string())
+    err => fail("write success fixture failed: " + (err : Error).to_string())
   }
   @fs.write_string_to_file(failure_path, "failed", encoding="utf8") catch {
-    err => fail("write failure fixture failed: " + err.to_string())
+    err => fail("write failure fixture failed: " + (err : Error).to_string())
   }
   @fs.write_string_to_file(
     success_assets + "/image.png",
     "asset",
     encoding="utf8",
   ) catch {
-    err => fail("write success asset fixture failed: " + err.to_string())
+    err =>
+      fail("write success asset fixture failed: " + (err : Error).to_string())
   }
   cleanup_bench_output(success_path, "ok", "failures")
   cleanup_bench_output(failure_path, "failed", "failures")
@@ -539,7 +540,7 @@ test "bench JSON progress is structured and output retention keeps failures" {
 
   let keep_all = root + "/keep-all.md"
   @fs.write_string_to_file(keep_all, "all", encoding="utf8") catch {
-    err => fail("write keep-all fixture failed: " + err.to_string())
+    err => fail("write keep-all fixture failed: " + (err : Error).to_string())
   }
   cleanup_bench_output(keep_all, "ok", "all")
   assert_true(@fs.path_exists(keep_all))
@@ -598,7 +599,7 @@ test "benchmark resource summary records peak rss timeout disk policy and retent
     "txt",
     sample_route_provenance(),
   )
-  let timed_out = { ..sample, timed_out: true, peak_rss_kb: Some(4096L) }
+  let timed_out = { ..sample, timed_out: true, peak_rss_kb: Some(4096L), }
   let summary = benchmark_resource_summary(
     "missing-resource-run",
     [sample, timed_out],
@@ -636,7 +637,7 @@ test "schema two benchmark summaries remain readable without resource fields" {
     "}",
   ].join("")
   @fs.write_string_to_file(summary_json_path(run_id), legacy, encoding="utf8") catch {
-    err => fail("write legacy summary failed: " + err.to_string())
+    err => fail("write legacy summary failed: " + (err : Error).to_string())
   }
   match load_summary(run_id) {
     Ok(summary) => {
@@ -770,7 +771,7 @@ test "report regeneration recomputes current truth summary from samples" {
 
   let run_id = "wbtest-report"
   ensure_bench_dirs(run_id) catch {
-    err => fail("ensure bench dirs failed: " + err.to_string())
+    err => fail("ensure bench dirs failed: " + (err : Error).to_string())
   }
   defer bench_cleanup_temp_dir(run_root(run_id))
 
@@ -854,10 +855,10 @@ test "ensure dir tree tolerates already-created segments" {
   defer bench_cleanup_temp_dir(bench_test_tmp_root() + "/dir-race")
 
   ensure_dir_tree(root) catch {
-    err => fail("initial ensure dir tree failed: " + err.to_string())
+    err => fail("initial ensure dir tree failed: " + (err : Error).to_string())
   }
   ensure_dir_tree(root) catch {
-    err => fail("repeated ensure dir tree failed: " + err.to_string())
+    err => fail("repeated ensure dir tree failed: " + (err : Error).to_string())
   }
 
   assert_true(@fs.path_exists(root))
@@ -1018,7 +1019,7 @@ test "benchmark engine RSS worker validates arguments and writes output" {
   assert_eq(run_engine_worker(["unknown", "input", "output"]), 2)
   let output = ".tmp/bench-test/engine-worker.md"
   ensure_parent_dir(output) catch {
-    err => fail(err.to_string())
+    err => fail((err : Error).to_string())
   }
   assert_eq(
     run_engine_worker([
@@ -1043,7 +1044,7 @@ test "benchmark engine RSS worker validates arguments and writes output" {
     1,
   )
   let measured = measure_engine_worker_rss(
-    { ..execution_test_contract(), runner_path: "/usr/bin/true" },
+    { ..execution_test_contract(), runner_path: "/usr/bin/true", },
     execution_test_row(
       "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md",
       "engine-rss",
@@ -1111,7 +1112,7 @@ test "benchmark progress and output hash helpers are deterministic" {
   bench_progress_update(enabled, "running", "sample")
   let finished = bench_progress_advance(enabled, "sample")
   bench_progress_finish(finished)
-  let tty = { enabled: true, mode: "auto", total: 1, completed: 0 }
+  let tty = { enabled: true, mode: "auto", total: 1, completed: 0, }
   bench_progress_update(tty, "running", "sample")
   let tty_done = bench_progress_advance(tty, "sample")
   bench_progress_finish(tty_done)
@@ -1152,7 +1153,7 @@ test "benchmark progress and output hash helpers are deterministic" {
 
   let path = ".tmp/tests/bench-runner/output-hash.txt"
   ensure_parent_dir(path) catch {
-    err => fail(err.to_string())
+    err => fail((err : Error).to_string())
   }
   bench_write_utf8_text(path, "deterministic") catch {
     err => fail(err.to_string())
@@ -1221,7 +1222,7 @@ test "benchmark paths measure files directories JSON and provenance" {
   defer bench_cleanup_temp_dir(root)
   let nested = root + "/a/b/file.txt"
   ensure_parent_dir(nested) catch {
-    err => fail("ensure path contract parent: " + err.to_string())
+    err => fail("ensure path contract parent: " + (err : Error).to_string())
   }
   bench_write_utf8_text(nested, "hello") catch {
     err => fail("write path contract file: " + err.to_string())
@@ -1376,7 +1377,7 @@ test "benchmark performance gate enforces per-row 2x and per-format 3x" {
     }
     _ => fail("performance gate must be an object")
   }
-  let external_slow = { ..external_fast, median_wall_us: Some(400L) }
+  let external_slow = { ..external_fast, median_wall_us: Some(400L), }
   let passed = performance_gate_summary([moon, external_slow])
   match passed {
     Object(fields) => {

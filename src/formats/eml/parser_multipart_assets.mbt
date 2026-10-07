@@ -359,7 +359,7 @@ fn eml_rewrite_child_assets(
       "-" +
       (document.assets.length() + 1).to_string() +
       ext
-    let rewritten = { ..asset, asset_id: new_asset_id, path: Some(rel_path) }
+    let rewritten = { ..asset, asset_id: new_asset_id, path: Some(rel_path), }
     document.assets.push(rewritten)
     local_rewrites.push({
       old_asset_id,
@@ -390,7 +390,7 @@ fn eml_rewrite_child_block(
   block : @core.CoreBlock,
   rewrites : Array[EmlAssetRewrite],
 ) -> @core.CoreBlock {
-  let next = { ..block }
+  let next = { ..block, }
   if block.kind == Image {
     let old_asset_id = block.attrs.get("asset_id").unwrap_or("")
     let old_path = block.attrs.get("path").unwrap_or("")
@@ -407,7 +407,7 @@ fn eml_rewrite_child_block(
     for child in next.children {
       rewritten_children.push(eml_rewrite_child_block(child, rewrites))
     }
-    return { ..next, children: rewritten_children }
+    return { ..next, children: rewritten_children, }
   }
   next
 }

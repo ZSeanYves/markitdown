@@ -478,7 +478,7 @@ fn with_html_image_attrs(
   block : @core.CoreBlock,
   template : @core.CoreBlock,
 ) -> @core.CoreBlock {
-  { ..block, attrs: template.attrs, source_ref: template.source_ref }
+  { ..block, attrs: template.attrs, source_ref: template.source_ref, }
 }
 
 ///|

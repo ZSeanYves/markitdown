@@ -211,7 +211,7 @@ fn pdf_parse_dict_text_at(text : String, start : Int) -> String? {
 
 ///|
 fn pdf_identity_matrix() -> PdfNativeGraphicsMatrix {
-  { a: 1.0, d: 1.0, e: 0.0, f: 0.0 }
+  { a: 1.0, d: 1.0, e: 0.0, f: 0.0, }
 }
 
 ///|

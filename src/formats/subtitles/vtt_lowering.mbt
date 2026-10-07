@@ -571,8 +571,8 @@ fn append_large_vtt_generic_block(
   text : String,
   source_ref : @core.SourceRef,
 ) -> Unit {
-  events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref) })
-  events.push({ kind: EndBlock(kind), text: "", source_ref: Some(source_ref) })
+  events.push({ kind: StartBlock(kind), text, source_ref: Some(source_ref), })
+  events.push({ kind: EndBlock(kind), text: "", source_ref: Some(source_ref), })
 }
 
 ///|
@@ -616,7 +616,11 @@ fn vtt_events_from_document(
         text: cue.note_payload.unwrap_or(""),
         source_ref: Some(block_ref),
       })
-      events.push({ kind: EndBlock(Raw), text: "", source_ref: Some(block_ref) })
+      events.push({
+        kind: EndBlock(Raw),
+        text: "",
+        source_ref: Some(block_ref),
+      })
       continue
     }
     let quote_ref = vtt_generic_block_ref(base_ref, BlockQuote, [

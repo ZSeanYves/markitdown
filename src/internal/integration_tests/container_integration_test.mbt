@@ -2,7 +2,12 @@
 fn container_test_read_sample_bytes(path : String) -> Bytes raise {
   @fs.read_file_to_bytes(path) catch {
     e =>
-      fail("failed to read container sample: " + path + " : " + e.to_string())
+      fail(
+        "failed to read container sample: " +
+        path +
+        " : " +
+        (e : Error).to_string(),
+      )
   }
 }
 

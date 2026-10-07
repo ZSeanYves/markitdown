@@ -299,7 +299,7 @@ fn docx_content_control_source_block(
     numbering_ref: None,
     runs: [],
     table: None,
-    content_control: Some({ tag, blocks, inlines, text, source_key: key }),
+    content_control: Some({ tag, blocks, inlines, text, source_key: key, }),
     text,
     inlines,
     structural_kind: None,
@@ -652,7 +652,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:softHyphen") {
       let hyphen_key = docx_child_source_key(run_key, "hyphen", inline_index)
-      inlines.push(Hyphen({ kind: Soft, source_key: hyphen_key }))
+      inlines.push(Hyphen({ kind: Soft, source_key: hyphen_key, }))
       inline_index += 1
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
@@ -660,7 +660,7 @@ fn parse_docx_run_inlines(
       }
     } else if is_docx_start_tag_at(xml, start, "w:noBreakHyphen") {
       let hyphen_key = docx_child_source_key(run_key, "hyphen", inline_index)
-      inlines.push(Hyphen({ kind: NoBreak, source_key: hyphen_key }))
+      inlines.push(Hyphen({ kind: NoBreak, source_key: hyphen_key, }))
       inline_index += 1
       match find_docx_any_tag_end(xml, start) {
         Some(end_exclusive) => i = end_exclusive
@@ -890,7 +890,10 @@ fn read_docx_run_is_bold(xml : String) -> Bool {
 fn read_docx_numbering_ref(xml : String) -> DocxNumberingRef? {
   match read_docx_attr_in_first_tag(xml, "w:numId", "w:val") {
     Some(num_id) =>
-      Some({ num_id, ilvl: read_docx_attr_in_first_tag(xml, "w:ilvl", "w:val") })
+      Some({
+        num_id,
+        ilvl: read_docx_attr_in_first_tag(xml, "w:ilvl", "w:val"),
+      })
     None => None
   }
 }

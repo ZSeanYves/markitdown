@@ -138,7 +138,7 @@ fn tokenize_normalized_html_event_scan(
     text_source: Some(normalized),
   }
   let tokens = tokenizer.parse_tokens()
-  { tokens, events: tokenizer.events }
+  { tokens, events: tokenizer.events, }
 }
 
 ///|

@@ -20,7 +20,7 @@ fn capability_entry(
   group : CapabilityGroup,
   cli_supported? : Bool = true,
 ) -> CapabilityEntry {
-  { format, group, cli_supported }
+  { format, group, cli_supported, }
 }
 
 ///|

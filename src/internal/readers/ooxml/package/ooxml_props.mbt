@@ -116,7 +116,7 @@ fn parse_custom_property_block(block : String) -> OoxmlCustomProperty? {
     Some(kind) => tag_text(block, kind).unwrap_or("")
     None => ""
   }
-  Some({ name, value, value_type })
+  Some({ name, value, value_type, })
 }
 
 ///|

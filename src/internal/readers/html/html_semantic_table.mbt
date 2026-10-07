@@ -28,8 +28,8 @@ fn collect_html_semantic_table_fact(
     html_semantic_text_preview(caption_element.children).0
   })
 
-  let row_count : Ref[Int] = { val: 0 }
-  let cell_count : Ref[Int] = { val: 0 }
+  let row_count : Ref[Int] = { val: 0, }
+  let cell_count : Ref[Int] = { val: 0, }
   for child in element.children {
     match child {
       Element(child_element) =>

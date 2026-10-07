@@ -982,7 +982,7 @@ fn list_item_text(
     block.attrs.get("ordered").unwrap_or("false") == "true"
   let indent = Array::make(depth * 2, " ").join("")
   let marker = if is_ordered { index.to_string() + ". " } else { "- " }
-  let text = block_plain_text({ ..block, children: [] }).trim().to_owned()
+  let text = block_plain_text({ ..block, children: [], }).trim().to_owned()
   if block.children.length() == 0 {
     return indent + marker + text
   }

@@ -60,7 +60,7 @@ fn parse_placeholder_candidates(
         inner,
         default_shape_container_context(part_name),
       )
-      let warned : Ref[Bool] = { val: false }
+      let warned : Ref[Bool] = { val: false, }
       collect_placeholder_candidates_from_objects(
         ctx, out, objects, part_name, warned,
       )

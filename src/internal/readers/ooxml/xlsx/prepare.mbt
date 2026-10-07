@@ -17,7 +17,7 @@ pub fn prepare_xlsx_package_from_source(
   }
   match pkg {
     Ok(value) =>
-      Ok({ prepared_source: prepared.prepared_source, opened_package: value })
+      Ok({ prepared_source: prepared.prepared_source, opened_package: value, })
     Err(err) => Err(err)
   }
 }

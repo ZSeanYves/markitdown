@@ -83,7 +83,7 @@ fn table_resolved_assembly_from_blocks(
       })
     }
   }
-  { ..prior, table_continuations: continuations }
+  { ..prior, table_continuations: continuations, }
 }
 
 ///|
@@ -101,7 +101,7 @@ fn caption_resolved_assembly_from_blocks(
 ) -> @core.DocumentAssembly {
   let bindings : Array[@core.CaptionBinding] = []
   collect_caption_bindings(blocks, bindings)
-  { ..prior, caption_bindings: bindings }
+  { ..prior, caption_bindings: bindings, }
 }
 
 ///|
@@ -125,7 +125,7 @@ fn asset_resolved_assembly_from_blocks(
   let bindings : Array[@core.AssetBinding] = []
   let index = build_asset_binding_index(assets)
   collect_asset_bindings(blocks, index, bindings)
-  { ..prior, asset_bindings: bindings }
+  { ..prior, asset_bindings: bindings, }
 }
 
 ///|
@@ -625,7 +625,7 @@ fn collect_image_asset_ref(
     }
   }
   let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
-  let next_asset = { ..asset, path: Some(path) }
+  let next_asset = { ..asset, path: Some(path), }
   next_asset.attrs.set("alt", alt)
   match source_path_opt {
     Some(source_path) => next_asset.payload = Some(SourcePath(source_path))

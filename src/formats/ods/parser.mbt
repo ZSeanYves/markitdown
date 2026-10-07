@@ -529,7 +529,7 @@ fn ods_lower_common(
       )
     }
   }
-  { blocks, assets, metadata, source_map }
+  { blocks, assets, metadata, source_map, }
 }
 
 ///|

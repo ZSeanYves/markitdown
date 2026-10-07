@@ -248,7 +248,7 @@ test "audio command finalization records resources and classifies process failur
   let temp_dir = ".tmp/tests/audio_native/finalize_contract"
   audio_cleanup_temp_dir(temp_dir)
   audio_ensure_dir_tree(temp_dir) catch {
-    err => fail("create audio finalize temp dir: " + err.to_string())
+    err => fail("create audio finalize temp dir: " + (err : Error).to_string())
   }
   defer audio_cleanup_temp_dir(temp_dir)
   let result_path = temp_dir + "/result.json"
@@ -257,7 +257,7 @@ test "audio command finalization records resources and classifies process failur
     fake_audio_transcript_json("eng"),
     encoding="utf8",
   ) catch {
-    err => fail("write audio finalize result: " + err.to_string())
+    err => fail("write audio finalize result: " + (err : Error).to_string())
   }
   let backend = @rtcmd.make_resolved_command(
     "mock-audio",
@@ -377,7 +377,7 @@ test "audio command plan validates model and executes controlled WAV runtime" {
   let root = ".tmp/tests/audio_native/command-plan-contract"
   audio_cleanup_temp_dir(root)
   audio_ensure_dir_tree(root + "/model") catch {
-    err => fail("create audio model fixture: " + err.to_string())
+    err => fail("create audio model fixture: " + (err : Error).to_string())
   }
   defer audio_cleanup_temp_dir(root)
   let previous_model = @env.get_env_var(audio_model_path_env_var())

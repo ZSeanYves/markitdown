@@ -4,7 +4,7 @@ fn rag_test_event(
   text : String,
   source_ref? : @core.SourceRef? = None,
 ) -> @core.CoreEvent {
-  { kind, text, source_ref }
+  { kind, text, source_ref, }
 }
 
 ///|

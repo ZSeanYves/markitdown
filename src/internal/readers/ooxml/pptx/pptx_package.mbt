@@ -30,9 +30,9 @@ fn new_pptx_source_parse_context(
     rel_by_id_cache: Map([]),
     warnings: [],
     budget,
-    total_source_nodes: { val: 0 },
-    media_ref_count: { val: 0 },
-    media_bytes_loaded: { val: 0 },
+    total_source_nodes: { val: 0, },
+    media_ref_count: { val: 0, },
+    media_bytes_loaded: { val: 0, },
   }
 }
 
@@ -98,7 +98,7 @@ fn read_source_part_bytes(
     Some(cached) => cached.text
     None => None
   }
-  ctx.part_cache.set(part_name, { bytes: Some(bytes), text })
+  ctx.part_cache.set(part_name, { bytes: Some(bytes), text, })
   Some(bytes)
 }
 
@@ -120,7 +120,7 @@ fn read_source_part_text(
     Some(cached) => cached.bytes
     None => None
   }
-  ctx.part_cache.set(part_name, { bytes, text: Some(text) })
+  ctx.part_cache.set(part_name, { bytes, text: Some(text), })
   Some(text)
 }
 
@@ -332,7 +332,7 @@ fn parse_custom_properties(
               Some(n) => {
                 let (value_type, value) = read_custom_property_value(block)
                 if value.trim() != "" {
-                  out.push({ name: n, value, value_type })
+                  out.push({ name: n, value, value_type, })
                 }
               }
               None => ()
@@ -382,7 +382,7 @@ fn read_custom_property_value(block : Bytes) -> (String?, String) raise {
 ///|
 pub fn open_pptx_document(path : String) -> PptxDocument raise {
   let bytes = @fs.read_file_to_bytes(path) catch {
-    e => raise PptxError::OpenFailed(path + ": " + e.to_string())
+    e => raise PptxError::OpenFailed(path + ": " + (e : Error).to_string())
   }
   let pkg = @ox.open_ooxml_package(bytes) catch {
     e => raise PptxError::OoxmlFailure(e.to_string())

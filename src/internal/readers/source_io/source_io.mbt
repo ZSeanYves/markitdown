@@ -131,7 +131,7 @@ pub fn read_xml_source_text(
   source : @input.InputSource,
 ) -> Result[SourceTextPayload, String] {
   match @input.input_text(source) {
-    Some(text) => Ok({ text, prepared_source: source })
+    Some(text) => Ok({ text, prepared_source: source, })
     None => {
       let prefix = match @input.read_input_prefix(source, 256) {
         Ok(value) => value
@@ -169,13 +169,13 @@ pub fn decode_utf16_text_bytes(bytes : Bytes) -> String? {
   let first = arr[0].to_int()
   let second = arr[1].to_int()
   if first == 0xFF && second == 0xFE {
-    let decoded = @encoding.decode(bytes, encoding=UTF16LE) catch {
+    let decoded = @utf16.decode(bytes, ignore_bom=false, endianness=Little) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))
   }
   if first == 0xFE && second == 0xFF {
-    let decoded = @encoding.decode(bytes, encoding=UTF16BE) catch {
+    let decoded = @utf16.decode(bytes, ignore_bom=false, endianness=Big) catch {
       _ => return None
     }
     return Some(strip_leading_bom(decoded))

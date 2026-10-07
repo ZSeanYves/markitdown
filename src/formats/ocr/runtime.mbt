@@ -16,7 +16,7 @@ fn ocr_prepare_provider_input(
   format : @input.DetectedFormat,
 ) -> Result[OcrPreparedProviderInput, String] {
   match @input.input_path(source) {
-    Some(path) => Ok({ path, cleanup_dir: None })
+    Some(path) => Ok({ path, cleanup_dir: None, })
     None =>
       match @input.input_bytes(source) {
         Some(bytes) => {
@@ -37,7 +37,7 @@ fn ocr_prepare_provider_input(
             err =>
               return Err(
                 "failed to create in-memory OCR input directory: " +
-                err.to_string(),
+                (err : Error).to_string(),
               )
           }
           let path = dir + "/image." + @input.detected_format_name(format)
@@ -45,11 +45,12 @@ fn ocr_prepare_provider_input(
             err => {
               ocr_runtime_cleanup_temp_dir(dir)
               return Err(
-                "failed to materialize in-memory OCR image: " + err.to_string(),
+                "failed to materialize in-memory OCR image: " +
+                (err : Error).to_string(),
               )
             }
           }
-          Ok({ path, cleanup_dir: Some(dir) })
+          Ok({ path, cleanup_dir: Some(dir), })
         }
         None => Err("OCR input has neither path nor bytes")
       }
@@ -233,7 +234,7 @@ fn paddle_wrapper_resolution_from_parts(
   }
   let argv_prefix : Array[String] = []
   argv_prefix.append(parts[1:][:])
-  { command: resolved, argv_prefix }
+  { command: resolved, argv_prefix, }
 }
 
 ///|
@@ -560,7 +561,8 @@ fn build_paddle_ocr_command_plan_with_wrapper_resolution(
     e =>
       return Err(
         ExecutionFailed(
-          "failed to create PaddleOCR runtime temp dir: " + e.to_string(),
+          "failed to create PaddleOCR runtime temp dir: " +
+          (e : Error).to_string(),
         ),
       )
   }
@@ -574,7 +576,8 @@ fn build_paddle_ocr_command_plan_with_wrapper_resolution(
     e =>
       return Err(
         ExecutionFailed(
-          "failed to write PaddleOCR batch request JSON: " + e.to_string(),
+          "failed to write PaddleOCR batch request JSON: " +
+          (e : Error).to_string(),
         ),
       )
   }
@@ -584,7 +587,7 @@ fn build_paddle_ocr_command_plan_with_wrapper_resolution(
   argv.push(request_json_path)
   argv.push("--result-json")
   argv.push(result_json_path)
-  Ok({ command: wrapper.command, argv, temp_dir, result_json_path })
+  Ok({ command: wrapper.command, argv, temp_dir, result_json_path, })
 }
 
 ///|
@@ -748,7 +751,7 @@ fn finalize_paddle_ocr_command_result(
           return Err(
             OutputParseFailed(
               "PaddleOCR wrapper did not produce a readable result JSON on this runtime: " +
-              e.to_string(),
+              (e : Error).to_string(),
             ),
           )
       }

@@ -69,7 +69,7 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
       } else if self.starts_with("</") {
         let name = self.read_end_tag()
         self.pop_expected_tag(name)
-        out.push(EndTag(name, { line_start: start_line, line_end: self.line }))
+        out.push(EndTag(name, { line_start: start_line, line_end: self.line, }))
       } else if self.starts_with("<!") {
         raise ParseError("unsupported declaration-like syntax")
       } else {
@@ -94,7 +94,7 @@ fn XmlTokenizer::parse_tokens(self : XmlTokenizer) -> Array[XmlToken] raise {
     } else {
       let text = self.read_text()
       if text != "" {
-        out.push(Text(text, { line_start: start_line, line_end: self.line }))
+        out.push(Text(text, { line_start: start_line, line_end: self.line, }))
       }
     }
   }
@@ -284,7 +284,7 @@ fn XmlTokenizer::read_start_like_tag(
       name: attr_name,
       value: attr_value,
       quote_char: Some(quote_char),
-      span: { line_start: attr_start, line_end: attr_end },
+      span: { line_start: attr_start, line_end: attr_end, },
     })
   }
 

@@ -249,7 +249,7 @@ fn odf_extract_note(element : @dxml.XmlElement) -> OdtNote? {
   } else {
     "[^" + citation + "]"
   }
-  Some({ id, kind, citation: marker, body, author: None })
+  Some({ id, kind, citation: marker, body, author: None, })
 }
 
 ///|

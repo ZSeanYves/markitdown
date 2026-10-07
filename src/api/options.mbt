@@ -213,7 +213,7 @@ pub fn ConvertOptions::with_ocr(
   ocr_mode : OcrMode,
   language? : String? = None,
 ) -> ConvertOptions {
-  { ..self, ocr_mode, ocr_language: language }
+  { ..self, ocr_mode, ocr_language: language, }
 }
 
 ///|

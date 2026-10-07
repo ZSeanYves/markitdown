@@ -36,7 +36,7 @@ fn lower_ipynb_notebook(root : @djson.JsonDocument) -> IpynbNotebook raise {
   for i in 0..<cells_array.length() {
     cells.push(lower_ipynb_cell(cells_array[i], i))
   }
-  { summary, metadata, cells, raw_root: root }
+  { summary, metadata, cells, raw_root: root, }
 }
 
 ///|
@@ -157,7 +157,7 @@ fn ipynb_lower_attachments(
               "attachment " + entry.key + " must be a mime bundle object",
             )
         }
-        attachments.push({ name: entry.key, mime_entries })
+        attachments.push({ name: entry.key, mime_entries, })
       }
       attachments
     }
@@ -189,7 +189,7 @@ fn ipynb_lower_mime_entry(
 ) -> IpynbMimeEntry raise {
   match value {
     String(text) =>
-      { mime_type, text: Some(text), json_value: None, raw_json_text: None }
+      { mime_type, text: Some(text), json_value: None, raw_json_text: None, }
     Array(items) => {
       let text_parts : Array[String] = []
       for item in items {

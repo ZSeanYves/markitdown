@@ -29,15 +29,15 @@ priv struct MarkdownParseProfileTotals {
 
 ///|
 fn new_markdown_parse_profile_report() -> MarkdownParseProfileReport {
-  { stages: [] }
+  { stages: [], }
 }
 
 ///|
 fn new_markdown_parse_profile_totals() -> MarkdownParseProfileTotals {
   {
-    fence_scan_elapsed_ms: { val: 0 },
-    block_classify_elapsed_ms: { val: 0 },
-    validation_issues_elapsed_ms: { val: 0 },
+    fence_scan_elapsed_ms: { val: 0, },
+    block_classify_elapsed_ms: { val: 0, },
+    validation_issues_elapsed_ms: { val: 0, },
   }
 }
 
@@ -49,7 +49,7 @@ fn markdown_parse_profile_push_stage(
   detail : String?,
 ) -> Unit {
   match report {
-    Some(rep) => rep.stages.push({ name, elapsed_ms, detail })
+    Some(rep) => rep.stages.push({ name, elapsed_ms, detail, })
     None => ()
   }
 }

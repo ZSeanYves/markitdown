@@ -133,7 +133,7 @@ test "document chunks split code and resolve image assets" {
     |> @core.block_with_attr("caption", "Architecture diagram")
     |> @core.block_with_attr("asset_id", "asset-1")
   let asset = @core.make_asset_ref(Image, "asset-1")
-  let document = { ..rag_test_document([code, image]), assets: [asset] }
+  let document = { ..rag_test_document([code, image]), assets: [asset], }
   let chunks = chunks_from_document(
     document,
     make_rag_options(24, 0, false, false, true, true),

@@ -201,8 +201,8 @@ fn parse_docx_table(
 ) -> DocxSourceTable {
   let inner = docx_inner_xml_for_element(xml, 0, xml.length(), "w:tbl")
   let rows : Array[DocxSourceTableRow] = []
-  let max_depth_seen : Ref[Int] = { val: nesting_depth }
-  let guard_triggered : Ref[Bool] = { val: false }
+  let max_depth_seen : Ref[Int] = { val: nesting_depth, }
+  let guard_triggered : Ref[Bool] = { val: false, }
   let mut i = 0
   let mut row_index = 0
   while i < inner.length() {
@@ -371,7 +371,7 @@ fn parse_docx_structural_inline(
     Some(value) => value
     None => return None
   }
-  Some((StructuralMarker({ kind, tag, source_key }), end_exclusive))
+  Some((StructuralMarker({ kind, tag, source_key, }), end_exclusive))
 }
 
 ///|

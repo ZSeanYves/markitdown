@@ -49,7 +49,7 @@ pub fn block_with_column_index(
   block : CoreBlock,
   column_index : Int,
 ) -> CoreBlock {
-  { ..block, column_index: Some(column_index) }
+  { ..block, column_index: Some(column_index), }
 }
 
 ///|
@@ -68,7 +68,7 @@ pub fn block_with_literal_rendering(
         }),
       }
     None => {
-      let next = { ..block }
+      let next = { ..block, }
       next.attrs.set("literal", "true")
       if minimal_inline_escape {
         next.attrs.set("render_inline_escape_mode", "minimal")
@@ -135,7 +135,7 @@ pub fn block_with_compact_source_ref(
   block : CoreBlock,
   source_ref : CompactSourceRef,
 ) -> CoreBlock {
-  { ..block, source_ref: None, compact_source_ref: Some(source_ref) }
+  { ..block, source_ref: None, compact_source_ref: Some(source_ref), }
 }
 
 ///|
@@ -199,7 +199,7 @@ pub fn block_with_attr(
   key : String,
   value : String,
 ) -> CoreBlock {
-  let next = { ..block }
+  let next = { ..block, }
   next.attrs.set(key, value)
   next
 }
@@ -335,7 +335,7 @@ pub fn inline_with_attr(
   key : String,
   value : String,
 ) -> CoreInline {
-  let next = { ..inline }
+  let next = { ..inline, }
   next.attrs.set(key, value)
   next
 }
@@ -363,7 +363,7 @@ pub fn make_signal(
   confidence : Int,
   payload? : Map[String, JsonValue] = Map([]),
 ) -> CoreSignal {
-  { signal_type, confidence, payload }
+  { signal_type, confidence, payload, }
 }
 
 ///|
@@ -374,7 +374,7 @@ pub fn make_source_map_entry(
   confidence? : Int? = None,
   relation? : String? = None,
 ) -> SourceMapEntry {
-  { primary_ref, refs, merged_from, confidence, relation }
+  { primary_ref, refs, merged_from, confidence, relation, }
 }
 
 ///|
@@ -390,7 +390,7 @@ pub fn source_map_add_block_entry(
   source_map : SourceMap,
   entry : SourceMapEntry,
 ) -> SourceMap {
-  let next = { ..source_map }
+  let next = { ..source_map, }
   next.block_entries.push(entry)
   next
 }
@@ -400,7 +400,7 @@ pub fn source_map_add_asset_entry(
   source_map : SourceMap,
   entry : SourceMapEntry,
 ) -> SourceMap {
-  let next = { ..source_map }
+  let next = { ..source_map, }
   next.asset_entries.push(entry)
   next
 }

@@ -546,7 +546,7 @@ fn paddle_json_bbox_from_object(
     Some(value) => value
     None => return None
   }
-  Some({ x0, y0, x1, y1 })
+  Some({ x0, y0, x1, y1, })
 }
 
 ///|

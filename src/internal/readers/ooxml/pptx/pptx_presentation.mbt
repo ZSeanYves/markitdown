@@ -10,10 +10,10 @@ fn parse_source_presentation(
   track_source_node(ctx, part_name, "presentation")
   let xml = match read_source_part_text(ctx, part_name) {
     Some(text) => text
-    None => return { part_name, slide_refs: [], source_key }
+    None => return { part_name, slide_refs: [], source_key, }
   }
   let entries = parse_presentation_slide_entries(ctx, part_name, xml)
-  { part_name, slide_refs: entries, source_key }
+  { part_name, slide_refs: entries, source_key, }
 }
 
 ///|

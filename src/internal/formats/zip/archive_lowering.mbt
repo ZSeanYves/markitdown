@@ -258,7 +258,7 @@ fn zip_standalone_image_asset(
     Some(value) => Some(value)
     None => zip_asset_image_mime_type(entry_path)
   }
-  let next_asset = { ..asset, path: Some(output_path), mime_type }
+  let next_asset = { ..asset, path: Some(output_path), mime_type, }
   next_asset.attrs.set("alt", zip_basename(entry_path))
   next_asset.attrs.set("zip_entry_path", entry_path)
   next_asset.attrs.set("zip_container_format", "zip")
@@ -440,7 +440,7 @@ fn zip_rewrite_child_assets(
             entry,
             inner_path=None,
           )
-          merged_assets.push({ ..asset, source_ref: Some(next_source_ref) })
+          merged_assets.push({ ..asset, source_ref: Some(next_source_ref), })
           continue
         }
         match zip_preserve_nested_child_asset(asset, entry, old_path) {
@@ -656,13 +656,13 @@ fn zip_rewrite_inline(
     inner_path=None,
   )
   if inline.kind != Image {
-    return { ..inline, source_ref: Some(source_ref) }
+    return { ..inline, source_ref: Some(source_ref), }
   }
   let old_path = inline.href.unwrap_or("")
   match zip_find_asset_rewrite(rewrites, "", old_path) {
     Some(rewrite) =>
-      { ..inline, href: Some(rewrite.new_path), source_ref: Some(source_ref) }
-    None => { ..inline, source_ref: Some(source_ref) }
+      { ..inline, href: Some(rewrite.new_path), source_ref: Some(source_ref), }
+    None => { ..inline, source_ref: Some(source_ref), }
   }
 }
 

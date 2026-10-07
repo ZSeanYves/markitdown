@@ -355,7 +355,7 @@ test "EML multipart alternative selection and nested asset rewrites are determin
   let owner = message.children[0]
   let document = @core.empty_document_ir()
   let asset0 = @core.make_asset_ref(Image, "old")
-  let asset = { ..asset0, path: Some("old.PNG") }
+  let asset = { ..asset0, path: Some("old.PNG"), }
   let rewrites = eml_rewrite_child_assets(
     [asset],
     owner,

@@ -58,7 +58,7 @@ fn write_markdown_text_markup_compact_events_to(
   out : StringBuilder,
   events : Array[@core.CoreEvent],
 ) -> Unit {
-  let cursor = { events, index: 0 }
+  let cursor = { events, index: 0, }
   let mut previous : @core.BlockKind? = None
   let mut wrote_any = false
   while cursor.index < events.length() {
@@ -678,7 +678,7 @@ fn generic_block_event_stream(events : Array[@core.CoreEvent]) -> Bool {
 fn generic_blocks_from_events(
   events : Array[@core.CoreEvent],
 ) -> Array[@core.CoreBlock] {
-  let cursor = { events, index: 0 }
+  let cursor = { events, index: 0, }
   let blocks : Array[@core.CoreBlock] = []
   while cursor.index < cursor.events.length() {
     match parse_generic_block_event(cursor) {
@@ -694,7 +694,7 @@ fn write_markdown_generic_block_events_direct_to(
   out : StringBuilder,
   events : Array[@core.CoreEvent],
 ) -> Unit {
-  let cursor = { events, index: 0 }
+  let cursor = { events, index: 0, }
   let mut prev_kind : @core.BlockKind? = None
   let mut wrote_any = false
   while cursor.index < cursor.events.length() {
@@ -770,7 +770,7 @@ fn collect_generic_block_event_body(
           } else {
             None
           }
-          return { ..block, rich_inlines, children, attrs }
+          return { ..block, rich_inlines, children, attrs, }
         }
       }
       StartBlock(_) =>

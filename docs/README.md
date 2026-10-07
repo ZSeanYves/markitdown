@@ -27,6 +27,8 @@ instead of browsing files by name.
 - [Phase 2 compatibility lab](./phase-2-compatibility-lab.md): pinned upstream
   corpus, structural comparator, and executable semantic gates.
 - [Dependency register](./dependency-register.md)
+- [Text extraction scope and community package assessment](./rfcs/0001-text-extraction-scope-and-community-packages.md): draft proposal for shared text semantics and Native/Wasm capabilities, with 2026-10-07 registry and probe evidence; does not change current product support.
+- [Native/Wasm upgrade progress](./native-wasm-upgrade.md): accepted architecture, frozen baseline and implementation gates.
 - [Maintenance and evolution plan](./project-maintenance-plan.md)
 
 ## Governance and release operations

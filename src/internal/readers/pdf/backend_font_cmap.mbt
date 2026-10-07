@@ -42,7 +42,7 @@ fn pdf_collect_font_encoding_info(
       match default_encoding_name {
         Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
         None =>
-          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]), }
       }
   }
 }
@@ -72,7 +72,11 @@ fn pdf_font_encoding_info_from_value(
           match default_encoding_name {
             Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
             None =>
-              { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+              {
+                encoding_name: None,
+                code_hex_widths: [],
+                unicode_map: Map([]),
+              }
           }
       }
     }
@@ -80,7 +84,7 @@ fn pdf_font_encoding_info_from_value(
       match default_encoding_name {
         Some(name) => pdf_font_encoding_info_from_dict(None, Some(name))
         None =>
-          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]) }
+          { encoding_name: None, code_hex_widths: [], unicode_map: Map([]), }
       }
   }
 }
@@ -395,7 +399,7 @@ fn pdf_collect_font_infos(
       }
     }
   }
-  Ok({ infos: fonts, inline_ids })
+  Ok({ infos: fonts, inline_ids, })
 }
 
 ///|

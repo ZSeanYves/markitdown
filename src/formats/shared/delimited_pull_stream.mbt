@@ -27,7 +27,7 @@ fn open_pull_delimited_reader(
   let chunk = Ref("")
   let chunk_index = Ref(0)
   let eof = Ref(false)
-  let replay : Ref[Char?] = { val: None }
+  let replay : Ref[Char?] = { val: None, }
   let skip_lf = Ref(false)
   let skip_bom = Ref(true)
   let row_fields : Array[String] = []
@@ -98,7 +98,7 @@ fn open_pull_delimited_reader(
     let result = if blank {
       None
     } else {
-      Some({ fields: values, line_start: row_start.val, line_end })
+      Some({ fields: values, line_start: row_start.val, line_end, })
     }
     row_start.val = line_end + 1
     result

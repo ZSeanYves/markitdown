@@ -93,7 +93,7 @@ fn parse_markup_document(
       }
     }
   }
-  { format, blocks }
+  { format, blocks, }
 }
 
 ///|
@@ -116,7 +116,7 @@ fn cache_markup_block(
   }
   let source_lines = lines[start:next].to_owned()
   let entries = cache.get(lines[start]).unwrap_or([])
-  entries.push({ source_lines, block, origin_index: start })
+  entries.push({ source_lines, block, origin_index: start, })
   cache.set(lines[start], entries)
 }
 
@@ -198,7 +198,7 @@ fn make_markup_parse_context(
     trimmed_semantic_lines.unwrap_or([]),
     format,
   )
-  { lines, format, trimmed_semantic_lines, tex_item_ordered_before_line }
+  { lines, format, trimmed_semantic_lines, tex_item_ordered_before_line, }
 }
 
 ///|

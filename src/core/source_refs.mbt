@@ -33,7 +33,7 @@ pub fn empty_source_ref() -> SourceRef {
 
 ///|
 pub fn empty_source_map() -> SourceMap {
-  { document_ref: None, block_entries: [], asset_entries: [] }
+  { document_ref: None, block_entries: [], asset_entries: [], }
 }
 
 ///|
@@ -44,7 +44,7 @@ pub fn source_ref_with_lines(
   line_start : Int?,
   line_end : Int?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, line_start, line_end }
+  { ..source_ref, file_id, format, line_start, line_end, }
 }
 
 ///|
@@ -54,7 +54,7 @@ pub fn source_ref_with_json_pointer(
   format : String?,
   json_pointer : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, json_pointer }
+  { ..source_ref, file_id, format, json_pointer, }
 }
 
 ///|
@@ -64,7 +64,7 @@ pub fn source_ref_with_yaml_path(
   format : String?,
   yaml_path : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, yaml_path }
+  { ..source_ref, file_id, format, yaml_path, }
 }
 
 ///|
@@ -74,7 +74,7 @@ pub fn source_ref_with_html_path(
   format : String?,
   html_path : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, html_path }
+  { ..source_ref, file_id, format, html_path, }
 }
 
 ///|
@@ -84,7 +84,7 @@ pub fn source_ref_with_markdown_path(
   format : String?,
   markdown_path : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, markdown_path }
+  { ..source_ref, file_id, format, markdown_path, }
 }
 
 ///|
@@ -180,7 +180,7 @@ pub fn source_ref_with_bytes(
   byte_start : Int?,
   byte_end : Int?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, byte_start, byte_end }
+  { ..source_ref, file_id, format, byte_start, byte_end, }
 }
 
 ///|
@@ -191,7 +191,7 @@ pub fn source_ref_with_time_range(
   time_start : String?,
   time_end : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, time_start, time_end }
+  { ..source_ref, file_id, format, time_start, time_end, }
 }
 
 ///|
@@ -201,7 +201,7 @@ pub fn source_ref_with_cell_range(
   format : String?,
   cell_range : String?,
 ) -> SourceRef {
-  { ..source_ref, file_id, format, cell_range }
+  { ..source_ref, file_id, format, cell_range, }
 }
 
 ///|
@@ -235,7 +235,7 @@ pub fn source_ref_with_extra(
   key : String,
   value : String,
 ) -> SourceRef {
-  let next = { ..source_ref }
+  let next = { ..source_ref, }
   next.extra.set(key, value)
   next
 }

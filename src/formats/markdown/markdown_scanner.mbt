@@ -22,7 +22,7 @@ pub fn profile_markdown_document(text : String) -> MarkdownProfiledDocument {
     Some(totals),
   )
   markdown_parse_profile_finish_totals(Some(report), Some(totals))
-  { document, report }
+  { document, report, }
 }
 
 ///|
@@ -267,7 +267,7 @@ fn build_markdown_line_views(lines : Array[String]) -> Array[MarkdownLineView] {
   let out : Array[MarkdownLineView] = []
   for line in lines {
     let (left_trim_index, trimmed_end_index) = markdown_trim_bounds(line)
-    out.push({ raw: line, left_trim_index, trimmed_end_index })
+    out.push({ raw: line, left_trim_index, trimmed_end_index, })
   }
   out
 }

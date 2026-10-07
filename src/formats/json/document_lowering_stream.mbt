@@ -479,9 +479,9 @@ fn json_append_table_block_events(
         ),
       })
     }
-    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
+    out.push({ kind: RowBreak, text: "", source_ref: Some(row_ref), })
   }
-  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref) })
+  out.push({ kind: EndBlock(Table), text: "", source_ref: Some(block_ref), })
 }
 
 ///|
@@ -496,7 +496,7 @@ fn json_append_scalar_list_events(
     List,
     [("ordered", "false")],
   )
-  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref) })
+  out.push({ kind: StartBlock(List), text: "", source_ref: Some(list_ref), })
   for value in values {
     let item_ref = generic_event_source_ref(value.1, ListItem, [
       ("ordered", "false"),
@@ -507,9 +507,9 @@ fn json_append_scalar_list_events(
       text: value.0,
       source_ref: Some(item_ref),
     })
-    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref) })
+    out.push({ kind: EndBlock(ListItem), text: "", source_ref: Some(item_ref), })
   }
-  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref) })
+  out.push({ kind: EndBlock(List), text: "", source_ref: Some(list_ref), })
 }
 
 ///|
@@ -812,7 +812,7 @@ fn table_events_from_rows(
       })
     }
     if row.length() > 0 {
-      events.push({ kind: RowBreak, text: "", source_ref: Some(row_ref) })
+      events.push({ kind: RowBreak, text: "", source_ref: Some(row_ref), })
     }
   }
   events
