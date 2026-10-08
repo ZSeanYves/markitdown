@@ -3,12 +3,12 @@
 /// Keep their host boundary explicit instead of importing a target-missing
 /// stdio value. The product release targets are Native and linear Wasm.
 #cfg(not(any(target="native", target="wasm")))
-pub async fn write_stdout(_message : String) -> Unit {
+pub fn write_stdout(_message : String) -> Unit {
 
 }
 
 ///|
 #cfg(not(any(target="native", target="wasm")))
-pub async fn write_stderr(_message : String) -> Unit {
+pub fn write_stderr(_message : String) -> Unit {
 
 }

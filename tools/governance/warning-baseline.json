@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "preliminary",
+  "status": "reviewed",
   "captured_at": "2026-10-08",
   "toolchain": {
     "moon_version": "0.1.20260920",
@@ -9,32 +9,32 @@
   "command": "moon check --target <target> --warn-list +73",
   "targets": {
     "native": {
-      "warnings": 432,
+      "warnings": 0,
       "errors": 0,
-      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+      "evidence": "moon check --target native --warn-list +73 --deny-warn; 2026-10-08"
     },
     "wasm": {
-      "warnings": 422,
+      "warnings": 0,
       "errors": 0,
-      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+      "evidence": "moon check --target wasm --warn-list +73 --deny-warn; 2026-10-08"
     },
     "all": {
-      "warnings": 445,
+      "warnings": 0,
       "errors": 0,
-      "evidence": "local toolchain run after final async/host boundary changes; aggregate only"
+      "evidence": "moon check --target all --warn-list +73 --deny-warn; 2026-10-08"
     }
   },
   "diagnostic_review": {
-    "mode": "aggregate_only",
+    "mode": "complete",
     "diagnostic_ids": [],
     "raw_output": null,
     "owner": "markitdown maintainers",
-    "expiry": "before-0.8-rc2",
-    "remediation": "classify and clear every diagnostic, then require --deny-warn"
+    "expiry": "next-toolchain-upgrade",
+    "remediation": "rerun strict checks and classify any new diagnostic before merge"
   },
   "policy": {
-    "ci_gate": "warn-list +73 while this preliminary inventory is open",
-    "release_gate": "blocked until strict --deny-warn passes",
+    "ci_gate": "warn-list +73 with --deny-warn",
+    "release_gate": "strict --deny-warn passed locally; platform and registry gates remain separate",
     "silent_grandfathering": false
   }
 }

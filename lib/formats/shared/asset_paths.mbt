@@ -3,7 +3,7 @@ pub fn text_markup_asset_output_path(
   family : String,
   source_path : String,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in source_path.replace_all(old="\\", new="/") {
     if (ch >= 'a' && ch <= 'z') ||
       (ch >= 'A' && ch <= 'Z') ||

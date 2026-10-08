@@ -5,7 +5,7 @@ fn lower_docx_inlines(
   source_key : @ddocx.DocxSourceKey,
 ) -> DocxInlineLowering {
   let rich_inlines : Array[@core.CoreInline] = []
-  let plain = StringBuilder::new()
+  let plain = StringBuilder()
   let inline_source_ref = docx_source_ref_from_key(
     state,
     source_key,

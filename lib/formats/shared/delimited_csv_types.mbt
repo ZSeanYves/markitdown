@@ -11,6 +11,9 @@ pub(all) enum CsvDelimiter {
 } derive(Eq)
 
 ///|
+pub extend CsvDelimiter with Eq::{equal, not_equal}
+
+///|
 /// Parsing options for delimiter, quoting, and ragged-row handling.
 pub struct CsvParseOptions {
   delimiter : CsvDelimiter
@@ -45,6 +48,9 @@ pub(all) enum CsvErrorKind {
 } derive(Eq)
 
 ///|
+pub extend CsvErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard CSV parse failures.
 pub struct CsvErrorInfo {
   kind : CsvErrorKind
@@ -58,9 +64,15 @@ pub(all) enum CsvValidationSeverity {
 } derive(Eq)
 
 ///|
+pub extend CsvValidationSeverity with Eq::{equal, not_equal}
+
+///|
 pub(all) enum CsvValidationIssueKind {
   RaggedRow
 } derive(Eq)
+
+///|
+pub extend CsvValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 /// Validation issues reported without turning the parse into a hard failure.

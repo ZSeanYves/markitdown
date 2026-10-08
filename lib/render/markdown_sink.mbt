@@ -112,7 +112,7 @@ fn write_markdown_xml_outline_to_sink(
   let mut wrote_any = false
   let mut needs_heading_gap = false
   for event in events {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     match event.kind {
       StartBlock(Heading) => {
         if wrote_any {
@@ -165,7 +165,7 @@ fn write_markdown_xml_generic_outline_to_sink(
   let mut wrote_any = false
   let mut needs_heading_gap = false
   for event in events {
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     let mut visible = false
     match event.kind {
       StartBlock(Heading) => {
@@ -265,7 +265,7 @@ fn write_markdown_text_markup_compact_to_sink(
           events[cursor.index + 1].kind == EndBlock(kind)
         let simple = (compact_leaf || paired_leaf) &&
           (kind == Heading || kind == Paragraph || kind == Code)
-        let out = StringBuilder::new()
+        let out = StringBuilder()
         let mut visible = false
         if simple {
           let text = event.text
@@ -368,7 +368,7 @@ fn write_markdown_generic_events_to_sink(
     if !markdown_generic_event_visible(event) {
       continue
     }
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     if wrote_any {
       out.write_string("\n\n")
     }
@@ -409,7 +409,7 @@ fn write_markdown_blocks_to_sink(
   let mut previous : @core.BlockKind? = None
   let mut wrote_any = false
   for block in blocks {
-    let fragment = StringBuilder::new()
+    let fragment = StringBuilder()
     let wrote = match markdown_leaf_cache_key(block, blocks.length()) {
       Some(key) => {
         let rendered = match leaf_cache.get(key) {

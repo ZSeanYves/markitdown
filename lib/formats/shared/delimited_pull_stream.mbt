@@ -31,7 +31,7 @@ fn open_pull_delimited_reader(
   let skip_lf = Ref(false)
   let skip_bom = Ref(true)
   let row_fields : Array[String] = []
-  let field = Ref(StringBuilder::new())
+  let field = Ref(StringBuilder())
   let field_chars = Ref(0)
   let in_quotes = Ref(false)
   let pending_quote = Ref(false)
@@ -86,7 +86,7 @@ fn open_pull_delimited_reader(
   }
   let finish_field = fn() {
     row_fields.push(field.val.to_string())
-    field.val = StringBuilder::new()
+    field.val = StringBuilder()
     field_chars.val = 0
     field_started.val = false
   }

@@ -2,7 +2,6 @@ import {
   "moonbitlang/async",
   "ZSeanYves/markitdown/lib/convert",
   "ZSeanYves/markitdown/lib/input",
-  "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/internal/runtime/command" @rtcmd,
   "ZSeanYves/markitdown/internal/runtime/process",
   "moonbitlang/core/bench",

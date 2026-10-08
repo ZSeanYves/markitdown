@@ -46,6 +46,8 @@ pub(all) enum SubtitleFormat {
   Srt
   Vtt
 } derive(Eq)
+pub fn SubtitleFormat::equal(Self, Self) -> Bool
+pub fn SubtitleFormat::not_equal(Self, Self) -> Bool
 
 pub struct SubtitleInspectReport {
   cue_count : Int

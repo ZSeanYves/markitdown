@@ -7,7 +7,7 @@ import {
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
-  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
   "ZSeanYves/markitdown/lib/formats" @formats_root,
   "ZSeanYves/markitdown/lib/input",
   "ZSeanYves/markitdown/internal/parser",

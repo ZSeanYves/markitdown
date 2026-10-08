@@ -4,11 +4,11 @@ fn render_markdown_events(events : Array[@core.CoreEvent]) -> String {
     return ""
   }
   if markdown_text_markup_compact_event_stream(events) {
-    let out = StringBuilder::new(size_hint=events.length() * 128)
+    let out = StringBuilder(size_hint=events.length() * 128)
     write_markdown_text_markup_compact_events_to(out, events)
     return out.to_string()
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   if markdown_xml_outline_event_stream(events) {
     write_markdown_xml_outline_events_to(out, events)
     return out.to_string()
@@ -491,7 +491,7 @@ fn write_markdown_subtitle_record_v2_to(
 ///|
 fn markdown_subtitle_record_v2_parts(text : String) -> (String, String) {
   let mut heading = ""
-  let body = StringBuilder::new()
+  let body = StringBuilder()
   let mut first = true
   let mut wrote_body = false
   for line in text.split("\n") {

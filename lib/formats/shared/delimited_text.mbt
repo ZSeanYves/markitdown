@@ -239,14 +239,12 @@ fn delimited_parser(
       } else {
         0
       }
-      let events : Array[@core.CoreEvent] = Array::new(
+      let events : Array[@core.CoreEvent] = Array(
         capacity=allowed_rows * row_event_width,
       )
       let source_name = Some(source.source_name)
       let format_value = Some(format_name)
-      let cell_suffixes : Array[String] = Array::new(
-        capacity=effective_col_count,
-      )
+      let cell_suffixes : Array[String] = Array(capacity=effective_col_count)
       for col_index in 0..<effective_col_count {
         cell_suffixes.push((col_index + 1).to_string())
       }

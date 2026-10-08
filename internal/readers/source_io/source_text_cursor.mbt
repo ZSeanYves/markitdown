@@ -115,7 +115,7 @@ pub fn collect_source_text_chunks(
     Ok(value) => value
     Err(message) => return Err(message)
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   while true {
     match (reader.next)() {
       Ok(Some(chunk)) => out.write_string(chunk.text)
@@ -145,11 +145,11 @@ fn decode_utf8_source_chunk(
       break
     }
     let prefix_length = bytes.length() - trailing
-    let remainder = bytes.view(start=prefix_length).to_owned()
+    let remainder = bytes.exact_view(start=prefix_length).to_owned()
     if !utf8_incomplete_prefix(remainder) {
       continue
     }
-    let prefix = bytes.view(end=prefix_length).to_owned()
+    let prefix = bytes.exact_view(end=prefix_length).to_owned()
     let text = try @utf8.decode(prefix, ignore_bom=false) |> Some catch {
       _ => None
     }

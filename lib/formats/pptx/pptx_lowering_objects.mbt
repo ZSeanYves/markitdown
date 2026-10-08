@@ -197,7 +197,7 @@ fn pptx_lower_group_summary(
 
 ///|
 fn pptx_group_summary_text(group : @pptxdoc.PptxGroupShape) -> String {
-  let parts = StringBuilder::new()
+  let parts = StringBuilder()
   parts.write_string("[PPTX grouped decorative shapes")
   match group.name {
     Some(name) =>
@@ -712,7 +712,7 @@ fn pptx_plain_text(inlines : Array[@core.CoreInline]) -> String {
 
 ///|
 fn pptx_normalize_text_fragment(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut leading_space = false
   let mut pending_space = false
   let mut wrote_text = false

@@ -41,6 +41,8 @@ pub(all) suberror DocxError {
   MissingMainDocument
   MalformedDocument(String)
 }
+pub fn DocxError::output(Self, &Logger) -> Unit
+pub fn DocxError::to_string(Self) -> String
 pub impl Show for DocxError
 
 // Types and methods
@@ -74,6 +76,8 @@ pub(all) enum DocxBookmarkKind {
   Start
   End
 } derive(Eq)
+pub fn DocxBookmarkKind::equal(Self, Self) -> Bool
+pub fn DocxBookmarkKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxBreak {
   kind : DocxBreakKind
@@ -89,6 +93,8 @@ pub(all) enum DocxBreakKind {
   CarriageReturn
   Unknown
 } derive(Eq)
+pub fn DocxBreakKind::equal(Self, Self) -> Bool
+pub fn DocxBreakKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxComment {
   comment_id : String
@@ -146,6 +152,8 @@ pub(all) enum DocxDiscoveredPartKind {
   Media
   Unknown
 } derive(Eq)
+pub fn DocxDiscoveredPartKind::equal(Self, Self) -> Bool
+pub fn DocxDiscoveredPartKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxDocument {
   main_part : String
@@ -210,6 +218,8 @@ pub(all) enum DocxHyphenKind {
   Soft
   NoBreak
 } derive(Eq)
+pub fn DocxHyphenKind::equal(Self, Self) -> Bool
+pub fn DocxHyphenKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum DocxInline {
   Text(String)
@@ -248,6 +258,8 @@ pub(all) enum DocxMediaContainerKind {
   Drawing
   Pict
 } derive(Eq)
+pub fn DocxMediaContainerKind::equal(Self, Self) -> Bool
+pub fn DocxMediaContainerKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxMediaRef {
   relationship_id : String?
@@ -269,6 +281,8 @@ pub(all) enum DocxMediaRelationshipKind {
   Link
   Unknown
 } derive(Eq)
+pub fn DocxMediaRelationshipKind::equal(Self, Self) -> Bool
+pub fn DocxMediaRelationshipKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxNote {
   kind : DocxNoteKind
@@ -282,6 +296,8 @@ pub(all) enum DocxNoteKind {
   Footnote
   Endnote
 } derive(Eq)
+pub fn DocxNoteKind::equal(Self, Self) -> Bool
+pub fn DocxNoteKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxNumbering {
   part_name : String?
@@ -342,12 +358,16 @@ pub(all) enum DocxPartBodyKind {
   Footer
   Textbox
 } derive(Eq)
+pub fn DocxPartBodyKind::equal(Self, Self) -> Bool
+pub fn DocxPartBodyKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum DocxPartDiscoverySource {
   Relationship
   ContentType
   ConventionalPath
 } derive(Eq)
+pub fn DocxPartDiscoverySource::equal(Self, Self) -> Bool
+pub fn DocxPartDiscoverySource::not_equal(Self, Self) -> Bool
 
 pub struct DocxPartGraph {
   main_part : String
@@ -403,6 +423,8 @@ pub(all) enum DocxSourceBlockKind {
   Structural
   Unknown
 } derive(Eq)
+pub fn DocxSourceBlockKind::equal(Self, Self) -> Bool
+pub fn DocxSourceBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxSourceBookmark {
   kind : DocxBookmarkKind
@@ -735,6 +757,8 @@ pub(all) enum DocxSourceWarningKind {
   UnresolvedEndnoteRef
   UnresolvedCommentRef
 } derive(Eq)
+pub fn DocxSourceWarningKind::equal(Self, Self) -> Bool
+pub fn DocxSourceWarningKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum DocxStructuralKind {
   SectionProperties
@@ -746,6 +770,8 @@ pub(all) enum DocxStructuralKind {
   LastRenderedPageBreak
   UnknownNonVisible
 } derive(Eq)
+pub fn DocxStructuralKind::equal(Self, Self) -> Bool
+pub fn DocxStructuralKind::not_equal(Self, Self) -> Bool
 
 pub struct DocxStructuralMarker {
   kind : DocxStructuralKind
@@ -810,6 +836,8 @@ pub(all) enum DocxTargetMode {
   Internal
   External
 } derive(Eq)
+pub fn DocxTargetMode::equal(Self, Self) -> Bool
+pub fn DocxTargetMode::not_equal(Self, Self) -> Bool
 
 pub struct DocxTextBox {
   anchor_id : String
@@ -876,11 +904,15 @@ pub(all) enum DocxWarningKind {
   UnresolvedEndnoteRef
   UnresolvedCommentRef
 } derive(Eq)
+pub fn DocxWarningKind::equal(Self, Self) -> Bool
+pub fn DocxWarningKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum DocxWarningSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn DocxWarningSeverity::equal(Self, Self) -> Bool
+pub fn DocxWarningSeverity::not_equal(Self, Self) -> Bool
 
 pub struct PreparedDocxDocument {
   prepared_source : @input.InputSource

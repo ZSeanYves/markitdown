@@ -796,7 +796,7 @@ fn parse_docx_tracked_change(
 
 ///|
 fn docx_visible_text_in_scope(xml : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < xml.length() {
     let next_lt_rel = match xml[i:].find("<") {
@@ -947,7 +947,7 @@ fn docx_source_key(
 
 ///|
 fn docx_source_inline_text(inlines : Array[DocxSourceInline]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for inline in inlines {
     match inline {
       Text(text) => out.write_string(text)

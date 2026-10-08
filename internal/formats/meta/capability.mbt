@@ -7,6 +7,9 @@ pub(all) enum CapabilityGroup {
 } derive(Eq)
 
 ///|
+pub extend CapabilityGroup with Eq::{equal, not_equal}
+
+///|
 pub struct CapabilityEntry {
   format : @input.DetectedFormat
   group : CapabilityGroup

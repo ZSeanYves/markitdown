@@ -145,6 +145,8 @@ pub(all) enum CapabilityGroup {
   Containers
   PdfText
 } derive(Eq)
+pub fn CapabilityGroup::equal(Self, Self) -> Bool
+pub fn CapabilityGroup::not_equal(Self, Self) -> Bool
 
 pub(all) enum FormatRoute {
   StreamingEvent
@@ -156,6 +158,8 @@ pub(all) enum FormatRoute {
   MediaPipeline
   ContainerRecursive
 } derive(Eq)
+pub fn FormatRoute::equal(Self, Self) -> Bool
+pub fn FormatRoute::not_equal(Self, Self) -> Bool
 
 pub struct FormatRouteProfile {
   format : @input.DetectedFormat
@@ -225,6 +229,8 @@ pub(all) enum ProbeTemplate {
   PackageContainerProbe
   PagedMediaProbe
 } derive(Eq)
+pub fn ProbeTemplate::equal(Self, Self) -> Bool
+pub fn ProbeTemplate::not_equal(Self, Self) -> Bool
 
 #alias(RouteSpec)
 pub struct StrategyRouteSpec {

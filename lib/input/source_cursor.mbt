@@ -144,7 +144,7 @@ fn source_cursor_from_bytes(bytes : Bytes) -> SourceCursor {
       }
       let start = offset.to_int()
       let end = (start + length).min(bytes.length())
-      Ok(bytes.view(start~, end~).to_owned())
+      Ok(bytes.exact_view(start~, end~).to_owned())
     },
     read_at_async: fn(offset, length) {
       if offset < 0L || length < 0 || offset > bytes.length().to_int64() {
@@ -152,13 +152,18 @@ fn source_cursor_from_bytes(bytes : Bytes) -> SourceCursor {
       }
       let start = offset.to_int()
       let end = (start + length).min(bytes.length())
-      Ok(bytes.view(start~, end~).to_owned())
+      Ok(bytes.exact_view(start~, end~).to_owned())
     },
     view_at: fn(offset, length) {
       if offset < 0 || length < 0 || offset > bytes.length() {
         return None
       }
-      Some(bytes.view(start=offset, end=(offset + length).min(bytes.length())))
+      Some(
+        bytes.exact_view(
+          start=offset,
+          end=(offset + length).min(bytes.length()),
+        ),
+      )
     },
   }
 }

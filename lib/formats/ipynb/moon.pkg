@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/core/string",
   "moonbitlang/x/codec/base64",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/formats/html" @fhtml,

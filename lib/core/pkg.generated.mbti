@@ -191,12 +191,16 @@ pub(all) enum AssetKind {
   Embedded
   Unknown
 } derive(Eq)
+pub fn AssetKind::equal(Self, Self) -> Bool
+pub fn AssetKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum AssetPayload {
   Bytes(Bytes)
   Utf8(String)
   SourcePath(String)
 } derive(Eq)
+pub fn AssetPayload::equal(Self, Self) -> Bool
+pub fn AssetPayload::not_equal(Self, Self) -> Bool
 
 pub(all) struct AssetRef {
   asset_kind : AssetKind
@@ -231,6 +235,8 @@ pub(all) enum BlockKind {
   BlockQuote
   Raw
 } derive(Eq)
+pub fn BlockKind::equal(Self, Self) -> Bool
+pub fn BlockKind::not_equal(Self, Self) -> Bool
 
 pub(all) struct CaptionBinding {
   caption_block_id : String
@@ -275,6 +281,8 @@ pub(all) enum ContainerEntryKind {
   Unsupported
   Unsafe
 } derive(Eq)
+pub fn ContainerEntryKind::equal(Self, Self) -> Bool
+pub fn ContainerEntryKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum ContainerSecurityFinding {
   PathTraversal
@@ -287,6 +295,8 @@ pub(all) enum ContainerSecurityFinding {
   ExternalReference
   ResourceLimitHit
 } derive(Eq)
+pub fn ContainerSecurityFinding::equal(Self, Self) -> Bool
+pub fn ContainerSecurityFinding::not_equal(Self, Self) -> Bool
 
 pub(all) struct CoreBlock {
   block_id : String
@@ -338,6 +348,8 @@ pub(all) enum DependencyDiagnosticStatus {
   Available
   Degraded
 } derive(Eq)
+pub fn DependencyDiagnosticStatus::equal(Self, Self) -> Bool
+pub fn DependencyDiagnosticStatus::not_equal(Self, Self) -> Bool
 
 pub(all) struct Diagnostics {
   parser_name : String?
@@ -393,6 +405,8 @@ pub(all) enum EventKind {
   Key
   Scalar
 } derive(Eq)
+pub fn EventKind::equal(Self, Self) -> Bool
+pub fn EventKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum IRInput {
   EventStream(Array[CoreEvent])
@@ -407,6 +421,8 @@ pub(all) enum InlineKind {
   Image
   Code
 } derive(Eq)
+pub fn InlineKind::equal(Self, Self) -> Bool
+pub fn InlineKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum JsonValue {
   Object(Map[String, JsonValue])
@@ -416,6 +432,8 @@ pub(all) enum JsonValue {
   Bool(Bool)
   Null
 } derive(Eq)
+pub fn JsonValue::equal(Self, Self) -> Bool
+pub fn JsonValue::not_equal(Self, Self) -> Bool
 
 pub(all) struct ReadingOrderEntry {
   block_id : String
@@ -457,6 +475,8 @@ pub(all) enum SignalType {
   CommentRef
   RenderHint
 } derive(Eq)
+pub fn SignalType::equal(Self, Self) -> Bool
+pub fn SignalType::not_equal(Self, Self) -> Bool
 
 pub(all) struct SourceMap {
   document_ref : SourceRef?

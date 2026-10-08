@@ -201,7 +201,7 @@ fn markdown_paragraph_block(
 ///|
 fn markdown_plain_paragraph_text(text : String) -> String {
   let lines = text.split("\n").to_array()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut wrote = false
   for line in lines {
     let trimmed = line.trim().to_owned()

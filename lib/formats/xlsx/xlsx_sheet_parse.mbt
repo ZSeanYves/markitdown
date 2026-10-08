@@ -915,7 +915,7 @@ fn xlsx_concat_text_runs_range(
   range_start : Int,
   range_end : Int,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut pos = range_start
   while true {
     match xlsx_find_named_open_tag_range(xml, "t", pos, range_end) {

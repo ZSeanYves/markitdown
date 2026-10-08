@@ -57,7 +57,7 @@ fn detect_container_format_from_source(
       break
     }
     let name_bytes = directory
-      .view(start=position + 46, end=position + 46 + name_length)
+      .exact_view(start=position + 46, end=position + 46 + name_length)
       .to_owned()
     let name = @utf8.decode(name_bytes, ignore_bom=true) catch { _ => "" }
     match name {

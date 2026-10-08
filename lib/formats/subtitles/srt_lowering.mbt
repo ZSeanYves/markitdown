@@ -443,8 +443,8 @@ fn append_large_srt_block(
   let (time_range, settings, time_start, time_end) = large_srt_time_range(
     block[time_index].trim().to_owned(),
   )
-  let record = StringBuilder::new()
-  let raw_body = StringBuilder::new()
+  let record = StringBuilder()
+  let raw_body = StringBuilder()
   let mut inline_changed = false
   record.write_string(time_range)
   let body_lines = block.length() - time_index - 1

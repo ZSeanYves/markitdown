@@ -343,7 +343,7 @@ fn rag_table_chunks_from_events(
     return []
   }
   let width = widest_event_row_width(rows)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_markdown_table_row_from_values(out, rows[0], width)
   out.write_char('\n')
   write_markdown_table_separator(out, width)
@@ -589,7 +589,7 @@ fn batched_table_chunks_from_events(
   let out : Array[@rag.RagChunk] = []
   let mut ordinal = 0
   for batch in batches {
-    let buffer = StringBuilder::new()
+    let buffer = StringBuilder()
     let refs : Array[@core.SourceRef] = []
     for index in 0..<batch.length() {
       if index > 0 {

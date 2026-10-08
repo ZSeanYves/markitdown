@@ -12,6 +12,9 @@ pub(all) enum FormatRoute {
 } derive(Eq)
 
 ///|
+pub extend FormatRoute with Eq::{equal, not_equal}
+
+///|
 /// Concrete route description used by route contracts.
 pub struct StrategyRouteSpec {
   route : FormatRoute

@@ -29,7 +29,7 @@ pub fn open_source_text_line_reader(
   }
   let chunk = Ref("")
   let chunk_index = Ref(0)
-  let line = Ref(StringBuilder::new())
+  let line = Ref(StringBuilder())
   let line_chars = Ref(0)
   let line_no = Ref(1)
   let line_truncated = Ref(false)
@@ -43,7 +43,7 @@ pub fn open_source_text_line_reader(
       line_no: line_no.val,
       truncated: line_truncated.val,
     }
-    line.val = StringBuilder::new()
+    line.val = StringBuilder()
     line_chars.val = 0
     line_truncated.val = false
     line_no.val += 1

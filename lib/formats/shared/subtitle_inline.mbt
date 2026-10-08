@@ -4,7 +4,7 @@ pub fn lower_subtitle_inline_markup(text : String) -> (String, Bool) {
     return (text, false)
   }
   let chars = text.to_array()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut changed = false
   let mut i = 0
   while i < chars.length() {

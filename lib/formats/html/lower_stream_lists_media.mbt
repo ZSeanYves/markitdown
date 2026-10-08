@@ -113,7 +113,7 @@ fn html_child_text_open_link(
   event : @dhtml.HtmlTokenEvent,
 ) -> Unit {
   if state.link_depth == 0 {
-    state.link_text = StringBuilder::new()
+    state.link_text = StringBuilder()
     state.link_href = html_child_text_event_href(event)
     state.link_line_start = event.span.line_start
     state.link_line_end = event.span.line_end
@@ -131,7 +131,7 @@ fn html_child_text_open_link_fields(
   line_end : Int,
 ) -> Unit {
   if state.link_depth == 0 {
-    state.link_text = StringBuilder::new()
+    state.link_text = StringBuilder()
     state.link_href = html_child_text_href_from_attributes(attributes)
     state.link_line_start = line_start
     state.link_line_end = line_end
@@ -152,7 +152,7 @@ fn html_child_text_flush_link(
   state.link_depth = 0
   let trailing_space = state.link_pending_space
   let text = state.link_text.to_string().trim().to_owned()
-  state.link_text = StringBuilder::new()
+  state.link_text = StringBuilder()
   state.link_pending_space = false
   state.link_has_content = false
   if text == "" {
@@ -728,7 +728,7 @@ fn html_child_text_close_list(
 
 ///|
 fn html_child_compact_list_markdown(frame : HtmlChildListFrame) -> String? {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for index in 0..<frame.items.length() {
     let item = frame.items[index]
     if item.children.length() > 0 {

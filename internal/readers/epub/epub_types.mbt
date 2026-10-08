@@ -24,6 +24,9 @@ pub(all) enum EpubErrorKind {
 } derive(Eq)
 
 ///|
+pub extend EpubErrorKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum EpubCoverCandidateSource {
   ManifestProperty
   MetadataCover
@@ -31,10 +34,16 @@ pub(all) enum EpubCoverCandidateSource {
 } derive(Eq)
 
 ///|
+pub extend EpubCoverCandidateSource with Eq::{equal, not_equal}
+
+///|
 pub(all) enum EpubValidationSeverity {
   Warning
   Error
 } derive(Eq)
+
+///|
+pub extend EpubValidationSeverity with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum EpubValidationIssueKind {
@@ -45,6 +54,9 @@ pub(all) enum EpubValidationIssueKind {
   MissingNavigationDocument
   MultipleRootfiles
 } derive(Eq)
+
+///|
+pub extend EpubValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 pub impl Show for EpubError with fn to_string(self : EpubError) -> String {

@@ -96,6 +96,8 @@ pub(all) enum OfficeAssetCopyPolicy {
   ReferenceOnly
   RejectUnsafePath
 } derive(Eq)
+pub fn OfficeAssetCopyPolicy::equal(Self, Self) -> Bool
+pub fn OfficeAssetCopyPolicy::not_equal(Self, Self) -> Bool
 
 pub struct OfficeAssetPlan {
   media_part : String
@@ -117,6 +119,8 @@ pub(all) enum OfficeDocumentKind {
   Xlsx
   Unknown
 } derive(Eq)
+pub fn OfficeDocumentKind::equal(Self, Self) -> Bool
+pub fn OfficeDocumentKind::not_equal(Self, Self) -> Bool
 
 pub struct OfficeMediaAsset {
   part_name : String
@@ -172,6 +176,8 @@ pub(all) enum OfficeSecurityFinding {
   ResourceLimitHit
   PathTraversal
 } derive(Eq)
+pub fn OfficeSecurityFinding::equal(Self, Self) -> Bool
+pub fn OfficeSecurityFinding::not_equal(Self, Self) -> Bool
 
 pub struct OfficeSemanticPlan {
   document_kind : OfficeDocumentKind
@@ -244,6 +250,8 @@ pub(all) enum PptxPlaceholderOrigin {
   GeometryInference
   Unresolved
 } derive(Eq)
+pub fn PptxPlaceholderOrigin::equal(Self, Self) -> Bool
+pub fn PptxPlaceholderOrigin::not_equal(Self, Self) -> Bool
 
 pub struct PptxPresentationModel {
   slides : Array[PptxSlideModel]
@@ -278,6 +286,8 @@ pub(all) enum PptxReadingOrderStrategy {
   ExplicitZOrder
   Unknown
 } derive(Eq)
+pub fn PptxReadingOrderStrategy::equal(Self, Self) -> Bool
+pub fn PptxReadingOrderStrategy::not_equal(Self, Self) -> Bool
 
 pub struct PptxShapeModel {
   shape_id : String?
@@ -309,6 +319,8 @@ pub(all) enum PptxShapeType {
   Decorative
   Unknown
 } derive(Eq)
+pub fn PptxShapeType::equal(Self, Self) -> Bool
+pub fn PptxShapeType::not_equal(Self, Self) -> Bool
 
 pub struct PptxSlideModel {
   slide_index : Int
@@ -330,6 +342,8 @@ pub(all) enum PptxSlideVisibility {
   Visible
   Hidden
 } derive(Eq)
+pub fn PptxSlideVisibility::equal(Self, Self) -> Bool
+pub fn PptxSlideVisibility::not_equal(Self, Self) -> Bool
 
 pub struct PptxTableCellModel {
   row_index : Int
@@ -392,6 +406,8 @@ pub(all) enum XlsxCellType {
   DateLike
   Formula
 } derive(Eq)
+pub fn XlsxCellType::equal(Self, Self) -> Bool
+pub fn XlsxCellType::not_equal(Self, Self) -> Bool
 
 pub struct XlsxFormula {
   formula_text : String
@@ -439,6 +455,8 @@ pub(all) enum XlsxSheetVisibility {
   Hidden
   VeryHidden
 } derive(Eq)
+pub fn XlsxSheetVisibility::equal(Self, Self) -> Bool
+pub fn XlsxSheetVisibility::not_equal(Self, Self) -> Bool
 
 pub struct XlsxWorkbookModel {
   sheets : Array[XlsxSheetModel]

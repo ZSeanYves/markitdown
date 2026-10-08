@@ -25,6 +25,8 @@ pub(all) suberror PptxError {
   OoxmlFailure(String)
   ParseError(String)
 }
+pub fn PptxError::output(Self, &Logger) -> Unit
+pub fn PptxError::to_string(Self) -> String
 pub impl Show for PptxError
 
 // Types and methods
@@ -32,6 +34,8 @@ pub(all) enum PptxBulletKind {
   Unordered
   Ordered
 } derive(Eq)
+pub fn PptxBulletKind::equal(Self, Self) -> Bool
+pub fn PptxBulletKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxChartRef {
   relationship_id : String?
@@ -72,6 +76,8 @@ pub(all) enum PptxConfidence {
   Medium
   Low
 } derive(Eq)
+pub fn PptxConfidence::equal(Self, Self) -> Bool
+pub fn PptxConfidence::not_equal(Self, Self) -> Bool
 
 pub struct PptxConnector {
   shape_id : String?
@@ -202,6 +208,8 @@ pub(all) enum PptxLayoutRegionKind {
   Decorative
   Unknown
 } derive(Eq)
+pub fn PptxLayoutRegionKind::equal(Self, Self) -> Bool
+pub fn PptxLayoutRegionKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxListHint {
   level : Int
@@ -221,6 +229,8 @@ pub(all) enum PptxMediaKind {
   Video
   Other
 } derive(Eq)
+pub fn PptxMediaKind::equal(Self, Self) -> Bool
+pub fn PptxMediaKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxMediaRef {
   relationship_id : String?
@@ -272,6 +282,8 @@ pub(all) enum PptxObjectKind {
   Connector
   Unsupported
 } derive(Eq)
+pub fn PptxObjectKind::equal(Self, Self) -> Bool
+pub fn PptxObjectKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxOleRef {
   relationship_id : String?
@@ -336,6 +348,8 @@ pub(all) enum PptxPlaceholderKind {
   Table
   Unknown
 } derive(Eq)
+pub fn PptxPlaceholderKind::equal(Self, Self) -> Bool
+pub fn PptxPlaceholderKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum PptxPlaceholderResolutionSource {
   Direct
@@ -345,6 +359,8 @@ pub(all) enum PptxPlaceholderResolutionSource {
   GeometryNameInference
   Unknown
 } derive(Eq)
+pub fn PptxPlaceholderResolutionSource::equal(Self, Self) -> Bool
+pub fn PptxPlaceholderResolutionSource::not_equal(Self, Self) -> Bool
 
 pub(all) enum PptxReadingBucket {
   Title
@@ -358,6 +374,8 @@ pub(all) enum PptxReadingBucket {
   Decorative
   Unknown
 } derive(Eq)
+pub fn PptxReadingBucket::equal(Self, Self) -> Bool
+pub fn PptxReadingBucket::not_equal(Self, Self) -> Bool
 
 pub struct PptxReadingOrderHint {
   bucket : PptxReadingBucket
@@ -484,6 +502,8 @@ pub(all) enum PptxSourceObjectKind {
   Connector
   Unknown
 } derive(Eq)
+pub fn PptxSourceObjectKind::equal(Self, Self) -> Bool
+pub fn PptxSourceObjectKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxSourcePresentation {
   part_name : String
@@ -535,6 +555,8 @@ pub(all) enum PptxTargetMode {
   Internal
   External
 } derive(Eq)
+pub fn PptxTargetMode::equal(Self, Self) -> Bool
+pub fn PptxTargetMode::not_equal(Self, Self) -> Bool
 
 pub struct PptxTextBody {
   paragraphs : Array[PptxParagraph]
@@ -569,12 +591,16 @@ pub(all) enum PptxWarningKind {
   OverBudget
   MalformedXml
 } derive(Eq)
+pub fn PptxWarningKind::equal(Self, Self) -> Bool
+pub fn PptxWarningKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum PptxWarningSeverity {
   Info
   Warning
   Error
 } derive(Eq)
+pub fn PptxWarningSeverity::equal(Self, Self) -> Bool
+pub fn PptxWarningSeverity::not_equal(Self, Self) -> Bool
 
 pub struct PreparedPptxDocument {
   prepared_source : @input.InputSource

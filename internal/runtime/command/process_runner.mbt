@@ -1,6 +1,7 @@
 ///|
-/// Resource ceilings for one external command invocation.
+#warnings("-struct_never_constructed")
 pub struct CommandLimits {
+  /// Resource ceilings for one external command invocation.
   timeout_ms : Int
   max_stdout_bytes : Int
   max_stderr_bytes : Int
@@ -8,8 +9,9 @@ pub struct CommandLimits {
 }
 
 ///|
-/// Captured command result after the child process has been reaped.
+#warnings("-struct_never_constructed")
 pub struct CommandOutput {
+  /// Captured command result after the child process has been reaped.
   exit_code : Int
   signal : Int
   stdout : String

@@ -1,4 +1,5 @@
 ///|
+#warnings("-unnecessary_annotation")
 fn pdf_decode_base64_zlib_blob(payload : String, label : String) -> Bytes {
   let compressed = try @base64.decode(payload, url_safe=false) |> Some catch {
     _ => None

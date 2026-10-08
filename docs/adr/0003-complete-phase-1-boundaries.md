@@ -72,7 +72,7 @@ python3 tools/governance/check_architecture.py
 moon check --target all --warn-list +73 --deny-warn
 moon test --target all
 MOONBIT_NEW_NATIVE=1 moon test --target native --no-parallelize
-./tools/regression/check_coverage.sh --enforce
+moon run tools/regression/check_coverage.mbtx --enforce
 ```
 
 The PR must also pass the full remote CI matrix on Linux and macOS. Rollback is

@@ -66,7 +66,7 @@ async test "phase2 representative cases preserve path bytes reader and hint cont
       fn(offset, length) {
         let start = offset.to_int()
         let end_ = (start + length.min(4096)).min(bytes.length())
-        Ok(bytes.view(start~, end=end_).to_owned())
+        Ok(bytes.exact_view(start~, end=end_).to_owned())
       },
       size=bytes.length().to_int64(),
     )

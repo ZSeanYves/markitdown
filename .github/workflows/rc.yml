@@ -45,7 +45,8 @@ jobs:
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain and dependencies
         run: |
-          python3 tools/governance/check_toolchain.py
+          moon run tools/governance/check_toolchain.mbtx
+          moon run tools/governance/check_toolchain.mbtx --self-test
           moon update
       - name: Verify source and generated interfaces
         run: |
@@ -127,7 +128,7 @@ jobs:
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain and build release benchmark runner
         run: |
-          python3 tools/governance/check_toolchain.py
+          moon run tools/governance/check_toolchain.mbtx
           moon update
           moon build --target native --release --package ZSeanYves/markitdown
           moon build --target native --release --package ZSeanYves/markitdown/internal/bench_runner

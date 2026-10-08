@@ -88,6 +88,8 @@ pub(all) enum AudioFormat {
   Mp3
   M4a
 } derive(Eq)
+pub fn AudioFormat::equal(Self, Self) -> Bool
+pub fn AudioFormat::not_equal(Self, Self) -> Bool
 
 pub(all) enum DetectedFormat {
   Txt
@@ -121,6 +123,8 @@ pub(all) enum DetectedFormat {
   Image(ImageFormat)
   Unknown
 } derive(Eq)
+pub fn DetectedFormat::equal(Self, Self) -> Bool
+pub fn DetectedFormat::not_equal(Self, Self) -> Bool
 
 pub struct FormatDetectionResult {
   format : DetectedFormat
@@ -144,6 +148,8 @@ pub(all) enum ImageFormat {
   Tif
   Tiff
 } derive(Eq)
+pub fn ImageFormat::equal(Self, Self) -> Bool
+pub fn ImageFormat::not_equal(Self, Self) -> Bool
 
 pub(all) enum InputKind {
   Path
@@ -151,6 +157,8 @@ pub(all) enum InputKind {
   Bytes
   Reader
 } derive(Eq)
+pub fn InputKind::equal(Self, Self) -> Bool
+pub fn InputKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum InputPayload {
   Path(String)

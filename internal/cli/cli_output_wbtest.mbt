@@ -10,7 +10,7 @@ fn cli_output_read_contract_bytes(path : String) -> Bytes raise {
 
 ///|
 fn cli_output_nested_office_zip_bytes() -> Bytes raise {
-  @therm.build_store_zip_bytes([
+  @dzip.build_store_zip_bytes([
     (
       "nested.docx",
       cli_output_read_contract_bytes(

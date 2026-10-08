@@ -1,21 +1,15 @@
 import {
-  "moonbitlang/async/fs" @afs,
-  "moonbitlang/core/env",
-  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
-  "moonbitlang/x/fs",
   "ZSeanYves/markitdown/internal/readers/pdf" @dpdfnative,
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/formats/shared" @fshared,
   "ZSeanYves/markitdown/lib/input",
   "ZSeanYves/markitdown/internal/parser",
-  "ZSeanYves/markitdown/lib/product",
-  "ZSeanYves/markitdown/internal/runtime/command" @rtcmd,
 }
 
 import {
-  "moonbitlang/async",
-} for "wbtest"
+  "moonbitlang/core/encoding/utf8",
+} for "test"
 
 options(
   "preferred-target": "native",

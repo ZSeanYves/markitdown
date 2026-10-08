@@ -84,6 +84,9 @@ pub(all) enum YamlErrorKind {
 } derive(Eq)
 
 ///|
+pub extend YamlErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard YAML parse failures.
 pub struct YamlErrorInfo {
   kind : YamlErrorKind

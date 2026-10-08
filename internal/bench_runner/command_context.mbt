@@ -6,6 +6,9 @@ pub struct RunnerContext {
 } derive(Eq)
 
 ///|
+pub extend RunnerContext with Eq::{equal, not_equal}
+
+///|
 pub fn default_runner_context() -> RunnerContext {
   make_runner_context("unknown", None)
 }

@@ -631,7 +631,7 @@ fn docx_paragraph_has_code_shape(
 
 ///|
 fn render_docx_plain_text_only(inlines : Array[@ddocx.DocxInline]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for inline in inlines {
     match inline {
       Text(text) => out.write_string(text)
@@ -1243,7 +1243,7 @@ fn docx_marker_needs_following_space(ch : Char) -> Bool {
 
 ///|
 fn docx_normalize_style_label(label : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in label.trim().to_lower().to_array() {
     if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {
       out.write_char(ch)

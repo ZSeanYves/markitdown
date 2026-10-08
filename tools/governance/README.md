@@ -9,7 +9,8 @@ are installed.
 ```bash
 MOONBIT_NEW_NATIVE=0 python3 tools/governance/collect_baseline.py --write
 MOONBIT_NEW_NATIVE=0 python3 tools/governance/collect_baseline.py --check
-python3 tools/governance/check_toolchain.py
+moon run tools/governance/check_toolchain.mbtx
+moon run tools/governance/check_toolchain.mbtx --self-test
 python3 tools/governance/check_architecture.py
 ```
 
@@ -18,12 +19,11 @@ and fixture hash diff. `--check` verifies upstream, toolchain, benchmark lock,
 quality-lab SHA and fixture inputs; it does not fail merely because a source
 PR changes the package inventory. CI always runs from a clean checkout.
 
-`warning-baseline.json` records the temporary aggregate MoonBit diagnostics
-observed during the 0.8 source migration. `check_documentation.py` validates
-its owner, expiry, remediation rule and explicit prohibition on silent
-grandfathering. The inventory is preliminary evidence only; the release gate
-remains `moon check --target all --warn-list +73 --deny-warn` after every
-diagnostic is classified and cleared.
+`warning-baseline.json` records the reviewed zero-diagnostic result for the 0.8
+source migration. `check_documentation.py` validates its owner, expiry,
+remediation rule and explicit prohibition on silent grandfathering. The release
+gate remains `moon check --target all --warn-list +73 --deny-warn`; any new
+diagnostic must be classified before merge.
 
 ## PR policy
 

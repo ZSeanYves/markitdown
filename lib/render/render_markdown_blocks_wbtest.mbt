@@ -6,7 +6,7 @@ fn markdown_test_cell(text : String) -> @core.CoreBlock {
 ///|
 test "markdown large repeated leaves reuse exact rendered templates" {
   assert_true(!markdown_needs_blank_line_between(None, Paragraph))
-  let blocks : Array[@core.CoreBlock] = Array::new(capacity=1025)
+  let blocks : Array[@core.CoreBlock] = Array(capacity=1025)
   for i in 0..<1025 {
     let text = if i % 2 == 0 {
       "Repeated paragraph with *literal* punctuation."
@@ -242,7 +242,7 @@ test "markdown block renderer covers quote children and rich quote" {
 ///|
 test "markdown block renderer covers literal direct and generic variants" {
   let empty_paragraph = @core.make_block(Paragraph, "")
-  assert_true(!write_markdown_block_to(StringBuilder::new(), empty_paragraph))
+  assert_true(!write_markdown_block_to(StringBuilder(), empty_paragraph))
   let literal = @core.make_block(Paragraph, "# one\n> two")
     |> @core.block_with_attr("literal", "true")
   assert_eq(render_markdown_block(literal), "\\# one\n\\> two")

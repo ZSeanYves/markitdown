@@ -12,6 +12,9 @@ pub(all) enum ParserMode {
 } derive(Eq)
 
 ///|
+pub extend ParserMode with Eq::{equal, not_equal}
+
+///|
 /// Granularity labels used when a parser can expose partial or streaming
 /// results.
 pub(all) enum StreamingGranularity {
@@ -39,6 +42,9 @@ pub(all) enum StreamingGranularity {
   Message
   None
 } derive(Eq)
+
+///|
+pub extend StreamingGranularity with Eq::{equal, not_equal}
 
 ///|
 /// Public declaration of what a parser can emit and what route constraints it
@@ -103,6 +109,9 @@ pub(all) enum PdfNativeRuntimePolicy {
 } derive(Eq)
 
 ///|
+pub extend PdfNativeRuntimePolicy with Eq::{equal, not_equal}
+
+///|
 /// Policy controlling internal PDF header/footer filtering during lowering.
 pub(all) enum PdfHeaderFooterFilterPolicy {
   Disabled
@@ -110,11 +119,17 @@ pub(all) enum PdfHeaderFooterFilterPolicy {
 } derive(Eq)
 
 ///|
+pub extend PdfHeaderFooterFilterPolicy with Eq::{equal, not_equal}
+
+///|
 /// Policy controlling internal PDF table reconstruction heuristics.
 pub(all) enum PdfTableReconstructionPolicy {
   Disabled
   InternalSimpleRowsOnly
 } derive(Eq)
+
+///|
+pub extend PdfTableReconstructionPolicy with Eq::{equal, not_equal}
 
 ///|
 /// One parser result exposed to the rest of the product path.

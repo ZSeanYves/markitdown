@@ -71,6 +71,8 @@ pub(all) enum AccurateFeature {
   OdpNotesAppendix
   OdpSlideSummary
 } derive(Eq)
+pub fn AccurateFeature::equal(Self, Self) -> Bool
+pub fn AccurateFeature::not_equal(Self, Self) -> Bool
 
 pub struct AccurateFeatureProfile {
   features : Array[AccurateFeature]
@@ -81,17 +83,23 @@ pub(all) enum ConvertMode {
   Accurate
   Stream
 } derive(Eq)
+pub fn ConvertMode::equal(Self, Self) -> Bool
+pub fn ConvertMode::not_equal(Self, Self) -> Bool
 
 pub(all) enum ExecutionProfile {
   Standard
   MediumAdaptive
   LargeAdaptive
 } derive(Eq)
+pub fn ExecutionProfile::equal(Self, Self) -> Bool
+pub fn ExecutionProfile::not_equal(Self, Self) -> Bool
 
 pub(all) enum FidelityMode {
   Balanced
   Accurate
 } derive(Eq)
+pub fn FidelityMode::equal(Self, Self) -> Bool
+pub fn FidelityMode::not_equal(Self, Self) -> Bool
 
 pub(all) enum LoweringProfile {
   Canonical
@@ -99,12 +107,16 @@ pub(all) enum LoweringProfile {
   StreamCanonical
   LargeAdaptive
 } derive(Eq)
+pub fn LoweringProfile::equal(Self, Self) -> Bool
+pub fn LoweringProfile::not_equal(Self, Self) -> Bool
 
 pub(all) enum OutputMode {
   Markdown
   Debug
   Rag
 } derive(Eq)
+pub fn OutputMode::equal(Self, Self) -> Bool
+pub fn OutputMode::not_equal(Self, Self) -> Bool
 
 pub(all) enum ProbeSignalKind {
   CharCount
@@ -135,6 +147,8 @@ pub(all) enum ProbeSignalKind {
   ScannedPageCount
   NativeTextPageCount
 } derive(Eq)
+pub fn ProbeSignalKind::equal(Self, Self) -> Bool
+pub fn ProbeSignalKind::not_equal(Self, Self) -> Bool
 
 pub struct ProductOptions {
   mode : ConvertMode
@@ -154,6 +168,8 @@ pub(all) enum RenderProfile {
   PageWindowMarkdown
   RecordBatchMarkdown
 } derive(Eq)
+pub fn RenderProfile::equal(Self, Self) -> Bool
+pub fn RenderProfile::not_equal(Self, Self) -> Bool
 
 pub struct ResourceLimits {
   max_rows : Int

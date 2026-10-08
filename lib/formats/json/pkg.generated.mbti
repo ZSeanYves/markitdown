@@ -39,6 +39,8 @@ pub fn profile_json_document(String) -> JsonProfiledDocument raise
 pub(all) suberror JsonError {
   ParseError(String)
 }
+pub fn JsonError::output(Self, &Logger) -> Unit
+pub fn JsonError::to_string(Self) -> String
 pub impl Show for JsonError
 
 // Types and methods
@@ -68,6 +70,8 @@ pub(all) enum JsonErrorKind {
   ExpectedToken
   Unknown
 } derive(Eq)
+pub fn JsonErrorKind::equal(Self, Self) -> Bool
+pub fn JsonErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct JsonInspectReport {
   node_count : Int
@@ -123,6 +127,8 @@ pub(all) enum JsonStreamEventKind {
   BoolValue
   NullValue
 } derive(Eq)
+pub fn JsonStreamEventKind::equal(Self, Self) -> Bool
+pub fn JsonStreamEventKind::not_equal(Self, Self) -> Bool
 
 pub struct JsonStreamSource {
   line : Int

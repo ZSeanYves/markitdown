@@ -25,21 +25,23 @@ and recursive-dispatch budgets; nested archives are unsupported. Encrypted PDF,
 Office, and ODF inputs fail closed. Document-embedded images remain assets and
 are not sent to OCR.
 
-Direct image OCR, audio transcription, and accurate PDF are optional local
-integrations. Executable and model fingerprints are recorded under
-`env/fingerprints/`; install and verify them through
-`tools/env/optional_deps.sh`. Conversion should run with the least filesystem
-privileges required for the selected input and output paths.
+The 0.8 product is text-only. It does not execute image OCR, scanned-page
+recognition, audio transcription, model downloads or external recognizer
+installers. Images embedded in documents remain bounded assets, and PDF
+geometry is exposed only for pages with an existing text layer. Conversion
+should run with the least filesystem privileges required for the selected
+input and output paths.
 
-Core conversion is offline by default. Network access, external processes,
-OCR/audio runtimes and cloud services are optional capabilities with explicit
-resource limits. External commands use direct argv, bounded output, timeouts
-and process-group cleanup.
+Core conversion is offline by default. The product conversion path does not
+depend on Python, external processes, OCR/audio runtimes or cloud services.
+Benchmark and release tooling may invoke bounded external commands, using
+direct argv, bounded output, timeouts and process-group cleanup.
 
 ## Dependency Integrity
 
-GitHub Actions are pinned to commit SHAs. Model archives are pinned by SHA-256.
-System tools and Python environments are fingerprinted after installation.
+GitHub Actions are pinned to commit SHAs. Benchmark archives and Python
+environments are pinned and fingerprinted by the benchmark tooling only; they
+are not product runtime inputs.
 Release archives publish SHA-256 checksums and an SPDX SBOM. The Microsoft
 MarkItDown benchmark profile is development-only and is not loaded by the
 native product runtime.

@@ -157,7 +157,7 @@ fn chunked_source_io_reader(
     fn(offset, length) {
       let start = offset.to_int()
       let end = (start + length.min(max_chunk)).min(bytes.length())
-      Ok(bytes.view(start~, end~).to_owned())
+      Ok(bytes.exact_view(start~, end~).to_owned())
     },
     size=bytes.length().to_int64(),
   )
@@ -172,7 +172,7 @@ test "streaming UTF8 reader preserves emoji CRLF and provenance offsets" {
     chunked_source_io_reader(bytes, 1),
     chunk_size=1,
   ).unwrap()
-  let collected = StringBuilder::new()
+  let collected = StringBuilder()
   let mut last : SourceTextChunk? = None
   while true {
     match (reader.next)().unwrap() {

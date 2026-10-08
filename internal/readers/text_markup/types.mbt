@@ -6,6 +6,9 @@ pub(all) enum TextMarkupFormat {
 } derive(Eq)
 
 ///|
+pub extend TextMarkupFormat with Eq::{equal, not_equal}
+
+///|
 pub(all) enum TextMarkupBlockKind {
   Heading
   Paragraph
@@ -19,11 +22,17 @@ pub(all) enum TextMarkupBlockKind {
 } derive(Eq)
 
 ///|
+pub extend TextMarkupBlockKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum TextMarkupInlineKind {
   Text
   Link
   Code
 } derive(Eq)
+
+///|
+pub extend TextMarkupInlineKind with Eq::{equal, not_equal}
 
 ///|
 pub struct TextMarkupBlock {

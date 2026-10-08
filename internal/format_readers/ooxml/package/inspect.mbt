@@ -169,7 +169,7 @@ pub fn list_relationship_infos(
 
 ///|
 pub fn dump_ooxml_package(pkg : @ox.OoxmlPackage) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string(dump_package_summary(pkg))
   out.write_string("\n")
   out.write_string(dump_relationships_summary(pkg))
@@ -183,7 +183,7 @@ pub fn dump_ooxml_package(pkg : @ox.OoxmlPackage) -> String {
 ///|
 pub fn dump_package_summary(pkg : @ox.OoxmlPackage) -> String {
   let report = inspect_ooxml_package(pkg)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[Content_Types]\n")
   out.write_string("part count: ")
   out.write_string(report.part_count.to_string())
@@ -200,7 +200,7 @@ pub fn dump_package_summary(pkg : @ox.OoxmlPackage) -> String {
 ///|
 pub fn dump_relationships_summary(pkg : @ox.OoxmlPackage) -> String {
   let report = inspect_ooxml_package(pkg)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[relationships]\n")
   out.write_string("root relationships:\n")
   write_relationship_infos(out, report.package_relationships)
@@ -224,7 +224,7 @@ pub fn dump_relationships_summary(pkg : @ox.OoxmlPackage) -> String {
 ///|
 pub fn dump_media_assets_summary(pkg : @ox.OoxmlPackage) -> String {
   let report = inspect_ooxml_package(pkg)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[media]\n")
   out.write_string("media asset count: ")
   out.write_string(report.media_asset_count.to_string())
@@ -248,7 +248,7 @@ pub fn dump_media_assets_summary(pkg : @ox.OoxmlPackage) -> String {
 ///|
 pub fn dump_properties_summary(pkg : @ox.OoxmlPackage) -> String {
   let report = inspect_ooxml_package(pkg)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let core = report.core_properties
   let app = report.app_properties
 

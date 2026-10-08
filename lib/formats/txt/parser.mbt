@@ -32,7 +32,7 @@ pub fn txt_parser() -> @parser.Parser {
         }
       }
       let inspect = prepared.inspect.unwrap_or(inspect_text_document(parsed))
-      let events : Array[@core.CoreEvent] = Array::new(
+      let events : Array[@core.CoreEvent] = Array(
         capacity=parsed.lines.length(),
       )
       let max_line_chars = context.max_line_chars.unwrap_or(4000)
@@ -228,7 +228,7 @@ fn open_txt_event_stream(
   diagnostics.metrics.set("event_semantics", "line_event_stream")
   diagnostics.metrics.set("stream_parser_to_renderer", "true")
   @fshared.apply_product_metrics(diagnostics, "txt")
-  let current = Ref(StringBuilder::new())
+  let current = Ref(StringBuilder())
   let current_chars = Ref(0)
   let line_truncated = Ref(false)
   let line_no = Ref(1)
@@ -258,7 +258,7 @@ fn open_txt_event_stream(
       Some(line_no.val),
       Some(line_no.val),
     )
-    current.val = StringBuilder::new()
+    current.val = StringBuilder()
     current_chars.val = 0
     if line_truncated.val {
       long_line_count.val += 1

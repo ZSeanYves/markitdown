@@ -308,7 +308,7 @@ fn new_json_stream_parser(
     column: 1,
     byte_offset: 0,
     events: if collect_events {
-      Array::new(capacity=text.length() / 8)
+      Array(capacity=text.length() / 8)
     } else {
       []
     },

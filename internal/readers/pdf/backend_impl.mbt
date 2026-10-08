@@ -9,6 +9,9 @@ pub(all) enum PdfNativeError {
 } derive(Eq)
 
 ///|
+pub extend PdfNativeError with Eq::{equal, not_equal}
+
+///|
 pub impl Show for PdfNativeError with fn to_string(self : PdfNativeError) -> String {
   match self {
     BackendUnavailable(msg) => msg

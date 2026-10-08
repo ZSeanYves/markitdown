@@ -187,7 +187,7 @@ fn build_ooxml_relationship_index(
 fn clone_ooxml_relationships(
   rels : Array[OoxmlRelationship],
 ) -> Array[OoxmlRelationship] {
-  let out : Array[OoxmlRelationship] = Array::new(capacity=rels.length())
+  let out : Array[OoxmlRelationship] = Array(capacity=rels.length())
   for rel in rels {
     out.push(rel)
   }

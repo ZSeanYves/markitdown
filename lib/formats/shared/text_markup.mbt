@@ -195,7 +195,7 @@ fn text_markup_compact_events(
   diagnostics : @core.Diagnostics,
   hooks : TextMarkupHooks,
 ) -> Array[@core.CoreEvent] {
-  let events : Array[@core.CoreEvent] = Array::new(
+  let events : Array[@core.CoreEvent] = Array(
     capacity=doc.blocks.length() + doc.blocks.length() / 4,
   )
   let pending : Array[@dmark.TextMarkupBlock] = []
@@ -453,12 +453,12 @@ fn text_markup_render_inline_markdown(
   text : String,
   format : @dmark.TextMarkupFormat,
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for inline in @dmark.parse_text_markup_inlines(text, format) {
     match inline.kind {
       Text => text_markup_write_escaped_inline(out, inline.text)
       Link => {
-        let label_out = StringBuilder::new()
+        let label_out = StringBuilder()
         text_markup_write_escaped_inline(label_out, inline.text)
         let label = label_out.to_string().trim().to_owned()
         let href = inline.href.unwrap_or("").trim().to_owned()
@@ -551,7 +551,7 @@ fn text_markup_inline_code_fence(text : String) -> String {
     }
   }
   let width = if max_run + 1 < 1 { 1 } else { max_run + 1 }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for _ in 0..<width {
     out.write_char('`')
   }
@@ -705,7 +705,7 @@ pub fn lower_text_markup_document(
 ) -> @core.DocumentIR {
   let document = {
     ..@core.empty_document_ir(),
-    blocks: Array::new(capacity=doc.blocks.length()),
+    blocks: Array(capacity=doc.blocks.length()),
   }
   let pending_list_items : Array[@dmark.TextMarkupBlock] = []
   let inline_cache : Map[String, Array[@core.CoreInline]] = Map([])

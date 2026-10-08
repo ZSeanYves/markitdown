@@ -28,6 +28,9 @@ pub(all) enum BatchTaskStatus {
 } derive(Eq)
 
 ///|
+pub extend BatchTaskStatus with Eq::{equal, not_equal}
+
+///|
 enum CliFailureKind {
   UsageFailure
   DetectionFailure
@@ -37,7 +40,10 @@ enum CliFailureKind {
 } derive(Eq)
 
 ///|
-struct CliFailure {
+pub extend CliFailureKind with Eq::{equal, not_equal}
+
+///|
+priv struct CliFailure {
   kind : CliFailureKind
   message : String
 }
@@ -70,7 +76,7 @@ fn cli_public_result(
 
 ///|
 /// Per-file batch execution outcome used in manifest and summary generation.
-struct BatchTaskResult {
+priv struct BatchTaskResult {
   input_path : String
   relative_path : String
   status : BatchTaskStatus

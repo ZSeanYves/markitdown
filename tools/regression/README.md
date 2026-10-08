@@ -13,7 +13,7 @@ Formal corpora come from the quality-lab commit pinned by
 | `check_balance.sh` | `external_main_process/MANIFEST.tsv` | Exact Markdown output, structured RAG expectations, and exact asset files |
 | `check_balance_quality.sh` | `external_quality/MANIFEST.tsv` | Approved real-world files satisfy every declared semantic/asset signal |
 | `check_accurate.sh` | `external_accurate/MANIFEST.tsv` | Accurate runtime preflight succeeds and every accurate-only signal passes |
-| `check_coverage.sh --enforce` | MoonBit Cobertura output plus the 0.6 format baseline | core >=90%, formats >=80%, tools >=70%, no format drops by more than 0.5pp, and changed production lines >=80% when a baseline ref is supplied |
+| `moon run check_coverage.mbtx --enforce` | MoonBit Cobertura output plus the 0.8 format baseline | core >=90%, formats >=80%, tools >=70%, no format drops by more than 0.5pp, and changed production lines >=80% when a baseline ref is supplied |
 | `mutation_smoke.py` | Deterministic mutations of enrolled seeds | Two runs are identical and each mutation either succeeds with non-empty output or fails cleanly on stderr |
 | `self_baseline.py` | Benchmark `samples.jsonl` plus the approved platform baseline from `markitdown-quality-lab/performance_baselines/` | Fingerprints, inputs and output hashes match; median time/RSS regress by no more than 10% |
 
@@ -78,7 +78,7 @@ separately and must be reviewed rather than silently changing the expectation.
 
 ## Coverage, Mutation and Baselines
 
-Coverage groups are defined in `lib/coverage_gate.py`. Generated PDF tables are
+Coverage groups are defined in `coverage_gate.mbtx`. Generated PDF tables are
 excluded explicitly; parser/control-flow files are not. `--enforce` returns
 non-zero when any group misses its threshold or a format falls more than 0.5
 percentage points below `coverage-baseline.json`. Set
@@ -109,7 +109,7 @@ moon build --target native --package ZSeanYves/markitdown
 ./tools/regression/check_balance.sh
 ./tools/regression/check_balance_quality.sh
 ./tools/regression/check_accurate.sh
-./tools/regression/check_coverage.sh --enforce
+moon run tools/regression/check_coverage.mbtx --enforce
 python3 tools/regression/mutation_smoke.py
 ```
 

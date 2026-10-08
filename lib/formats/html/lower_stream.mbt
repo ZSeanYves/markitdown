@@ -179,7 +179,7 @@ fn html_lower_scope_events_to_blocks(
 ) -> (Array[@core.CoreBlock], Int) {
   let state = {
     blocks: [],
-    text: StringBuilder::new(),
+    text: StringBuilder(),
     text_start_line: 0,
     text_end_line: 0,
     text_kind: Paragraph,
@@ -281,9 +281,9 @@ priv struct HtmlChildListItemFrame {
 fn html_child_inline_state() -> HtmlChildInlineState {
   {
     inlines: [],
-    text: StringBuilder::new(),
-    compact_plain: StringBuilder::new(),
-    compact_markdown: StringBuilder::new(),
+    text: StringBuilder(),
+    compact_plain: StringBuilder(),
+    compact_markdown: StringBuilder(),
     compact_has_markup: false,
     text_line_start: 0,
     text_line_end: 0,
@@ -321,7 +321,7 @@ fn html_child_inline_materialize_pending_text(
     return
   }
   let text = current.inline_state.text.to_string()
-  current.inline_state.text = StringBuilder::new()
+  current.inline_state.text = StringBuilder()
   let line_start = current.inline_state.text_line_start
   let line_end = current.inline_state.text_line_end
   current.inline_state.text_line_start = 0
@@ -499,7 +499,7 @@ fn html_child_text_state(
     block_order: 0,
     inline_order: 0,
     link_depth: 0,
-    link_text: StringBuilder::new(),
+    link_text: StringBuilder(),
     link_href: None,
     link_line_start: 0,
     link_line_end: 0,

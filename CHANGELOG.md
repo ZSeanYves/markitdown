@@ -105,23 +105,25 @@
 - Native PDF exports DCT JPEG and deterministic PNG for supported decoded image
   models, with masks/alpha and resource budgets; unsupported encodings remain
   explicit diagnostics rather than fake PNG files.
-- ZIP dispatch distinguishes referenced assets from standalone images. It can
-  dispatch bounded native PDF/audio children and OCR standalone image children
-  while preserving original assets; nested archives remain a non-goal.
-- Direct image OCR supports `png/jpg/jpeg/bmp/webp/tif/tiff`. PDF accurate uses
-  complete-page `pdftoppm` plus PaddleOCR and is separate from embedded assets.
+- ZIP dispatch distinguishes referenced assets from standalone images while
+  preserving original assets; nested archives remain a non-goal. Image and
+  audio inputs are detected and fail closed with `UnsupportedCapability`.
+- The 0.8 text-only boundary removes direct image OCR, scanned-page OCR, audio
+  transcription, model management and their external installers. PDF geometry,
+  document images, subtitle timing and Office/ODF `accurate` semantics remain
+  available where the input already carries the relevant text or metadata.
 
-### Optional runtimes
+### Build and benchmark environment
 
-- `tools/env/optional_deps.sh` is the only recommended dependency entrypoint for
-  `core`, `balance`, `audio`, `accurate`, `bench`, and `all` profiles.
-- Historical profile installers moved to `tools/env/installers/` as internal
-  compatibility entrypoints.
-- Managed installs are locked, atomic, fingerprinted, checksum-verified, and
-  stored under ignored `env/`.
-- Official audio and PaddleOCR wrappers establish their deterministic child
-  environment, so normal repo-root use does not require sourcing generated env
-  files.
+- The conversion product has no Python, model, Tesseract, FFmpeg, Poppler,
+  OCR or audio runtime dependency.
+- The only managed environment is the pinned Python benchmark oracle, installed
+  by `tools/env/installers/install_bench_baseline_deps.sh`; it is never loaded
+  by the product executable.
+- Release smoke checks use the MoonBit-native
+  `tools/release/smoke_capabilities.mbtx` entrypoint. Shell/Python programs
+  remain only where they control external benchmark, process or packaging
+  tools that have no equivalent product API.
 
 ### Validation and release
 

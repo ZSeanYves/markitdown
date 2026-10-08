@@ -13,6 +13,9 @@ pub struct NativeMeasureSpec {
 } derive(Eq)
 
 ///|
+pub extend NativeMeasureSpec with Eq::{equal, not_equal}
+
+///|
 pub struct NativeMeasureData {
   exit_code : Int
   timed_out : Bool
@@ -27,10 +30,16 @@ pub struct NativeMeasureData {
 } derive(Eq)
 
 ///|
+pub extend NativeMeasureData with Eq::{equal, not_equal}
+
+///|
 pub struct NativeMeasureResult {
   status : Int
   data : NativeMeasureData
 } derive(Eq)
+
+///|
+pub extend NativeMeasureResult with Eq::{equal, not_equal}
 
 ///|
 fn encode_c_string_blob(values : Array[String]) -> Bytes {

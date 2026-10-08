@@ -20,7 +20,7 @@ pub fn open_markdown_line_event_sink(
     push: fn(event) {
       match event.kind {
         TextLine => {
-          let line = StringBuilder::new()
+          let line = StringBuilder()
           if !paragraph_open.val {
             if wrote_paragraph.val {
               line.write_string("\n\n")
@@ -41,7 +41,7 @@ pub fn open_markdown_line_event_sink(
           Ok(())
         }
         StartBlock(Raw) => {
-          let line = StringBuilder::new()
+          let line = StringBuilder()
           if wrote_paragraph.val {
             line.write_string("\n\n")
           }
@@ -78,7 +78,7 @@ pub fn open_markdown_subtitle_event_sink(
             paragraph.val = ""
             return Ok(())
           }
-          let out = StringBuilder::new()
+          let out = StringBuilder()
           if wrote_any.val {
             out.write_string("\n\n")
           }
@@ -107,7 +107,7 @@ pub fn open_markdown_subtitle_event_sink(
           if !in_quote.val {
             return Ok(())
           }
-          let out = StringBuilder::new()
+          let out = StringBuilder()
           if wrote_any.val {
             out.write_string("\n\n")
           }
@@ -117,7 +117,7 @@ pub fn open_markdown_subtitle_event_sink(
           write(out.to_string())
         }
         StartBlock(Raw) => {
-          let out = StringBuilder::new()
+          let out = StringBuilder()
           if wrote_any.val {
             out.write_string("\n\n")
           }
@@ -145,7 +145,7 @@ pub fn open_markdown_subtitle_event_sink(
       if !in_quote.val {
         return Ok(())
       }
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       if wrote_any.val {
         out.write_string("\n\n")
       }
@@ -174,7 +174,7 @@ pub fn open_markdown_table_event_sink(
     if width.val == 0 {
       width.val = row.length()
     }
-    let out = StringBuilder::new()
+    let out = StringBuilder()
     if wrote_table.val {
       out.write_char('\n')
     }
@@ -201,7 +201,7 @@ pub fn open_markdown_table_event_sink(
             Ok(_) => ()
             Err(message) => return Err(message)
           }
-          let out = StringBuilder::new()
+          let out = StringBuilder()
           if wrote_any.val {
             out.write_string("\n\n")
           }
@@ -230,7 +230,7 @@ pub fn open_markdown_table_event_sink(
           if event.text.trim() == "" {
             return Ok(())
           }
-          let out = StringBuilder::new()
+          let out = StringBuilder()
           if wrote_any.val {
             out.write_string("\n\n")
           }

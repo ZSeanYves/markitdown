@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/async",
   "moonbitlang/core/debug",
   "ZSeanYves/markitdown/lib/convert",
   "ZSeanYves/markitdown/lib/core",
@@ -10,9 +9,14 @@ import {
 }
 
 import {
+  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
 } for "wbtest"
+
+import {
+  "moonbitlang/async",
+} for "test"
 
 options(
   "preferred-target": "native",

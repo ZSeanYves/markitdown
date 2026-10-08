@@ -160,7 +160,7 @@ test "RST include remains a reference and does not read files" {
 
 ///|
 test "RST large document uses compact events with complete structure metrics" {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let paragraph = "Paragraph with `link <https://example.test>`_ and stable repeated payload."
   for i in 0..<6000 {
     out.write_string("Section ")

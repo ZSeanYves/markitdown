@@ -60,6 +60,9 @@ pub(all) enum TomlErrorKind {
 } derive(Eq)
 
 ///|
+pub extend TomlErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard TOML parse failures.
 pub struct TomlErrorInfo {
   kind : TomlErrorKind

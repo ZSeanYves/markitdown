@@ -7,11 +7,17 @@ pub(all) enum ConvertMode {
 } derive(Eq)
 
 ///|
+pub extend ConvertMode with Eq::{equal, not_equal}
+
+///|
 /// Fidelity target requested by the caller after mode normalization.
 pub(all) enum FidelityMode {
   Balanced
   Accurate
 } derive(Eq)
+
+///|
+pub extend FidelityMode with Eq::{equal, not_equal}
 
 ///|
 /// Public output views selected before the render stage.
@@ -22,6 +28,9 @@ pub(all) enum OutputMode {
 } derive(Eq)
 
 ///|
+pub extend OutputMode with Eq::{equal, not_equal}
+
+///|
 /// Coarse execution profiles selected by route planning for differently sized
 /// inputs.
 pub(all) enum ExecutionProfile {
@@ -29,6 +38,9 @@ pub(all) enum ExecutionProfile {
   MediumAdaptive
   LargeAdaptive
 } derive(Eq)
+
+///|
+pub extend ExecutionProfile with Eq::{equal, not_equal}
 
 ///|
 /// Lowering profiles that tune how aggressively parsers and pipeline preserve
@@ -41,6 +53,9 @@ pub(all) enum LoweringProfile {
 } derive(Eq)
 
 ///|
+pub extend LoweringProfile with Eq::{equal, not_equal}
+
+///|
 /// Render profiles that shape Markdown or JSON emission details.
 pub(all) enum RenderProfile {
   DefaultMarkdown
@@ -51,6 +66,9 @@ pub(all) enum RenderProfile {
   PageWindowMarkdown
   RecordBatchMarkdown
 } derive(Eq)
+
+///|
+pub extend RenderProfile with Eq::{equal, not_equal}
 
 ///|
 /// Quantitative probe signal kinds collected during route planning.
@@ -85,6 +103,9 @@ pub(all) enum ProbeSignalKind {
 } derive(Eq)
 
 ///|
+pub extend ProbeSignalKind with Eq::{equal, not_equal}
+
+///|
 /// Accurate-mode features that can be enabled selectively per format.
 pub(all) enum AccurateFeature {
   PdfPageAppendix
@@ -107,6 +128,9 @@ pub(all) enum AccurateFeature {
   OdpNotesAppendix
   OdpSlideSummary
 } derive(Eq)
+
+///|
+pub extend AccurateFeature with Eq::{equal, not_equal}
 
 ///|
 /// Accurate-mode features that are intentionally opt-in on a per-format basis.

@@ -119,7 +119,7 @@ fn yaml_fold_block_scalar_lines(text : String) -> String {
   if lines.length() == 0 {
     return ""
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut previous_blank = false
   for i in 0..<lines.length() {
     let line = lines[i].to_owned()

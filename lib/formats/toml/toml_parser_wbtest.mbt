@@ -67,7 +67,7 @@ test "TOML parser accepts conservative scalar and table edge corpus" {
 
 ///|
 test "TOML large homogeneous array suffix is strict and lossless" {
-  let out = StringBuilder::new(size_hint=1_200_000)
+  let out = StringBuilder(size_hint=1_200_000)
   out.write_string("title = 'prefix'\n")
   let padding = "x".repeat(1000)
   for i in 0..<1024 {

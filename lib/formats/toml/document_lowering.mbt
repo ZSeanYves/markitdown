@@ -116,7 +116,7 @@ fn append_toml_fast_array_table(
       toml_source_ref_from_path(source, fast.base_path, start_line, end_line),
     ),
   )
-  let rows : Array[Array[String]] = Array::new(capacity=fast.rows.length() + 1)
+  let rows : Array[Array[String]] = Array(capacity=fast.rows.length() + 1)
   rows.push(fast.keys)
   rows.append(fast.rows[:])
   document.blocks.push(
@@ -151,7 +151,7 @@ fn toml_compact_table_block_from_rows(
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
   let table = @core.block_with_children(
     @core.make_block(Table, "table", source_ref=table_ref),
-    Array::new(capacity=rows.length()),
+    Array(capacity=rows.length()),
   )
   table.attrs.set("header_rows", "1")
   table.attrs.set("toml_compact_table_v1", "true")
@@ -432,7 +432,7 @@ fn toml_table_block_from_rows(
   line_end : Int?,
 ) -> @core.CoreBlock {
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
-  let row_paths : Array[String] = Array::new(capacity=rows.length())
+  let row_paths : Array[String] = Array(capacity=rows.length())
   @fshared.make_indexed_table_block(
     rows,
     table_ref,
@@ -716,7 +716,7 @@ fn toml_member_row(
   entries : Array[TomlMember],
   keys : Array[String],
 ) -> Array[String] {
-  let row : Array[String] = Array::new(capacity=keys.length())
+  let row : Array[String] = Array(capacity=keys.length())
   for i in 0..<keys.length() {
     row.push(toml_value_cell(entries[i].value))
   }

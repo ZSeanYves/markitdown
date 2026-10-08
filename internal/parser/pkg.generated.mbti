@@ -233,6 +233,8 @@ pub(all) enum ParserMode {
   MediaPipeline
   ContainerRecursive
 } derive(Eq)
+pub fn ParserMode::equal(Self, Self) -> Bool
+pub fn ParserMode::not_equal(Self, Self) -> Bool
 
 pub struct ParserRegistration {
   name : String
@@ -250,16 +252,22 @@ pub(all) enum PdfHeaderFooterFilterPolicy {
   Disabled
   InternalHighConfidenceOnly
 } derive(Eq)
+pub fn PdfHeaderFooterFilterPolicy::equal(Self, Self) -> Bool
+pub fn PdfHeaderFooterFilterPolicy::not_equal(Self, Self) -> Bool
 
 pub(all) enum PdfNativeRuntimePolicy {
   DisableTextRestore
   EnableTextRestore
 } derive(Eq)
+pub fn PdfNativeRuntimePolicy::equal(Self, Self) -> Bool
+pub fn PdfNativeRuntimePolicy::not_equal(Self, Self) -> Bool
 
 pub(all) enum PdfTableReconstructionPolicy {
   Disabled
   InternalSimpleRowsOnly
 } derive(Eq)
+pub fn PdfTableReconstructionPolicy::equal(Self, Self) -> Bool
+pub fn PdfTableReconstructionPolicy::not_equal(Self, Self) -> Bool
 
 pub(all) enum StreamingGranularity {
   Byte
@@ -286,6 +294,8 @@ pub(all) enum StreamingGranularity {
   Message
   None
 } derive(Eq)
+pub fn StreamingGranularity::equal(Self, Self) -> Bool
+pub fn StreamingGranularity::not_equal(Self, Self) -> Bool
 
 pub struct UnifiedParserRegistry {
   parsers : Map[String, Array[ParserRegistration]]

@@ -8,6 +8,12 @@ pub(all) enum InputKind {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend InputKind with Eq::{equal, not_equal}
+
+///|
+pub extend InputKind with @debug.Debug::{to_repr}
+
+///|
 /// An input whose storage details remain private to the API adapter.
 ///
 /// Use the `Input::from_*` constructors instead of depending on the legacy
@@ -26,12 +32,24 @@ pub(all) enum ConvertMode {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend ConvertMode with Eq::{equal, not_equal}
+
+///|
+pub extend ConvertMode with @debug.Debug::{to_repr}
+
+///|
 /// Stable output representations.
 pub(all) enum OutputMode {
   Markdown
   Debug
   Rag
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend OutputMode with Eq::{equal, not_equal}
+
+///|
+pub extend OutputMode with @debug.Debug::{to_repr}
 
 ///|
 /// Stable resource ceilings for one conversion.
@@ -46,6 +64,12 @@ pub struct ResourceLimits {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend ResourceLimits with Eq::{equal, not_equal}
+
+///|
+pub extend ResourceLimits with @debug.Debug::{to_repr}
+
+///|
 /// Stable RAG chunking policy.
 pub struct RagOptions {
   chunk_size : Int
@@ -55,6 +79,12 @@ pub struct RagOptions {
   split_tables : Bool
   split_code_blocks : Bool
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend RagOptions with Eq::{equal, not_equal}
+
+///|
+pub extend RagOptions with @debug.Debug::{to_repr}
 
 ///|
 /// Stable 0.8 conversion options.
@@ -67,11 +97,23 @@ pub struct ConvertOptions {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend ConvertOptions with Eq::{equal, not_equal}
+
+///|
+pub extend ConvertOptions with @debug.Debug::{to_repr}
+
+///|
 /// Diagnostic severity exposed independently from internal parser models.
 pub(all) enum DiagnosticSeverity {
   Warning
   Error
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend DiagnosticSeverity with Eq::{equal, not_equal}
+
+///|
+pub extend DiagnosticSeverity with @debug.Debug::{to_repr}
 
 ///|
 /// One stable, machine-classifiable conversion diagnostic.
@@ -80,6 +122,12 @@ pub struct Diagnostic {
   severity : DiagnosticSeverity
   message : String
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend Diagnostic with Eq::{equal, not_equal}
+
+///|
+pub extend Diagnostic with @debug.Debug::{to_repr}
 
 ///|
 /// Stable execution provenance. Every field is implementation-neutral text.
@@ -99,6 +147,12 @@ pub struct Provenance {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend Provenance with Eq::{equal, not_equal}
+
+///|
+pub extend Provenance with @debug.Debug::{to_repr}
+
+///|
 /// Stable source-local geometry.
 pub struct BoundingBox {
   x0 : Double
@@ -106,6 +160,12 @@ pub struct BoundingBox {
   x1 : Double
   y1 : Double
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend BoundingBox with Eq::{equal, not_equal}
+
+///|
+pub extend BoundingBox with @debug.Debug::{to_repr}
 
 ///|
 /// Stable source location independent of parser and IR implementation types.
@@ -140,6 +200,12 @@ pub struct SourceRef {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend SourceRef with Eq::{equal, not_equal}
+
+///|
+pub extend SourceRef with @debug.Debug::{to_repr}
+
+///|
 /// Stable provenance entry for one block or asset.
 pub struct SourceMapEntry {
   primary_ref : SourceRef?
@@ -150,12 +216,24 @@ pub struct SourceMapEntry {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend SourceMapEntry with Eq::{equal, not_equal}
+
+///|
+pub extend SourceMapEntry with @debug.Debug::{to_repr}
+
+///|
 /// Stable source map aligned with converted block and asset order.
 pub struct SourceMap {
   document_ref : SourceRef?
   block_entries : Array[SourceMapEntry]
   asset_entries : Array[SourceMapEntry]
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend SourceMap with Eq::{equal, not_equal}
+
+///|
+pub extend SourceMap with @debug.Debug::{to_repr}
 
 ///|
 /// Asset categories emitted by conversion.
@@ -168,12 +246,24 @@ pub(all) enum AssetKind {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend AssetKind with Eq::{equal, not_equal}
+
+///|
+pub extend AssetKind with @debug.Debug::{to_repr}
+
+///|
 /// Materializable stable asset content.
 pub(all) enum AssetPayload {
   Bytes(Bytes)
   Utf8(String)
   SourcePath(String)
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend AssetPayload with Eq::{equal, not_equal}
+
+///|
+pub extend AssetPayload with @debug.Debug::{to_repr}
 
 ///|
 /// One materializable or logical asset discovered during conversion.
@@ -188,6 +278,12 @@ pub struct Asset {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend Asset with Eq::{equal, not_equal}
+
+///|
+pub extend Asset with @debug.Debug::{to_repr}
+
+///|
 /// One retrieval-oriented output chunk.
 pub struct Chunk {
   id : String
@@ -198,6 +294,12 @@ pub struct Chunk {
   asset_refs : Array[String]
   metadata_json : String
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend Chunk with Eq::{equal, not_equal}
+
+///|
+pub extend Chunk with @debug.Debug::{to_repr}
 
 ///|
 /// Stable conversion output shared by Markdown, debug, and RAG modes.
@@ -215,6 +317,12 @@ pub struct Output {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend Output with Eq::{equal, not_equal}
+
+///|
+pub extend Output with @debug.Debug::{to_repr}
+
+///|
 /// Stability level of a format capability.
 #warnings("-unused_constructor")
 pub(all) enum CapabilityStatus {
@@ -223,6 +331,12 @@ pub(all) enum CapabilityStatus {
   ExternalRuntime
   Unsupported
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend CapabilityStatus with Eq::{equal, not_equal}
+
+///|
+pub extend CapabilityStatus with @debug.Debug::{to_repr}
 
 ///|
 /// Public capability declaration for one accepted format label.
@@ -237,6 +351,12 @@ pub struct Capability {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend Capability with Eq::{equal, not_equal}
+
+///|
+pub extend Capability with @debug.Debug::{to_repr}
+
+///|
 /// Stable machine-readable conversion error identifiers.
 pub(all) enum ErrorCode {
   UnsupportedCapability
@@ -248,6 +368,12 @@ pub(all) enum ErrorCode {
 } derive(Eq, @debug.Debug)
 
 ///|
+pub extend ErrorCode with Eq::{equal, not_equal}
+
+///|
+pub extend ErrorCode with @debug.Debug::{to_repr}
+
+///|
 /// Typed conversion failures returned by the 0.8 API.
 pub(all) suberror ConvertError {
   UnsupportedCapability(String)
@@ -257,6 +383,12 @@ pub(all) suberror ConvertError {
   ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
   InvalidOption(String)
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend ConvertError with Eq::{equal, not_equal}
+
+///|
+pub extend ConvertError with @debug.Debug::{to_repr}
 
 ///|
 /// Marker for the compatibility surface frozen for the 0.8 release line.
@@ -272,3 +404,9 @@ pub struct ApiV1Migration {
   stable_package : String
   breaking_changes_allowed_before_target : Bool
 } derive(Eq, @debug.Debug)
+
+///|
+pub extend ApiV1Migration with Eq::{equal, not_equal}
+
+///|
+pub extend ApiV1Migration with @debug.Debug::{to_repr}

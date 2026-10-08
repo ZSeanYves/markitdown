@@ -11,6 +11,9 @@ pub(all) enum OdfDocumentKind {
 } derive(Eq)
 
 ///|
+pub extend OdfDocumentKind with Eq::{equal, not_equal}
+
+///|
 pub struct OdfPackageInfo {
   document_kind : OdfDocumentKind
   mimetype : String
@@ -39,6 +42,9 @@ pub(all) enum OdtBlockKind {
   Image
   NoteDefinition
 } derive(Eq)
+
+///|
+pub extend OdtBlockKind with Eq::{equal, not_equal}
 
 ///|
 pub struct OdtTableCell {
@@ -177,6 +183,9 @@ pub(all) enum OdpBlockKind {
   Notes
   Raw
 } derive(Eq)
+
+///|
+pub extend OdpBlockKind with Eq::{equal, not_equal}
 
 ///|
 pub struct OdpTableCell {

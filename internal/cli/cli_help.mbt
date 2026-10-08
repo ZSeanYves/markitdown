@@ -2,6 +2,7 @@
 let cli_console_enabled : Ref[Bool] = Ref(true)
 
 ///|
+#warnings("-unused_async")
 async fn cli_println(message : String) -> Unit {
   if cli_console_enabled.val {
     @host.write_stdout(message + "\n")
@@ -14,6 +15,7 @@ async fn print_cli_version() -> Unit {
 }
 
 ///|
+#warnings("-unused_async")
 async fn cli_write_stderr(_message : String) -> Unit {
   if !cli_console_enabled.val {
     return

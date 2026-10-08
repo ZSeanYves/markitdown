@@ -1,6 +1,4 @@
 import {
-  "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/string",
   "ZSeanYves/markitdown/lib/formats/epub" @fepub,
   "ZSeanYves/markitdown/lib/formats/shared" @fdelimited,
   "ZSeanYves/markitdown/lib/formats/docx" @fdocx,

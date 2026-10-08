@@ -46,13 +46,10 @@ checksum and install command. The workflow records the previous Git revision
 as a minimum rollback reference; publication still requires a fresh-machine
 rollback smoke test documented in the release checklist.
 
-Warnings are not silently grandfathered. The executable CI/RC check currently
-uses `--warn-list +73` because the pinned toolchain currently reports 432
-native, 422 Wasm and 445 all-target warnings while the source migration is in
-progress. These aggregate counts, toolchain versions, owner, expiry and
-remediation rule are recorded in `tools/governance/warning-baseline.json`; the
-diagnostic list is explicitly incomplete and must be refreshed before RC
-acceptance. The strict cleanup command
-`moon check --target all --warn-list +73 --deny-warn` remains a blocking release
-item. A warning baseline entry never changes that requirement and may not be
-silently extended.
+Warnings are not silently grandfathered. The pinned toolchain now passes
+`moon check --target all --warn-list +73 --deny-warn` with zero diagnostics on
+the local Native/Wasm/all-target runs. The reviewed evidence, toolchain
+versions and rerun rule are recorded in
+`tools/governance/warning-baseline.json`. The ODS/ODF white-box ZIP fixtures
+use the shared target-neutral test helper, so the build plan has no remaining
+target notices either.

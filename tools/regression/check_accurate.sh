@@ -8,7 +8,7 @@ ACCURATE_CORPUS_ROOT="$QUALITY_LAB_ROOT/external_accurate"
 ACCURATE_MANIFEST_PATH="$ACCURATE_CORPUS_ROOT/MANIFEST.tsv"
 ACCURATE_TMP_ROOT="${QUALITY_TMP_ROOT:-$ROOT/.tmp/accurate}"
 
-source "$ROOT/tools/env/share/install_runtime_deps_common.sh"
+source "$ROOT/tools/env/lib/common.sh"
 source "$ROOT/tools/regression/lib/shared/cli_runner.sh"
 source "$ROOT/tools/regression/lib/shared/external_signal_suite.sh"
 

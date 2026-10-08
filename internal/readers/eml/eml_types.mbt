@@ -14,11 +14,17 @@ pub(all) enum EmlTransferEncoding {
 } derive(Eq)
 
 ///|
+pub extend EmlTransferEncoding with Eq::{equal, not_equal}
+
+///|
 pub(all) enum EmlDispositionKind {
   Inline
   Attachment
   Other(String)
 } derive(Eq)
+
+///|
+pub extend EmlDispositionKind with Eq::{equal, not_equal}
 
 ///|
 pub struct EmlHeader {

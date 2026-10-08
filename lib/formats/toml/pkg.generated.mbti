@@ -25,6 +25,8 @@ pub fn toml_parser() -> @parser.Parser
 pub(all) suberror TomlError {
   ParseError(String)
 }
+pub fn TomlError::output(Self, &Logger) -> Unit
+pub fn TomlError::to_string(Self) -> String
 pub impl Show for TomlError
 
 // Types and methods
@@ -60,6 +62,8 @@ pub(all) enum TomlErrorKind {
   UnsupportedFeature
   Unknown
 } derive(Eq)
+pub fn TomlErrorKind::equal(Self, Self) -> Bool
+pub fn TomlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct TomlFastArrayTable {
   base_path : String

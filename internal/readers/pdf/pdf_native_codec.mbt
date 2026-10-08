@@ -1,4 +1,5 @@
 ///|
+#warnings("-unnecessary_annotation")
 pub fn inflate_pdf_stream(compressed : Bytes) -> Result[Bytes, String] {
   try @zlib.zlib_decompress(compressed) |> Ok catch {
     @zlib.ZlibError(_, message) => Err(message)
@@ -400,7 +401,7 @@ fn pdf_apply_png_predictor(
       return Err("PNG predictor row length mismatch")
     }
     let source = decoded.to_array()
-    let out : Array[Byte] = Array::new(capacity=decoded.length())
+    let out : Array[Byte] = Array(capacity=decoded.length())
     let mut previous_row_start : Int? = None
     let mut source_row_start = 0
     while source_row_start < source.length() {
