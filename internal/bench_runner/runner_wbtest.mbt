@@ -1350,6 +1350,25 @@ async test "benchmark performance gate enforces per-row 2x and per-format 3x" {
 }
 
 ///|
+async test "benchmark performance gate evaluates retired media formats when present" {
+  let provenance = sample_route_provenance()
+  let moon = { ..sample_case_for_trust("moonbit-cli", provenance), format: "wav", }
+  let external = {
+    ..sample_case_for_trust("markitdown", provenance, expected_route=None),
+    format: "wav",
+    median_wall_us: Some(150L),
+  }
+  match performance_gate_summary([moon, external]) {
+    Object(fields) => {
+      assert_true(fields.get("status").unwrap() == "fail".to_json())
+      assert_true(fields.get("evaluated_rows").unwrap() == (1).to_json())
+      assert_true(fields.get("row_violation_count").unwrap() == (1).to_json())
+    }
+    _ => fail("performance gate must evaluate media rows as an object")
+  }
+}
+
+///|
 async test "benchmark performance gate is not applicable without an external comparison" {
   match performance_gate_summary([]) {
     Object(fields) => {

@@ -8,9 +8,9 @@
     "quality_lab_commit": "d079e50b3e5ac181283c6c818e931bd2ef936a13"
   },
   "fixtures": {
-    "file_count": 180,
+    "file_count": 162,
     "manifest_path": "tools/governance/fixtures.sha256",
-    "manifest_sha256": "3b8b453d800f6bd9bd44124ecb3cd654204955ac611bb13e27ca928deb473e5a",
+    "manifest_sha256": "44320f25a7dfac36ddfe56e8da9f639246879a149a7272f38aff3e7b4dad1921",
     "roots": [
       "samples/fixtures/contracts",
       "samples/fixtures/rejections"

@@ -42,8 +42,7 @@
         "diagnostic.asciidoc",
         "diagnostic.odt",
         "diagnostic.ods",
-        "diagnostic.odp",
-        "diagnostic.ocr"
+        "diagnostic.odp"
       ],
       "tiers": ["regular", "release", "stress"],
       "repeat_count": 5,
@@ -383,17 +382,6 @@
       "route_expectation": "product_default",
       "measurement_policy": "runner_generated",
       "official_membership": "none"
-    },
-    {
-      "scenario_id": "diagnostic.ocr",
-      "scenario_kind": "diagnostic",
-      "tool_set": "official-internal",
-      "row_selector": {
-        "formats": ["ocr"]
-      },
-      "route_expectation": "product_default",
-      "measurement_policy": "runner_generated",
-      "official_membership": "none"
     }
   ],
   "row_overrides": {
@@ -465,12 +453,6 @@
     },
     "odp_large_odf_toolkit_presentation1_v1": {
       "route_expectation": "block_streaming"
-    },
-    "ocr_medium_self_multi_column_v1": {
-      "route_expectation": "layout_two_stage"
-    },
-    "ocr_huge_commons_menu_scene_text_v1": {
-      "route_expectation": "layout_two_stage"
     }
   }
 }

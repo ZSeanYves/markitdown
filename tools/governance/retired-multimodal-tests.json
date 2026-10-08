@@ -32,7 +32,25 @@
     "tools/env/installers/install_ocr_pdf_accurate_deps.sh",
     "tools/env/share/install_audio_vosk_model.sh",
     "tools/env/wrappers/audio_transcribe_wrapper.py",
-    "tools/env/wrappers/paddle_ocr_wrapper.py"
+    "tools/env/wrappers/paddle_ocr_wrapper.py",
+    "samples/fixtures/contracts/audio/contract.m4a",
+    "samples/fixtures/contracts/audio/contract.mp3",
+    "samples/fixtures/contracts/audio/contract.wav",
+    "samples/fixtures/contracts/ocr/ocr_medium_self_multi_column_v1.png",
+    "samples/fixtures/contracts/ocr/ocr_tiny_bmp.bmp",
+    "samples/fixtures/contracts/ocr/ocr_tiny_bmp.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_jpeg.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_jpeg.jpeg",
+    "samples/fixtures/contracts/ocr/ocr_tiny_jpg.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_jpg.jpg",
+    "samples/fixtures/contracts/ocr/ocr_tiny_png.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_png.png",
+    "samples/fixtures/contracts/ocr/ocr_tiny_tif.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_tif.tif",
+    "samples/fixtures/contracts/ocr/ocr_tiny_tiff.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_tiff.tiff",
+    "samples/fixtures/contracts/ocr/ocr_tiny_webp.expected.md",
+    "samples/fixtures/contracts/ocr/ocr_tiny_webp.webp"
   ],
   "retired_tests": [
     {
