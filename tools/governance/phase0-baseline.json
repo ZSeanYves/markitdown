@@ -5,7 +5,7 @@
     "lock_sha256": "0dcf773e58750199153e164a4d7dd21a9d05304b2db837f9518f44653803795b",
     "markitdown_version": "0.1.7",
     "python_version": "3.11",
-    "quality_lab_commit": "d079e50b3e5ac181283c6c818e931bd2ef936a13"
+    "quality_lab_commit": "eb80a4a3ccc8ca2fa6b39816789a854ba2c20d2c"
   },
   "fixtures": {
     "file_count": 162,

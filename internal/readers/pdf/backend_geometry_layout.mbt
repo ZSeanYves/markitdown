@@ -257,7 +257,7 @@ fn pdf_apply_tounicode_bfrange(
               for offset in 0..<(end_code - start_code + 1) {
                 let key = pdf_hex_upper(start_code + offset, start_hex.length())
                 let codepoint = base_cp + offset
-                if codepoint > 0x10FFFF ||
+                if !pdf_codepoint_is_unicode_scalar(codepoint) ||
                   pdf_codepoint_is_noncharacter(codepoint) {
                   invalid_keys.set(key, true)
                 } else {
