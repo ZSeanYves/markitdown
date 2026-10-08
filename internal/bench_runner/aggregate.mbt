@@ -445,9 +445,6 @@ fn performance_gate_summary(cases : Array[CaseAggregate]) -> Json {
   let external = cases.filter(item => item.tool == "markitdown")
   let moonbit = cases.filter(item => item.tool == "moonbit-cli")
   for left in moonbit {
-    if performance_gate_excluded_format(left.format) {
-      continue
-    }
     for right in external {
       if left.bench_id == right.bench_id &&
         case_is_comparable(left) &&
@@ -471,9 +468,6 @@ fn performance_gate_summary(cases : Array[CaseAggregate]) -> Json {
     }
   }
   for format in formats {
-    if performance_gate_excluded_format(format.format) {
-      continue
-    }
     match format.cli_geomean_speedup {
       Some(speedup) if speedup < 3.0 =>
         format_violations.push(
@@ -503,11 +497,6 @@ fn performance_gate_summary(cases : Array[CaseAggregate]) -> Json {
     "row_violations": row_violations.to_json(),
     "format_violations": format_violations.to_json(),
   })
-}
-
-///|
-fn performance_gate_excluded_format(format : String) -> Bool {
-  ["ocr", "wav", "mp3", "m4a"].contains(format)
 }
 
 ///|

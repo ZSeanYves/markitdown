@@ -44,7 +44,7 @@ must state which of the three axes they cover.
 ## Contract corpus policy
 
 - Tracked local inputs are under `samples/fixtures/contracts/` and
-  `samples/fixtures/rejections/`; their 180-file hash manifest is tracked by
+  `samples/fixtures/rejections/`; their 162-file hash manifest is tracked by
   `tools/governance/fixtures.sha256`.
 - Large third-party and upstream inputs stay in the pinned
   `markitdown-quality-lab` checkout. The CI commit is recorded in the baseline
