@@ -7,6 +7,10 @@ QUALITY_LAB_ROOT="${MARKITDOWN_QUALITY_LAB:-$ROOT/markitdown-quality-lab}"
 ACCURATE_CORPUS_ROOT="$QUALITY_LAB_ROOT/external_accurate"
 ACCURATE_MANIFEST_PATH="$ACCURATE_CORPUS_ROOT/MANIFEST.tsv"
 ACCURATE_TMP_ROOT="${QUALITY_TMP_ROOT:-$ROOT/.tmp/accurate}"
+declare -a ORIGINAL_ARGS=()
+if [[ $# -gt 0 ]]; then
+  ORIGINAL_ARGS=("$@")
+fi
 
 source "$ROOT/tools/env/lib/common.sh"
 source "$ROOT/tools/regression/lib/shared/cli_runner.sh"

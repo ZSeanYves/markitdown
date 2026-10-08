@@ -123,6 +123,12 @@ run_markitdown_cli() {
 
 markitdown_cli_candidates() {
   local package="${1-}"
+  if [[ "$package" == "markitdown" ]]; then
+    cat <<EOF
+$CLI_MODULE_ROOT/_build/native/debug/build/markitdown.exe
+$CLI_MODULE_ROOT/_build/native/release/build/markitdown.exe
+EOF
+  fi
   cat <<EOF
 $CLI_MODULE_ROOT/_build/native/debug/build/$package/$package.exe
 $CLI_MODULE_ROOT/_build/native/release/build/$package/$package.exe
@@ -265,7 +271,7 @@ probe_markitdown_cli() {
   local cli_bin="$2"
   local probe_tmp_root
   probe_tmp_root="$(validation_cli_tmp_root)"
-  if [[ "$package" != "cli" ]]; then
+  if [[ "$package" != "markitdown" && "$package" != "cli" ]]; then
     return 1
   fi
   local tmp_root="$probe_tmp_root"
