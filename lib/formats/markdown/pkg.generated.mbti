@@ -58,6 +58,8 @@ pub(all) enum MarkdownBlockKind {
   BlankLine
   Other
 } derive(Eq)
+pub fn MarkdownBlockKind::equal(Self, Self) -> Bool
+pub fn MarkdownBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownDocument {
   source_length : Int
@@ -87,6 +89,8 @@ pub(all) enum MarkdownFrontmatterKind {
   Toml
   Unknown
 } derive(Eq)
+pub fn MarkdownFrontmatterKind::equal(Self, Self) -> Bool
+pub fn MarkdownFrontmatterKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownInspectReport {
   line_count : Int
@@ -137,6 +141,8 @@ pub(all) enum MarkdownValidationIssueKind {
   UnknownFrontmatterKind
   SuspiciousTableRow
 } derive(Eq)
+pub fn MarkdownValidationIssueKind::equal(Self, Self) -> Bool
+pub fn MarkdownValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownValidationReport {
   issue_count : Int
@@ -149,6 +155,8 @@ pub(all) enum MarkdownValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn MarkdownValidationSeverity::equal(Self, Self) -> Bool
+pub fn MarkdownValidationSeverity::not_equal(Self, Self) -> Bool
 
 pub struct PreparedMarkdownDocument {
   prepared_source : @input.InputSource

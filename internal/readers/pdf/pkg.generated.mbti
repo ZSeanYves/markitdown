@@ -131,6 +131,10 @@ pub(all) enum PdfNativeError {
   EmptyTextLayer(String)
   UnsupportedFeature(String)
 } derive(Eq)
+pub fn PdfNativeError::equal(Self, Self) -> Bool
+pub fn PdfNativeError::not_equal(Self, Self) -> Bool
+pub fn PdfNativeError::output(Self, &Logger) -> Unit
+pub fn PdfNativeError::to_string(Self) -> String
 pub impl Show for PdfNativeError
 
 pub struct PdfNativeFormField {
@@ -241,6 +245,8 @@ pub(all) enum PdfRawCjkEncodingKind {
   EucJp
   ShiftJis
 } derive(Eq)
+pub fn PdfRawCjkEncodingKind::equal(Self, Self) -> Bool
+pub fn PdfRawCjkEncodingKind::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

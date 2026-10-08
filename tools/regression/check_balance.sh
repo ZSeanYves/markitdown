@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 SAMPLE_IMPL="$ROOT/tools/regression/lib/validation/check_samples_impl.sh"
-source "$ROOT/tools/env/share/install_runtime_deps_common.sh"
+source "$ROOT/tools/env/lib/common.sh"
 source "$ROOT/tools/regression/lib/shared/cli_runner.sh"
 source "$ROOT/tools/regression/lib/shared/regression_common.sh"
 CHECK_TMP_ROOT="${MARKITDOWN_CHECK_TMP_ROOT:-$ROOT/.tmp/check}"

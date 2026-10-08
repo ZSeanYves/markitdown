@@ -10,6 +10,8 @@ Repository tooling is divided by responsibility:
 - `governance/`: immutable baseline, API/architecture, PR, toolchain, and
   documentation policy checks.
 - `release/`: deterministic local archive, checksum, and SBOM generation.
+  `smoke_capabilities.mbtx` runs the root executable's `--help` and
+  `--capabilities` smoke checks for Native or Wasm RC artifacts.
 
 Tools are development and release infrastructure; they are not imported by the
 native conversion core. Generated state belongs under ignored `env/` and

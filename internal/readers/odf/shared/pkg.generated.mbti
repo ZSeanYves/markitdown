@@ -30,6 +30,8 @@ pub fn open_odt_document(Bytes) -> OdtDocument raise
 pub(all) suberror OdfError {
   ParseError(String)
 }
+pub fn OdfError::output(Self, &Logger) -> Unit
+pub fn OdfError::to_string(Self) -> String
 pub impl Show for OdfError
 
 // Types and methods
@@ -38,6 +40,8 @@ pub(all) enum OdfDocumentKind {
   Ods
   Odp
 } derive(Eq)
+pub fn OdfDocumentKind::equal(Self, Self) -> Bool
+pub fn OdfDocumentKind::not_equal(Self, Self) -> Bool
 
 pub struct OdfMetadataSummary {
   title : String?
@@ -64,6 +68,8 @@ pub(all) enum OdpBlockKind {
   Notes
   Raw
 } derive(Eq)
+pub fn OdpBlockKind::equal(Self, Self) -> Bool
+pub fn OdpBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct OdpDocument {
   package_info : OdfPackageInfo
@@ -188,6 +194,8 @@ pub(all) enum OdtBlockKind {
   Image
   NoteDefinition
 } derive(Eq)
+pub fn OdtBlockKind::equal(Self, Self) -> Bool
+pub fn OdtBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct OdtDocument {
   package_info : OdfPackageInfo

@@ -107,7 +107,7 @@ test "OOXML inspect summary writers cover empty and populated relationships" {
   assert_eq(string_opt(None), "(none)")
   assert_eq(string_opt(Some("")), "(empty)")
   assert_eq(string_opt(Some("value")), "value")
-  let empty_out = StringBuilder::new()
+  let empty_out = StringBuilder()
   write_relationship_infos(empty_out, [])
   assert_eq(empty_out.to_string(), "  (none)\n")
   let rels = [
@@ -130,13 +130,13 @@ test "OOXML inspect summary writers cover empty and populated relationships" {
       resolved_target: "https://example.test",
     },
   ]
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_relationship_infos(out, rels)
   let rendered = out.to_string()
   assert_true(rendered.contains("id=rId1"))
   assert_true(rendered.contains("target_mode=Internal"))
   assert_true(rendered.contains("target_mode=External"))
-  let refs_out = StringBuilder::new()
+  let refs_out = StringBuilder()
   write_asset_refs_inline(refs_out, [])
   assert_eq(refs_out.to_string(), "[]")
 }

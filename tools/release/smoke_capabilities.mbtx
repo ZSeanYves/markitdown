@@ -1,0 +1,45 @@
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+}
+
+///|
+/// Run the same root executable smoke checks used by the release candidate
+/// workflow. The command and arguments stay separate so paths and flags are
+/// passed literally without a shell fallback.
+async fn main {
+  let args = @env.args()
+  if args.length() < 3 || args.length() > 4 {
+    fail(
+      "usage: smoke_capabilities.mbtx <repository-root> <native|wasm> [native-binary]",
+    )
+  }
+  let root = args[1]
+  let target = args[2]
+  if target == "native" {
+    if args.length() != 4 {
+      fail("native smoke requires the built binary path")
+    }
+    let binary = args[3]
+    @shell.Cmd(binary, ["--help"], cwd=root).run()
+    @shell.Cmd(binary, ["--capabilities"], cwd=root).run()
+  } else if target == "wasm" {
+    if args.length() != 3 {
+      fail("wasm smoke does not accept a native binary path")
+    }
+    @shell.Cmd(
+      "moon",
+      ["run", "--target", "wasm", ".", "--", "--help"],
+      cwd=root,
+    ).run()
+    @shell.Cmd(
+      "moon",
+      ["run", "--target", "wasm", ".", "--", "--capabilities"],
+      cwd=root,
+    ).run()
+  } else {
+    fail("target must be native or wasm")
+  }
+  println(target + " root capability smoke passed")
+}

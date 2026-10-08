@@ -4,8 +4,8 @@ fn decompress_deflate_raw_backend(
   max_output_size : Int,
 ) -> Bytes raise CodecError {
   @flate.inflate_exact(compressed, max_output=Some(max_output_size)) catch {
-    @flate.InflateError(OutputLimitExceeded, _) =>
+    InflateError(OutputLimitExceeded, _) =>
       raise OutputTooLarge(max_output_size, max_output_size + 1)
-    @flate.InflateError(_, message) => raise DecodeFailed(message)
+    InflateError(_, message) => raise DecodeFailed(message)
   }
 }

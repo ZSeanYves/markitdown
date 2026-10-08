@@ -13,7 +13,7 @@ fn container_test_read_sample_bytes(path : String) -> Bytes raise {
 
 ///|
 fn container_test_nested_office_zip_bytes() -> Bytes raise {
-  @therm.build_store_zip_bytes([
+  @dzip.build_store_zip_bytes([
     (
       "nested.docx",
       container_test_read_sample_bytes(
@@ -173,7 +173,7 @@ async test "zip referenced HTML image remains an asset and is not dispatched as 
 
 ///|
 async test "zip standalone GIF is exported as an asset without child dispatch" {
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     (
       "animation.gif",
       Bytes::from_array([

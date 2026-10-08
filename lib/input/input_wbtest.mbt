@@ -137,7 +137,7 @@ async test "async reader uses the async callback and keeps byte limits" {
       calls.val = calls.val + 1
       let start = offset.to_int()
       let end = (start + length).min(payload.length())
-      Ok(payload.view(start~, end~).to_owned())
+      Ok(payload.exact_view(start~, end~).to_owned())
     },
     size=payload.length().to_int64(),
   )
@@ -155,7 +155,7 @@ test "reader payload supports bounded detection and complete materialization" {
     fn(offset, length) {
       let start = offset.to_int()
       let end = (start + length).min(payload.length())
-      Ok(payload.view(start~, end~).to_owned())
+      Ok(payload.exact_view(start~, end~).to_owned())
     },
     size=payload.length().to_int64(),
   )

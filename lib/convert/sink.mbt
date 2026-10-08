@@ -83,7 +83,7 @@ async fn convert_input_to_sink_with_collection(
       Err(err) => return Err(err)
     }
   }
-  let collected = Ref(StringBuilder::new())
+  let collected = Ref(StringBuilder())
   let streaming_sink = make_output_sink(
     fn(chunk) {
       if collect_content {
@@ -181,7 +181,7 @@ async fn try_convert_event_stream_to_sink(
     Ok(None) => return Ok(None)
     Err(message) => return Err(ParseFailed(message))
   }
-  let content = Ref(StringBuilder::new())
+  let content = Ref(StringBuilder())
   let write_bounded = fn(chunk : String) -> Result[Unit, String] {
     let mut offset = 0
     while offset < chunk.length() {

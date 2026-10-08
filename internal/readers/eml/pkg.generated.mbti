@@ -20,6 +20,8 @@ pub fn prepare_eml_message_from_source(@input.InputSource) -> Result[PreparedEml
 pub(all) suberror EmlError {
   ParseError(String)
 }
+pub fn EmlError::output(Self, &Logger) -> Unit
+pub fn EmlError::to_string(Self) -> String
 pub impl Show for EmlError
 
 // Types and methods
@@ -48,6 +50,8 @@ pub(all) enum EmlDispositionKind {
   Attachment
   Other(String)
 } derive(Eq)
+pub fn EmlDispositionKind::equal(Self, Self) -> Bool
+pub fn EmlDispositionKind::not_equal(Self, Self) -> Bool
 
 pub struct EmlHeader {
   name : String
@@ -127,6 +131,8 @@ pub(all) enum EmlTransferEncoding {
   QuotedPrintable
   Other(String)
 } derive(Eq)
+pub fn EmlTransferEncoding::equal(Self, Self) -> Bool
+pub fn EmlTransferEncoding::not_equal(Self, Self) -> Bool
 
 pub struct PreparedEmlMessage {
   prepared_source : @input.InputSource

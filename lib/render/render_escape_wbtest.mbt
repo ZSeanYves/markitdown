@@ -9,7 +9,7 @@ test "markdown escape helpers cover punctuation minimal mode and unicode" {
     "*a* \\`b\\`",
   )
   assert_eq(escape_markdown_inline_text("😀"), "&#128512;")
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_escaped_markdown_inline_text_for_format_to(out, "a\\b", Some("minimal"))
   assert_eq(out.to_string(), "a\\\\b")
   assert_true(markdown_punctuation_needs_escape('|'))

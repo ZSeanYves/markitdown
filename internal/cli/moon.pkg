@@ -1,26 +1,23 @@
 import {
-  "moonbitlang/async",
-  "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/env",
   "ZSeanYves/markitdown/lib/convert",
   "ZSeanYves/markitdown/lib",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/internal/readers/zip" @dzip,
-  "ZSeanYves/markitdown/lib/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/lib/input",
   "ZSeanYves/markitdown/internal/parser",
-  "ZSeanYves/markitdown/lib/product",
   "ZSeanYves/markitdown/lib/rag",
   "ZSeanYves/markitdown/internal/host",
-  "ZSeanYves/markitdown/internal/runtime/process",
   "moonbitlang/x/fs",
 }
 
 import {
   "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+  "moonbitlang/async",
 } for "wbtest"
+
+supported_targets = "native+wasm"
 
 options(
   "preferred-target": "native",

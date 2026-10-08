@@ -5,7 +5,7 @@
       "formats": 81.91,
       "tools": 72.55
     },
-    "command": "./tools/regression/check_coverage.sh --enforce",
+    "command": "moon run tools/regression/check_coverage.mbtx --enforce",
     "threshold_percent": {
       "core": 90.0,
       "formats": 80.0,

@@ -33,7 +33,7 @@ async test "stable API converts Path, Text, Bytes, and Reader inputs" {
 
   let async_reader_output = convert(
     Input::from_async_reader(
-      async fn(offset, length) {
+      fn(offset, length) {
         let start = offset.to_int()
         if start >= bytes.length() {
           Ok(b"")

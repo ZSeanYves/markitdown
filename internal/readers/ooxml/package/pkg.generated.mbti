@@ -75,6 +75,8 @@ pub(all) suberror OoxmlError {
   InvalidPartPath(String)
   RelationshipNotFound(String, String)
 }
+pub fn OoxmlError::output(Self, &Logger) -> Unit
+pub fn OoxmlError::to_string(Self) -> String
 pub impl Show for OoxmlError
 
 // Types and methods
@@ -113,6 +115,8 @@ pub(all) enum OoxmlContentTypeInfoKind {
   DefaultExtension
   OverridePart
 } derive(Eq)
+pub fn OoxmlContentTypeInfoKind::equal(Self, Self) -> Bool
+pub fn OoxmlContentTypeInfoKind::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlCoreProperties {
   title : String?
@@ -144,6 +148,8 @@ pub(all) enum OoxmlErrorKind {
   DuplicateContentTypeOverride
   RelationshipNotFound
 } derive(Eq)
+pub fn OoxmlErrorKind::equal(Self, Self) -> Bool
+pub fn OoxmlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
@@ -187,6 +193,8 @@ pub(all) enum OoxmlTargetMode {
   Internal
   External
 } derive(Eq)
+pub fn OoxmlTargetMode::equal(Self, Self) -> Bool
+pub fn OoxmlTargetMode::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlValidationIssue {
   kind : OoxmlValidationIssueKind
@@ -207,11 +215,15 @@ pub(all) enum OoxmlValidationIssueKind {
   MissingRelationshipTarget
   UnsafeRelationshipTarget
 } derive(Eq)
+pub fn OoxmlValidationIssueKind::equal(Self, Self) -> Bool
+pub fn OoxmlValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum OoxmlValidationMode {
   Compatible
   Strict
 } derive(Eq)
+pub fn OoxmlValidationMode::equal(Self, Self) -> Bool
+pub fn OoxmlValidationMode::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlValidationReport {
   mode : OoxmlValidationMode
@@ -227,6 +239,8 @@ pub(all) enum OoxmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn OoxmlValidationSeverity::equal(Self, Self) -> Bool
+pub fn OoxmlValidationSeverity::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlXmlPartPayload {
   part_name : String

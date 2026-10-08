@@ -266,6 +266,9 @@ pub(all) enum ConvertError {
 } derive(Eq)
 
 ///|
+pub extend ConvertError with Eq::{equal, not_equal}
+
+///|
 pub impl Show for ConvertError with fn to_string(self : ConvertError) -> String {
   match self {
     UnsupportedCapability(msg) => "unsupported capability: " + msg

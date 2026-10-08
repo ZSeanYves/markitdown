@@ -87,7 +87,7 @@ fn docx_comment_block_without_inline_images(
   match block.rich_inlines {
     Some(inlines) => {
       let filtered : Array[@core.CoreInline] = []
-      let text = StringBuilder::new()
+      let text = StringBuilder()
       for inline in inlines {
         if inline.kind == Image {
           continue
@@ -471,7 +471,7 @@ fn docx_flatten_blocks_to_paragraph_like(
   prefix? : String = "",
 ) -> @core.CoreBlock? {
   let rich : Array[@core.CoreInline] = []
-  let plain = StringBuilder::new()
+  let plain = StringBuilder()
   let source_ref = docx_source_ref_from_key(state, source_key, None, None)
   let mut saw_content = false
   let mut is_first = true

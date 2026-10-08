@@ -19,6 +19,8 @@ pub fn prepare_ipynb_notebook_from_source(@input.InputSource) -> Result[Prepared
 pub(all) suberror IpynbError {
   ParseError(String)
 }
+pub fn IpynbError::output(Self, &Logger) -> Unit
+pub fn IpynbError::to_string(Self) -> String
 pub impl Show for IpynbError
 
 // Types and methods
@@ -46,6 +48,8 @@ pub(all) enum IpynbCellKind {
   Raw
   Unknown
 } derive(Eq)
+pub fn IpynbCellKind::equal(Self, Self) -> Bool
+pub fn IpynbCellKind::not_equal(Self, Self) -> Bool
 
 pub struct IpynbInspectReport {
   nbformat : Int?
@@ -112,6 +116,8 @@ pub(all) enum IpynbOutputKind {
   Error
   Unknown
 } derive(Eq)
+pub fn IpynbOutputKind::equal(Self, Self) -> Bool
+pub fn IpynbOutputKind::not_equal(Self, Self) -> Bool
 
 pub struct PreparedIpynbNotebook {
   prepared_source : @input.InputSource

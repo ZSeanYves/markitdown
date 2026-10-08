@@ -2,6 +2,8 @@
 package "ZSeanYves/markitdown/internal/readers/zip"
 
 // Values
+pub fn build_store_zip_bytes(Array[(String, Bytes)]) -> Bytes
+
 pub fn classify_zip_error(ZipError) -> ZipErrorInfo
 
 pub fn collect_zip_validation_issues(ZipArchive) -> Array[ZipValidationIssue]
@@ -46,6 +48,8 @@ pub(all) suberror CodecError {
   DecodeFailed(String)
   OutputTooLarge(Int, Int)
 }
+pub fn CodecError::output(Self, &Logger) -> Unit
+pub fn CodecError::to_string(Self) -> String
 pub impl Show for CodecError
 
 pub(all) suberror ZipError {
@@ -56,6 +60,8 @@ pub(all) suberror ZipError {
   EntryNotFound(String)
   DecodeFailed(String)
 }
+pub fn ZipError::output(Self, &Logger) -> Unit
+pub fn ZipError::to_string(Self) -> String
 pub impl Show for ZipError
 
 // Types and methods
@@ -64,6 +70,8 @@ pub(all) enum CompressionMethod {
   DeflateRaw
   Unsupported(Int)
 } derive(Eq)
+pub fn CompressionMethod::equal(Self, Self) -> Bool
+pub fn CompressionMethod::not_equal(Self, Self) -> Bool
 
 pub struct ZipArchive {
   bytes : Bytes
@@ -162,11 +170,15 @@ pub(all) enum ZipErrorKind {
   ReadEntryFailed
   Unknown
 } derive(Eq)
+pub fn ZipErrorKind::equal(Self, Self) -> Bool
+pub fn ZipErrorKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum ZipErrorMappingKind {
   DirectVariant
   BestEffortMessage
 } derive(Eq)
+pub fn ZipErrorMappingKind::equal(Self, Self) -> Bool
+pub fn ZipErrorMappingKind::not_equal(Self, Self) -> Bool
 
 pub struct ZipValidationIssue {
   kind : ZipValidationIssueKind
@@ -187,6 +199,8 @@ pub(all) enum ZipValidationIssueKind {
   FilenameTooLong
   DirectoryDepthExceeded
 } derive(Eq)
+pub fn ZipValidationIssueKind::equal(Self, Self) -> Bool
+pub fn ZipValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct ZipValidationReport {
   entry_count : Int
@@ -202,6 +216,8 @@ pub(all) enum ZipValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn ZipValidationSeverity::equal(Self, Self) -> Bool
+pub fn ZipValidationSeverity::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

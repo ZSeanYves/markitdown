@@ -5,6 +5,9 @@ pub(all) enum SubtitleFormat {
 } derive(Eq)
 
 ///|
+pub extend SubtitleFormat with Eq::{equal, not_equal}
+
+///|
 pub struct SubtitleCue {
   index : Int
   identifier : String?

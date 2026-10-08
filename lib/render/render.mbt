@@ -1,6 +1,6 @@
 ///|
 fn escape_markdown_inline_text(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_escaped_markdown_inline_text_to(out, text)
   out.to_string()
 }
@@ -52,7 +52,7 @@ fn write_escaped_markdown_inline_text_for_format_to(
 
 ///|
 fn escape_markdown_inline_text_html(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_escaped_markdown_inline_text_html_to(out, text)
   out.to_string()
 }
@@ -111,7 +111,7 @@ fn repeat_char_string(ch : Char, width : Int) -> String {
   if width <= 0 {
     return ""
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for _ in 0..<width {
     out.write_char(ch)
   }
@@ -178,7 +178,7 @@ fn escape_markdown_line_prefix(text : String) -> String {
     }) {
     Some((marker_index, suffix_index)) => {
       let chars = trimmed.to_array()
-      let out = StringBuilder::new()
+      let out = StringBuilder()
       out.write_string(String::from_array(chars[:marker_index].to_owned()))
       out.write_string("\\")
       out.write_char(chars[marker_index])
@@ -241,7 +241,7 @@ fn is_ascii_digit(ch : Char) -> Bool {
 
 ///|
 fn escape_markdown_literal_tail(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in text {
     let cp = ch.to_int()
     if cp > 0xFFFF {

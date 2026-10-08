@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-source "$ROOT/tools/env/share/install_runtime_deps_common.sh"
+source "$ROOT/tools/env/lib/common.sh"
 source "$ROOT/tools/regression/lib/shared/cli_runner.sh"
 source "$ROOT/tools/regression/lib/shared/external_signal_suite.sh"
 

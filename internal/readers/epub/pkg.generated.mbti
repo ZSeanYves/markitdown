@@ -63,6 +63,8 @@ pub(all) suberror EpubError {
   InvalidPackage(String)
   UnsupportedFeature(String)
 }
+pub fn EpubError::output(Self, &Logger) -> Unit
+pub fn EpubError::to_string(Self) -> String
 pub impl Show for EpubError
 
 // Types and methods
@@ -86,6 +88,8 @@ pub(all) enum EpubCoverCandidateSource {
   MetadataCover
   GuideReference
 } derive(Eq)
+pub fn EpubCoverCandidateSource::equal(Self, Self) -> Bool
+pub fn EpubCoverCandidateSource::not_equal(Self, Self) -> Bool
 
 pub struct EpubErrorInfo {
   kind : EpubErrorKind
@@ -111,6 +115,8 @@ pub(all) enum EpubErrorKind {
   UnsafeHref
   RemoteResourceBlocked
 } derive(Eq)
+pub fn EpubErrorKind::equal(Self, Self) -> Bool
+pub fn EpubErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct EpubInspectReport {
   source_name : String
@@ -256,6 +262,8 @@ pub(all) enum EpubValidationIssueKind {
   MissingNavigationDocument
   MultipleRootfiles
 } derive(Eq)
+pub fn EpubValidationIssueKind::equal(Self, Self) -> Bool
+pub fn EpubValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct EpubValidationReport {
   source_name : String
@@ -273,6 +281,8 @@ pub(all) enum EpubValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn EpubValidationSeverity::equal(Self, Self) -> Bool
+pub fn EpubValidationSeverity::not_equal(Self, Self) -> Bool
 
 pub struct EpubXmlPartPayload {
   path : String

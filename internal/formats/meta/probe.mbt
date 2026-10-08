@@ -7,6 +7,9 @@ pub(all) enum ProbeTemplate {
 } derive(Eq)
 
 ///|
+pub extend ProbeTemplate with Eq::{equal, not_equal}
+
+///|
 pub struct ProbeRegistration {
   format : @input.DetectedFormat
   template : ProbeTemplate

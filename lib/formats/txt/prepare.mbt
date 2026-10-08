@@ -79,7 +79,7 @@ fn text_text_needs_shared_cleanup(text : String) -> Bool {
 ///|
 fn normalize_text_line_endings(text : String) -> String {
   let chars = text.to_array()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < chars.length() {
     let ch = chars[i]

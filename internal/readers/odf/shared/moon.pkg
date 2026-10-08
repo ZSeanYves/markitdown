@@ -6,7 +6,7 @@ import {
 }
 
 import {
-  "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
+  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
 } for "wbtest"
 
 options(

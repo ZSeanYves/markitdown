@@ -856,7 +856,7 @@ fn yaml_mapping_summary_text(
   member_count : Int,
   samples : Array[String],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("{ ")
   out.write_string(member_count.to_string())
   out.write_string(" keys")
@@ -881,7 +881,7 @@ fn yaml_sequence_summary_text(
   item_count : Int,
   sample_values : Array[String],
 ) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[ ")
   out.write_string(item_count.to_string())
   out.write_string(" items")

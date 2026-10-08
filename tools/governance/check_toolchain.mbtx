@@ -1,0 +1,135 @@
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/async@0.22.4/stdio",
+  "moonbitlang/core/env",
+}
+
+///|
+/// Extract the second whitespace-delimited field from one `moon version`
+/// component line. The version command has a stable prefix for each component;
+/// keeping this parser local avoids depending on a JSON or Python runtime.
+fn component_version(output : String, component : String) -> String? {
+  let prefix = component + " "
+  for line in output.split("\n") {
+    let trimmed = line.trim()
+    if trimmed.has_prefix(prefix) {
+      let fields = trimmed.split(" ").to_array()
+      if fields.length() > 1 {
+        return Some(fields[1].to_owned())
+      }
+    }
+  }
+  None
+}
+
+///|
+/// Read a quoted scalar from the small, reviewed toolchain JSON pin.
+fn pinned_string(text : String, key : String) -> String? {
+  let needle = "\"" + key + "\""
+  for line in text.split("\n") {
+    if line.contains(needle) {
+      let fields = line.split(":").to_array()
+      if fields.length() > 1 {
+        let raw = fields[1].trim().to_owned()
+        let quoted = raw.split("\"").to_array()
+        if quoted.length() > 1 {
+          return Some(quoted[1].to_owned())
+        }
+        return Some(raw.replace(old=",", new="").trim().to_owned())
+      }
+    }
+  }
+  None
+}
+
+///|
+fn expected_pin(text : String, key : String, fallback : String) -> String {
+  pinned_string(text, key).unwrap_or(fallback)
+}
+
+///|
+/// Keep the former parser unit test as an executable MoonBit self-test.
+fn option_display(value : String?) -> String {
+  match value {
+    Some(text) => text
+    None => "<missing>"
+  }
+}
+
+///|
+fn run_self_test() -> Unit raise {
+  let sample =
+    "moon 0.1.20260920 (914d7da 2026-09-20)\n" +
+    "moonc v0.10.14+7d59c7ec9 (2026-09-18)\n" +
+    "moonrun 0.1.20260920 (914d7da 2026-09-20)\n"
+  assert_eq(component_version(sample, "moon"), Some("0.1.20260920"))
+  assert_eq(component_version(sample, "moonc"), Some("v0.10.14+7d59c7ec9"))
+  assert_eq(component_version(sample, "moonrun"), Some("0.1.20260920"))
+  let pin = "{\n  \"moon_version\": \"0.1.20260920\",\n  \"native_backend_env\": {\n    \"MOONBIT_NEW_NATIVE\": \"0\"\n  }\n}"
+  assert_eq(pinned_string(pin, "moon_version"), Some("0.1.20260920"))
+  assert_eq(pinned_string(pin, "MOONBIT_NEW_NATIVE"), Some("0"))
+  println("toolchain parser self-test passed")
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() == 2 && args[1] == "--self-test" {
+    run_self_test()
+    return
+  }
+  let print_pin = args.length() == 2 && args[1] == "--print"
+  if args.length() > 1 && !print_pin {
+    fail("usage: check_toolchain.mbtx [--print|--self-test]")
+  }
+  let root = @env.current_dir().unwrap_or(".")
+  let pin_path = root + "/tools/governance/toolchain.json"
+  let pin = @fs.read_file(pin_path).text()
+  if print_pin {
+    println(pin)
+  }
+  let expected_moon = @env.get_env_var("MOONBIT_VERSION").unwrap_or(
+    expected_pin(pin, "moon_version", ""),
+  )
+  let expected_moonc = @env.get_env_var("MOONBIT_EXPECTED_MOONC").unwrap_or(
+    expected_pin(pin, "moonc_version", ""),
+  )
+  let expected_moonrun = expected_pin(pin, "moonrun_version", "")
+  let expected_native = expected_pin(pin, "MOONBIT_NEW_NATIVE", "")
+  let output = @shell.Cmd("moon", ["version", "--all"], cwd=root).output()
+  let observed = output.stdout() + "\n" + output.stderr()
+  if output.exit_code() != 0 {
+    fail("cannot run moon version --all")
+  }
+  let errors : Array[String] = []
+  match component_version(observed, "moon") {
+    Some(actual) if actual == expected_moon => ()
+    actual => errors.push("moon_version: expected " + expected_moon + ", observed " + option_display(actual))
+  }
+  match component_version(observed, "moonc") {
+    Some(actual) if actual == expected_moonc => ()
+    actual => errors.push("moonc_version: expected " + expected_moonc + ", observed " + option_display(actual))
+  }
+  match component_version(observed, "moonrun") {
+    Some(actual) if actual == expected_moonrun => ()
+    actual => errors.push("moonrun_version: expected " + expected_moonrun + ", observed " + option_display(actual))
+  }
+  let actual_native = @env.get_env_var("MOONBIT_NEW_NATIVE")
+  if actual_native != Some(expected_native) {
+    errors.push(
+      "MOONBIT_NEW_NATIVE: expected " +
+      expected_native +
+      ", observed " +
+      option_display(actual_native),
+    )
+  }
+  if errors.length() > 0 {
+    for error in errors {
+      @stdio.stderr.write("toolchain mismatch: " + error + "\n")
+    }
+    fail("MoonBit toolchain does not match Phase 0 pin")
+  }
+  println("MoonBit toolchain matches Phase 0 pin")
+}

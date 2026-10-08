@@ -6,6 +6,9 @@ pub(all) enum PdfRawCjkEncodingKind {
 } derive(Eq)
 
 ///|
+pub extend PdfRawCjkEncodingKind with Eq::{equal, not_equal}
+
+///|
 pub(all) struct PdfRawCjkDecodeResult {
   text : String
   decoded_cjk_count : Int

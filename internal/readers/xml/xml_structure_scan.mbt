@@ -5,6 +5,9 @@ pub(all) enum XmlStructureScanStatus {
 } derive(Eq)
 
 ///|
+pub extend XmlStructureScanStatus with Eq::{equal, not_equal}
+
+///|
 pub struct XmlStructureScan {
   status : XmlStructureScanStatus
   node_count : Int

@@ -1,49 +1,4 @@
 ///|
-fn pdf_parser_wbtest_source_ref(
-  page : Int,
-  x0 : Double,
-  y0 : Double,
-  x1 : Double,
-  y1 : Double,
-) -> @core.SourceRef {
-  {
-    ..@core.source_ref_with_lines(
-      @core.empty_source_ref(),
-      Some("hybrid.pdf"),
-      Some("pdf"),
-      Some(1),
-      Some(1),
-    ),
-    page: Some(page),
-    bbox: Some({ x0, y0, x1, y1, }),
-  }
-}
-
-///|
-fn pdf_parser_wbtest_ensure_dir_tree(path : String) -> Unit raise @fs.IOError {
-  let normalized = path.trim().to_owned()
-  if normalized == "" || normalized == "." || @fs.path_exists(normalized) {
-    return
-  }
-  let parts = normalized.split("/")
-  let mut current = if normalized.has_prefix("/") { "/" } else { "" }
-  for raw in parts {
-    let part = raw.trim().to_owned()
-    if part == "" || part == "." {
-      continue
-    }
-    if current == "" || current == "/" {
-      current = if current == "/" { "/" + part } else { part }
-    } else {
-      current = current + "/" + part
-    }
-    if !@fs.path_exists(current) {
-      @fs.create_dir(current)
-    }
-  }
-}
-
-///|
 
 ///|
 test "PDF fail-closed diagnostics expose the internal reader boundary" {

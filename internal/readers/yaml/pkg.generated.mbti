@@ -28,6 +28,8 @@ pub fn yaml_value_kind(YamlValue) -> String
 pub(all) suberror YamlError {
   ParseError(String)
 }
+pub fn YamlError::output(Self, &Logger) -> Unit
+pub fn YamlError::to_string(Self) -> String
 pub impl Show for YamlError
 
 // Types and methods
@@ -72,6 +74,8 @@ pub(all) enum YamlErrorKind {
   MultiDocumentUnsupported
   Unknown
 } derive(Eq)
+pub fn YamlErrorKind::equal(Self, Self) -> Bool
+pub fn YamlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct YamlInspectReport {
   is_empty : Bool

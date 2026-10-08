@@ -53,7 +53,9 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain pin
-        run: python3 tools/governance/check_toolchain.py
+        run: moon run tools/governance/check_toolchain.mbtx
+      - name: Verify toolchain parser
+        run: moon run tools/governance/check_toolchain.mbtx --self-test
       - name: Verify baseline inputs
         run: python3 tools/governance/collect_baseline.py --check
       - name: Verify Phase 1 architecture boundaries
@@ -86,7 +88,7 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain pin
-        run: python3 tools/governance/check_toolchain.py
+        run: moon run tools/governance/check_toolchain.mbtx
       - run: moon update
       - name: Format
         run: moon fmt --check
@@ -136,7 +138,7 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain pin
-        run: python3 tools/governance/check_toolchain.py
+        run: moon run tools/governance/check_toolchain.mbtx
       - run: moon update
       - name: Run coverage gate
         env:
@@ -145,7 +147,7 @@ jobs:
           ./tools/regression/run_with_release_manifest.sh \
             --output .tmp/release/coverage.json \
             --artifact .tmp/coverage \
-            -- ./tools/regression/check_coverage.sh --enforce
+            -- moon run tools/regression/check_coverage.mbtx --enforce
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -198,7 +200,7 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain pin
-        run: python3 tools/governance/check_toolchain.py
+        run: moon run tools/governance/check_toolchain.mbtx
       - run: moon update
       - name: Build CLI
         run: moon build --target native --package ZSeanYves/markitdown
@@ -240,7 +242,7 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Verify toolchain pin
-        run: python3 tools/governance/check_toolchain.py
+        run: moon run tools/governance/check_toolchain.mbtx
       - run: moon update
       - name: Install benchmark baseline
         run: ./tools/env/installers/install_bench_baseline_deps.sh

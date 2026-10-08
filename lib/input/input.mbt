@@ -8,6 +8,9 @@ pub(all) enum InputKind {
 } derive(Eq)
 
 ///|
+pub extend InputKind with Eq::{equal, not_equal}
+
+///|
 /// Caller-owned random-access reader.
 ///
 /// `read_at` returns at most `length` bytes starting at `offset`. Returning an
@@ -179,12 +182,18 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 
 ///|
+pub extend ImageFormat with Eq::{equal, not_equal}
+
+///|
 /// Audio subtypes detected for unsupported-capability handling.
 pub(all) enum AudioFormat {
   Wav
   Mp3
   M4a
 } derive(Eq)
+
+///|
+pub extend AudioFormat with Eq::{equal, not_equal}
 
 ///|
 /// Canonical detected format enum used across CLI, routing, diagnostics, and
@@ -221,6 +230,9 @@ pub(all) enum DetectedFormat {
   Image(ImageFormat)
   Unknown
 } derive(Eq)
+
+///|
+pub extend DetectedFormat with Eq::{equal, not_equal}
 
 ///|
 /// Caller-supplied input handle for the product path.

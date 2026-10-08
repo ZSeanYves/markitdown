@@ -438,7 +438,7 @@ fn ipynb_stringify_json_value(value : @djson.JsonValue) -> String {
 
 ///|
 fn ipynb_escape_json_string(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in text {
     match ch {
       '"' => out.write_string("\\\"")

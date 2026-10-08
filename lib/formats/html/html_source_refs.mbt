@@ -170,7 +170,7 @@ fn html_child_blocks_sorted(
   index : HtmlLoweringIndex,
   keys : Array[String],
 ) -> Array[@dhtml.HtmlBlockFact] {
-  let out : Array[@dhtml.HtmlBlockFact] = Array::new(capacity=keys.length())
+  let out : Array[@dhtml.HtmlBlockFact] = Array(capacity=keys.length())
   for key in keys {
     match html_block_by_key(index, key) {
       Some(block) => out.push(block)
@@ -186,7 +186,7 @@ fn html_top_level_inline_segments_for_block(
   block_source_key : String,
   child_blocks : Array[@dhtml.HtmlBlockFact],
 ) -> Array[Array[@dhtml.HtmlInlineFact]] {
-  let segments : Array[Array[@dhtml.HtmlInlineFact]] = Array::new(
+  let segments : Array[Array[@dhtml.HtmlInlineFact]] = Array(
     capacity=child_blocks.length() + 1,
   )
   let mut segment_count = child_blocks.length() + 1
@@ -218,7 +218,7 @@ fn html_core_inline_segments_for_block(
   let fact_segments = html_top_level_inline_segments_for_block(
     index, block_source_key, child_blocks,
   )
-  let segments : Array[Array[@core.CoreInline]] = Array::new(
+  let segments : Array[Array[@core.CoreInline]] = Array(
     capacity=fact_segments.length(),
   )
   for facts in fact_segments {

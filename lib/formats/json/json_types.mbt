@@ -47,6 +47,9 @@ pub(all) enum JsonErrorKind {
 } derive(Eq)
 
 ///|
+pub extend JsonErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard JSON parse failures.
 pub struct JsonErrorInfo {
   kind : JsonErrorKind
@@ -77,6 +80,9 @@ pub(all) enum JsonStreamEventKind {
   BoolValue
   NullValue
 } derive(Eq)
+
+///|
+pub extend JsonStreamEventKind with Eq::{equal, not_equal}
 
 ///|
 pub struct JsonStreamSource {

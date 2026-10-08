@@ -1,6 +1,5 @@
 import {
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/core/string",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/formats/shared" @fshared,
   "ZSeanYves/markitdown/internal/readers/odf/odt" @dodf,

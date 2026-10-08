@@ -101,6 +101,8 @@ pub fn validate_tsv_document(CsvDocument) -> CsvValidationReport
 pub(all) suberror CsvError {
   ParseError(String)
 }
+pub fn CsvError::output(Self, &Logger) -> Unit
+pub fn CsvError::to_string(Self) -> String
 pub impl Show for CsvError
 
 // Types and methods
@@ -108,6 +110,8 @@ pub(all) enum CsvDelimiter {
   Comma
   Tab
 } derive(Eq)
+pub fn CsvDelimiter::equal(Self, Self) -> Bool
+pub fn CsvDelimiter::not_equal(Self, Self) -> Bool
 
 pub struct CsvDocument {
   delimiter : CsvDelimiter
@@ -125,6 +129,8 @@ pub(all) enum CsvErrorKind {
   UnterminatedQuotedField
   Unknown
 } derive(Eq)
+pub fn CsvErrorKind::equal(Self, Self) -> Bool
+pub fn CsvErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct CsvInspectReport {
   delimiter : CsvDelimiter
@@ -167,6 +173,8 @@ pub struct CsvValidationIssue {
 pub(all) enum CsvValidationIssueKind {
   RaggedRow
 } derive(Eq)
+pub fn CsvValidationIssueKind::equal(Self, Self) -> Bool
+pub fn CsvValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct CsvValidationReport {
   row_count : Int
@@ -181,6 +189,8 @@ pub(all) enum CsvValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn CsvValidationSeverity::equal(Self, Self) -> Bool
+pub fn CsvValidationSeverity::not_equal(Self, Self) -> Bool
 
 pub struct PreparedDelimitedDocument {
   prepared_source : @input.InputSource

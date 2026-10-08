@@ -32,7 +32,7 @@ fn parse_markup_document(
 ) -> TextMarkupDocument {
   let normalized = normalize_markup_text(text)
   let lines : Array[String] = if normalized.length() >= 1_048_576 {
-    Array::new(capacity=normalized.length() / 24)
+    Array(capacity=normalized.length() / 24)
   } else {
     []
   }
@@ -40,7 +40,7 @@ fn parse_markup_document(
     lines.push(line.to_owned())
   }
   let context = make_markup_parse_context(lines, format)
-  let blocks : Array[TextMarkupBlock] = Array::new(capacity=lines.length() / 2)
+  let blocks : Array[TextMarkupBlock] = Array(capacity=lines.length() / 2)
   let block_cache : Map[String, Array[CachedMarkupBlock]] = Map([])
   let cache_enabled = lines.length() >= 4096
   let mut i = 0
@@ -206,7 +206,7 @@ fn build_markup_semantic_lines(
   lines : Array[String],
   format : TextMarkupFormat,
 ) -> Array[String] {
-  let semantic_lines : Array[String] = Array::new(capacity=lines.length())
+  let semantic_lines : Array[String] = Array(capacity=lines.length())
   let cache : Map[String, String] = Map([])
   for line in lines {
     match cache.get(line) {
@@ -223,7 +223,7 @@ fn build_markup_semantic_lines(
 
 ///|
 fn build_trimmed_markup_lines(lines : Array[String]) -> Array[String] {
-  let trimmed : Array[String] = Array::new(capacity=lines.length())
+  let trimmed : Array[String] = Array(capacity=lines.length())
   let cache : Map[String, String] = Map([])
   for line in lines {
     match cache.get(line) {
@@ -252,7 +252,7 @@ fn build_tex_item_ordered_before_line(
   format : TextMarkupFormat,
 ) -> Array[Bool] {
   let states : Array[Bool] = if format == Tex {
-    Array::new(capacity=semantic_lines.length())
+    Array(capacity=semantic_lines.length())
   } else {
     []
   }

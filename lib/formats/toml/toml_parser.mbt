@@ -179,9 +179,7 @@ fn TomlParser::parse_key_value(self : TomlParser) -> Unit raise {
     line_start,
     line_end,
   }
-  self.insert_member(target_path, entry) catch {
-    e => raise e
-  }
+  self.insert_member(target_path, entry)
   self.skip_inline_comment_then_line_end()
 }
 

@@ -20,6 +20,9 @@ pub struct BenchRow {
 } derive(ToJson, FromJson, Eq)
 
 ///|
+pub extend BenchRow with Eq::{equal, not_equal}
+
+///|
 pub struct SelectorStats {
   requested_tier : String?
   requested_tiers : Array[String]
@@ -31,10 +34,16 @@ pub struct SelectorStats {
 } derive(ToJson, FromJson, Eq)
 
 ///|
+pub extend SelectorStats with Eq::{equal, not_equal}
+
+///|
 pub enum SelectOutput {
   Jsonl
   Tsv
 } derive(Eq)
+
+///|
+pub extend SelectOutput with Eq::{equal, not_equal}
 
 ///|
 pub struct SelectRequest {
@@ -47,6 +56,9 @@ pub struct SelectRequest {
   output : SelectOutput
   stats_only : Bool
 } derive(Eq)
+
+///|
+pub extend SelectRequest with Eq::{equal, not_equal}
 
 ///|
 fn make_bench_row(

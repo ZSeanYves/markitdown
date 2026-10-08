@@ -36,6 +36,9 @@ pub(all) enum PptxWarningSeverity {
 } derive(Eq)
 
 ///|
+pub extend PptxWarningSeverity with Eq::{equal, not_equal}
+
+///|
 pub(all) enum PptxWarningKind {
   MissingPresentation
   MissingSlideRelationship
@@ -49,6 +52,9 @@ pub(all) enum PptxWarningKind {
   OverBudget
   MalformedXml
 } derive(Eq)
+
+///|
+pub extend PptxWarningKind with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxCustomProperty {
@@ -89,6 +95,9 @@ pub(all) enum PptxTargetMode {
   Internal
   External
 } derive(Eq)
+
+///|
+pub extend PptxTargetMode with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxRelationship {
@@ -156,6 +165,9 @@ pub(all) enum PptxSourceObjectKind {
 } derive(Eq)
 
 ///|
+pub extend PptxSourceObjectKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum PptxObjectKind {
   Shape
   TextBox
@@ -168,6 +180,9 @@ pub(all) enum PptxObjectKind {
   Connector
   Unsupported
 } derive(Eq)
+
+///|
+pub extend PptxObjectKind with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum PptxPlaceholderKind {
@@ -184,6 +199,9 @@ pub(all) enum PptxPlaceholderKind {
 } derive(Eq)
 
 ///|
+pub extend PptxPlaceholderKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum PptxPlaceholderResolutionSource {
   Direct
   LayoutTypeIndex
@@ -194,11 +212,17 @@ pub(all) enum PptxPlaceholderResolutionSource {
 } derive(Eq)
 
 ///|
+pub extend PptxPlaceholderResolutionSource with Eq::{equal, not_equal}
+
+///|
 pub(all) enum PptxConfidence {
   High
   Medium
   Low
 } derive(Eq)
+
+///|
+pub extend PptxConfidence with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxPlaceholder {
@@ -241,6 +265,9 @@ pub(all) enum PptxReadingBucket {
 } derive(Eq)
 
 ///|
+pub extend PptxReadingBucket with Eq::{equal, not_equal}
+
+///|
 pub struct PptxReadingOrderHint {
   bucket : PptxReadingBucket
   priority : Int
@@ -263,6 +290,9 @@ pub(all) enum PptxLayoutRegionKind {
   Decorative
   Unknown
 } derive(Eq)
+
+///|
+pub extend PptxLayoutRegionKind with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxLayoutRegionHint {
@@ -293,6 +323,9 @@ pub(all) enum PptxBulletKind {
   Unordered
   Ordered
 } derive(Eq)
+
+///|
+pub extend PptxBulletKind with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxListHint {
@@ -347,6 +380,9 @@ pub(all) enum PptxMediaKind {
   Video
   Other
 } derive(Eq)
+
+///|
+pub extend PptxMediaKind with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxMediaRef {

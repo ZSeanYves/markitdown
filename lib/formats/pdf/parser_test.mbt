@@ -99,21 +99,6 @@ fn pdf_parser_test_line(
 }
 
 ///|
-fn pdf_parser_test_accurate_context() -> @parser.ParseContext {
-  @parser.parse_context_with_pdf_table_reconstruction_policy(
-    @parser.parse_context_with_pdf_header_footer_filter_policy(
-      @parser.parse_context_with_product_modes(
-        @parser.new_parse_context(Pdf),
-        Accurate,
-        Markdown,
-      ),
-      InternalHighConfidenceOnly,
-    ),
-    InternalSimpleRowsOnly,
-  )
-}
-
-///|
 test "pdf native parser lowers exportable image xobjects into image assets" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Pdf),
@@ -129,7 +114,7 @@ test "pdf native parser lowers exportable image xobjects into image assets" {
     "image-only.pdf",
     Some(Pdf),
   )
-  let parsed = pdf_native_parser_result(source, context)
+  let parsed = @pdf.pdf_native_parser_result(source, context)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
   assert_eq(document.blocks.length(), 1)
   assert_true(document.blocks[0].kind == Image)
@@ -162,7 +147,7 @@ test "pdf native parser scanned-like inputs stay fail closed with stable diagnos
     "empty.pdf",
     Some(Pdf),
   )
-  let empty_document = pdf_native_parser_result(empty_source, context).document.unwrap_or(
+  let empty_document = @pdf.pdf_native_parser_result(empty_source, context).document.unwrap_or(
     @core.empty_document_ir(),
   )
   assert_eq(empty_document.blocks.length(), 0)
@@ -188,7 +173,7 @@ test "pdf native parser scanned-like inputs stay fail closed with stable diagnos
     "unsupported-feature.pdf",
     Some(Pdf),
   )
-  let unsupported_document = pdf_native_parser_result(
+  let unsupported_document = @pdf.pdf_native_parser_result(
     unsupported_source, context,
   ).document.unwrap_or(@core.empty_document_ir())
   assert_eq(unsupported_document.blocks.length(), 0)
@@ -265,10 +250,10 @@ test "pdf native parser internal header footer filtering removes repeated high c
     make_page(1, "Body paragraph one"),
     make_page(2, "Body paragraph two"),
   ])
-  let default_document = pdf_native_document_to_ir(doc)
+  let default_document = @pdf.pdf_native_document_to_ir(doc)
   assert_eq(default_document.blocks.length(), 6)
 
-  let filtered_document = pdf_native_document_to_ir_with_policies(
+  let filtered_document = @pdf.pdf_native_document_to_ir_with_policies(
     doc,
     InternalHighConfidenceOnly,
     Disabled,
@@ -299,9 +284,9 @@ test "pdf native parser default product path can return document ir" {
     "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(Pdf),
   )
-  let parsed = pdf_native_parser_result(source, context)
+  let parsed = @pdf.pdf_native_parser_result(source, context)
   let document = parsed.document.unwrap_or(@core.empty_document_ir())
-  assert_true(parsed.parser_name == pdf_native_parser_name())
+  assert_true(parsed.parser_name == @pdf.pdf_native_parser_name())
   assert_true(parsed.mode == PageSinglePass)
   assert_true(document.blocks.length() >= 3)
   assert_true(document.blocks[0].text.contains("MarkItDown"))

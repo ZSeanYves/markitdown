@@ -1352,7 +1352,10 @@ async test "benchmark performance gate enforces per-row 2x and per-format 3x" {
 ///|
 async test "benchmark performance gate evaluates retired media formats when present" {
   let provenance = sample_route_provenance()
-  let moon = { ..sample_case_for_trust("moonbit-cli", provenance), format: "wav", }
+  let moon = {
+    ..sample_case_for_trust("moonbit-cli", provenance),
+    format: "wav",
+  }
   let external = {
     ..sample_case_for_trust("markitdown", provenance, expected_route=None),
     format: "wav",

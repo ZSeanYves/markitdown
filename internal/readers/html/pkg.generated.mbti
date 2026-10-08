@@ -58,6 +58,8 @@ pub fn validate_html_document(HtmlDocument) -> HtmlValidationReport
 pub(all) suberror HtmlError {
   ParseError(String)
 }
+pub fn HtmlError::output(Self, &Logger) -> Unit
+pub fn HtmlError::to_string(Self) -> String
 pub impl Show for HtmlError
 
 // Types and methods
@@ -73,6 +75,8 @@ pub(all) enum HtmlAttributeQuoteStyle {
   SingleQuoted
   Unquoted
 } derive(Eq)
+pub fn HtmlAttributeQuoteStyle::equal(Self, Self) -> Bool
+pub fn HtmlAttributeQuoteStyle::not_equal(Self, Self) -> Bool
 
 pub struct HtmlBlockFact {
   kind : HtmlBlockKind
@@ -105,6 +109,8 @@ pub(all) enum HtmlBlockKind {
   UnknownBlock
   UnsupportedBlock
 } derive(Eq)
+pub fn HtmlBlockKind::equal(Self, Self) -> Bool
+pub fn HtmlBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlBlockQuoteFact {
   source_key : String
@@ -183,6 +189,8 @@ pub(all) enum HtmlDocumentScopeSource {
   Fragment
   Heuristic
 } derive(Eq)
+pub fn HtmlDocumentScopeSource::equal(Self, Self) -> Bool
+pub fn HtmlDocumentScopeSource::not_equal(Self, Self) -> Bool
 
 pub struct HtmlElement {
   tag_name : String
@@ -206,6 +214,8 @@ pub(all) enum HtmlErrorKind {
   UnterminatedTag
   Unknown
 } derive(Eq)
+pub fn HtmlErrorKind::equal(Self, Self) -> Bool
+pub fn HtmlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlFigureFact {
   source_key : String
@@ -254,6 +264,8 @@ pub(all) enum HtmlImageKind {
   Unsafe
   Unknown
 } derive(Eq)
+pub fn HtmlImageKind::equal(Self, Self) -> Bool
+pub fn HtmlImageKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlInlineFact {
   kind : HtmlInlineKind
@@ -292,6 +304,8 @@ pub(all) enum HtmlInlineKind {
   UnsupportedInline
   UnknownInline
 } derive(Eq)
+pub fn HtmlInlineKind::equal(Self, Self) -> Bool
+pub fn HtmlInlineKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlInspectReport {
   node_count : Int
@@ -348,6 +362,8 @@ pub(all) enum HtmlLinkKind {
   Empty
   Unknown
 } derive(Eq)
+pub fn HtmlLinkKind::equal(Self, Self) -> Bool
+pub fn HtmlLinkKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlListFact {
   source_key : String
@@ -391,6 +407,8 @@ pub(all) enum HtmlListKind {
   Unordered
   Unknown
 } derive(Eq)
+pub fn HtmlListKind::equal(Self, Self) -> Bool
+pub fn HtmlListKind::not_equal(Self, Self) -> Bool
 
 pub(all) enum HtmlNode {
   Element(HtmlElement)
@@ -404,6 +422,8 @@ pub(all) enum HtmlNoiseCandidateConfidence {
   Medium
   Low
 } derive(Eq)
+pub fn HtmlNoiseCandidateConfidence::equal(Self, Self) -> Bool
+pub fn HtmlNoiseCandidateConfidence::not_equal(Self, Self) -> Bool
 
 pub struct HtmlNoiseCandidateFact {
   source_key : String
@@ -428,6 +448,8 @@ pub(all) enum HtmlNoiseCandidateReason {
   RepeatedBoilerplate
   Unknown
 } derive(Eq)
+pub fn HtmlNoiseCandidateReason::equal(Self, Self) -> Bool
+pub fn HtmlNoiseCandidateReason::not_equal(Self, Self) -> Bool
 
 pub struct HtmlNoteBodyFact {
   source_key : String
@@ -466,6 +488,8 @@ pub(all) enum HtmlNoteKind {
   BackReference
   Unknown
 } derive(Eq)
+pub fn HtmlNoteKind::equal(Self, Self) -> Bool
+pub fn HtmlNoteKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlNoteRefFact {
   source_key : String
@@ -490,6 +514,8 @@ pub(all) enum HtmlNoteRelationConfidence {
   Low
   Broken
 } derive(Eq)
+pub fn HtmlNoteRelationConfidence::equal(Self, Self) -> Bool
+pub fn HtmlNoteRelationConfidence::not_equal(Self, Self) -> Bool
 
 pub struct HtmlParagraphFact {
   source_key : String
@@ -738,6 +764,8 @@ pub(all) enum HtmlSemanticWarningKind {
   DuplicateNoteTarget
   MalformedDocumentScope
 } derive(Eq)
+pub fn HtmlSemanticWarningKind::equal(Self, Self) -> Bool
+pub fn HtmlSemanticWarningKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlSourceAnalysis {
   document : HtmlDocument
@@ -792,6 +820,8 @@ pub(all) enum HtmlTableCellKind {
   Data
   Unknown
 } derive(Eq)
+pub fn HtmlTableCellKind::equal(Self, Self) -> Bool
+pub fn HtmlTableCellKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlTableFact {
   source_key : String
@@ -865,6 +895,8 @@ pub(all) enum HtmlTableSectionKind {
   Foot
   Unknown
 } derive(Eq)
+pub fn HtmlTableSectionKind::equal(Self, Self) -> Bool
+pub fn HtmlTableSectionKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlText {
   text : String
@@ -896,6 +928,8 @@ pub(all) enum HtmlTokenEventKind {
   Comment
   Doctype
 } derive(Eq)
+pub fn HtmlTokenEventKind::equal(Self, Self) -> Bool
+pub fn HtmlTokenEventKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlTokenEventSummary {
   node_count : Int
@@ -957,6 +991,8 @@ pub(all) enum HtmlUnsupportedKind {
   MalformedTag
   UnknownUnsupported
 } derive(Eq)
+pub fn HtmlUnsupportedKind::equal(Self, Self) -> Bool
+pub fn HtmlUnsupportedKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlValidationIssue {
   kind : HtmlValidationIssueKind
@@ -977,6 +1013,8 @@ pub(all) enum HtmlValidationIssueKind {
   StyleElement
   EmptyDocument
 } derive(Eq)
+pub fn HtmlValidationIssueKind::equal(Self, Self) -> Bool
+pub fn HtmlValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct HtmlValidationReport {
   issue_count : Int
@@ -989,12 +1027,16 @@ pub(all) enum HtmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn HtmlValidationSeverity::equal(Self, Self) -> Bool
+pub fn HtmlValidationSeverity::not_equal(Self, Self) -> Bool
 
 pub(all) enum HtmlWarningSeverity {
   Info
   Warning
   Error
 } derive(Eq)
+pub fn HtmlWarningSeverity::equal(Self, Self) -> Bool
+pub fn HtmlWarningSeverity::not_equal(Self, Self) -> Bool
 
 pub struct PreparedHtmlDocument {
   prepared_source : @input.InputSource

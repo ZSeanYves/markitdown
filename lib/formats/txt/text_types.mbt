@@ -14,6 +14,9 @@ pub(all) enum TextNewlineStyle {
 } derive(Eq)
 
 ///|
+pub extend TextNewlineStyle with Eq::{equal, not_equal}
+
+///|
 /// Source-native line inventory for parsed text.
 pub struct TextLine {
   text : String
@@ -43,6 +46,9 @@ pub(all) enum TextErrorKind {
   Utf8DecodeFailed
   Unknown
 } derive(Eq)
+
+///|
+pub extend TextErrorKind with Eq::{equal, not_equal}
 
 ///|
 /// Stable classification for hard text decoding failures.

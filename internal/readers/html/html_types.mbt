@@ -21,6 +21,9 @@ pub(all) enum HtmlAttributeQuoteStyle {
 } derive(Eq)
 
 ///|
+pub extend HtmlAttributeQuoteStyle with Eq::{equal, not_equal}
+
+///|
 /// Public tokenizer output for tolerant HTML scanning.
 pub(all) enum HtmlToken {
   StartTag(String, Array[HtmlAttribute], Bool, HtmlSourceSpan)
@@ -38,6 +41,9 @@ pub(all) enum HtmlTokenEventKind {
   Comment
   Doctype
 } derive(Eq)
+
+///|
+pub extend HtmlTokenEventKind with Eq::{equal, not_equal}
 
 ///|
 pub struct HtmlTokenEvent {
@@ -116,6 +122,9 @@ pub(all) enum HtmlBlockKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlBlockKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlSemanticWarningKind {
   TextPreviewTruncated
   AttributeSummaryTruncated
@@ -136,11 +145,17 @@ pub(all) enum HtmlSemanticWarningKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlSemanticWarningKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlWarningSeverity {
   Info
   Warning
   Error
 } derive(Eq)
+
+///|
+pub extend HtmlWarningSeverity with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum HtmlUnsupportedKind {
@@ -174,6 +189,9 @@ pub(all) enum HtmlUnsupportedKind {
   MalformedTag
   UnknownUnsupported
 } derive(Eq)
+
+///|
+pub extend HtmlUnsupportedKind with Eq::{equal, not_equal}
 
 ///|
 pub struct HtmlSemanticWarning {
@@ -267,6 +285,9 @@ pub(all) enum HtmlInlineKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlInlineKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlLinkKind {
   Internal
   External
@@ -279,6 +300,9 @@ pub(all) enum HtmlLinkKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlLinkKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlImageKind {
   Local
   Remote
@@ -287,6 +311,9 @@ pub(all) enum HtmlImageKind {
   Unsafe
   Unknown
 } derive(Eq)
+
+///|
+pub extend HtmlImageKind with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum HtmlNoteKind {
@@ -298,12 +325,18 @@ pub(all) enum HtmlNoteKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlNoteKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlNoteRelationConfidence {
   High
   Medium
   Low
   Broken
 } derive(Eq)
+
+///|
+pub extend HtmlNoteRelationConfidence with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum HtmlDocumentScopeSource {
@@ -314,6 +347,9 @@ pub(all) enum HtmlDocumentScopeSource {
   Fragment
   Heuristic
 } derive(Eq)
+
+///|
+pub extend HtmlDocumentScopeSource with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum HtmlNoiseCandidateReason {
@@ -327,11 +363,17 @@ pub(all) enum HtmlNoiseCandidateReason {
 } derive(Eq)
 
 ///|
+pub extend HtmlNoiseCandidateReason with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlNoiseCandidateConfidence {
   High
   Medium
   Low
 } derive(Eq)
+
+///|
+pub extend HtmlNoiseCandidateConfidence with Eq::{equal, not_equal}
 
 ///|
 pub struct HtmlInlineFact {
@@ -411,6 +453,9 @@ pub(all) enum HtmlTableSectionKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlTableSectionKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlTableCellKind {
   Header
   Data
@@ -418,11 +463,17 @@ pub(all) enum HtmlTableCellKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlTableCellKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlListKind {
   Ordered
   Unordered
   Unknown
 } derive(Eq)
+
+///|
+pub extend HtmlListKind with Eq::{equal, not_equal}
 
 ///|
 pub struct HtmlTableFact {
@@ -964,6 +1015,9 @@ pub(all) enum HtmlErrorKind {
 } derive(Eq)
 
 ///|
+pub extend HtmlErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard HTML parse failures.
 pub struct HtmlErrorInfo {
   kind : HtmlErrorKind
@@ -977,6 +1031,9 @@ pub(all) enum HtmlValidationSeverity {
 } derive(Eq)
 
 ///|
+pub extend HtmlValidationSeverity with Eq::{equal, not_equal}
+
+///|
 pub(all) enum HtmlValidationIssueKind {
   DuplicateAttribute
   UnclosedElement
@@ -987,6 +1044,9 @@ pub(all) enum HtmlValidationIssueKind {
   StyleElement
   EmptyDocument
 } derive(Eq)
+
+///|
+pub extend HtmlValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 /// Validation issues surfaced after a successful tolerant HTML parse.

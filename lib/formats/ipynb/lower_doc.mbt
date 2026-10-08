@@ -1089,7 +1089,7 @@ fn ipynb_attachment_for_alt(
 
 ///|
 fn ipynb_slug(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut prev_hyphen = false
   for ch in text.trim().to_lower() {
     if (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') {

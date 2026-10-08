@@ -241,7 +241,7 @@ fn pptx_flush_unsupported_object_summary(
 fn pptx_visual_noise_summary_text(
   visual_noise : Array[(String, String)],
 ) -> String {
-  let parts = StringBuilder::new()
+  let parts = StringBuilder()
   parts.write_string("[PPTX visual-only objects omitted: ")
   let mut i = 0
   while i < visual_noise.length() {
@@ -262,7 +262,7 @@ fn pptx_visual_noise_summary_text(
 fn pptx_unsupported_object_summary_text(
   unsupported_objects : Array[(String, String)],
 ) -> String {
-  let parts = StringBuilder::new()
+  let parts = StringBuilder()
   parts.write_string("[PPTX unsupported objects summarized: ")
   let mut i = 0
   while i < unsupported_objects.length() {

@@ -1,6 +1,5 @@
 import {
   "ZSeanYves/markitdown/lib/core",
-  "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "moonbitlang/x/crypto",
   "moonbitlang/core/encoding/utf16",

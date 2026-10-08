@@ -1,6 +1,6 @@
 ///|
 fn render_markdown_blocks(blocks : Array[@core.CoreBlock]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let leaf_cache : Map[String, String] = Map([])
   ignore(write_markdown_blocks_to(out, blocks, leaf_cache~))
   out.to_string()
@@ -84,9 +84,7 @@ fn markdown_leaf_cache_key(
   }
   let attrs = block.attrs.to_array()
   attrs.sort_by(fn(left, right) { left.0.compare(right.0) })
-  let out = StringBuilder::new(
-    size_hint=block.text.length() + attrs.length() * 20,
-  )
+  let out = StringBuilder(size_hint=block.text.length() + attrs.length() * 20)
   out.write_string(kind)
   for entry in attrs {
     out.write_char('\u{0000}')
@@ -503,7 +501,7 @@ fn list_item_indent_for_marker(
 ///|
 fn indent_rendered_block(text : String, depth : Int) -> String {
   let indent = list_item_indent_for_marker(depth, false, 2)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let chars = text.to_array()
   let line : Array[Char] = []
   let mut wrote_any = false
@@ -566,7 +564,7 @@ fn render_markdown_table(block : @core.CoreBlock) -> String {
     _ => 1
   }
   let start = if header_rows == 0 { 0 } else { 1 }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   if header_rows == 0 {
     write_markdown_table_synthetic_header(out, width)
   } else {
@@ -592,7 +590,7 @@ fn render_markdown_compact_toml_table(block : @core.CoreBlock) -> String {
   let rows = block.children
   let header = rows[0].attrs.get("toml_compact_cells_v1").unwrap_or("")
   let width = header.split("\u{0000}").count()
-  let out = StringBuilder::new(size_hint=rows.length() * (width * 16 + 4))
+  let out = StringBuilder(size_hint=rows.length() * (width * 16 + 4))
   write_markdown_compact_cells(out, header, width)
   out.write_char('\n')
   write_markdown_table_separator(out, width)
@@ -656,7 +654,7 @@ fn render_markdown_html_table(block : @core.CoreBlock) -> String {
   ) catch {
     _ => 1
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("<table>\n")
   for index in 0..<rows.length() {
     let row = rows[index]
@@ -719,7 +717,7 @@ fn markdown_table_cell_text(cell : @core.CoreBlock) -> String {
 
 ///|
 fn markdown_escape_html_text(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in text.to_array() {
     if ch == '&' {
       out.write_string("&amp;")
@@ -736,7 +734,7 @@ fn markdown_escape_html_text(text : String) -> String {
 
 ///|
 fn markdown_escape_html_attr(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for ch in text.to_array() {
     if ch == '&' {
       out.write_string("&amp;")
@@ -827,7 +825,7 @@ fn render_markdown_image(block : @core.CoreBlock) -> String {
 
 ///|
 fn safe_markdown_table_cell(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_safe_markdown_table_cell_to(out, text)
   out.to_string().trim().to_owned()
 }
@@ -837,19 +835,19 @@ fn write_safe_markdown_table_cell_to(
   out : StringBuilder,
   text : String,
 ) -> Unit {
-  let mut pending_spaces = StringBuilder::new()
+  let mut pending_spaces = StringBuilder()
   let mut skip_leading_spaces_after_break = false
   for ch in text.to_array() {
     if ch == '|' {
       let pending = pending_spaces.to_string()
       if pending != "" {
         out.write_string(pending)
-        pending_spaces = StringBuilder::new()
+        pending_spaces = StringBuilder()
       }
       skip_leading_spaces_after_break = false
       out.write_string("\\|")
     } else if ch == '\n' {
-      pending_spaces = StringBuilder::new()
+      pending_spaces = StringBuilder()
       out.write_string("<br>")
       skip_leading_spaces_after_break = true
     } else if ch == ' ' || ch == '\t' {
@@ -861,7 +859,7 @@ fn write_safe_markdown_table_cell_to(
       let pending = pending_spaces.to_string()
       if pending != "" {
         out.write_string(pending)
-        pending_spaces = StringBuilder::new()
+        pending_spaces = StringBuilder()
       }
       skip_leading_spaces_after_break = false
       out.write_char(ch)
@@ -979,7 +977,7 @@ fn render_markdown_inline_text(block : @core.CoreBlock) -> String {
     None => ()
   }
   let escape_mode = @core.block_inline_escape_mode(block)
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   match block.rich_inlines {
     Some(inlines) =>
       for i in 0..<inlines.length() {

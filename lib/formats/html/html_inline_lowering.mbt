@@ -721,7 +721,7 @@ fn html_normalize_inline_text(text : String) -> String {
   if !has_layout_whitespace {
     return text
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut prev_space = false
   for ch in chars {
     if ch == '\n' || ch == '\r' || ch == '\t' || ch == ' ' {
@@ -754,7 +754,7 @@ fn html_product_href(link : @dhtml.HtmlLinkFact) -> String? {
 
 ///|
 fn html_render_plain_inlines(inlines : Array[@core.CoreInline]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for inline in inlines {
     match inline.kind {
       Text => out.write_string(inline.text)

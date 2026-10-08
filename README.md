@@ -144,7 +144,7 @@ moon fmt --check
 moon check --target all --warn-list +73
 moon test --target all
 python3 tools/governance/check_documentation.py
-./tools/regression/check_coverage.sh --enforce
+moon run tools/regression/check_coverage.mbtx --enforce
 ```
 
 External regression and formal performance runs additionally require the

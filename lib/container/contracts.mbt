@@ -11,6 +11,9 @@ pub enum ContainerAssetCopyPolicy {
 } derive(Eq)
 
 ///|
+pub extend ContainerAssetCopyPolicy with Eq::{equal, not_equal}
+
+///|
 /// Return the stable name for one container asset copy policy.
 pub fn container_asset_copy_policy_name(
   policy : ContainerAssetCopyPolicy,

@@ -14,7 +14,7 @@ moon build --target native --release --package ZSeanYves/markitdown
 moon build --target wasm --release --package ZSeanYves/markitdown
 python3 tools/governance/check_documentation.py
 MARKITDOWN_COVERAGE_BASELINE_REF=<base-sha> \
-  ./tools/regression/check_coverage.sh --enforce
+  moon run tools/regression/check_coverage.mbtx --enforce
 ```
 
 Changes to format behavior, routing, assets, optional runtimes, or release

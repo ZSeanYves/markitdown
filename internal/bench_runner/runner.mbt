@@ -24,12 +24,18 @@ pub struct BinaryContract {
 } derive(Eq)
 
 ///|
+pub extend BinaryContract with Eq::{equal, not_equal}
+
+///|
 pub struct BenchProgressState {
   enabled : Bool
   mode : String
   total : Int
   completed : Int
 } derive(Eq)
+
+///|
+pub extend BenchProgressState with Eq::{equal, not_equal}
 
 ///|
 pub struct ScenarioSpec {
@@ -44,6 +50,9 @@ pub struct ScenarioSpec {
 } derive(Eq)
 
 ///|
+pub extend ScenarioSpec with Eq::{equal, not_equal}
+
+///|
 pub struct ScenarioSummary {
   scenario_id : String
   scenario_kind : String
@@ -53,6 +62,9 @@ pub struct ScenarioSummary {
   trust_status : String
   gate_status : String
 } derive(ToJson, FromJson, Eq)
+
+///|
+pub extend ScenarioSummary with Eq::{equal, not_equal}
 
 ///|
 pub struct RunOptions {
@@ -72,6 +84,9 @@ pub struct RunOptions {
   resume_run_id : String?
   max_disk_mb : Int
 } derive(Eq)
+
+///|
+pub extend RunOptions with Eq::{equal, not_equal}
 
 ///|
 pub struct SampleRow {
@@ -107,6 +122,9 @@ pub struct SampleRow {
 } derive(ToJson, FromJson, Eq)
 
 ///|
+pub extend SampleRow with Eq::{equal, not_equal}
+
+///|
 pub struct CaseAggregate {
   schema_version : Int
   run_id : String
@@ -137,12 +155,18 @@ pub struct CaseAggregate {
 } derive(ToJson, FromJson, Eq)
 
 ///|
+pub extend CaseAggregate with Eq::{equal, not_equal}
+
+///|
 pub struct ToolSummary {
   tool : String
   rows : Int
   success_rows : Int
   median_wall_us : Int64?
 } derive(ToJson, FromJson, Eq)
+
+///|
+pub extend ToolSummary with Eq::{equal, not_equal}
 
 ///|
 pub struct FormatSummary {
@@ -153,6 +177,9 @@ pub struct FormatSummary {
   engine_geomean_speedup : Double?
   status : String
 } derive(ToJson, FromJson, Eq)
+
+///|
+pub extend FormatSummary with Eq::{equal, not_equal}
 
 ///|
 pub struct RunSummary {
@@ -172,6 +199,9 @@ pub struct RunSummary {
   resource_summary : Json?
   resume_summary : Json?
 } derive(ToJson, FromJson, Eq)
+
+///|
+pub extend RunSummary with Eq::{equal, not_equal}
 
 ///|
 async fn run_bench_cli_entry(

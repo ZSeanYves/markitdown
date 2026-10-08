@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/core/env",
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/lib/formats/json" @djson,
   "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,

@@ -15,6 +15,9 @@ pub(all) enum DocxSourceBlockKind {
 } derive(Eq)
 
 ///|
+pub extend DocxSourceBlockKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxSourceWarningKind {
   MissingMainDocument
   MalformedDocumentXml
@@ -38,6 +41,9 @@ pub(all) enum DocxSourceWarningKind {
   UnresolvedEndnoteRef
   UnresolvedCommentRef
 } derive(Eq)
+
+///|
+pub extend DocxSourceWarningKind with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum DocxWarningKind {
@@ -65,10 +71,16 @@ pub(all) enum DocxWarningKind {
 } derive(Eq)
 
 ///|
+pub extend DocxWarningKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxWarningSeverity {
   Warning
   Error
 } derive(Eq)
+
+///|
+pub extend DocxWarningSeverity with Eq::{equal, not_equal}
 
 ///|
 pub struct DocxSourceKey {
@@ -127,6 +139,9 @@ pub(all) enum DocxTargetMode {
   Internal
   External
 } derive(Eq)
+
+///|
+pub extend DocxTargetMode with Eq::{equal, not_equal}
 
 ///|
 pub struct DocxNumberingRef {
@@ -191,10 +206,16 @@ pub(all) enum DocxBookmarkKind {
 } derive(Eq)
 
 ///|
+pub extend DocxBookmarkKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxNoteKind {
   Footnote
   Endnote
 } derive(Eq)
+
+///|
+pub extend DocxNoteKind with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum DocxPartBodyKind {
@@ -204,11 +225,17 @@ pub(all) enum DocxPartBodyKind {
 } derive(Eq)
 
 ///|
+pub extend DocxPartBodyKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxPartDiscoverySource {
   Relationship
   ContentType
   ConventionalPath
 } derive(Eq)
+
+///|
+pub extend DocxPartDiscoverySource with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum DocxDiscoveredPartKind {
@@ -223,6 +250,9 @@ pub(all) enum DocxDiscoveredPartKind {
   Media
   Unknown
 } derive(Eq)
+
+///|
+pub extend DocxDiscoveredPartKind with Eq::{equal, not_equal}
 
 ///|
 pub struct DocxDiscoveredPart {
@@ -253,6 +283,9 @@ pub(all) enum DocxStructuralKind {
 } derive(Eq)
 
 ///|
+pub extend DocxStructuralKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxMediaRelationshipKind {
   Embed
   Link
@@ -260,10 +293,16 @@ pub(all) enum DocxMediaRelationshipKind {
 } derive(Eq)
 
 ///|
+pub extend DocxMediaRelationshipKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxMediaContainerKind {
   Drawing
   Pict
 } derive(Eq)
+
+///|
+pub extend DocxMediaContainerKind with Eq::{equal, not_equal}
 
 ///|
 pub(all) enum DocxBreakKind {
@@ -276,10 +315,16 @@ pub(all) enum DocxBreakKind {
 } derive(Eq)
 
 ///|
+pub extend DocxBreakKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum DocxHyphenKind {
   Soft
   NoBreak
 } derive(Eq)
+
+///|
+pub extend DocxHyphenKind with Eq::{equal, not_equal}
 
 ///|
 pub struct DocxSourceHyperlink {

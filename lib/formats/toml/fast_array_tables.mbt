@@ -15,7 +15,7 @@ fn prepare_fast_array_table_suffix(
   if text.length() < 1_048_576 {
     return None
   }
-  let prefix = StringBuilder::new()
+  let prefix = StringBuilder()
   let mut last_header = ""
   let mut run_start = 0
   let keys : Array[String] = []

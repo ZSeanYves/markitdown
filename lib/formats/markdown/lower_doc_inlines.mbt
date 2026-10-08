@@ -287,7 +287,7 @@ fn markdown_normalize_footnote_references(
     return text
   }
   let chars = text.to_array()
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut i = 0
   while i < chars.length() {
     if chars[i] == '[' {

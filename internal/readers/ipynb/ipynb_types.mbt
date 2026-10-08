@@ -12,6 +12,9 @@ pub(all) enum IpynbCellKind {
 } derive(Eq)
 
 ///|
+pub extend IpynbCellKind with Eq::{equal, not_equal}
+
+///|
 pub(all) enum IpynbOutputKind {
   Stream
   DisplayData
@@ -19,6 +22,9 @@ pub(all) enum IpynbOutputKind {
   Error
   Unknown
 } derive(Eq)
+
+///|
+pub extend IpynbOutputKind with Eq::{equal, not_equal}
 
 ///|
 pub struct IpynbNotebookSummary {

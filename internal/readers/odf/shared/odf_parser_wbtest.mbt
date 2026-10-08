@@ -40,7 +40,7 @@ test "ODS extracts sheet-local drawing images and package bytes" {
     #|  </table:table>
     #|</office:spreadsheet></office:body></office:document-content>
   let image = Bytes::from_array([(0x89).to_byte(), (0x50).to_byte()])
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     ("mimetype", @utf8.encode(ODF_MIMETYPE_ODS)),
     (
       "META-INF/manifest.xml",
@@ -74,7 +74,7 @@ test "ODP groups preserve nested frame reading order and depth" {
     #|    </draw:page>
     #|  </office:presentation></office:body>
     #|</office:document-content>
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     ("mimetype", @utf8.encode(ODF_MIMETYPE_ODP)),
     ("META-INF/manifest.xml", @utf8.encode("<manifest:manifest/>")),
     ("content.xml", @utf8.encode(content)),
@@ -107,7 +107,7 @@ test "ODT repeated spaces rows and cells expand within materialization limits" {
     #|    <table:table-cell table:number-columns-repeated="2"><text:p>X</text:p></table:table-cell>
     #|  </table:table-row></table:table>
     #|</office:text></office:body></office:document-content>
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     ("mimetype", @utf8.encode(ODF_MIMETYPE_ODT)),
     ("META-INF/manifest.xml", @utf8.encode("<manifest:manifest/>")),
     ("content.xml", @utf8.encode(content)),
@@ -135,7 +135,7 @@ test "ODT paragraph styles inherit heading and code semantics" {
     #|  <style:style style:name="HeadingBase" style:display-name="Heading 2" style:family="paragraph"/>
     #|  <style:style style:name="CodeBase" style:display-name="Source Code" style:family="paragraph"/>
     #|</office:styles></office:document-styles>
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     ("mimetype", @utf8.encode(ODF_MIMETYPE_ODT)),
     ("META-INF/manifest.xml", @utf8.encode("<manifest:manifest/>")),
     ("content.xml", @utf8.encode(content)),

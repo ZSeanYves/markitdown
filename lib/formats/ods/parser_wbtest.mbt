@@ -43,7 +43,7 @@ test "ODS local drawing assets deduplicate payloads and hide hidden-sheet media"
     #|    <draw:frame><draw:image xlink:href="Pictures/hidden.jpg"/></draw:frame>
     #|  </table:table>
     #|</office:spreadsheet></office:body></office:document-content>
-  let bytes = @therm.build_store_zip_bytes([
+  let bytes = @dzip.build_store_zip_bytes([
     ("mimetype", @utf8.encode("application/vnd.oasis.opendocument.spreadsheet")),
     ("META-INF/manifest.xml", @utf8.encode("<manifest:manifest/>")),
     ("content.xml", @utf8.encode(content)),

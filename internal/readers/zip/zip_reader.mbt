@@ -492,7 +492,7 @@ fn visit_inflated_entry_chunks_from_reader(
             output.mut_view(),
             end=pos == slice.data_end,
           ) catch {
-            @flate.InflateError(_, message) =>
+            InflateError(_, message) =>
               return Err("decode failed for `" + entry.name + "`: " + message)
           }
           consumed += inflater.last_consumed()

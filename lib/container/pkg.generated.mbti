@@ -42,6 +42,8 @@ pub enum ContainerAssetCopyPolicy {
   ReferenceOnly
   RejectUnsafePath
 } derive(Eq)
+pub fn ContainerAssetCopyPolicy::equal(Self, Self) -> Bool
+pub fn ContainerAssetCopyPolicy::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

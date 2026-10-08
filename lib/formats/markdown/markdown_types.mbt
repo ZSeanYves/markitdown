@@ -15,12 +15,18 @@ pub(all) enum MarkdownBlockKind {
 } derive(Eq)
 
 ///|
+pub extend MarkdownBlockKind with Eq::{equal, not_equal}
+
+///|
 /// Frontmatter kinds recognized by the lightweight scanner.
 pub(all) enum MarkdownFrontmatterKind {
   Yaml
   Toml
   Unknown
 } derive(Eq)
+
+///|
+pub extend MarkdownFrontmatterKind with Eq::{equal, not_equal}
 
 ///|
 /// Frontmatter captured from the top of a Markdown source file.
@@ -68,12 +74,18 @@ pub(all) enum MarkdownValidationSeverity {
 } derive(Eq)
 
 ///|
+pub extend MarkdownValidationSeverity with Eq::{equal, not_equal}
+
+///|
 pub(all) enum MarkdownValidationIssueKind {
   UnclosedFence
   UnclosedFrontmatter
   UnknownFrontmatterKind
   SuspiciousTableRow
 } derive(Eq)
+
+///|
+pub extend MarkdownValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 /// Validation issues surfaced by the scanner without turning scanning into a

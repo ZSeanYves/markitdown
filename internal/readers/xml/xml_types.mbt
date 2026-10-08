@@ -106,6 +106,9 @@ pub(all) enum XmlErrorKind {
 } derive(Eq)
 
 ///|
+pub extend XmlErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Stable classification for hard XML parse failures.
 pub struct XmlErrorInfo {
   kind : XmlErrorKind
@@ -119,11 +122,17 @@ pub(all) enum XmlValidationSeverity {
 } derive(Eq)
 
 ///|
+pub extend XmlValidationSeverity with Eq::{equal, not_equal}
+
+///|
 pub(all) enum XmlValidationIssueKind {
   UnsupportedDoctype
   MultipleRootElements
   EmptyDocument
 } derive(Eq)
+
+///|
+pub extend XmlValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 /// Validation issues reported after a successful XML parse.

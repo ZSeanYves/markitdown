@@ -1,8 +1,6 @@
 import {
-  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
-  "moonbitlang/core/json",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
   "ZSeanYves/markitdown/lib/formats",
   "ZSeanYves/markitdown/lib/formats/html" @fhtml,
@@ -16,7 +14,6 @@ import {
   "ZSeanYves/markitdown/lib/formats/text_markup" @ftextmarkup,
   "ZSeanYves/markitdown/lib/formats/shared" @fshared,
   "ZSeanYves/markitdown/internal/formats/pdf" @fpdfinternal,
-  "ZSeanYves/markitdown/lib/formats/pdf" @fpdf,
   "ZSeanYves/markitdown/internal/readers/pdf" @dpdfnative,
   "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
   "ZSeanYves/markitdown/lib/formats/pptx" @fpptx,
@@ -46,6 +43,10 @@ import {
   "ZSeanYves/markitdown/lib/render",
   "ZSeanYves/markitdown/internal/runtime",
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
 
 options(
   "preferred-target": "native",

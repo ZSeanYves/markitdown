@@ -56,6 +56,10 @@ pub(all) enum ConvertError {
   RenderFailed(String)
   ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
 } derive(Eq)
+pub fn ConvertError::equal(Self, Self) -> Bool
+pub fn ConvertError::not_equal(Self, Self) -> Bool
+pub fn ConvertError::output(Self, &Logger) -> Unit
+pub fn ConvertError::to_string(Self) -> String
 pub impl Show for ConvertError
 
 pub struct ConvertExecution {

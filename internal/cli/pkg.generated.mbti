@@ -17,17 +17,17 @@ pub async fn run_cli_app(Array[String]) -> Int
 // Errors
 
 // Types and methods
-type BatchTaskResult
-
 pub(all) enum BatchTaskStatus {
   Success
   Failed
   Skipped
 } derive(Eq)
-
-type CliFailure
+pub fn BatchTaskStatus::equal(Self, Self) -> Bool
+pub fn BatchTaskStatus::not_equal(Self, Self) -> Bool
 
 type CliFailureKind derive(Eq)
+pub fn CliFailureKind::equal(Self, Self) -> Bool
+pub fn CliFailureKind::not_equal(Self, Self) -> Bool
 
 pub struct CliOptions {
   input : String

@@ -140,7 +140,7 @@ fn html_child_compact_table_markdown(
   if width == 0 {
     return None
   }
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   for row_index in 0..<rows.length() {
     let row = rows[row_index]
     if row.children.length() != width {
@@ -728,7 +728,7 @@ fn html_token_flush_text_block(
     state.text.to_string().trim().to_owned()
   }
   if text == "" {
-    state.text = StringBuilder::new()
+    state.text = StringBuilder()
     state.text_has_content = false
     return
   }
@@ -758,7 +758,7 @@ fn html_token_flush_text_block(
     block.attrs.set("info", "")
   }
   state.blocks.push(block)
-  state.text = StringBuilder::new()
+  state.text = StringBuilder()
   state.text_has_content = false
   state.text_start_line = 0
   state.text_end_line = 0
@@ -785,7 +785,7 @@ fn html_scope_event_text(
 
 ///|
 fn html_compact_token_text(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut pending_space = false
   let mut wrote_non_space = false
   for ch in text.to_array() {

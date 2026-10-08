@@ -21,7 +21,6 @@ class GovernanceTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.baseline = load_module("collect_baseline", ROOT / "tools/governance/collect_baseline.py")
-        cls.toolchain = load_module("check_toolchain", ROOT / "tools/governance/check_toolchain.py")
         cls.policy = load_module("check_pr_policy", ROOT / "tools/governance/check_pr_policy.py")
         cls.architecture = load_module(
             "check_architecture", ROOT / "tools/governance/check_architecture.py"
@@ -31,20 +30,6 @@ class GovernanceTests(unittest.TestCase):
         )
         cls.compatibility = load_module(
             "check_contract_manifest", ROOT / "tools/compatibility/check_contract_manifest.py"
-        )
-
-    def test_toolchain_parser_reads_all_components(self):
-        output = """moon 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moon
-moonc v0.10.14+7d59c7ec9 (2026-09-18) ~/.moon/bin/moonc
-moonrun 0.1.20260920 (914d7da 2026-09-20) ~/.moon/bin/moonrun
-"""
-        self.assertEqual(
-            self.toolchain.moon_versions(output),
-            {
-                "moon_version": "0.1.20260920",
-                "moonc_version": "v0.10.14+7d59c7ec9",
-                "moonrun_version": "0.1.20260920",
-            },
         )
 
     def test_fixture_manifest_is_sorted_and_hashable(self):

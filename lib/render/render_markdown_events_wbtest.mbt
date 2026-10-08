@@ -193,7 +193,7 @@ test "markdown event renderer reconstructs generic tables and image inlines" {
     rag_test_event(EndDocument, "ignored"),
   ])
   assert_true(rendered.contains("```\ncode without info\n```"))
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   write_markdown_generic_event_to(out, rag_test_event(EndDocument, "ignored"))
   assert_eq(out.to_string(), "")
 }

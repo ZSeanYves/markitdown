@@ -231,7 +231,7 @@ fn pdf_line_merge_tolerance(
 
 ///|
 fn pdf_normalize_pdf_text(text : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let mut previous_space = false
   for ch in text.to_array() {
     if ch == '\u{0000}' {

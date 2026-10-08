@@ -1,9 +1,12 @@
 import {
-  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
   "ZSeanYves/markitdown/internal/readers/zip",
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
 
 options(
   "preferred-target": "native",

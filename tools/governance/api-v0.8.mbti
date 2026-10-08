@@ -24,8 +24,13 @@ pub(all) suberror ConvertError {
   InvalidOption(String)
 } derive(Eq, @debug.Debug)
 pub fn ConvertError::code(Self) -> ErrorCode
+pub fn ConvertError::equal(Self, Self) -> Bool
 pub fn ConvertError::exit_code(Self) -> Int
 pub fn ConvertError::message(Self) -> String
+pub fn ConvertError::not_equal(Self, Self) -> Bool
+pub fn ConvertError::output(Self, &Logger) -> Unit
+pub fn ConvertError::to_repr(Self) -> @debug.Repr
+pub fn ConvertError::to_string(Self) -> String
 pub impl Show for ConvertError
 
 // Types and methods
@@ -41,6 +46,9 @@ pub struct ApiV1Migration {
   stable_package : String
   breaking_changes_allowed_before_target : Bool
 } derive(Eq, @debug.Debug)
+pub fn ApiV1Migration::equal(Self, Self) -> Bool
+pub fn ApiV1Migration::not_equal(Self, Self) -> Bool
+pub fn ApiV1Migration::to_repr(Self) -> @debug.Repr
 
 pub struct Asset {
   kind : AssetKind
@@ -51,6 +59,9 @@ pub struct Asset {
   payload : AssetPayload?
   attrs : Map[String, String]
 } derive(Eq, @debug.Debug)
+pub fn Asset::equal(Self, Self) -> Bool
+pub fn Asset::not_equal(Self, Self) -> Bool
+pub fn Asset::to_repr(Self) -> @debug.Repr
 
 pub(all) enum AssetKind {
   Image
@@ -59,12 +70,18 @@ pub(all) enum AssetKind {
   Embedded
   Unknown
 } derive(Eq, @debug.Debug)
+pub fn AssetKind::equal(Self, Self) -> Bool
+pub fn AssetKind::not_equal(Self, Self) -> Bool
+pub fn AssetKind::to_repr(Self) -> @debug.Repr
 
 pub(all) enum AssetPayload {
   Bytes(Bytes)
   Utf8(String)
   SourcePath(String)
 } derive(Eq, @debug.Debug)
+pub fn AssetPayload::equal(Self, Self) -> Bool
+pub fn AssetPayload::not_equal(Self, Self) -> Bool
+pub fn AssetPayload::to_repr(Self) -> @debug.Repr
 
 pub struct BoundingBox {
   x0 : Double
@@ -72,6 +89,9 @@ pub struct BoundingBox {
   x1 : Double
   y1 : Double
 } derive(Eq, @debug.Debug)
+pub fn BoundingBox::equal(Self, Self) -> Bool
+pub fn BoundingBox::not_equal(Self, Self) -> Bool
+pub fn BoundingBox::to_repr(Self) -> @debug.Repr
 
 pub struct Capability {
   format : String
@@ -82,6 +102,9 @@ pub struct Capability {
   output_modes : Array[OutputMode]
   external_requirements : Array[String]
 } derive(Eq, @debug.Debug)
+pub fn Capability::equal(Self, Self) -> Bool
+pub fn Capability::not_equal(Self, Self) -> Bool
+pub fn Capability::to_repr(Self) -> @debug.Repr
 
 pub(all) enum CapabilityStatus {
   Stable
@@ -89,6 +112,9 @@ pub(all) enum CapabilityStatus {
   ExternalRuntime
   Unsupported
 } derive(Eq, @debug.Debug)
+pub fn CapabilityStatus::equal(Self, Self) -> Bool
+pub fn CapabilityStatus::not_equal(Self, Self) -> Bool
+pub fn CapabilityStatus::to_repr(Self) -> @debug.Repr
 
 pub struct Chunk {
   id : String
@@ -99,12 +125,18 @@ pub struct Chunk {
   asset_refs : Array[String]
   metadata_json : String
 } derive(Eq, @debug.Debug)
+pub fn Chunk::equal(Self, Self) -> Bool
+pub fn Chunk::not_equal(Self, Self) -> Bool
+pub fn Chunk::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ConvertMode {
   Balanced
   Accurate
   Stream
 } derive(Eq, @debug.Debug)
+pub fn ConvertMode::equal(Self, Self) -> Bool
+pub fn ConvertMode::not_equal(Self, Self) -> Bool
+pub fn ConvertMode::to_repr(Self) -> @debug.Repr
 
 pub struct ConvertOptions {
   mode : ConvertMode
@@ -114,6 +146,9 @@ pub struct ConvertOptions {
   rag : RagOptions
 } derive(Eq, @debug.Debug)
 pub fn ConvertOptions::default() -> Self
+pub fn ConvertOptions::equal(Self, Self) -> Bool
+pub fn ConvertOptions::not_equal(Self, Self) -> Bool
+pub fn ConvertOptions::to_repr(Self) -> @debug.Repr
 pub fn ConvertOptions::with_format_hint(Self, String?) -> Self
 pub fn ConvertOptions::with_limits(Self, ResourceLimits) -> Self
 pub fn ConvertOptions::with_mode(Self, ConvertMode) -> Self
@@ -125,11 +160,17 @@ pub struct Diagnostic {
   severity : DiagnosticSeverity
   message : String
 } derive(Eq, @debug.Debug)
+pub fn Diagnostic::equal(Self, Self) -> Bool
+pub fn Diagnostic::not_equal(Self, Self) -> Bool
+pub fn Diagnostic::to_repr(Self) -> @debug.Repr
 
 pub(all) enum DiagnosticSeverity {
   Warning
   Error
 } derive(Eq, @debug.Debug)
+pub fn DiagnosticSeverity::equal(Self, Self) -> Bool
+pub fn DiagnosticSeverity::not_equal(Self, Self) -> Bool
+pub fn DiagnosticSeverity::to_repr(Self) -> @debug.Repr
 
 pub(all) enum ErrorCode {
   UnsupportedCapability
@@ -139,7 +180,10 @@ pub(all) enum ErrorCode {
   ResourceLimitExceeded
   InvalidOption
 } derive(Eq, @debug.Debug)
+pub fn ErrorCode::equal(Self, Self) -> Bool
+pub fn ErrorCode::not_equal(Self, Self) -> Bool
 pub fn ErrorCode::stable_name(Self) -> String
+pub fn ErrorCode::to_repr(Self) -> @debug.Repr
 
 pub struct Input {
   // private fields
@@ -158,6 +202,9 @@ pub(all) enum InputKind {
   Bytes
   Reader
 } derive(Eq, @debug.Debug)
+pub fn InputKind::equal(Self, Self) -> Bool
+pub fn InputKind::not_equal(Self, Self) -> Bool
+pub fn InputKind::to_repr(Self) -> @debug.Repr
 
 pub struct Output {
   content : String
@@ -171,12 +218,18 @@ pub struct Output {
   source_map : SourceMap?
   chunks : Array[Chunk]
 } derive(Eq, @debug.Debug)
+pub fn Output::equal(Self, Self) -> Bool
+pub fn Output::not_equal(Self, Self) -> Bool
+pub fn Output::to_repr(Self) -> @debug.Repr
 
 pub(all) enum OutputMode {
   Markdown
   Debug
   Rag
 } derive(Eq, @debug.Debug)
+pub fn OutputMode::equal(Self, Self) -> Bool
+pub fn OutputMode::not_equal(Self, Self) -> Bool
+pub fn OutputMode::to_repr(Self) -> @debug.Repr
 
 pub struct Provenance {
   detected_format : String
@@ -192,6 +245,9 @@ pub struct Provenance {
   applied_accurate_features : Array[String]
   strategy_switches : Array[String]
 } derive(Eq, @debug.Debug)
+pub fn Provenance::equal(Self, Self) -> Bool
+pub fn Provenance::not_equal(Self, Self) -> Bool
+pub fn Provenance::to_repr(Self) -> @debug.Repr
 
 pub struct RagOptions {
   chunk_size : Int
@@ -202,6 +258,9 @@ pub struct RagOptions {
   split_code_blocks : Bool
 } derive(Eq, @debug.Debug)
 pub fn RagOptions::default() -> Self
+pub fn RagOptions::equal(Self, Self) -> Bool
+pub fn RagOptions::not_equal(Self, Self) -> Bool
+pub fn RagOptions::to_repr(Self) -> @debug.Repr
 pub fn RagOptions::with_chunk_overlap(Self, Int) -> Self
 pub fn RagOptions::with_chunk_size(Self, Int) -> Self
 pub fn RagOptions::with_preserve_heading_path(Self, Bool) -> Self
@@ -219,6 +278,9 @@ pub struct ResourceLimits {
   max_total_asset_bytes : Int64
 } derive(Eq, @debug.Debug)
 pub fn ResourceLimits::default() -> Self
+pub fn ResourceLimits::equal(Self, Self) -> Bool
+pub fn ResourceLimits::not_equal(Self, Self) -> Bool
+pub fn ResourceLimits::to_repr(Self) -> @debug.Repr
 pub fn ResourceLimits::with_max_asset_bytes(Self, Int64) -> Self
 pub fn ResourceLimits::with_max_cells(Self, Int) -> Self
 pub fn ResourceLimits::with_max_cols(Self, Int) -> Self
@@ -232,6 +294,9 @@ pub struct SourceMap {
   block_entries : Array[SourceMapEntry]
   asset_entries : Array[SourceMapEntry]
 } derive(Eq, @debug.Debug)
+pub fn SourceMap::equal(Self, Self) -> Bool
+pub fn SourceMap::not_equal(Self, Self) -> Bool
+pub fn SourceMap::to_repr(Self) -> @debug.Repr
 
 pub struct SourceMapEntry {
   primary_ref : SourceRef?
@@ -240,6 +305,9 @@ pub struct SourceMapEntry {
   confidence : Int?
   relation : String?
 } derive(Eq, @debug.Debug)
+pub fn SourceMapEntry::equal(Self, Self) -> Bool
+pub fn SourceMapEntry::not_equal(Self, Self) -> Bool
+pub fn SourceMapEntry::to_repr(Self) -> @debug.Repr
 
 pub struct SourceRef {
   file_id : String?
@@ -270,6 +338,9 @@ pub struct SourceRef {
   chapter_href : String?
   extra : Map[String, String]
 } derive(Eq, @debug.Debug)
+pub fn SourceRef::equal(Self, Self) -> Bool
+pub fn SourceRef::not_equal(Self, Self) -> Bool
+pub fn SourceRef::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 

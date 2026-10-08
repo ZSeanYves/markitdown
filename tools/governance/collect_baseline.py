@@ -178,9 +178,9 @@ def validate_maintenance_inventory() -> list[str]:
     if "termination_grace_ms: 2000" not in command_runner:
         errors.append("external command termination grace source fragment is missing")
 
-    coverage_source = (ROOT / "tools/regression/lib/coverage_gate.py").read_text(encoding="utf-8")
+    coverage_source = (ROOT / "tools/regression/coverage_gate.mbtx").read_text(encoding="utf-8")
     for name, threshold in data.get("coverage", {}).get("threshold_percent", {}).items():
-        if f'("{name}", {threshold:.1f},' not in coverage_source:
+        if f'name: "{name}", threshold: {threshold:.1f}' not in coverage_source:
             errors.append(f"coverage threshold differs for {name}")
 
     module_text = (ROOT / "moon.mod").read_text(encoding="utf-8")

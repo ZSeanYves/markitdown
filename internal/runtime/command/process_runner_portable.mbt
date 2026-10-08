@@ -20,7 +20,7 @@ pub fn run_resolved_command(
 }
 
 ///|
-pub async fn run_resolved_command_async(
+pub fn run_resolved_command_async(
   _command : ResolvedCommand,
   _args : Array[String],
   limits? : CommandLimits = default_command_limits(),

@@ -48,7 +48,7 @@ fn yaml_compact_mapping_summary(parts : Array[String]) -> String {
 
 ///|
 fn yaml_compact_sequence_text(count : Int, samples : Array[String]) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   out.write_string("[ ")
   out.write_string(count.to_string())
   out.write_string(" items")

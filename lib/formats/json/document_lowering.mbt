@@ -625,7 +625,7 @@ fn json_compact_root_array_events_from_stream(
   stream : JsonStreamDocument,
   source : @input.InputSource,
 ) -> Array[@core.CoreEvent] {
-  let events : Array[@core.CoreEvent] = Array::new(
+  let events : Array[@core.CoreEvent] = Array(
     capacity=stream.summary.scalar_count / 4,
   )
   let cursor = { events: stream.events, index: 1, }

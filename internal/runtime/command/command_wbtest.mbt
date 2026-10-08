@@ -1,52 +1,4 @@
 ///|
-fn command_with_env(
-  name : String,
-  value : String,
-  body : () -> Unit raise,
-) -> Unit raise {
-  let previous = @env.get_env_var(name)
-  @env.set_env_var(name, value)
-  defer (match previous {
-    Some(old) => @env.set_env_var(name, old)
-    None => @env.unset_env_var(name)
-  })
-  body()
-}
-
-///|
-fn command_test_module_root() -> String raise {
-  let root = "/tmp/markitdown-runtime-command-" + @env.now().to_string()
-  @fs.create_dir(root)
-  @fs.create_dir(root + "/env")
-  @fs.create_dir(root + "/env/managed-paths")
-  root
-}
-
-///|
-fn cleanup_command_test_module_root(root : String, record : String) -> Unit {
-  ignore(
-    try @fs.remove_file(record) |> Ok catch {
-      _ => Err(())
-    },
-  )
-  ignore(
-    try @fs.remove_dir(root + "/env/managed-paths") |> Ok catch {
-      _ => Err(())
-    },
-  )
-  ignore(
-    try @fs.remove_dir(root + "/env") |> Ok catch {
-      _ => Err(())
-    },
-  )
-  ignore(
-    try @fs.remove_dir(root) |> Ok catch {
-      _ => Err(())
-    },
-  )
-}
-
-///|
 test "resolved commands expose stable provenance labels" {
   let sources : Array[(ResolvedCommandSource, String)] = [
     (ExplicitArg, "explicit_arg"),
@@ -277,4 +229,52 @@ async test "async external runner is cancellable and reaps the child" {
     assert_true(cancelled.val)
   })
   assert_true(@env.now() - started < 2000)
+}
+
+///|
+pub fn command_with_env(
+  name : String,
+  value : String,
+  body : () -> Unit raise,
+) -> Unit raise {
+  let previous = @env.get_env_var(name)
+  @env.set_env_var(name, value)
+  defer (match previous {
+    Some(old) => @env.set_env_var(name, old)
+    None => @env.unset_env_var(name)
+  })
+  body()
+}
+
+///|
+pub fn command_test_module_root() -> String raise {
+  let root = "/tmp/markitdown-runtime-command-" + @env.now().to_string()
+  @fs.create_dir(root)
+  @fs.create_dir(root + "/env")
+  @fs.create_dir(root + "/env/managed-paths")
+  root
+}
+
+///|
+pub fn cleanup_command_test_module_root(root : String, record : String) -> Unit {
+  ignore(
+    try @fs.remove_file(record) |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root + "/env/managed-paths") |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root + "/env") |> Ok catch {
+      _ => Err(())
+    },
+  )
+  ignore(
+    try @fs.remove_dir(root) |> Ok catch {
+      _ => Err(())
+    },
+  )
 }

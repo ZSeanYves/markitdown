@@ -256,7 +256,7 @@ fn fs_read_dir(path : String) -> Array[String] {
   if !@fs.path_exists(path) {
     return []
   }
-  @fs.read_dir(path).to_array() catch {
+  @fs.read_dir(path).to_owned() catch {
     _ => []
   }
 }

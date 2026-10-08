@@ -152,7 +152,7 @@ test "pdf native header footer candidate scan tolerates unicode punctuation" {
       ),
     ],
   )
-  let document = pdf_native_document_to_ir(
+  let document = @pdf.pdf_native_document_to_ir(
     @dpdfnative.make_pdf_native_document(pages=[page1, page2]),
   )
   assert_true(
@@ -253,7 +253,7 @@ test "pdf native unit bridge lowers uri links into rich inlines and leaves unsup
       ),
     ],
   )
-  let document = pdf_native_document_to_ir(
+  let document = @pdf.pdf_native_document_to_ir(
     @dpdfnative.make_pdf_native_document(pages=[page1, page2]),
   )
   assert_eq(document.blocks.length(), 2)
@@ -322,7 +322,7 @@ test "pdf native unit bridge lowers exportable image candidates into assets" {
       ),
     ],
   )
-  let document = pdf_native_document_to_ir(
+  let document = @pdf.pdf_native_document_to_ir(
     @dpdfnative.make_pdf_native_document(pages=[page]),
   )
   assert_eq(document.blocks.length(), 1)
@@ -445,7 +445,7 @@ test "pdf native unit bridge records repeated header and footer candidates as me
       ),
     ],
   )
-  let document = pdf_native_document_to_ir(
+  let document = @pdf.pdf_native_document_to_ir(
     @dpdfnative.make_pdf_native_document(pages=[page1, page2]),
   )
   assert_eq(document.blocks.length(), 6)
@@ -549,7 +549,7 @@ test "pdf native unit bridge records conservative table candidates as metadata o
     line=4,
     reading_order_index=Some(4),
   )
-  let document = pdf_native_document_to_ir(
+  let document = @pdf.pdf_native_document_to_ir(
     @dpdfnative.make_pdf_native_document(pages=[
       @dpdfnative.make_pdf_native_page(
         @dpdfnative.make_pdf_page_geometry(1, 612.0, 792.0),
@@ -687,7 +687,7 @@ test "pdf native unit bridge reconstructs moderate single-page tables with multi
     line=4,
     reading_order_index=Some(4),
   )
-  let document = pdf_native_document_to_ir_with_policies(
+  let document = @pdf.pdf_native_document_to_ir_with_policies(
     @dpdfnative.make_pdf_native_document(pages=[
       @dpdfnative.make_pdf_native_page(
         @dpdfnative.make_pdf_page_geometry(1, 612.0, 792.0),
@@ -805,7 +805,7 @@ test "pdf native block stream and IR preserve interactive document facts" {
     named_destinations=[destination],
     metadata=Map([("producer", String("synthetic"))]),
   )
-  let (metadata, blocks, diagnostics) = pdf_native_document_to_blocks_with_policies(
+  let (metadata, blocks, diagnostics) = @pdf.pdf_native_document_to_blocks_with_policies(
     document,
     Disabled,
   )
@@ -817,7 +817,11 @@ test "pdf native block stream and IR preserve interactive document facts" {
   assert_true(
     diagnostics.metrics.get("pdf_native_form_field_count") == Some("1"),
   )
-  let ir = pdf_native_document_to_ir_with_policies(document, Disabled, Disabled)
+  let ir = @pdf.pdf_native_document_to_ir_with_policies(
+    document,
+    Disabled,
+    Disabled,
+  )
   assert_true(ir.metadata.contains("pdf_native_annotations"))
   assert_true(ir.metadata.contains("pdf_native_form_fields"))
   assert_true(ir.metadata.contains("pdf_native_outline_items"))

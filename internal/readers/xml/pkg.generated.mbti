@@ -30,6 +30,8 @@ pub fn validate_xml_document(XmlDocument) -> XmlValidationReport
 pub(all) suberror XmlError {
   ParseError(String)
 }
+pub fn XmlError::output(Self, &Logger) -> Unit
+pub fn XmlError::to_string(Self) -> String
 pub impl Show for XmlError
 
 // Types and methods
@@ -94,6 +96,8 @@ pub(all) enum XmlErrorKind {
   EmptyDocument
   Unknown
 } derive(Eq)
+pub fn XmlErrorKind::equal(Self, Self) -> Bool
+pub fn XmlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct XmlInspectReport {
   node_count : Int
@@ -153,6 +157,8 @@ pub(all) enum XmlStructureScanStatus {
   Success
   ParseFailed
 } derive(Eq)
+pub fn XmlStructureScanStatus::equal(Self, Self) -> Bool
+pub fn XmlStructureScanStatus::not_equal(Self, Self) -> Bool
 
 pub struct XmlText {
   text : String
@@ -183,6 +189,8 @@ pub(all) enum XmlValidationIssueKind {
   MultipleRootElements
   EmptyDocument
 } derive(Eq)
+pub fn XmlValidationIssueKind::equal(Self, Self) -> Bool
+pub fn XmlValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct XmlValidationReport {
   issue_count : Int
@@ -195,6 +203,8 @@ pub(all) enum XmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
+pub fn XmlValidationSeverity::equal(Self, Self) -> Bool
+pub fn XmlValidationSeverity::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

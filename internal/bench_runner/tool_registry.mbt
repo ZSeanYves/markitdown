@@ -10,6 +10,9 @@ pub struct ToolCommand {
 } derive(Eq)
 
 ///|
+pub extend ToolCommand with Eq::{equal, not_equal}
+
+///|
 pub struct BenchTool {
   name : String
   tool_version : String?
@@ -21,6 +24,9 @@ pub struct BenchTool {
 pub struct ToolRegistryConfig {
   markitdown_path : String?
 } derive(Eq)
+
+///|
+pub extend ToolRegistryConfig with Eq::{equal, not_equal}
 
 ///|
 fn BenchTool::is_available(self : BenchTool) -> Bool {

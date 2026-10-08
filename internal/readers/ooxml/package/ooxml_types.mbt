@@ -24,6 +24,9 @@ pub(all) enum OoxmlErrorKind {
 } derive(Eq)
 
 ///|
+pub extend OoxmlErrorKind with Eq::{equal, not_equal}
+
+///|
 /// Validation strictness applied when checking OOXML package structure.
 pub(all) enum OoxmlValidationMode {
   Compatible
@@ -31,11 +34,17 @@ pub(all) enum OoxmlValidationMode {
 } derive(Eq)
 
 ///|
+pub extend OoxmlValidationMode with Eq::{equal, not_equal}
+
+///|
 /// Severity levels attached to OOXML validation issues.
 pub(all) enum OoxmlValidationSeverity {
   Warning
   Error
 } derive(Eq)
+
+///|
+pub extend OoxmlValidationSeverity with Eq::{equal, not_equal}
 
 ///|
 /// Fine-grained validation issue kinds for `.rels` and external references.
@@ -47,6 +56,9 @@ pub(all) enum OoxmlValidationIssueKind {
   MissingRelationshipTarget
   UnsafeRelationshipTarget
 } derive(Eq)
+
+///|
+pub extend OoxmlValidationIssueKind with Eq::{equal, not_equal}
 
 ///|
 pub impl Show for OoxmlError with fn to_string(self : OoxmlError) -> String {
@@ -101,12 +113,18 @@ pub(all) enum OoxmlTargetMode {
 } derive(Eq)
 
 ///|
+pub extend OoxmlTargetMode with Eq::{equal, not_equal}
+
+///|
 /// Whether a content-type entry came from a default extension mapping or a
 /// part-specific override.
 pub(all) enum OoxmlContentTypeInfoKind {
   DefaultExtension
   OverridePart
 } derive(Eq)
+
+///|
+pub extend OoxmlContentTypeInfoKind with Eq::{equal, not_equal}
 
 ///|
 /// A relationship entry parsed from an OOXML `.rels` part.
