@@ -10,6 +10,8 @@ CLI_BIN=""
 CLI_PACKAGE="markitdown"
 CLI_MODULE_ROOT=""
 CLI_STALENESS_SENTINEL=""
+CLI_COORDINATE=""
+CLI_TARGET=""
 
 runner_class_for_kind() {
   case "${1-}" in
@@ -18,6 +20,9 @@ runner_class_for_kind() {
       ;;
     override)
       printf 'user-override'
+      ;;
+    moonx)
+      printf 'moonx-consumer'
       ;;
     *)
       printf 'unknown'
@@ -52,6 +57,51 @@ resolve_markitdown_package_cli() {
   CLI_RUNNER_KIND=""
   CLI_RUNNER_NOTE=""
   CLI_BIN=""
+  CLI_COORDINATE=""
+  CLI_TARGET=""
+
+  local requested_runner="${MARKITDOWN_CLI_RUNNER:-}"
+  if [[ -n "$requested_runner" && "$requested_runner" != "moonx" ]]; then
+    echo "unsupported MARKITDOWN_CLI_RUNNER=$requested_runner; expected moonx" >&2
+    return 1
+  fi
+  if [[ "$requested_runner" == "moonx" ]]; then
+    local moonx_bin="${MARKITDOWN_MOONX_BIN:-moonx}"
+    local coordinate="${MARKITDOWN_MOONX_COORDINATE:-}"
+    local target="${MARKITDOWN_MOONX_TARGET:-wasm}"
+    if [[ -n "$override_env" && -n "${!override_env:-}" ]]; then
+      echo "$override_env cannot be combined with MARKITDOWN_CLI_RUNNER=moonx" >&2
+      return 1
+    fi
+    if [[ -z "$coordinate" || "$coordinate" != *@* ]]; then
+      echo "MARKITDOWN_MOONX_COORDINATE must be an exact published coordinate such as ZSeanYves/markitdown@0.8.0" >&2
+      return 1
+    fi
+    local package_part="${coordinate%@*}"
+    local version="${coordinate##*@}"
+    if [[ -z "$package_part" || "$package_part" != */* || "$package_part" == /* || "$package_part" == */ || -z "$version" || "$version" == "latest" || "$version" == "$coordinate" ]]; then
+      echo "MARKITDOWN_MOONX_COORDINATE must include an exact version; @latest is not accepted" >&2
+      return 1
+    fi
+    if [[ "$target" != "wasm" && "$target" != "native" ]]; then
+      echo "MARKITDOWN_MOONX_TARGET must be wasm or native" >&2
+      return 1
+    fi
+    if ! command -v "$moonx_bin" >/dev/null 2>&1; then
+      echo "MoonX executable not found: $moonx_bin" >&2
+      return 1
+    fi
+    CLI_RUNNER_KIND="moonx"
+    CLI_BIN="$(command -v "$moonx_bin")"
+    CLI_COORDINATE="$coordinate"
+    CLI_TARGET="$target"
+    if ! probe_markitdown_cli "$package" "$CLI_BIN"; then
+      CLI_RUNNER_NOTE="MoonX package $coordinate failed the consumer probe; publish a matching $target prebuilt asset before running this gate"
+      return 1
+    fi
+    CLI_RUNNER_NOTE="exact MoonX coordinate $coordinate (target=$target)"
+    return 0
+  fi
 
   if [[ -n "$override_env" ]]; then
     override_bin="${!override_env:-}"
@@ -103,21 +153,29 @@ run_markitdown_cli() {
   local cli_tmp_root
   cli_tmp_root="$(validation_cli_tmp_root)"
   local module_root="${MARKITDOWN_MODULE_ROOT:-$CLI_MODULE_ROOT}"
-  if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
+  if [[ "${CLI_RUNNER_KIND:-}" == "moonx" || "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
     local runner_cwd=""
     runner_cwd="$(markitdown_runner_cwd 2>/dev/null || true)"
     if [[ -n "$runner_cwd" ]]; then
       mkdir -p "$runner_cwd"
       (
         cd "$runner_cwd" || exit 1
-        MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+        if [[ "${CLI_RUNNER_KIND:-}" == "moonx" ]]; then
+          MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" --target "$CLI_TARGET" "$CLI_COORDINATE" "$@"
+        else
+          MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+        fi
       )
       return $?
     fi
-    MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+    if [[ "${CLI_RUNNER_KIND:-}" == "moonx" ]]; then
+      MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" --target "$CLI_TARGET" "$CLI_COORDINATE" "$@"
+    else
+      MARKITDOWN_MODULE_ROOT="$module_root" MARKITDOWN_TMP_DIR="$cli_tmp_root" "$CLI_BIN" "$@"
+    fi
     return $?
   fi
-  echo "CLI runner is not configured. Run 'moon build $CLI_PACKAGE --target native' or set MARKITDOWN_CLI." >&2
+  echo "CLI runner is not configured. Run 'moon build $CLI_PACKAGE --target native', set MARKITDOWN_CLI, or select the exact MoonX coordinate with MARKITDOWN_CLI_RUNNER=moonx." >&2
   return 1
 }
 
@@ -248,11 +306,15 @@ resolve_probe_validated_native_cli_with_retries() {
 }
 
 markitdown_runner_command_prefix() {
+  if [[ "${CLI_RUNNER_KIND:-}" == "moonx" ]]; then
+    printf '%s --target %s %s' "$CLI_BIN" "$CLI_TARGET" "$CLI_COORDINATE"
+    return 0
+  fi
   if [[ "${CLI_RUNNER_KIND:-}" == "prebuilt" || "${CLI_RUNNER_KIND:-}" == "override" ]]; then
     printf '%s' "$CLI_BIN"
     return 0
   fi
-  printf '<missing-native-cli:%s>' "$CLI_PACKAGE"
+  printf '<missing-cli:%s>' "$CLI_PACKAGE"
 }
 
 validation_probe_cases() {
@@ -280,11 +342,19 @@ probe_markitdown_cli() {
   local status=0
   local input_rel stem input_abs out
 
+  probe_cli_run() {
+    if [[ "${CLI_RUNNER_KIND:-}" == "moonx" ]]; then
+      MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --target "$CLI_TARGET" "$CLI_COORDINATE" "$@"
+    else
+      MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" "$@"
+    fi
+  }
+
   while IFS='|' read -r input_rel stem; do
     [[ -n "$input_rel" ]] || continue
     input_abs="$ROOT/$input_rel"
     out="$probe_dir/$stem.md"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" balance "$input_abs" "$out" >/dev/null 2>&1; then
+    if ! probe_cli_run balance "$input_abs" "$out" >/dev/null 2>&1; then
       status=1
       break
     fi
@@ -296,7 +366,7 @@ probe_markitdown_cli() {
 
   if [[ "$status" -eq 0 ]]; then
     local help_out
-    help_out="$(MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" --help 2>&1)" || status=1
+    help_out="$(probe_cli_run --help 2>&1)" || status=1
     if [[ "$status" -eq 0 ]]; then
       if ! grep -Fq -- 'markitdown [balance|accurate|stream] [--format <format>]' <<<"$help_out"; then
         status=1
@@ -313,7 +383,7 @@ probe_markitdown_cli() {
     local accurate_output="$probe_dir/accurate/txt_plain.md"
     local accurate_error="$probe_dir/accurate/txt_plain.stderr"
     mkdir -p "$probe_dir/accurate"
-    if MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" accurate "$accurate_input" "$accurate_output" >/dev/null 2>"$accurate_error"; then
+    if probe_cli_run accurate "$accurate_input" "$accurate_output" >/dev/null 2>"$accurate_error"; then
       status=1
     elif [[ -e "$accurate_output" ]]; then
       status=1
@@ -327,7 +397,7 @@ probe_markitdown_cli() {
     local contract_input="$ROOT/samples/fixtures/contracts/txt/txt_plain.txt"
     local contract_output="$contract_dir/txt_plain.md"
     mkdir -p "$contract_dir"
-    if ! MARKITDOWN_TMP_DIR="$probe_tmp_root" "$cli_bin" balance "$contract_input" "$contract_output" >/dev/null 2>&1; then
+    if ! probe_cli_run balance "$contract_input" "$contract_output" >/dev/null 2>&1; then
       status=1
     elif [[ -e "$contract_dir/metadata/txt_plain.metadata.json" ]]; then
       status=1

@@ -217,6 +217,9 @@ update_runner_label() {
         RUNNER_LABEL="prebuilt"
       fi
       ;;
+    moonx)
+      RUNNER_LABEL="moonx"
+      ;;
   esac
 }
 
@@ -226,6 +229,8 @@ runner_from_log_balance() {
     printf 'override'
   elif grep -q "runner: prebuilt" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
+  elif grep -q "runner: moonx" "$log_path" 2>/dev/null; then
+    printf 'moonx'
   else
     printf 'none'
   fi
@@ -241,6 +246,10 @@ balance_cli_preflight() {
     echo "preflight: ok"
     echo "runner: ${CLI_RUNNER_KIND:-none}"
     echo "cli: ${CLI_BIN:-unset}"
+    if [[ "${CLI_RUNNER_KIND:-}" == "moonx" ]]; then
+      echo "moonx-coordinate: $CLI_COORDINATE"
+      echo "moonx-target: $CLI_TARGET"
+    fi
   } >"$PREFLIGHT_LOG_PATH" 2>&1
   cat "$PREFLIGHT_LOG_PATH" >> "$ENTRYPOINT_LOG"
 }

@@ -1,0 +1,170 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+}
+
+///|
+fn usage() -> String {
+  "usage: run_moonx_regression.mbtx <owner/module@version> [--target wasm|native] [--pdf]"
+}
+
+///|
+fn exact_coordinate(value : String) -> Bool {
+  let parts = value.split("@").to_array()
+  parts.length() == 2 &&
+  parts[0].trim() != "" &&
+  parts[0].contains("/") &&
+  !parts[0].has_prefix("/") &&
+  !parts[0].has_suffix("/") &&
+  parts[1].trim() != "" &&
+  parts[1].trim() != "latest"
+}
+
+///|
+async fn run_suite(
+  root : String,
+  coordinate : String,
+  target : String,
+  script : String,
+  args : Array[String],
+  output_dir : String,
+) -> Unit {
+  let env_args : Array[String] = [
+    "-u",
+    "MARKITDOWN_CLI",
+    "MARKITDOWN_CLI_RUNNER=moonx",
+    "MARKITDOWN_MOONX_COORDINATE=" + coordinate,
+    "MARKITDOWN_MOONX_TARGET=" + target,
+    "bash",
+    script,
+  ]
+  for arg in args {
+    env_args.push(arg)
+  }
+  let result = @shell.Cmd("env", env_args, cwd=root).output()
+  let log_name = script
+    .replace(old="tools/regression/", new="")
+    .replace(old=".sh", new="") +
+    ".log"
+  @fs.write_file(
+    output_dir + "/" + log_name,
+    result.stdout() + "\n" + result.stderr(),
+  )
+  if result.exit_code() != 0 {
+    println("MoonX regression failed: " + script)
+    println("log: " + output_dir + "/" + log_name)
+    fail("MoonX regression suite failed")
+  }
+  println("MoonX regression passed: " + script)
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() < 2 || args.length() > 5 {
+    fail(usage())
+  }
+  let coordinate = args[1]
+  if !exact_coordinate(coordinate) {
+    fail(
+      "an exact published coordinate is required; @latest and unversioned packages are rejected",
+    )
+  }
+  let mut target = "wasm"
+  let mut pdf_only = false
+  let mut index = 2
+  while index < args.length() {
+    match args[index] {
+      "--target" => {
+        if index + 1 >= args.length() ||
+          (args[index + 1] != "wasm" && args[index + 1] != "native") {
+          fail(usage())
+        }
+        target = args[index + 1]
+        index = index + 2
+      }
+      "--pdf" => {
+        pdf_only = true
+        index = index + 1
+      }
+      _ => fail(usage())
+    }
+  }
+  let root = @env.current_dir().unwrap_or(".")
+  let evidence_dir = root + "/.tmp/moonx-regression"
+  @fs.mkdir(evidence_dir, recursive=true, allow_exist=true)
+  let smoke = @shell.Cmd(
+    "moonx",
+    ["tools/regression/moonx_smoke.mbtx", coordinate, "--target", target],
+    cwd=root,
+  ).output()
+  @fs.write_file(
+    evidence_dir + "/smoke.log",
+    smoke.stdout() + "\n" + smoke.stderr(),
+  )
+  if smoke.exit_code() != 0 {
+    fail(
+      "MoonX smoke must pass before the full regression suites; see " +
+      evidence_dir +
+      "/smoke.log",
+    )
+  }
+  if pdf_only {
+    run_suite(
+      root,
+      coordinate,
+      target,
+      "tools/regression/check_balance_quality.sh",
+      ["--pdf"],
+      evidence_dir,
+    )
+    run_suite(
+      root,
+      coordinate,
+      target,
+      "tools/regression/check_accurate.sh",
+      ["--pdf"],
+      evidence_dir,
+    )
+  } else {
+    run_suite(
+      root,
+      coordinate,
+      target,
+      "tools/regression/check_balance.sh",
+      [],
+      evidence_dir,
+    )
+    run_suite(
+      root,
+      coordinate,
+      target,
+      "tools/regression/check_balance_quality.sh",
+      [],
+      evidence_dir,
+    )
+    run_suite(
+      root,
+      coordinate,
+      target,
+      "tools/regression/check_accurate.sh",
+      [],
+      evidence_dir,
+    )
+  }
+  @fs.write_file(
+    evidence_dir + "/summary.txt",
+    "coordinate=" +
+    coordinate +
+    "\ntarget=" +
+    target +
+    "\nmode=" +
+    (if pdf_only { "pdf" } else { "full" }) +
+    "\nstatus=pass\n",
+  )
+  println("MoonX regression gate passed: " + coordinate + " target=" + target)
+  println("evidence: " + evidence_dir)
+}

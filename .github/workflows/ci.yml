@@ -96,6 +96,10 @@ jobs:
         run: moon info && git diff --exit-code
       - name: Check
         run: moon check --target all --warn-list +73
+      - name: Check MBTX release entries
+        run: |
+          moon check tools/regression/moonx_smoke.mbtx
+          moon check tools/regression/run_moonx_regression.mbtx
       - name: Test
         run: moon test --target all
 

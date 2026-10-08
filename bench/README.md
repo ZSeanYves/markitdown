@@ -55,6 +55,20 @@ $RUNNER report --run <run_id>
 `official-compare` remains a compatibility alias for
 `official-external-compare`; new automation should use the explicit name.
 
+The formal performance preset remains a controlled Native release measurement;
+it does not invoke MoonX. MoonX registry resolution and Wasm startup/cache state
+would make the existing timing and RSS fingerprints incomparable. Validate the
+real package-consumer path separately after publication:
+
+```bash
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version>
+```
+
+That gate uses the same text corpus and semantic judges, but reports consumer
+compatibility rather than a Native-vs-reference performance number. If Wasm
+performance is promoted to a release claim, it needs its own fixed target,
+runtime, memory, and baseline policy; it must not inherit the Native 10% limit.
+
 ## Run controls
 
 - `--progress=auto|json|off`: TTY progress, JSONL events, or silence.

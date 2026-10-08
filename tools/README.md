@@ -6,7 +6,8 @@ Repository tooling is divided by responsibility:
   wrappers. The product conversion path has no optional runtime installer;
   benchmark-only Python setup lives in `env/installers/install_bench_baseline_deps.sh`.
 - `regression/`: coverage, main/quality/accurate gates, mutation smoke,
-  release manifests, and self-baseline enforcement.
+  release manifests, self-baseline enforcement, and the post-publication
+  MoonX consumer gate (`moonx_*.mbtx`).
 - `governance/`: immutable baseline, API/architecture, PR, toolchain, and
   documentation policy checks.
 - `release/`: deterministic local archive, checksum, and SBOM generation.

@@ -55,6 +55,10 @@ jobs:
           git diff --exit-code
       - name: Check all targets
         run: moon check --target all --warn-list +73
+      - name: Check MBTX release entries
+        run: |
+          moon check tools/regression/moonx_smoke.mbtx
+          moon check tools/regression/run_moonx_regression.mbtx
       - name: Test all targets
         run: moon test --target all --no-parallelize
       - name: Build Native release artifact

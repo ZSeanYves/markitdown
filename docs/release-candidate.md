@@ -29,10 +29,18 @@ python3 tools/governance/check_documentation.py
 The release artifacts are `_build/native/release/build/markitdown.exe` and
 `_build/wasm/release/build/markitdown.wasm`; the workflow checks both files
 are non-empty before checksumming them. The root package is the Moonx
-executable. Registry validation is a separate post-publication gate that must
-consume the exact published coordinate `ZSeanYves/markitdown@<version>`; a
-local build, cache, or `.mbtx` probe does not satisfy that gate. Native Moonx
-compatibility is verified separately from the default Wasm artifact.
+executable. Registry validation is a separate post-publication gate:
+
+```bash
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<version>
+```
+
+This command must consume the exact published coordinate and its Wasm prebuilt
+asset. A local build, cache, or `.mbtx` probe that does not invoke the published
+package does not satisfy that gate. Native Moonx compatibility is verified
+separately from the default Wasm artifact. The MoonX consumer gate reuses the
+same balance, quality, and accurate manifests as the source gate and stores
+separate evidence under `.tmp/moonx-regression/`.
 
 The performance evidence in `performance.md` is historical until both RC
 rounds produce same-fingerprint comparisons. A macOS run cannot close the

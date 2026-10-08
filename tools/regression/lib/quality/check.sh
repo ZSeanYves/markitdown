@@ -979,6 +979,9 @@ quality_runner_label() {
     prebuilt|override)
       printf 'prebuilt'
       ;;
+    moonx)
+      printf 'moonx'
+      ;;
     *)
       printf 'none'
       ;;

@@ -58,6 +58,8 @@ runner_from_log() {
   local log_path="$1"
   if grep -q "runner: prebuilt\\|runner: override" "$log_path" 2>/dev/null; then
     printf 'prebuilt'
+  elif grep -q "runner: moonx" "$log_path" 2>/dev/null; then
+    printf 'moonx'
   else
     printf 'none'
   fi

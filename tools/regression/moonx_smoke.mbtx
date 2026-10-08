@@ -1,0 +1,101 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+}
+
+///|
+fn usage() -> String {
+  "usage: moonx_smoke.mbtx <owner/module@version> [--target wasm|native]"
+}
+
+///|
+fn exact_coordinate(value : String) -> Bool {
+  let parts = value.split("@").to_array()
+  parts.length() == 2 &&
+  parts[0].trim() != "" &&
+  parts[0].contains("/") &&
+  !parts[0].has_prefix("/") &&
+  !parts[0].has_suffix("/") &&
+  parts[1].trim() != "" &&
+  parts[1].trim() != "latest"
+}
+
+///|
+async fn run_checked(
+  root : String,
+  args : Array[String],
+  label : String,
+  log_path : String,
+) -> String {
+  let result = @shell.Cmd("moonx", args, cwd=root).output()
+  let log = result.stdout() + "\n" + result.stderr()
+  @fs.write_file(log_path, log)
+  if result.exit_code() != 0 {
+    println("moonx: " + label + " failed; log: " + log_path)
+    fail("MoonX consumer gate failed at " + label)
+  }
+  result.stdout()
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() < 2 || args.length() > 4 {
+    fail(usage())
+  }
+  let coordinate = args[1]
+  if !exact_coordinate(coordinate) {
+    fail(
+      "an exact published coordinate is required; @latest and unversioned packages are rejected",
+    )
+  }
+  let mut target = "wasm"
+  if args.length() == 4 {
+    if args[2] != "--target" || (args[3] != "wasm" && args[3] != "native") {
+      fail(usage())
+    }
+    target = args[3]
+  }
+  let root = @env.current_dir().unwrap_or(".")
+  let evidence_dir = root + "/.tmp/moonx-smoke"
+  @fs.mkdir(evidence_dir, recursive=true, allow_exist=true)
+  let help = run_checked(
+    root,
+    ["--target", target, coordinate, "--help"],
+    "help",
+    evidence_dir + "/help.log",
+  )
+  if !help.contains("markitdown") {
+    fail("MoonX help output does not identify markitdown")
+  }
+  let capabilities = run_checked(
+    root,
+    ["--target", target, coordinate, "--capabilities"],
+    "capabilities",
+    evidence_dir + "/capabilities.log",
+  )
+  if capabilities.trim() == "" {
+    fail("MoonX capabilities output is empty")
+  }
+  let input = root + "/samples/fixtures/contracts/txt/txt_plain.txt"
+  let output = evidence_dir + "/txt_plain.md"
+  let conversion = run_checked(
+    root,
+    ["--target", target, coordinate, "balance", input, output],
+    "txt conversion",
+    evidence_dir + "/conversion.log",
+  )
+  ignore(conversion)
+  if !@fs.exists(output) || @fs.read_file(output).text().trim() == "" {
+    fail("MoonX text conversion produced no output")
+  }
+  @fs.write_file(
+    evidence_dir + "/summary.txt",
+    "coordinate=" + coordinate + "\ntarget=" + target + "\nstatus=pass\n",
+  )
+  println("MoonX consumer smoke passed: " + coordinate + " target=" + target)
+  println("evidence: " + evidence_dir)
+}
