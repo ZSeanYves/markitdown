@@ -523,8 +523,11 @@ fn pdf_sfnt_parse_cmap_format6(
       break
     }
     let gid = pdf_decode_big_endian_int(bytes, cursor, 2)
-    if gid > 0 && gid_to_text.get(gid) == None {
-      gid_to_text.set(gid, pdf_string_from_codepoints([first_code + i]))
+    let codepoint = first_code + i
+    if gid > 0 &&
+      gid_to_text.get(gid) == None &&
+      pdf_codepoint_is_unicode_scalar(codepoint) {
+      gid_to_text.set(gid, pdf_string_from_codepoints([codepoint]))
     }
     cursor += 2
   }
@@ -550,7 +553,9 @@ fn pdf_sfnt_parse_cmap_format12(
     let start_gid = pdf_decode_big_endian_int(bytes, cursor + 8, 4)
     for codepoint in start_char..<(end_char + 1) {
       let gid = start_gid + (codepoint - start_char)
-      if gid > 0 && gid_to_text.get(gid) == None && codepoint <= 0x10FFFF {
+      if gid > 0 &&
+        gid_to_text.get(gid) == None &&
+        pdf_codepoint_is_unicode_scalar(codepoint) {
         gid_to_text.set(gid, pdf_string_from_codepoints([codepoint]))
       }
     }
@@ -614,7 +619,9 @@ fn pdf_sfnt_parse_cmap_format4(
           (raw_gid + id_delta) & 0xFFFF
         }
       }
-      if gid > 0 && gid_to_text.get(gid) == None {
+      if gid > 0 &&
+        gid_to_text.get(gid) == None &&
+        pdf_codepoint_is_unicode_scalar(codepoint) {
         gid_to_text.set(gid, pdf_string_from_codepoints([codepoint]))
       }
     }

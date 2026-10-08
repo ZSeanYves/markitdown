@@ -59,6 +59,9 @@ fn pdf_font_encoding_strip_leading_slash(name : String) -> String {
 fn pdf_font_encoding_string_from_codepoints(codepoints : Array[Int]) -> String {
   let chars : Array[Char] = []
   for codepoint in codepoints {
+    if !pdf_codepoint_is_unicode_scalar(codepoint) {
+      return ""
+    }
     chars.push(Int::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
@@ -76,7 +79,12 @@ fn pdf_font_parse_uni_glyph_name(name : String) -> String? {
     let mut index = 0
     while index + 4 <= hex.length() {
       match pdf_parse_hex_int(hex[index:index + 4].to_owned()) {
-        Some(value) => codepoints.push(value)
+        Some(value) => {
+          if !pdf_codepoint_is_unicode_scalar(value) {
+            return None
+          }
+          codepoints.push(value)
+        }
         None => return None
       }
       index += 4
@@ -86,7 +94,7 @@ fn pdf_font_parse_uni_glyph_name(name : String) -> String? {
   if normalized.has_prefix("u") && normalized.length() >= 5 {
     let hex = normalized[1:].to_owned()
     match pdf_parse_hex_int(hex) {
-      Some(value) if value >= 0 && value <= 0x10FFFF =>
+      Some(value) if pdf_codepoint_is_unicode_scalar(value) =>
         Some(pdf_font_encoding_string_from_codepoints([value]))
       _ => None
     }
@@ -105,7 +113,12 @@ fn pdf_font_decode_hex_codepoint_sequence(text : String) -> String? {
       continue
     }
     match pdf_parse_hex_int(raw.to_owned()) {
-      Some(value) => codepoints.push(value)
+      Some(value) => {
+        if !pdf_codepoint_is_unicode_scalar(value) {
+          return None
+        }
+        codepoints.push(value)
+      }
       None => return None
     }
   }

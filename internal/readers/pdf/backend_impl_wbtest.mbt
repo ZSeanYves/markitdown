@@ -2282,6 +2282,18 @@ test "pdf predefined width and codepoint helpers cover invalid boundaries" {
 }
 
 ///|
+test "pdf rejects surrogate codepoints before UTF-8 encoding" {
+  let utf16 = pdf_resolve_predefined_cmap("UniJIS-UTF16-H").unwrap()
+  assert_true(pdf_predefined_cmap_decode_bytes([0xD8, 0x00], utf16) is None)
+  let utf32 = pdf_resolve_predefined_cmap("UniKS-UTF32-H").unwrap()
+  assert_true(pdf_predefined_cmap_decode_bytes([0, 0, 0xD8, 0], utf32) is None)
+  assert_true(pdf_string_from_codepoints([0xD800]) == "")
+  assert_true(pdf_hex_to_string("D800") is None)
+  assert_true(pdf_font_parse_uni_glyph_name("uniD800") is None)
+  assert_true(pdf_font_decode_hex_codepoint_sequence("D800") is None)
+}
+
+///|
 test "pdf font width dictionaries cover simple arrays descriptors and defaults" {
   let widths = pdf_collect_simple_font_widths(
     "<< /FirstChar 32 /Widths [250 333 408.0 invalid 500] >>",

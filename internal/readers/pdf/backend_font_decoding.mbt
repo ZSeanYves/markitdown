@@ -598,6 +598,13 @@ fn pdf_raw_cjk_decode_result_is_safe_gb2312_token(
 fn pdf_string_from_codepoints(codepoints : Array[Int]) -> String {
   let chars : Array[Char] = []
   for codepoint in codepoints {
+    // PDF mappings are untrusted input.  `unsafe_to_char` can construct a
+    // surrogate Char, but the value will panic later when a renderer encodes
+    // the String as UTF-8.  Reject the whole mapping before constructing it so
+    // malformed ToUnicode/CMap data fails closed at the decode boundary.
+    if !pdf_codepoint_is_unicode_scalar(codepoint) {
+      return ""
+    }
     chars.push(Int::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
@@ -808,11 +815,22 @@ fn pdf_is_usable_tounicode_text(text : String) -> Bool {
     return false
   }
   for ch in text.to_array() {
+    if !pdf_codepoint_is_unicode_scalar(ch.to_int()) {
+      return false
+    }
     if pdf_codepoint_is_noncharacter(ch.to_int()) {
       return false
     }
   }
   true
+}
+
+///|
+// Unicode scalar values exclude the UTF-16 surrogate range.  Keep this
+// predicate separate from the noncharacter check: noncharacters are legal
+// scalar values, while surrogates must never reach a UTF-8 encoder.
+fn pdf_codepoint_is_unicode_scalar(code : Int) -> Bool {
+  code >= 0 && code <= 0x10FFFF && !(code >= 0xD800 && code <= 0xDFFF)
 }
 
 ///|

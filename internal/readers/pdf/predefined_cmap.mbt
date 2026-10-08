@@ -630,6 +630,9 @@ fn pdf_predefined_decode_utf16be(
         continue
       }
     }
+    if !pdf_codepoint_is_unicode_scalar(first) {
+      break
+    }
     let text = pdf_string_from_codepoints([first])
     parts.push(text)
     units.push({ byte_width: 2, charcode: first, cid: None, gid: None, text, })
@@ -653,7 +656,7 @@ fn pdf_predefined_decode_utf32be(
   let mut index = 0
   while index + 3 < bytes.length() {
     let codepoint = pdf_embedded_font_charcode_from_bytes(bytes, index, 4)
-    if codepoint < 0 || codepoint > 0x10FFFF {
+    if !pdf_codepoint_is_unicode_scalar(codepoint) {
       break
     }
     let text = pdf_string_from_codepoints([codepoint])

@@ -10,7 +10,7 @@ a universal latency promise.
 | --- | --- |
 | Date | 2026-08-07 |
 | Product commit | `8d0dc5e12e8b2265f92e8aa8fcf7a622af2a8db4` |
-| Quality-lab commit | `d079e50b3e5ac181283c6c818e931bd2ef936a13` |
+| Quality-lab commit | `eb80a4a3ccc8ca2fa6b39816789a854ba2c20d2c` |
 | Host | Apple M4, 16 GiB, arm64, macOS 26.5.2 |
 | MoonBit | `moon 0.1.20260803`, `moonc v0.10.6+80dc50f24` |
 | External reference | Microsoft MarkItDown 0.1.7, Python 3.11.15 |

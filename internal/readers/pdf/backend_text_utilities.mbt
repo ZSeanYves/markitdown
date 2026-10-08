@@ -374,7 +374,8 @@ fn pdf_hex_to_string(hex : String) -> String? {
     while index + 4 <= normalized.length() {
       match pdf_parse_hex_int(normalized[index:index + 4].to_owned()) {
         Some(codepoint) =>
-          if pdf_codepoint_is_noncharacter(codepoint) {
+          if !pdf_codepoint_is_unicode_scalar(codepoint) ||
+            pdf_codepoint_is_noncharacter(codepoint) {
             return None
           } else {
             chars.push(Int::unsafe_to_char(codepoint))
@@ -394,7 +395,8 @@ fn pdf_hex_to_string(hex : String) -> String? {
     while index + 2 <= normalized.length() {
       match pdf_parse_hex_int(normalized[index:index + 2].to_owned()) {
         Some(codepoint) =>
-          if pdf_codepoint_is_noncharacter(codepoint) {
+          if !pdf_codepoint_is_unicode_scalar(codepoint) ||
+            pdf_codepoint_is_noncharacter(codepoint) {
             return None
           } else {
             chars.push(Int::unsafe_to_char(codepoint))
