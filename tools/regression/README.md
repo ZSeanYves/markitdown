@@ -4,7 +4,35 @@
 scripts do not infer quality from file names or output size: every case is
 enrolled in a manifest with an explicit expected output or executable signal.
 Formal corpora come from the quality-lab commit pinned by
-`MARKITDOWN_QUALITY_LAB_SHA` in CI.
+`MARKITDOWN_QUALITY_LAB_SHA` in CI. The package-consumer release gate is the
+MBTX entry `moonx tools/regression/run_moonx_regression.mbtx
+ZSeanYves/markitdown@<exact-version>`; it uses the same manifests and judges as
+the local source gate.
+
+## Runner selection
+
+Local development resolves a fresh Native release executable (or an explicit
+`MARKITDOWN_CLI` override). A published consumer run selects MoonX explicitly:
+
+```bash
+moonx tools/regression/moonx_smoke.mbtx ZSeanYves/markitdown@0.8.0
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@0.8.0
+```
+
+The coordinate must include the exact version and a matching Wasm prebuilt
+asset. `@latest`, an unversioned coordinate, a local `.wasm`, or an unpublished
+worktree is rejected. The current `0.8.0` registry coordinate has no Wasm
+prebuilt asset yet, so its expected result before publication is a fail-closed
+consumer-gate diagnostic. Use the source gate below while developing changes.
+
+The MoonX runner can also be selected by the shared shell adapter for focused
+diagnosis:
+
+```bash
+MARKITDOWN_CLI_RUNNER=moonx \
+MARKITDOWN_MOONX_COORDINATE=ZSeanYves/markitdown@0.8.0 \
+./tools/regression/check_balance.sh --format txt
+```
 
 ## Entry Points and Verdicts
 
@@ -112,6 +140,11 @@ moon build --target native --package ZSeanYves/markitdown
 moon run tools/regression/check_coverage.mbtx --enforce
 python3 tools/regression/mutation_smoke.py
 ```
+
+The commands above are the source and controlled performance lanes. The MoonX
+consumer lane is a post-publication gate and records its own evidence under
+`.tmp/moonx-regression/`; it must not be substituted with a local prebuilt when
+claiming registry-consumer compatibility.
 
 Each entrypoint prints its run directory and writes a `summary.md`/`summary.tsv`
 plus failure-only diffs, raw stdout/stderr and per-row reports under `.tmp/`.

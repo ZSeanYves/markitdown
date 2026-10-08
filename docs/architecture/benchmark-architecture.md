@@ -27,6 +27,14 @@ Current implementation checkpoint: formal presets measure balance only.
 and optional dependency-backed balance cases. Accurate routes are excluded.
 The operational command surface is documented in `bench/README.md`.
 
+The post-publication MoonX consumer check is a separate compatibility gate, not
+a second performance benchmark. `moonx tools/regression/run_moonx_regression.mbtx
+<owner/module@exact-version>` reuses the product manifests and semantic judges
+to prove that the published Wasm package can be consumed through the public
+MoonX path. It does not enter `official-external-compare`, whose Native release
+runner and fixed resource fingerprint remain the performance truth. A future
+Wasm performance claim requires its own target/runtime baseline and policy.
+
 It answers:
 
 1. what the formal benchmark system measures

@@ -47,6 +47,16 @@ The root build above is the user-facing CLI. Release artifacts use the
 optimized binary under
 `_build/native/release/build/markitdown.exe`.
 
+After a version is published, verify the package-consumer path separately with
+the exact MoonX coordinate:
+
+```bash
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version>
+```
+
+This post-publication gate is required for MoonX compatibility evidence; a
+local prebuilt binary or an unpublished worktree cannot satisfy it.
+
 All formal regression runs must finish with zero skipped and zero failed rows.
 Use format filters documented by each command while iterating, then run the
 complete affected suite before submission. Accurate capability regression is a

@@ -1,0 +1,61 @@
+name: MoonX consumer gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact published markitdown version, without the @ prefix"
+        required: true
+        default: "0.8.0"
+        type: string
+      target:
+        description: "MoonX target to verify"
+        required: true
+        default: wasm
+        type: choice
+        options:
+          - wasm
+          - native
+
+permissions:
+  contents: read
+
+concurrency:
+  group: moonx-consumer-${{ inputs.version }}-${{ inputs.target }}
+  cancel-in-progress: false
+
+env:
+  MARKITDOWN_QUALITY_LAB_SHA: "eb80a4a3ccc8ca2fa6b39816789a854ba2c20d2c"
+
+jobs:
+  consumer:
+    name: MoonX ${{ inputs.target }} consumer (${{ inputs.version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: ZSeanYves/markitdown-quality-lab
+          path: markitdown-quality-lab
+          ref: ${{ env.MARKITDOWN_QUALITY_LAB_SHA }}
+      - name: Install MoonBit and MoonX
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Verify exact MoonX package consumer path
+        run: |
+          moonx tools/regression/run_moonx_regression.mbtx \
+            "ZSeanYves/markitdown@${{ inputs.version }}" \
+            --target "${{ inputs.target }}"
+      - name: Upload MoonX evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: moonx-consumer-${{ inputs.target }}-${{ inputs.version }}
+          path: |
+            .tmp/moonx-smoke
+            .tmp/moonx-regression
+          if-no-files-found: error
