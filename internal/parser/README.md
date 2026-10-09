@@ -56,6 +56,6 @@ diagnostics, metadata, assets, source map, mode, and provenance inputs.
 
 ## Validation
 
-```bash
-moon test --package ZSeanYves/markitdown/internal/parser --target native
+```text
+moon test --package ZSeanYves/markitdown/internal/parser --target native --no-parallelize
 ```

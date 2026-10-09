@@ -49,6 +49,6 @@
 
 ## Validation
 
-```bash
-moon test --package ZSeanYves/markitdown/internal/pipeline --target native
+```text
+moon test --package ZSeanYves/markitdown/internal/pipeline --target native --no-parallelize
 ```

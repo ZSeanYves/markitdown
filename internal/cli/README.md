@@ -1,6 +1,9 @@
 # CLI
 
-`cli/` provides the formal command-line entry point for the project and is the product surface most end users interact with. It is responsible for normalizing command-line syntax into convert-layer requests and handling single-file, batch, and output-boundary concerns.
+`internal/cli/` provides the formal command-line entry point for the project and
+is the product surface most end users interact with. It normalizes command-line
+syntax into convert-layer requests and handles single-file, batch, and
+output-boundary concerns.
 
 ## Responsibilities
 
@@ -12,7 +15,7 @@
 ## Key Entry Points
 
 - `main.mbt`
-  Native executable entry point
+  executable composition entry point
 - `cli.mbt`
   `run_cli_app`, `run_cli`, and the main output-persistence flow
 - `cli_parse.mbt`
@@ -49,7 +52,7 @@ committed even when diagnostics retain the triggering parse error.
 
 ## Validation
 
-```bash
-moon test --package ZSeanYves/markitdown/internal/cli --target native
+```text
+moon test --package ZSeanYves/markitdown/internal/cli --target native --no-parallelize
 moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main
 ```
