@@ -1,0 +1,63 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+}
+
+///|
+struct BenchmarkCase {
+  name : String
+  format : String
+  input : String
+}
+
+///|
+fn usage() -> String {
+  "usage: moonx_benchmark.mbtx <owner/module@version> [--target wasm|native]"
+}
+
+///|
+fn exact_coordinate(value : String) -> Bool {
+  let parts = value.split("@").to_array()
+  parts.length() == 2 && parts[0].contains("/") && !parts[0].has_prefix("/") &&
+  parts[1].trim() != "" && parts[1].trim() != "latest"
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() != 2 && args.length() != 4 { fail(usage()) }
+  let coordinate = args[1]
+  if !exact_coordinate(coordinate) { fail("an exact MoonX coordinate is required") }
+  let mut target = "wasm"
+  if args.length() == 4 {
+    if args[2] != "--target" || (args[3] != "wasm" && args[3] != "native") { fail(usage()) }
+    target = args[3]
+  }
+  let root = @env.current_dir().unwrap_or(".")
+  let evidence = root + "/.tmp/moonx-benchmark"
+  @fs.mkdir(evidence, recursive=true, allow_exist=true)
+  let cases : Array[BenchmarkCase] = [
+    { name: "txt", format: "txt", input: "samples/fixtures/contracts/txt/txt_plain.txt" },
+    { name: "markdown", format: "markdown", input: "samples/fixtures/contracts/markdown/markdown_basic_heading_paragraph.md" },
+    { name: "html", format: "html", input: "samples/fixtures/contracts/html/html_simple.html" },
+    { name: "json", format: "json", input: "samples/fixtures/contracts/json/json_object_basic.json" },
+    { name: "pdf", format: "pdf", input: "samples/fixtures/contracts/pdf/text_simple.pdf" },
+  ]
+  let rows : Array[String] = ["name\tformat\telapsed_ms\tstatus"]
+  for item in cases {
+    let output = evidence + "/" + item.name + ".md"
+    let started = @env.now()
+    let result = @shell.Cmd("moonx", ["--target", target, coordinate, "balance", "--format", item.format, root + "/" + item.input, output], cwd=root).output()
+    let elapsed = @env.now() - started
+    @fs.write_file(evidence + "/" + item.name + ".log", result.stdout() + "\n" + result.stderr())
+    let status = if result.exit_code() == 0 && @fs.exists(output) { "pass" } else { "fail" }
+    rows.push(item.name + "\t" + item.format + "\t" + elapsed.to_string() + "\t" + status)
+    if status == "fail" { fail("MoonX benchmark case failed: " + item.name) }
+  }
+  @fs.write_file(evidence + "/summary.tsv", rows.join("\n") + "\n")
+  println("MoonX benchmark passed: " + coordinate + " target=" + target)
+  println("evidence: " + evidence)
+}

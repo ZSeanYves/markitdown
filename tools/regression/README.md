@@ -1,157 +1,28 @@
-# Regression Tooling
+# MoonX regression
 
-`tools/regression/` contains the release-facing validation entrypoints. The
-scripts do not infer quality from file names or output size: every case is
-enrolled in a manifest with an explicit expected output or executable signal.
-Formal corpora come from the quality-lab commit pinned by
-`MARKITDOWN_QUALITY_LAB_SHA` in CI. The package-consumer release gate is the
-MBTX entry `moonx tools/regression/run_moonx_regression.mbtx
-ZSeanYves/markitdown@<exact-version>`; it uses the same manifests and judges as
-the local source gate.
-
-## Runner selection
-
-Local development resolves a fresh Native release executable (or an explicit
-`MARKITDOWN_CLI` override). A published consumer run selects MoonX explicitly:
-
-```bash
-moonx tools/regression/moonx_smoke.mbtx ZSeanYves/markitdown@0.8.0
-moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@0.8.0
-```
-
-The coordinate must include the exact version and a matching Wasm prebuilt
-asset. `@latest`, an unversioned coordinate, a local `.wasm`, or an unpublished
-worktree is rejected. The current `0.8.0` registry coordinate has no Wasm
-prebuilt asset yet, so its expected result before publication is a fail-closed
-consumer-gate diagnostic. Use the source gate below while developing changes.
-
-The MoonX runner can also be selected by the shared shell adapter for focused
-diagnosis:
-
-```bash
-MARKITDOWN_CLI_RUNNER=moonx \
-MARKITDOWN_MOONX_COORDINATE=ZSeanYves/markitdown@0.8.0 \
-./tools/regression/check_balance.sh --format txt
-```
-
-## Entry Points and Verdicts
-
-| Command | Evidence source | Pass/fail basis |
-| --- | --- | --- |
-| `check_balance.sh` | `external_main_process/MANIFEST.tsv` | Exact Markdown output, structured RAG expectations, and exact asset files |
-| `check_balance_quality.sh` | `external_quality/MANIFEST.tsv` | Approved real-world files satisfy every declared semantic/asset signal |
-| `check_accurate.sh` | `external_accurate/MANIFEST.tsv` | Accurate runtime preflight succeeds and every accurate-only signal passes |
-| `moon run check_coverage.mbtx --enforce` | MoonBit Cobertura output plus the 0.8 format baseline | core >=90%, formats >=80%, tools >=70%, no format drops by more than 0.5pp, and changed production lines >=80% when a baseline ref is supplied |
-| `mutation_smoke.py` | Deterministic mutations of enrolled seeds | Two runs are identical and each mutation either succeeds with non-empty output or fails cleanly on stderr |
-| `self_baseline.py` | Benchmark `samples.jsonl` plus the approved platform baseline from `markitdown-quality-lab/performance_baselines/` | Fingerprints, inputs and output hashes match; median time/RSS regress by no more than 10% |
-
-## Main Contract: Exact Results
-
-`check_balance.sh` reads rows with:
+The repository has one external validation path. It executes the exact package
+coordinate through MoonX and reads the checked-in manifests from the sibling
+`markitdown-quality-lab` checkout. A source-built executable is never substituted
+for a package consumer run.
 
 ```text
-id  format  lane  input_path  expected_path  notes
+moonx tools/regression/moonx_smoke.mbtx ZSeanYves/markitdown@0.8.0 --target wasm
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@0.8.0 --target wasm --suite all
+moonx tools/regression/moonx_benchmark.mbtx ZSeanYves/markitdown@0.8.0 --target wasm
 ```
 
-The lane selects the judge:
+`run_moonx_regression.mbtx` accepts `--suite main|quality|accurate|all`,
+`--format FORMAT`, and `--case ID`. Main rows compare deterministic Markdown
+goldens and require non-empty RAG output. Quality and accurate rows execute the
+declared `expected_signals` against Markdown, debug, or provenance output; the
+runner covers content, order, counts, links, tables, images, and asset presence.
 
-- `markdown`: generated Markdown must exactly match the checked-in
-  expected file. A conversion error, missing expected file or diff is failure.
-- `rag`: output must be valid JSON and contain the declared output/format/mode,
-  metadata, diagnostics, source-map policy and chunk expectations. Expected
-  arrays are subset checks unless an exact count is declared.
-- `assets`: `result.md` must match exactly; every local `assets/...` reference
-  must exist; relative file names and bytes under the actual `assets/` tree must
-  exactly equal the expected tree.
+Every case receives its own command log under `.tmp/moonx-regression/cases/`.
+The final `summary.tsv` records the exact coordinate, target, suite, counts,
+elapsed time, and status. Failures retain the output and the first failed signal
+for inspection.
 
-The main gate does not accept skips. Its summary must report all manifest rows
-checked with zero failures and zero skipped rows.
-
-## Quality and Accurate: Executable Signals
-
-Quality and accurate manifests identify provenance and legality as well as the
-expected behavior. Important columns are:
-
-- `path`, `format`, `features`, `validation_view`
-- `source_id`, `original_url`, `local_cache_path`
-- `license_status`, `license_review_status`, `privacy`
-- `expected_signals`, `quality_tier`
-
-An external row is runnable only when its license review is `approved` and its
-payload exists. Each semicolon-separated signal must pass. Supported judges
-include:
-
-```text
-no_empty_output
-contains / contains_all / not_contains
-exact_count / min_count / max_count / order
-heading_marker / table_marker / image_ref / link_ref
-asset_count_min / asset_count_exact / asset_exists
-asset_sha256 / asset_magic
-line_fragmentation_max / max_long_token_len / page_noise_absent
-```
-
-Signals are evaluated against the requested Markdown, debug or provenance view.
-Asset paths must remain inside the artifact directory; hashes and magic bytes
-validate actual files, not merely Markdown links.
-
-`check_balance_quality.sh` rejects rows tagged `accurate`. `check_accurate.sh`
-runs Office/ODF/PDF text semantics through the shared conversion pipeline. OCR,
-audio and scanned-page recognition rows are retired and fail closed.
-
-License rejection, missing payload and absent executable signals are recorded
-as distinct skip reasons. Formal release evidence requires zero unexpected
-skips. `known_bad` rows may be `expected_fail`; an unexpected pass is surfaced
-separately and must be reviewed rather than silently changing the expectation.
-
-## Coverage, Mutation and Baselines
-
-Coverage groups are defined in `coverage_gate.mbtx`. Generated PDF tables are
-excluded explicitly; parser/control-flow files are not. `--enforce` returns
-non-zero when any group misses its threshold or a format falls more than 0.5
-percentage points below `coverage-baseline.json`. Set
-`MARKITDOWN_COVERAGE_BASELINE_REF` to a Git commit to enforce at least 80%
-coverage on executable production lines added since that commit.
-
-Mutation smoke covers PDF, ZIP, Office/EPUB, XML/HTML and EML using truncation,
-middle-byte corruption, trailing garbage, depth inflation, declared-size
-deception and a ZIP payload that expands beyond 128 MiB. Timeout, empty
-successful output, stdout errors, abnormal process termination or
-nondeterministic results fail the check.
-
-Self-baseline enforcement requires five successful samples per tool/case,
-stable input/output hashes, recorded CLI RSS, an approved baseline, and exact
-platform/runner/runtime fingerprints. Fingerprint drift creates a candidate; it
-never silently reuses an incompatible baseline. The quality lab tracks the
-reviewed macOS arm64 and Linux x64 baseline files and their shared JSON schema.
-
-Normal push/PR performance validation uses `change-risk`: truth and RSS must
-pass and performance may be `not_applicable`. Full external comparison and
-mutation run only on scheduled CI. Intake lint must pass against the pinned
-quality-lab commit before its formal rows are treated as auditable evidence.
-
-## Running and Reading Evidence
-
-```bash
-moon build --target native --package ZSeanYves/markitdown
-./tools/regression/check_balance.sh
-./tools/regression/check_balance_quality.sh
-./tools/regression/check_accurate.sh
-moon run tools/regression/check_coverage.mbtx --enforce
-python3 tools/regression/mutation_smoke.py
-```
-
-The commands above are the source and controlled performance lanes. The MoonX
-consumer lane is a post-publication gate and records its own evidence under
-`.tmp/moonx-regression/`; it must not be substituted with a local prebuilt when
-claiming registry-consumer compatibility.
-
-Each entrypoint prints its run directory and writes a `summary.md`/`summary.tsv`
-plus failure-only diffs, raw stdout/stderr and per-row reports under `.tmp/`.
-`run_with_release_manifest.sh` additionally records repository/runtime
-fingerprints and required artifacts. Any child non-zero exit or missing required
-artifact is propagated as failure.
-
-Use `--format`, `--source` or `--id` filters while diagnosing a row; filters do
-not change its judge, license requirements or expected signals. Full evidence
-must run without filters.
+The coordinate must include an exact version. `@latest`, a local binary, a
+worktree, and an unpublished package are rejected. Before publication, a MoonX
+download error is expected evidence of the missing registry asset, not a reason
+to reintroduce a local compatibility runner.

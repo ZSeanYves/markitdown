@@ -23,5 +23,5 @@ selection, output assets, and provenance finalization stay in `formats/odt`,
 
 ```bash
 moon test --package ZSeanYves/markitdown/internal/readers/odf --target native
-bash tools/regression/check_balance.sh --format odt
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main --format odt
 ```

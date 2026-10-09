@@ -24,5 +24,5 @@ resources, or reads XML entities.
 
 ```bash
 moon test --package ZSeanYves/markitdown/internal/readers/pdf --target native
-bash tools/regression/check_balance.sh --format pdf
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite quality --format pdf
 ```

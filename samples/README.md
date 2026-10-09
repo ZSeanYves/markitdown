@@ -19,11 +19,13 @@ They live in the repo-root `markitdown-quality-lab/` checkout. The only external
 content admitted to the main repository is the reviewed showcase and its local
 legal evidence.
 
-After changing local samples, run:
+After changing local samples, run the MoonBit source checks and the MoonX main
+manifest once a published package coordinate is available:
 
-```bash
-moon test --target all
-./tools/regression/check_balance.sh
+```text
+moon test --target native --no-parallelize
+moon test --target wasm --no-parallelize
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main
 ```
 
 Fixture assets must exercise explicit `AssetPayload` ownership and the same

@@ -17,18 +17,19 @@ largest input is below 1 MiB. Notable document breadth:
 
 `MANIFEST.tsv` is the authority for source URLs, SHA-256 values, licenses,
 derivations, and review status. Every format keeps its own local legal evidence
-under `<format>/licenses/`, beside the input and result. `build_derived.py`
-reproducibly creates format-equivalent examples from the reviewed source files;
-derived files are never represented as upstream bytes.
+under `<format>/licenses/`, beside the input and result. Derived files are
+created from reviewed source snapshots and are never represented as upstream
+bytes.
 
 Each format directory contains its checked-in release balance conversion as
 `result.md`, beside the source input. Exported assets and controlled diagnostics
 are kept in that same directory. `RESULTS.tsv` records result hashes, sizes,
-asset counts, and diagnostic counts. Regenerate them after building the release
-CLI:
+asset counts, and diagnostic counts. Validate the showcase through the same
+MoonX consumer gate after publication:
 
-```bash
-python3 samples/showcase/generate_results.py
+```text
+moon run samples/showcase/audit.mbtx
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main
 ```
 
 Build and try the release CLI:
@@ -40,13 +41,7 @@ moon build --target native --release --package ZSeanYves/markitdown/internal/cli
   .tmp/showcase/nist.md
 ```
 
-Run the evidence and conversion audit:
-
-```bash
-python3 samples/showcase/audit.py
-```
-
-The audit verifies repository evidence; it is not legal advice. Dynamic USGS
+The manifest verifies repository evidence; it is not legal advice. Dynamic USGS
 and UniProt inputs are dated snapshots, not freshness claims. Project Gutenberg
 notices embedded in the book files must remain intact.
 

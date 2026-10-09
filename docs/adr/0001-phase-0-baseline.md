@@ -1,5 +1,8 @@
 # ADR 0001: Freeze the Phase 0 Baseline
 
+> Historical baseline. Tooling paths in this record are retained only for
+> provenance; they are not supported commands after the MoonX migration.
+
 - Status: accepted
 - Date: 2026-08-05
 - Owners: @ZSeanYves

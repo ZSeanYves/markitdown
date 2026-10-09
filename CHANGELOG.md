@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### MoonX-only validation and MoonBit tooling cleanup
+
+- Replaced the shell/Python regression, compatibility, environment, governance,
+  packaging, and local benchmark layers with pure MoonBit `.mbtx` entrypoints.
+- Added manifest-driven MoonX smoke, main/quality/accurate regression, and
+  Native/Wasm consumer benchmark runners. Exact package coordinates are
+  required; an unpublished coordinate fails at the expected MoonX download
+  boundary.
+- Removed the local benchmark runner and stale installer/model tooling. The
+  shared text product and its Native/Wasm source checks remain unchanged.
+
 ### Phase 2 compatibility laboratory
 
 - Added a pinned MarkItDown `v0.1.7` contract manifest with Tier A/B/C format

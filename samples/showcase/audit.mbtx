@@ -1,0 +1,28 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/core/env",
+}
+
+///|
+async fn main {
+  let root = @env.current_dir().unwrap_or(".") + "/samples/showcase"
+  let manifest = root + "/MANIFEST.tsv"
+  if !@fs.exists(manifest) { fail("showcase manifest is missing") }
+  let mut checked = 0
+  for raw in @fs.read_file(manifest).text().split("\n") {
+    if raw.trim() == "" || raw.has_prefix("format\t") { continue }
+    let fields : Array[String] = []
+    for value in raw.split("\t") { fields.push(value.to_owned()) }
+    if fields.length() < 2 { fail("malformed showcase manifest row") }
+    let input = root + "/" + fields[1]
+    let result = root + "/" + fields[0] + "/result.md"
+    if !@fs.exists(input) || !@fs.exists(result) {
+      fail("showcase evidence is incomplete for " + fields[0])
+    }
+    if @fs.read_file(result).text().trim() == "" { fail("empty showcase result: " + fields[0]) }
+    checked = checked + 1
+  }
+  println("showcase evidence passed: " + checked.to_string() + " rows")
+}

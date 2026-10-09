@@ -50,6 +50,11 @@ jobs:
           moonx tools/regression/run_moonx_regression.mbtx \
             "ZSeanYves/markitdown@${{ inputs.version }}" \
             --target "${{ inputs.target }}"
+      - name: Measure exact MoonX package consumer path
+        run: |
+          moonx tools/regression/moonx_benchmark.mbtx \
+            "ZSeanYves/markitdown@${{ inputs.version }}" \
+            --target "${{ inputs.target }}"
       - name: Upload MoonX evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -58,4 +63,5 @@ jobs:
           path: |
             .tmp/moonx-smoke
             .tmp/moonx-regression
+            .tmp/moonx-benchmark
           if-no-files-found: error

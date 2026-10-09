@@ -4,167 +4,405 @@ import {
   "moonbitlang/async@0.22.4/fs",
   "moonbitlang/async@0.22.4/shell",
   "moonbitlang/core/env",
+  "moonbitlang/x/crypto",
+}
+
+///|
+struct Case {
+  id : String
+  format : String
+  lane : String
+  input : String
+  expected : String
+  signals : String
+  view : String
 }
 
 ///|
 fn usage() -> String {
-  "usage: run_moonx_regression.mbtx <owner/module@version> [--target wasm|native] [--pdf]"
+  "usage: run_moonx_regression.mbtx <owner/module@version> [--target wasm|native] [--suite main|quality|accurate|all] [--format FORMAT] [--case ID]"
 }
 
 ///|
 fn exact_coordinate(value : String) -> Bool {
   let parts = value.split("@").to_array()
-  parts.length() == 2 &&
-  parts[0].trim() != "" &&
-  parts[0].contains("/") &&
-  !parts[0].has_prefix("/") &&
-  !parts[0].has_suffix("/") &&
-  parts[1].trim() != "" &&
-  parts[1].trim() != "latest"
+  parts.length() == 2 && parts[0].trim() != "" && parts[0].contains("/") &&
+  !parts[0].has_prefix("/") && !parts[0].has_suffix("/") &&
+  parts[1].trim() != "" && parts[1].trim() != "latest"
 }
 
 ///|
-async fn run_suite(
-  root : String,
-  coordinate : String,
-  target : String,
-  script : String,
-  args : Array[String],
-  output_dir : String,
-) -> Unit {
-  let env_args : Array[String] = [
-    "-u",
-    "MARKITDOWN_CLI",
-    "MARKITDOWN_CLI_RUNNER=moonx",
-    "MARKITDOWN_MOONX_COORDINATE=" + coordinate,
-    "MARKITDOWN_MOONX_TARGET=" + target,
-    "bash",
-    script,
-  ]
-  for arg in args {
-    env_args.push(arg)
+fn clean_field(value : String) -> String {
+  let mut out = value.trim().to_owned()
+  if out.has_prefix("\"") && out.has_suffix("\"") && out.length() >= 2 {
+    out = out[1:out.length() - 1].to_owned().replace(old="\"\"", new="\"")
   }
-  let result = @shell.Cmd("env", env_args, cwd=root).output()
-  let log_name = script
-    .replace(old="tools/regression/", new="")
-    .replace(old=".sh", new="") +
-    ".log"
-  @fs.write_file(
-    output_dir + "/" + log_name,
-    result.stdout() + "\n" + result.stderr(),
-  )
-  if result.exit_code() != 0 {
-    println("MoonX regression failed: " + script)
-    println("log: " + output_dir + "/" + log_name)
-    fail("MoonX regression suite failed")
+  out.replace(old="\\_", new="_")
+}
+
+///|
+fn fields(line : String) -> Array[String] {
+  let out : Array[String] = []
+  for field in line.split("\t") {
+    out.push(clean_field(field.to_owned()))
   }
-  println("MoonX regression passed: " + script)
+  out
+}
+
+///|
+fn field_or(row : Array[String], index : Int, fallback : String) -> String {
+  if index < row.length() { row[index] } else { fallback }
+}
+
+///|
+fn contains_feature(features : String, feature : String) -> Bool {
+  for value in features.split(";") {
+    if clean_field(value.to_owned()) == feature { return true }
+  }
+  false
+}
+
+///|
+fn main_case(row : Array[String], root : String) -> Case? {
+  if row.length() < 5 || row[0] == "id" { return None }
+  Some({
+    id: row[0], format: row[1], lane: row[2],
+    input: root + "/external_main_process/" + row[3],
+    expected: root + "/external_main_process/" + row[4],
+    signals: "", view: if row[2] == "rag" { "rag" } else { "markdown" },
+  })
+}
+
+///|
+fn quality_case(row : Array[String], root : String, accurate : Bool) -> Case? {
+  if row.length() < 11 || row[0] == "id" || row[6] != "approved" { return None }
+  if !accurate && contains_feature(row[9], "accurate") { return None }
+  let view = if accurate { field_or(row, 22, "markdown") } else { "markdown" }
+  Some({
+    id: row[0], format: row[1], lane: if accurate { "accurate" } else { "quality" },
+    input: root + "/" + row[2], expected: "", signals: row[10],
+    view: if view == "" { "markdown" } else { view },
+  })
+}
+
+///|
+async fn read_cases(path : String, root : String, kind : String) -> Array[Case] {
+  let out : Array[Case] = []
+  if !@fs.exists(path) { fail("quality lab manifest is missing: " + path) }
+  for raw in @fs.read_file(path).text().split("\n") {
+    let row = fields(raw.to_owned())
+    let item = if kind == "main" { main_case(row, root) } else { quality_case(row, root, kind == "accurate") }
+    match item {
+      Some(value) => out.push(value)
+      None => ()
+    }
+  }
+  out
+}
+
+///|
+fn count_occurrences(text : String, needle : String) -> Int {
+  if needle == "" { return 0 }
+  let mut rest = text
+  let mut count = 0
+  while true {
+    match rest.find(needle) {
+      None => return count
+      Some(index) => {
+        count = count + 1
+        let next = index + needle.length()
+        if next >= rest.length() { return count }
+        rest = rest[next:].to_owned()
+      }
+    }
+  }
+  nobreak { count }
+}
+
+///|
+fn first_equal(value : String) -> (String, String) {
+  match value.find("=") {
+    None => (value, "")
+    Some(index) => (value[:index].to_owned(), value[index + 1:].to_owned())
+  }
+}
+
+///|
+fn first_colon(value : String) -> (String, String) {
+  match value.find(":") {
+    None => (value, "")
+    Some(index) => (value[:index].to_owned(), value[index + 1:].to_owned())
+  }
+}
+
+///|
+fn ordered(text : String, values : String) -> Bool {
+  let mut cursor = 0
+  for raw in values.split("|") {
+    let value = clean_field(raw.to_owned())
+    if value == "" { continue }
+    match text[cursor:].find(value) {
+      None => return false
+      Some(relative) => cursor = cursor + relative + value.length()
+    }
+  }
+  true
+}
+
+///|
+fn referenced_assets(text : String) -> Int { count_occurrences(text, "assets/") }
+
+///|
+fn max_token_length(text : String) -> Int {
+  let mut longest = 0
+  for raw in text.split(" ") {
+    let token = raw.trim()
+    if token.length() > longest { longest = token.length() }
+  }
+  longest
+}
+
+///|
+fn rag_scalar(value : String, key : String) -> String {
+  for line in value.split("\n") {
+    if line.contains("\"" + key + "\"") {
+      let (_, raw) = first_colon(line.to_owned())
+      return raw.trim().to_owned().replace(old=",", new="").replace(old="\"", new="")
+    }
+  }
+  ""
+}
+
+///|
+fn rag_expected_pass(expected : String, actual : String) -> Bool {
+  for key in ["output_format", "detected_format", "parser_mode", "convert_mode", "output_mode"] {
+    let value = rag_scalar(expected, key)
+    if value != "" && !actual.contains(value) { return false }
+  }
+  for line in expected.split("\n") {
+    if line.contains("text_contains_all") {
+      let (_, raw) = first_colon(line.to_owned())
+      let value = raw.trim().replace(old="\"", new="").replace(old=",", new="")
+      if value != "" && !actual.contains(value) { return false }
+    }
+  }
+  true
+}
+
+///|
+async fn asset_hash(path : String) -> String {
+  let bytes = @fs.read_file(path).binary() catch { _ => return "" }
+  @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+}
+
+///|
+async fn asset_magic(path : String) -> String {
+  let bytes = @fs.read_file(path).binary() catch { _ => return "" }
+  if bytes.length() >= 8 && bytes[0].to_int() == 0x89 && bytes[1].to_int() == 0x50 && bytes[2].to_int() == 0x4e && bytes[3].to_int() == 0x47 {
+    "png"
+  } else if bytes.length() >= 3 && bytes[0].to_int() == 0xff && bytes[1].to_int() == 0xd8 && bytes[2].to_int() == 0xff {
+    "jpeg"
+  } else if bytes.length() >= 6 && bytes[0].to_int() == 'G'.to_int() && bytes[1].to_int() == 'I'.to_int() && bytes[2].to_int() == 'F'.to_int() {
+    "gif"
+  } else if bytes.length() >= 2 && bytes[0].to_int() == 'B'.to_int() && bytes[1].to_int() == 'M'.to_int() {
+    "bmp"
+  } else if bytes.length() >= 4 && bytes[0].to_int() == 'P'.to_int() && bytes[1].to_int() == 'K'.to_int() {
+    "zip"
+  } else if bytes.length() >= 12 && bytes[0].to_int() == 'R'.to_int() && bytes[1].to_int() == 'I'.to_int() && bytes[2].to_int() == 'F'.to_int() && bytes[3].to_int() == 'F'.to_int() && bytes[8].to_int() == 'W'.to_int() && bytes[9].to_int() == 'E'.to_int() && bytes[10].to_int() == 'B'.to_int() && bytes[11].to_int() == 'P'.to_int() {
+    "webp"
+  } else {
+    "unknown"
+  }
+}
+
+///|
+async fn signal_pass(signal_raw : String, text : String, case_dir : String) -> Bool {
+  let signal = clean_field(signal_raw)
+  if signal == "" { return true }
+  let (name, argument) = first_colon(signal)
+  let (key, expected) = first_equal(argument)
+  match name {
+    "no_empty_output" => text.trim() != ""
+    "contains" => text.contains(clean_field(argument))
+    "contains_all" => {
+      for value in argument.split("|") {
+        let item = clean_field(value.to_owned())
+        if item != "" && !text.contains(item) { return false }
+      }
+      true
+    }
+    "not_contains" => !text.contains(clean_field(argument))
+    "exact_count" => count_occurrences(text, clean_field(key)) == parse_int(expected)
+    "min_count" => count_occurrences(text, clean_field(key)) >= parse_int(expected)
+    "max_count" => count_occurrences(text, clean_field(key)) <= parse_int(expected)
+    "order" => ordered(text, argument)
+    "heading_marker" => text.contains("# ") || text.contains("## ")
+    "table_marker" => text.contains("| ") && text.contains("\n|")
+    "image_ref" => text.contains("![")
+    "link_ref" => text.contains("](")
+    "asset_count_min" => referenced_assets(text) >= parse_int(argument)
+    "asset_count_exact" => referenced_assets(text) == parse_int(argument)
+    "asset_exists" => @fs.exists(case_dir + "/" + clean_field(argument))
+    "asset_magic" => asset_magic(case_dir + "/" + clean_field(key)) == clean_field(expected)
+    "asset_sha256" => asset_hash(case_dir + "/" + clean_field(key)) == clean_field(expected)
+    "max_long_token_len" => max_token_length(text) <= parse_int(argument)
+    _ => false
+  }
+}
+
+///|
+fn parse_int(value : String) -> Int {
+  let mut result = 0
+  let mut sign = 1
+  let mut started = false
+  for ch in value.trim() {
+    if !started && ch == '-' { sign = -1; started = true }
+    else if ch >= '0' && ch <= '9' {
+      result = result * 10 + ch.to_int() - '0'.to_int(); started = true
+    } else if started { break }
+  }
+  result * sign
+}
+
+///|
+fn output_path(case_dir : String, view : String) -> String {
+  if view == "rag" { case_dir + "/result.rag.json" }
+  else if view == "debug" { case_dir + "/result.debug.json" }
+  else { case_dir + "/result.md" }
+}
+
+///|
+async fn compare_tree(expected : String, actual : String) -> Bool {
+  if !@fs.exists(expected) || !@fs.exists(actual) { return false }
+  let names = @fs.readdir(expected) catch { _ => [] }
+  for name in names {
+    let expected_path = expected + "/" + name
+    let actual_path = actual + "/" + name
+    let nested = @fs.readdir(expected_path) catch { _ => [] }
+    if nested.length() > 0 {
+      if !compare_tree(expected_path, actual_path) { return false }
+    } else {
+      if !@fs.exists(actual_path) { return false }
+      let expected_hash = asset_hash(expected_path)
+      let actual_hash = asset_hash(actual_path)
+      if expected_hash == "" || expected_hash != actual_hash { return false }
+    }
+  }
+  nobreak { true }
+}
+
+///|
+async fn run_case(root : String, coordinate : String, target : String, case : Case, evidence_dir : String) -> Bool {
+  let case_dir = evidence_dir + "/cases/" + case.id
+  @fs.mkdir(case_dir, recursive=true, allow_exist=true)
+  let output = output_path(case_dir, case.view)
+  let args : Array[String] = ["--target", target, coordinate]
+  args.push(if case.lane == "accurate" { "accurate" } else { "balance" })
+  if case.view == "rag" { args.push("--rag") }
+  else if case.view == "debug" { args.push("--debug") }
+  args.push("--format"); args.push(case.format)
+  if case.view == "provenance" { args.push("--provenance-out"); args.push(case_dir + "/provenance.json") }
+  args.push(case.input); args.push(output)
+  let result = @shell.Cmd("moonx", args, cwd=root).output()
+  @fs.write_file(case_dir + "/command.log", result.stdout() + "\n" + result.stderr())
+  if result.exit_code() != 0 || !@fs.exists(output) {
+    println("FAIL " + case.id + " (MoonX exit or missing output)"); return false
+  }
+  let text = @fs.read_file(output).text()
+  if case.expected != "" && case.lane == "assets" {
+    let expected_result = case.expected + "/result.md"
+    let expected_text = @fs.read_file(expected_result).text()
+    if text != expected_text || !compare_tree(case.expected, case_dir) {
+      @fs.write_file(case_dir + "/expected.md", expected_text)
+      println("FAIL " + case.id + " (asset golden mismatch)"); return false
+    }
+  } else if case.expected != "" && case.view == "markdown" {
+    let expected = @fs.read_file(case.expected).text()
+    if text != expected {
+      @fs.write_file(case_dir + "/expected.md", expected)
+      println("FAIL " + case.id + " (golden mismatch)"); return false
+    }
+  }
+  if case.expected != "" && case.view == "rag" {
+    let expected_rag = @fs.read_file(case.expected).text()
+    if text.trim() == "" || !rag_expected_pass(expected_rag, text) {
+      println("FAIL " + case.id + " (RAG contract mismatch)"); return false
+    }
+  }
+  let provenance_path = case_dir + "/provenance.json"
+  let provenance = if @fs.exists(provenance_path) { @fs.read_file(provenance_path).text() } else { "" }
+  let signal_text = text + "\n" + provenance + "\n" + result.stdout()
+  for signal in case.signals.split(";") {
+    if !signal_pass(signal.to_owned(), signal_text, case_dir) {
+      @fs.write_file(case_dir + "/failure.signal", signal)
+      println("FAIL " + case.id + " (signal: " + clean_field(signal.to_owned()) + ")"); return false
+    }
+  }
+  println("PASS " + case.id); true
+}
+
+///|
+fn select_cases(cases : Array[Case], format : String, case_id : String) -> Array[Case] {
+  let out : Array[Case] = []
+  for case in cases {
+    if (format == "" || case.format == format) && (case_id == "" || case.id == case_id) { out.push(case) }
+  }
+  out
+}
+
+///|
+async fn run_cases(root : String, coordinate : String, target : String, suite : String, format : String, case_id : String, evidence_dir : String) -> (Int, Int) {
+  let lab = root + "/markitdown-quality-lab"
+  let all : Array[Case] = []
+  if suite == "main" || suite == "all" { all.append(read_cases(lab + "/external_main_process/MANIFEST.tsv", lab, "main")) }
+  if suite == "quality" || suite == "all" { all.append(read_cases(lab + "/external_quality/MANIFEST.tsv", lab, "quality")) }
+  if suite == "accurate" || suite == "all" { all.append(read_cases(lab + "/external_accurate/MANIFEST.tsv", lab, "accurate")) }
+  let selected = select_cases(all, format, case_id)
+  if selected.length() == 0 { fail("no regression cases match the requested suite/filter") }
+  let mut passed = 0
+  let mut failed = 0
+  for case in selected {
+    if run_case(root, coordinate, target, case, evidence_dir) { passed = passed + 1 }
+    else { failed = failed + 1 }
+  }
+  (passed, failed)
 }
 
 ///|
 async fn main {
   let args = @env.args()
-  if args.length() < 2 || args.length() > 5 {
-    fail(usage())
-  }
+  if args.length() < 2 { fail(usage()) }
   let coordinate = args[1]
-  if !exact_coordinate(coordinate) {
-    fail(
-      "an exact published coordinate is required; @latest and unversioned packages are rejected",
-    )
-  }
+  if !exact_coordinate(coordinate) { fail("an exact MoonX coordinate is required; @latest and unversioned packages are rejected") }
   let mut target = "wasm"
-  let mut pdf_only = false
+  let mut suite = "all"
+  let mut format = ""
+  let mut case_id = ""
   let mut index = 2
   while index < args.length() {
     match args[index] {
       "--target" => {
-        if index + 1 >= args.length() ||
-          (args[index + 1] != "wasm" && args[index + 1] != "native") {
-          fail(usage())
-        }
-        target = args[index + 1]
-        index = index + 2
+        if index + 1 >= args.length() || (args[index + 1] != "wasm" && args[index + 1] != "native") { fail(usage()) }
+        target = args[index + 1]; index = index + 2
       }
-      "--pdf" => {
-        pdf_only = true
-        index = index + 1
+      "--suite" => {
+        if index + 1 >= args.length() || (args[index + 1] != "main" && args[index + 1] != "quality" && args[index + 1] != "accurate" && args[index + 1] != "all") { fail(usage()) }
+        suite = args[index + 1]; index = index + 2
       }
+      "--format" => { if index + 1 >= args.length() { fail(usage()) }; format = args[index + 1]; index = index + 2 }
+      "--case" => { if index + 1 >= args.length() { fail(usage()) }; case_id = args[index + 1]; index = index + 2 }
       _ => fail(usage())
     }
   }
   let root = @env.current_dir().unwrap_or(".")
   let evidence_dir = root + "/.tmp/moonx-regression"
   @fs.mkdir(evidence_dir, recursive=true, allow_exist=true)
-  let smoke = @shell.Cmd(
-    "moonx",
-    ["tools/regression/moonx_smoke.mbtx", coordinate, "--target", target],
-    cwd=root,
-  ).output()
-  @fs.write_file(
-    evidence_dir + "/smoke.log",
-    smoke.stdout() + "\n" + smoke.stderr(),
-  )
-  if smoke.exit_code() != 0 {
-    fail(
-      "MoonX smoke must pass before the full regression suites; see " +
-      evidence_dir +
-      "/smoke.log",
-    )
-  }
-  if pdf_only {
-    run_suite(
-      root,
-      coordinate,
-      target,
-      "tools/regression/check_balance_quality.sh",
-      ["--pdf"],
-      evidence_dir,
-    )
-    run_suite(
-      root,
-      coordinate,
-      target,
-      "tools/regression/check_accurate.sh",
-      ["--pdf"],
-      evidence_dir,
-    )
-  } else {
-    run_suite(
-      root,
-      coordinate,
-      target,
-      "tools/regression/check_balance.sh",
-      [],
-      evidence_dir,
-    )
-    run_suite(
-      root,
-      coordinate,
-      target,
-      "tools/regression/check_balance_quality.sh",
-      [],
-      evidence_dir,
-    )
-    run_suite(
-      root,
-      coordinate,
-      target,
-      "tools/regression/check_accurate.sh",
-      [],
-      evidence_dir,
-    )
-  }
-  @fs.write_file(
-    evidence_dir + "/summary.txt",
-    "coordinate=" +
-    coordinate +
-    "\ntarget=" +
-    target +
-    "\nmode=" +
-    (if pdf_only { "pdf" } else { "full" }) +
-    "\nstatus=pass\n",
-  )
-  println("MoonX regression gate passed: " + coordinate + " target=" + target)
+  let started = @env.now()
+  let (passed, failed) = run_cases(root, coordinate, target, suite, format, case_id, evidence_dir)
+  let elapsed = @env.now() - started
+  let status = if failed == 0 { "pass" } else { "fail" }
+  @fs.write_file(evidence_dir + "/summary.tsv", "coordinate\ttarget\tsuite\tpassed\tfailed\telapsed_ms\tstatus\n" + coordinate + "\t" + target + "\t" + suite + "\t" + passed.to_string() + "\t" + failed.to_string() + "\t" + elapsed.to_string() + "\t" + status + "\n")
+  println("MoonX regression " + status + ": " + passed.to_string() + " passed, " + failed.to_string() + " failed")
   println("evidence: " + evidence_dir)
+  if failed != 0 { fail("MoonX regression failed") }
 }

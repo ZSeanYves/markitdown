@@ -1,27 +1,20 @@
 # Tools
 
-Repository tooling is divided by responsibility:
+`tools/regression/` is the only repository-owned tool surface. Every executable
+entrypoint is MoonBit (`.mbtx`) and runs the published package through MoonX.
+There is no local CLI fallback, Python oracle, environment installer, shell
+adapter, compatibility laboratory, or package wrapper in this tree.
 
-- `env/`: optional runtime installation, verification, and deterministic
-  wrappers. The product conversion path has no optional runtime installer;
-  benchmark-only Python setup lives in `env/installers/install_bench_baseline_deps.sh`.
-- `regression/`: coverage, main/quality/accurate gates, mutation smoke,
-  release manifests, self-baseline enforcement, and the post-publication
-  MoonX consumer gate (`moonx_*.mbtx`).
-- `governance/`: immutable baseline, API/architecture, PR, toolchain, and
-  documentation policy checks.
-- `release/`: deterministic local archive, checksum, and SBOM generation.
-  `smoke_capabilities.mbtx` runs the root executable's `--help` and
-  `--capabilities` smoke checks for Native or Wasm RC artifacts.
+The entrypoints are:
 
-Tools are development and release infrastructure; they are not imported by the
-native conversion core. Generated state belongs under ignored `env/` and
-`.tmp/` directories unless a reviewed benchmark summary is intentionally
-committed under `bench/results/`.
+- `moonx_smoke.mbtx`: help, capability, and one text conversion smoke check.
+- `run_moonx_regression.mbtx`: manifest-driven main, quality, and accurate
+  regression suites with exact Markdown goldens and declared semantic signals.
+- `moonx_benchmark.mbtx`: a small fixed latency sample over representative text,
+  markup, structured data, and PDF inputs.
 
-Quality intake validates manifest, catalog, license, provenance, and audit
-boundaries before regression execution. Coverage, mutation, packaging, and
-benchmark gates consume explicit evidence paths and never infer success from a
-non-empty output alone.
-
-See each subtree README for commands and ownership rules.
+The external corpus is supplied by the sibling
+`markitdown-quality-lab/` checkout. Evidence is written under `.tmp/`, which
+is ignored by Git. The package coordinate must be exact, for example
+`ZSeanYves/markitdown@0.8.0`; an unpublished coordinate fails closed at the
+MoonX download boundary and is recorded as a release prerequisite.
