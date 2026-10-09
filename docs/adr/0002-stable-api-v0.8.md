@@ -1,5 +1,8 @@
 # ADR 0002: Establish the Stable 0.8 Façade
 
+> Historical record. Current interface checks use generated package interfaces
+> and MoonBit's strict all-target check.
+
 - Status: accepted
 - Date: 2026-08-05
 - Owners: @ZSeanYves

@@ -139,7 +139,8 @@ Notes:
 
 ## 8. Troubleshooting
 
-- For benchmark comparisons, run `./tools/env/installers/install_bench_baseline_deps.sh --check`.
+- For package-consumer timing evidence, run
+  `moonx tools/regression/moonx_benchmark.mbtx <owner/module@version> --target wasm`.
 - Then check CLI stderr.
 - If you need to confirm the real execution route, use `--provenance-out` in single-file mode.
 - The conversion path has no runtime Python, model or system-tool setup.

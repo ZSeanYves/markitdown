@@ -160,10 +160,10 @@ flowchart LR
 `ZSeanYves/markitdown/lib`，格式、读取器、运行时和测试均位于
 `ZSeanYves/markitdown/internal/*` 或 `lib/*` 的私有子包。
 
-`bench/` 保存策略、清单、基线和报告；可执行 runner 位于
-`internal/bench_runner`。包内测试继续与实现同包，跨包集成测试集中在
-`internal/integration_tests`。治理门禁拒绝根目录、`lib/` 和 `internal/`
-之外出现新的 `moon.pkg`。
+性能样例由 `tools/regression/moonx_benchmark.mbtx` 执行，证据写入忽略的
+`.tmp/moonx-benchmark/`；仓库不再维护本地 benchmark runner 或第二条执行链。
+包内测试继续与实现同包，跨包集成测试集中在 `internal/integration_tests`。
+治理规则仍拒绝根目录、`lib/` 和 `internal/` 之外出现新的 `moon.pkg`。
 
 ## 5. 能力与兼容路线
 
@@ -264,7 +264,7 @@ flowchart LR
 | Phase 1 | 完成 | `api` façade、私有 Input、typed error/code、CLI 退出码、Path/Text/Bytes/Reader、Markdown/Debug/RAG、能力/来源投影、0.8 golden、迁移文档、ADR 和架构依赖门禁 |
 | Phase 1.5 | 完成 | `src/` 唯一 MoonBit source root、逻辑包名保持、benchmark runner/集成测试内部化、根目录与物理路径治理门禁 |
 | Phase 1.6 | 完成 | 文档生命周期和索引、README/CHANGELOG 全面复核、陈旧文档删除、链接/性能主张 CI 门禁、MarkItDown 0.1.7 正式性能重跑 |
-| Phase 2 | 完成 | `tools/compatibility/` 固定 upstream corpus、结构化差分、OMML/PPTX 回归、stdin、能力分级和 CI 门禁 |
+| Phase 2 | 完成 | 质量实验结论已固化到 `markitdown-quality-lab` 清单；发布验证统一由 MoonX `.mbtx` 入口执行 |
 | Phase 3-6 | 未开始 | 必须从本文件对应阶段入口继续，不得跳过依赖、安全、性能或发布验收门 |
 
 ### 阶段 0：基线冻结与治理启动（第 0-2 周）

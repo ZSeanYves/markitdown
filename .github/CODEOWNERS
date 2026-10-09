@@ -12,6 +12,6 @@
 /internal/runtime/ @ZSeanYves
 /internal/readers/ @ZSeanYves
 /lib/formats/ @ZSeanYves
-/tools/governance/ @ZSeanYves
+/tools/regression/ @ZSeanYves
 /.github/ @ZSeanYves
 /SECURITY.md @ZSeanYves

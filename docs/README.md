@@ -13,8 +13,8 @@ instead of browsing files by name.
 - [Stable API 0.8](./api-v0.8.md): the sole compatibility-stable library
   surface.
 - [Migration to 0.8](./migration-0.8.md): changes required for pre-0.8 callers.
-- [Environment and benchmark dependencies](./environment-dependencies.md):
-  the pinned Python oracle used only for comparison builds.
+- [Runtime dependencies](./environment-dependencies.md):
+  the MoonBit-only runtime and Native/Wasm boundary.
 - [Current performance evidence](./performance.md): reproducible measurements,
   scope, environment, and interpretation limits.
 - [0.8 release-candidate acceptance](./release-candidate.md): Linux/macOS
@@ -50,9 +50,5 @@ Documents in the lists above are current and must change with the behavior they
 describe. Accepted ADRs are historical records: supersede them with another ADR
 instead of rewriting the original decision. Fixture `*.expected.md`, showcase
 `result.md`, benchmark JSON, and generated interfaces are evidence artifacts,
-not narrative documentation.
-
-Obsolete development-line guides are removed rather than left beside current
-instructions. Git history remains the archive. `tools/governance/check_documentation.py`
-checks local links, the root README mirror, retired paths, and stale benchmark
-claims in CI.
+not narrative documentation. Historical ADRs may mention removed tooling, but
+current commands must use the MoonX entrypoints described above.

@@ -64,11 +64,9 @@ from the official archive returned HTTP 403; no global installation was changed.
 - This is correctness evidence on macOS arm64, not performance or Linux RC
   acceptance. Full governance and release gates are still pending.
 
-Tracked probe sources and the exact latest registry records/checksums are in
-`tools/experiments/community/`. Run `run_codec.mbtx`, `run_encoding.mbtx`, or
-`run_runtime.mbtx` with the repository's absolute path and `native`/`wasm`;
-the codec probe has six tests per target and the encoding probe has three.
-Zero tests is a failure.
+The former isolated community probes are historical evidence. They are no
+longer executable repository tooling; product validation now runs the exact
+published package through `tools/regression/*.mbtx` and MoonX.
 
 ## Delivery state
 

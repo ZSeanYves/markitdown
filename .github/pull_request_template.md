@@ -41,15 +41,10 @@ paste commands and relevant output here
 
 - [ ] `moon fmt --check`
 - [ ] `moon info` and expected `.mbti` diff reviewed
-- [ ] `moon check --target all --warn-list +73`
-- [ ] Warning baseline review is recorded in
-      `tools/governance/warning-baseline.json`; no warning is silently
-      grandfathered. The strict cleanup command
-      `moon check --target all --warn-list +73 --deny-warn` remains a blocking
-      release item until the recorded diagnostics are cleared.
+- [ ] `moon check --target all --warn-list +73 --deny-warn`
 - [ ] Relevant native Tier 1 tests (macOS arm64/Linux x86_64)
 - [ ] Contract/regression/coverage/security/performance lane as applicable
-- [ ] Python/shell tooling tests as applicable
+- [ ] MoonX smoke/regression/benchmark entrypoint as applicable
 
 ## Fixtures, dependencies and generated files
 

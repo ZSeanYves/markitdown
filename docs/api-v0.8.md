@@ -21,7 +21,7 @@ The façade exposes only implementation-neutral models:
 `Input` has private fields. The interface does not expose parser registries,
 format-reader records, IR, pipeline contexts, renderer types, async handles,
 FFI values or external-runtime provider types. The reviewed surface is frozen
-in `tools/governance/api-v0.8.mbti`.
+in the generated `lib/pkg.generated.mbti` interface and the migration record.
 
 ## Example
 
@@ -86,9 +86,9 @@ package.
 
 Run:
 
-```bash
+```text
 moon info --package ZSeanYves/markitdown/lib
-python3 tools/governance/check_architecture.py
+moon check --target all --warn-list +73 --deny-warn
 ```
 
 An intentional golden change is Risk R3 and requires an accepted RFC or ADR,

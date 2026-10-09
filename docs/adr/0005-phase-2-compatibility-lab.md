@@ -1,5 +1,9 @@
 # ADR 0005: Official Compatibility Laboratory and Capability Tiers
 
+> Superseded on 2026-10-09. The local compatibility lab and its Python
+> adapters were removed; current evidence comes from the MoonX `.mbtx`
+> manifests documented in `docs/phase-2-compatibility-lab.md`.
+
 - Status: accepted
 - Date: 2026-08-08
 - Owners: @ZSeanYves

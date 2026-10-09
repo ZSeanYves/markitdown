@@ -1,5 +1,8 @@
 # ADR 0004: Normalize the MoonBit Source Root
 
+> Historical record. The benchmark runner referenced here was removed in favor
+> of the MoonX benchmark entrypoint under `tools/regression/`.
+
 - Status: accepted
 - Date: 2026-08-07
 - Owners: @ZSeanYves

@@ -51,5 +51,5 @@ committed even when diagnostics retain the triggering parse error.
 
 ```bash
 moon test --package ZSeanYves/markitdown/internal/cli --target native
-bash tools/regression/check_balance.sh
+moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main
 ```

@@ -1,5 +1,8 @@
 # ADR 0003: Complete Phase 1 Boundaries and Consolidate Packages
 
+> Historical record. Governance scripts referenced by this ADR were retired;
+> current source checks are the MoonBit commands in `CONTRIBUTING.md`.
+
 - Status: accepted
 - Date: 2026-08-07
 - Owners: @ZSeanYves
