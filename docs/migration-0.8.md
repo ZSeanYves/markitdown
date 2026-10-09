@@ -39,8 +39,9 @@ let source = @lib.Input::from_path(path)
 let result = @lib.convert(source)
 ```
 
-The 0.8 call is asynchronous. Make the containing function `async` and await
-the result; output and errors remain façade-owned models.
+The 0.8 call is asynchronous. Make the containing function `async` and call
+the conversion directly; MoonBit does not use an `await` keyword. Output and
+errors remain façade-owned models.
 
 Use `Input::from_text`, `Input::from_bytes` and `Input::from_reader` for the
 other stable input forms. When the caller owns an asynchronous random-access

@@ -26,14 +26,18 @@ in the generated `lib/pkg.generated.mbti` interface and the migration record.
 ## Example
 
 ```mbt check
-test {
+import {
+  "ZSeanYves/markitdown/lib",
+}
+
+async test "stable library conversion" {
   let input = @lib.Input::from_text(
     "# Title\n\nBody\n",
     source_name="note.md",
   )
   let options = @lib.ConvertOptions::default()
-    .with_mode(Accurate)
-    .with_output_mode(Markdown)
+    .with_mode(@lib.Balanced)
+    .with_output_mode(@lib.Markdown)
   guard @lib.convert(input, options~) is Ok(output) else {
     fail("conversion failed")
   }
@@ -42,9 +46,9 @@ test {
 }
 ```
 
-`convert` is asynchronous. Call it from an async entrypoint and await the
-result; the façade owns parser scheduling and does not expose community futures
-or FFI handles.
+`convert` is asynchronous. Call it from an `async` function; MoonBit propagates
+the asynchronous call directly and does not use an `await` keyword. The façade
+owns parser scheduling and does not expose community futures or FFI handles.
 
 Reader callbacks receive `(offset, length)` and return at most `length` bytes.
 An empty result means end of input. Reader resource ownership stays with the

@@ -1,18 +1,17 @@
 # Branch Protection Policy
 
 The `main` branch must be protected in GitHub. The settings below are the
-required Phase 0 policy; the actual repository setting is an external GitHub
-state and should be verified with the command shown after each change.
+required 0.8 repository policy; the actual repository setting is an external
+GitHub state and should be verified with the command shown after each change.
 
 ## Required settings
 
 - Require pull requests before merging; allow zero approvals while the project
   has one active maintainer, then raise to one when a backup reviewer is added.
-- Require these CI checks: `Phase 0 governance`, `MoonBit core (ubuntu-24.04)`,
-  `MoonBit core (macos-15)`, `New native full suite (ubuntu-24.04)`, `New
-  native full suite (macos-15)`, `Python and shell tools`, `Coverage`, `Main
-  regression (Linux)`, `Main regression (macOS)`, `Quality regression`,
-  `Accurate regression`, and `Performance`.
+- Require the two continuous source checks: `MoonBit core (ubuntu-24.04)` and
+  `MoonBit core (macos-15)`. The manually dispatched `MoonX consumer gate` and
+  `MoonX release candidate` workflows are release evidence rather than pull
+  request checks because they require an exact published package coordinate.
 - Require branches to be up to date before merging.
 - Dismiss stale approvals after new commits; require conversation resolution.
 - Disallow force pushes and branch deletion; require linear history when it is
@@ -22,16 +21,13 @@ state and should be verified with the command shown after each change.
 
 ## Verification
 
-```bash
+```text
 gh api repos/ZSeanYves/markitdown/branches/main/protection
 gh api repos/ZSeanYves/markitdown/rulesets
 ```
 
-The Phase 0 implementation adds repository-side CODEOWNERS, CI and PR policy
-files. GitHub branch protection remains a repository-admin action and must not
-be inferred from those files alone. It was applied to `main` on 2026-08-05 and
-re-verified through the API on 2026-08-07: strict status checks include both
-new-native platform jobs, pull requests are required with zero approvals during
-the single-maintainer period, force pushes and deletion are disabled, linear
-history and conversation resolution are enabled, and administrator enforcement
-remains false until a backup reviewer is assigned.
+Repository files describe the required policy, but GitHub branch protection
+remains a repository-admin action and must not be inferred from CI files alone.
+Re-run the API checks after changing the repository rules. Keep the exact
+settings and verification date in the release record rather than copying an
+old CI job name into this document.

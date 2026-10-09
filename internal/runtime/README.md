@@ -44,6 +44,6 @@ limits rather than document-derived shell strings.
 
 ## Validation
 
-```bash
-moon test --package ZSeanYves/markitdown/internal/runtime --target native
+```text
+moon test --package ZSeanYves/markitdown/internal/runtime --target native --no-parallelize
 ```

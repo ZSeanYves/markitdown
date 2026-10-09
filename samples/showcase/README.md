@@ -32,11 +32,11 @@ moon run samples/showcase/audit.mbtx
 moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --suite main
 ```
 
-Build and try the release CLI:
+Build and try the checkout CLI:
 
-```bash
-moon build --target native --release --package ZSeanYves/markitdown/internal/cli
-./_build/native/release/build/cli/cli.exe balance \
+```text
+moon build --target native --release --package ZSeanYves/markitdown
+./_build/native/release/build/markitdown.exe balance \
   samples/showcase/pdf/nist-zero-trust-architecture.pdf \
   .tmp/showcase/nist.md
 ```
@@ -45,6 +45,6 @@ The manifest verifies repository evidence; it is not legal advice. Dynamic USGS
 and UniProt inputs are dated snapshots, not freshness claims. Project Gutenberg
 notices embedded in the book files must remain intact.
 
-Showcase output is collected release-CLI evidence, not parser-pull or benchmark
+Showcase output is collected CLI evidence, not parser-pull or benchmark
 evidence. Generated Markdown and assets must pass the same atomic output, safe
 path, payload hash, and asset-budget boundaries as ordinary CLI conversions.

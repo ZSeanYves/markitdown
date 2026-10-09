@@ -52,6 +52,6 @@
 
 ## Validation
 
-```bash
-moon test --target native
+```text
+moon test --target native --no-parallelize
 ```
