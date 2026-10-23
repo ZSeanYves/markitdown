@@ -63,6 +63,8 @@ jobs:
         run: moon version --all | grep -F "moon $MOONBIT_VERSION ("
       - name: Verify compiler version
         run: moon version --all | grep -F "moonc $MOONBIT_EXPECTED_MOONC ("
+      - name: Resolve exact dependencies
+        run: moon update
       - name: Install exact published CLI and check independent public consumer
         env:
           PACKAGE_COORDINATE: ZSeanYves/markitdown@${{ inputs.version }}

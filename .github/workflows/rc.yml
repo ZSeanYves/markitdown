@@ -69,6 +69,8 @@ jobs:
         run: moon version --all | grep -F "moon $MOONBIT_VERSION ("
       - name: Verify compiler version
         run: moon version --all | grep -F "moonc $MOONBIT_EXPECTED_MOONC ("
+      - name: Resolve exact dependencies
+        run: moon update
       - name: Install local candidate and check public consumer
         if: inputs.source == 'local'
         run: moon run --target native tools/regression/native_install.mbtx -- --source local --root "$GITHUB_WORKSPACE" --evidence "$RUNNER_TEMP/native-install"
