@@ -11,6 +11,7 @@ on:
 
 env:
   MOONBIT_VERSION: "0.1.20261021"
+  MOONBIT_INSTALL_VERSION: "0.10.17+093cb8f9c"
   MOONBIT_EXPECTED_MOONC: "v0.10.17+093cb8f9c"
 
 jobs:
@@ -22,7 +23,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
       - name: Install pinned MoonBit
-        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_INSTALL_VERSION"
       - name: Add MoonBit to PATH
         run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
       - name: Record toolchain
