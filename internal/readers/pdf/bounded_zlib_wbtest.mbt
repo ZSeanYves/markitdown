@@ -61,7 +61,7 @@ test "bounded zlib charges partial corrupt step and budget error takes priority"
           result
           is Err(
             BudgetExceeded(
-              @budget.LimitExceeded(
+              LimitExceeded(
                 Cumulative(InflateBytes),
                 used=0L,
                 requested=1L,

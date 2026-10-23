@@ -216,18 +216,13 @@ async test "relationship metadata cache budgets stop before publishing rows with
     if cache_limit {
       assert_true(
         error
-        is @budget.LimitExceeded(
-          @budget.Resident(@budget.CacheBytes),
-          used=0L,
-          requested=22L,
-          limit=1L
-        ),
+        is LimitExceeded(Resident(CacheBytes), used=0L, requested=22L, limit=1L),
       )
     } else {
       assert_true(
         error
-        is @budget.LimitExceeded(
-          @budget.Cumulative(@budget.SourceMetadataBytes),
+        is LimitExceeded(
+          Cumulative(SourceMetadataBytes),
           used=0L,
           requested=11L,
           limit=1L
@@ -310,7 +305,7 @@ async test "relationship cache cannot hide an earlier typed account failure" {
   )
   let pkg = open_ooxml_archive(archive)
   assert_eq(read_part_relationships(pkg, "word/document.xml").length(), 1)
-  assert_true(context.account.reserve(@budget.CacheBytes, 1001L) is Err(_))
+  assert_true(context.account.reserve(CacheBytes, 1001L) is Err(_))
   let result = try
     read_part_relationships(pkg, "word/document.xml") |> Ok
   catch {
@@ -483,7 +478,7 @@ fn relationship_replay_working_scope(
 ) -> (@budget.BudgetContext, Array[@budget.BudgetLease]) {
   let account = @budget.Budget::new(
     @budget.BudgetLimits::new(
-      @budget.MeasurementOnly,
+      MeasurementOnly,
       inflate_bytes=None,
       parse_work=None,
       output_utf8_bytes=None,
@@ -590,12 +585,7 @@ async test "relationship syntax replay cannot hide a typed working limit" {
     error => Err(error)
   }
   assert_true(
-    result
-    is Err(
-      BudgetExceeded(
-        @budget.LimitExceeded(@budget.Resident(@budget.WorkingBytes), ..)
-      )
-    ),
+    result is Err(BudgetExceeded(LimitExceeded(Resident(WorkingBytes), ..))),
   )
   assert_true(@zip.archive_hard_failure(archive) is Some(_))
   assert_eq(pkg.relationship_cache.rows_by_rels_part.length(), 0)

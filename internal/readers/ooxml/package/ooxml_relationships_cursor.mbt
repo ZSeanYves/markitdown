@@ -117,11 +117,11 @@ fn retain_relationship_payload(
       metadata_bytes += ooxml_metadata_utf8_bytes(value)
       resident_bytes += value.length().to_int64() * 2L
     }
-    match context.account.charge(@budget.SourceMetadataBytes, metadata_bytes) {
+    match context.account.charge(SourceMetadataBytes, metadata_bytes) {
       Err(error) => raise BudgetExceeded(error)
       Ok(_) => ()
     }
-    match (context.retain_resident)(@budget.CacheBytes, resident_bytes) {
+    match (context.retain_resident)(CacheBytes, resident_bytes) {
       Err(error) => raise BudgetExceeded(error)
       Ok(_) => ()
     }
@@ -139,7 +139,7 @@ fn relationship_normalization_scratch(
     Some(context) =>
       match
         context.account.reserve(
-          @budget.WorkingBytes,
+          WorkingBytes,
           (source_part.length().to_int64() + target.length().to_int64()) * 12L +
           2L,
         ) {

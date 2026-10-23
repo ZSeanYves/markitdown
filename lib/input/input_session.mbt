@@ -101,7 +101,7 @@ pub fn begin_input_session(
             closed: Ref(false),
             max_bytes,
             failure: Ref(None),
-            open_mutex: @async.Mutex(),
+            open_mutex: Mutex(),
             account: match budget {
               Some(account) => account
               None =>

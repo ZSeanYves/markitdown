@@ -135,13 +135,7 @@ async test "parser pull open next and finish share the async protocol" {
                 if remaining.val {
                   remaining.val = false
                   sequence.push("event")
-                  Ok(
-                    Some({
-                      kind: @core.EventKind::TextLine,
-                      text: "body",
-                      source_ref: None,
-                    }),
-                  )
+                  Ok(Some({ kind: TextLine, text: "body", source_ref: None, }))
                 } else {
                   sequence.push("eof")
                   Ok(None)

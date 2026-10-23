@@ -81,9 +81,7 @@ async test "PDF structural route probe preserves Reader and defers exact text cl
     owner.source,
     balanced_markdown_options(Pdf),
   )
-  assert_true(
-    @input.input_kind(outcome.prepared_source) == @input.InputKind::Reader,
-  )
+  assert_true(@input.input_kind(outcome.prepared_source) == Reader)
   assert_eq(outcome.probe_signals.length(), 1)
   assert_true(outcome.probe_signals[0].kind == PageCount)
   assert_eq(outcome.probe_signals[0].observed, 1)

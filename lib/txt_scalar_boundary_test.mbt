@@ -51,7 +51,7 @@ async test "TXT UTF16 line ceiling never splits a non-BMP scalar or resumes afte
 ///|
 async test "TXT exact UTF16 ceiling retains the complete final non-BMP scalar" {
   let input = @lib.Input::from_text("a😀", source_name="scalar.txt")
-  for mode in [@lib.ConvertMode::Balanced, @lib.ConvertMode::Stream] {
+  for mode in [@lib.ConvertMode::Balanced, Stream] {
     let options = @lib.ConvertOptions::default()
       .with_mode(mode)
       .with_limits(@lib.ResourceLimits::default().with_max_line_chars(3))

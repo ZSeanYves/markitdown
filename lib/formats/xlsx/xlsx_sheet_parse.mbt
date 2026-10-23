@@ -223,7 +223,7 @@ fn xlsx_decode_sheet_xml(
   sheet_xml_bytes : Bytes,
 ) -> String raise @ox.OoxmlError {
   @utf8.decode(sheet_xml_bytes, ignore_bom=false) catch {
-    _ => raise @ox.OoxmlError::InvalidEncoding("utf8 decode failed")
+    _ => raise InvalidEncoding("utf8 decode failed")
   }
 }
 

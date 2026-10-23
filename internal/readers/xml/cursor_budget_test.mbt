@@ -5,7 +5,7 @@ fn cursor_account(
 ) -> @budget.Budget {
   @budget.Budget::new(
     @budget.BudgetLimits::new(
-      @budget.MeasurementOnly,
+      MeasurementOnly,
       inflate_bytes=None,
       parse_work~,
       output_utf8_bytes=None,
@@ -76,10 +76,7 @@ test "XML cursor budget failure and early close release all workspace without re
   ).unwrap()
   cursor.feed(b"<r/>", eof=true).unwrap()
   assert_true(
-    cursor.next()
-    is Err(
-      Budget(@budget.LimitExceeded(@budget.Cumulative(@budget.ParseWork), ..))
-    ),
+    cursor.next() is Err(Budget(LimitExceeded(Cumulative(ParseWork), ..))),
   )
   assert_true(cursor.next() is Err(Budget(_)))
   assert_eq(account.snapshot().cumulative.parse_work, 4L)
@@ -111,9 +108,7 @@ test "XML cursor budget failure and early close release all workspace without re
   ).unwrap()
   assert_true(
     cursor.feed(b"<r/>", eof=true)
-    is Err(
-      Budget(@budget.LimitExceeded(@budget.Resident(@budget.WorkingBytes), ..))
-    ),
+    is Err(Budget(LimitExceeded(Resident(WorkingBytes), ..))),
   )
   assert_eq(account.snapshot().resident.working_bytes, 0L)
   assert_eq(account.snapshot().active_leases, 0L)
@@ -124,14 +119,11 @@ test "XML cursor budget failure and early close release all workspace without re
     cursor_limits(),
     budget_context=cursor_context(account),
   ).unwrap()
-  assert_true(account.charge(@budget.ParseWork, 1L) is Err(_))
+  assert_true(account.charge(ParseWork, 1L) is Err(_))
   // A foreign failure must be observed before NeedInput, which otherwise
   // authorizes the asynchronous driver to issue another read.
   assert_true(
-    cursor.next()
-    is Err(
-      Budget(@budget.LimitExceeded(@budget.Cumulative(@budget.ParseWork), ..))
-    ),
+    cursor.next() is Err(Budget(LimitExceeded(Cumulative(ParseWork), ..))),
   )
   assert_eq(account.snapshot().resident.working_bytes, 0L)
   assert_eq(account.snapshot().active_leases, 0L)

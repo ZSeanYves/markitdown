@@ -43,7 +43,7 @@ async test "XLSX streaming I/O failure is not retried through a whole-part fallb
     error => Err(error)
   }
   match parsed {
-    Err(@ox.OoxmlError::ZipError(message)) =>
+    Err(ZipError(message)) =>
       assert_true(message.contains("injected worksheet read failure"))
     _ =>
       fail("a source read failure must propagate out of the streaming scanner")

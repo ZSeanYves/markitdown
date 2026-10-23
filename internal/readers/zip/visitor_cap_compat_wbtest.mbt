@@ -61,12 +61,7 @@ async test "omitted visitor cap preserves declared extent while explicit cap rej
       } else {
         match context.account.failure() {
           Some(
-            @budget.LimitExceeded(
-              Cumulative(InflateBytes),
-              used~,
-              requested~,
-              limit~
-            )
+            LimitExceeded(Cumulative(InflateBytes), used~, requested~, limit~)
           ) => {
             assert_eq(used, 0L)
             assert_eq(requested, 4L)

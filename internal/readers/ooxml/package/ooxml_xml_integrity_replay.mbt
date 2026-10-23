@@ -6,7 +6,7 @@ fn ooxml_replay_scratch(
   match context {
     None => None
     Some(context) =>
-      match context.account.reserve(@budget.WorkingBytes, bytes) {
+      match context.account.reserve(WorkingBytes, bytes) {
         Ok(lease) => Some(lease)
         Err(error) => raise BudgetExceeded(error)
       }
@@ -19,7 +19,7 @@ fn ooxml_replay_charge(
   bytes : Int64,
 ) -> Unit raise OoxmlError {
   if context is Some(context) {
-    match context.account.charge(@budget.ParseWork, bytes) {
+    match context.account.charge(ParseWork, bytes) {
       Ok(_) => ()
       Err(error) => raise BudgetExceeded(error)
     }

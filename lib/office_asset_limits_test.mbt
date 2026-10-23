@@ -7,7 +7,7 @@ async fn office_asset_limit_case(path : String, format : String) -> Unit {
     .with_format_hint(Some(format))
     .with_limits(@lib.ResourceLimits::default().with_max_asset_bytes(1L))
   let collect_rejected = match @lib.convert(input, options~) {
-    Err(@lib.ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) => {
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) => {
       assert_eq(kind, "single_asset_bytes")
       assert_true(observed > 1L)
       assert_eq(limit, 1L)
@@ -32,7 +32,7 @@ async fn office_asset_limit_case(path : String, format : String) -> Unit {
       ),
       options~,
     ) {
-    Err(@lib.ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) => {
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) => {
       assert_eq(kind, "single_asset_bytes")
       assert_true(observed > 1L)
       assert_eq(limit, 1L)

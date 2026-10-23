@@ -53,7 +53,7 @@ async test "decoded XML does not relax a smaller physical byte limit" {
     options~,
   )
   match result {
-    Err(@lib.ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) => {
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) => {
       assert_eq(kind, "input_bytes")
       assert_eq(observed, raw.length().to_int64())
       assert_eq(limit, raw.length().to_int64() - 1L)

@@ -139,7 +139,7 @@ fn pdf_inflate_zlib_bounded(
   let mut total = 0
   while true {
     let status = inflater.step_into(input[position:], scratch) catch {
-      @inflate.InflateError(_, message) => {
+      InflateError(_, message) => {
         // The patched engine retains physical output even on a throwing step.
         // Charge it before returning integrity error; no failed bytes escape.
         pdf_charge_inflate(context, inflater.last_produced())

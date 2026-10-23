@@ -61,7 +61,7 @@ async fn visit_ooxml_xml_tokens(
   }
   let limits = match
     @xml.XmlCursorLimits::new(
-      @budget.MeasurementOnly,
+      MeasurementOnly,
       max_depth=None,
       max_token_bytes=None,
       max_attributes=None,

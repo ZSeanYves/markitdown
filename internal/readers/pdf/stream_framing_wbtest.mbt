@@ -169,12 +169,7 @@ test "PDF EOL framing retry cannot follow a typed first budget failure" {
     framing_test_decode(object)
     is Err(
       BudgetExceeded(
-        @budget.LimitExceeded(
-          Cumulative(InflateBytes),
-          used=0L,
-          requested=1L,
-          limit=0L
-        )
+        LimitExceeded(Cumulative(InflateBytes), used=0L, requested=1L, limit=0L)
       )
     ),
   )
@@ -216,12 +211,7 @@ async test "PDF candidate failure prevents subsequent parent Reader calls" {
     framing_test_decode(object)
     is Err(
       BudgetExceeded(
-        @budget.LimitExceeded(
-          Cumulative(InflateBytes),
-          used=1L,
-          requested=1L,
-          limit=1L
-        )
+        LimitExceeded(Cumulative(InflateBytes), used=1L, requested=1L, limit=1L)
       )
     ),
   )

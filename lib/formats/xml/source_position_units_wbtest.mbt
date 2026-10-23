@@ -35,7 +35,7 @@ test "XML both malformed fallback shapes count the actual UTF8 view not UTF16 un
       source,
       text,
       @core.empty_diagnostics(),
-      @dxml.XmlError::ParseError("fixture"),
+      ParseError("fixture"),
     ),
     text,
   )

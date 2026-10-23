@@ -85,7 +85,7 @@ fn retain_content_type(
   if context is Some(context) {
     match
       context.account.charge(
-        @budget.SourceMetadataBytes,
+        SourceMetadataBytes,
         ooxml_metadata_utf8_bytes(key) + ooxml_metadata_utf8_bytes(value),
       ) {
       Err(error) => raise BudgetExceeded(error)
@@ -93,7 +93,7 @@ fn retain_content_type(
     }
     match
       (context.retain_resident)(
-        @budget.CacheBytes,
+        CacheBytes,
         (key.length().to_int64() + value.length().to_int64()) * 2L,
       ) {
       Err(error) => raise BudgetExceeded(error)
@@ -156,7 +156,7 @@ fn consume_content_types_token(
               Some(context) =>
                 match
                   context.account.reserve(
-                    @budget.WorkingBytes,
+                    WorkingBytes,
                     part.length().to_int64() * 12L + 2L,
                   ) {
                   Ok(lease) => Some(lease)

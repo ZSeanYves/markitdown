@@ -10,10 +10,7 @@ async test "EPUB text decoder reports typed hard encoding failures without cachi
     Err(InvalidEncoding(_)) => ()
     _ => fail("invalid UTF8 must have the explicit encoding domain")
   }
-  assert_true(
-    classify_epub_error(result.unwrap_err()).kind ==
-    EpubErrorKind::InvalidEncoding,
-  )
+  assert_true(classify_epub_error(result.unwrap_err()).kind == InvalidEncoding)
   assert_true(@zip.archive_hard_failure(pkg.archive) is Some(_))
   assert_eq(pkg.text_part_cache.length(), 0)
 }

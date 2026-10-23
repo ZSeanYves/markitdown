@@ -31,7 +31,7 @@ fn cursor_reserve(
   match budget {
     None => None
     Some(context) =>
-      match context.account.reserve(@budget.WorkingBytes, amount) {
+      match context.account.reserve(WorkingBytes, amount) {
         Ok(lease) => Some(lease)
         Err(error) => raise Stop(Budget(error))
       }
@@ -177,7 +177,7 @@ fn XmlCursor::charge(
   amount : Int64,
 ) -> Unit raise XmlCursorAbort {
   if self.budget is Some(context) {
-    match context.account.charge(@budget.ParseWork, amount) {
+    match context.account.charge(ParseWork, amount) {
       Ok(_) => ()
       Err(error) => raise Stop(Budget(error))
     }

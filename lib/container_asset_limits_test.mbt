@@ -119,8 +119,7 @@ async test "container assets retain validated payloads at the exact single and t
     let mut total = 0L
     for asset in result.assets {
       match asset.payload {
-        Some(@lib.AssetPayload::Bytes(bytes)) =>
-          total += bytes.length().to_int64()
+        Some(Bytes(bytes)) => total += bytes.length().to_int64()
         _ => fail("container asset must own its validated bytes")
       }
     }
@@ -185,7 +184,7 @@ async test "ZIP sibling children reject cumulative assets before the second payl
     options~,
   )
   match result {
-    Err(@lib.ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) =>
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) =>
       assert_eq((kind, observed, limit), ("total_asset_bytes", 14L, 13L))
     _ => fail("individually valid sibling assets must share the parent total")
   }
@@ -216,7 +215,7 @@ async test "nested Office child asset totals retain the parent error domain" {
       .with_max_total_asset_bytes(total - 1L),
     )
   match @lib.convert(input, options~) {
-    Err(@lib.ConvertError::ResourceLimitExceeded(kind~, observed~, limit~)) =>
+    Err(ResourceLimitExceeded(kind~, observed~, limit~)) =>
       assert_eq(
         (kind, observed, limit),
         ("total_asset_bytes", total, total - 1L),
@@ -225,8 +224,7 @@ async test "nested Office child asset totals retain the parent error domain" {
   }
   for asset in baseline.assets {
     match asset.payload {
-      Some(@lib.AssetPayload::Bytes(bytes)) =>
-        assert_eq(bytes.length().to_int64(), single)
+      Some(Bytes(bytes)) => assert_eq(bytes.length().to_int64(), single)
       _ => fail("nested validated payload must remain on the original asset")
     }
   }
@@ -271,7 +269,7 @@ async test "nested assets retain their own payload when the outer ZIP has a matc
     Some(media[0].name),
   )
   match nested[0].payload {
-    Some(@lib.AssetPayload::Bytes(bytes)) => assert_eq(bytes, expected)
+    Some(Bytes(bytes)) => assert_eq(bytes, expected)
     _ => fail("nested payload must not be replaced by an unrelated outer entry")
   }
 }

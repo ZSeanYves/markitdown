@@ -7,7 +7,7 @@ fn cursor_limits(
   fragment~ : Int32 = 8,
 ) -> @xml.XmlCursorLimits {
   @xml.XmlCursorLimits::new(
-    @budget.Enforced,
+    Enforced,
     max_depth=Some(depth),
     max_token_bytes=Some(token),
     max_attributes=Some(attributes),
@@ -295,7 +295,7 @@ test "XML cursor explicit caps distinguish depth atomic markup attributes and lo
   )
   assert_true(
     @xml.XmlCursorLimits::new(
-      @budget.Enforced,
+      Enforced,
       max_depth=None,
       max_token_bytes=None,
       max_attributes=None,
@@ -305,7 +305,7 @@ test "XML cursor explicit caps distinguish depth atomic markup attributes and lo
     is Err(InvalidState(_)),
   )
   let measured = @xml.XmlCursorLimits::new(
-    @budget.MeasurementOnly,
+    MeasurementOnly,
     max_depth=None,
     max_token_bytes=None,
     max_attributes=None,

@@ -24,9 +24,19 @@ RAG 索引、XML outline consumer/producer、TXT scalar 和 RFC 输出修复、�
 该冻结以后新增的 SourceRef JSON 保真、JSON/XML 位置修正、关系 cursor、YAML
 逻辑工作预算、PDF 结构会话/复制消除及大 JSON RAG 消费已逐项审阅并按哈希恢复；
 当前主仓 debug/release 各 1138/1138，strict check、info/fmt 通过，公共 façade
-接口与 integrated-framing 相同。新 Native 可执行文件、935 标准/侧车及安装检查正在
-冻结执行，不能继承旧产物的 935 通过结论。预算 policy 更新为 partial_v4，明确混合
-工作单位和未测量范围；预算覆盖仍不完整，P2/P3 未闭环。
+接口与 integrated-framing 相同。已冻结 `structural-session`，标准与 partial_v4
+侧车各 935/935；3324 输出相同，五项 PDF 探测/预算变化全部精确审查，0 未审定。
+本地安装 v6 与全新库消费者通过，实际安装二进制另跑 935/935，对源码冻结的全部
+3329 持久化输出一致。新 v4 预算采样 benchmark 378/378 与 quality 935/935 有效。
+临时副本固定 Git 提交已成功检出，但安装器不识别 file:// 为 Git URL，该次实际安装
+失败；真实远程固定提交安装仍未验收。预算 policy 明确混合工作单位和未测量范围；
+预算覆盖仍不完整，P2/P3 未闭环。
+
+随后复刻 CI 的显式 `--warn-list +73 --deny-warn`，定位并机械移除85项冗余限定名，
+保留完整诊断与逐项备份；原规则现已通过，debug/release各1138/1138再次通过。
+重建 Native 可执行文件 SHA 与上述冻结逐字相同，原935与采样证据仍对应同一二进制。
+用户已授权将该基础冻结推送独立候选分支，供远程Linux CI及固定提交安装验收；
+后续隔离候选不自动纳入该快照。
 
 ## 已有证据及其边界
 
@@ -89,6 +99,11 @@ RAG 索引、XML outline consumer/producer、TXT scalar 和 RFC 输出修复、�
 | 大 JSON RAG 消费 | 独立 render 80/80、935/935、3329 equal；五路径哈希恢复含一旧文件迁移删除 | `json-list-rag-staging/`、`json-list-rag-restored/`；只消费既有 json_list_v1 完整 preview 行，复用 XML scalar window 且保留其旧 ID。9MiB BOM/CRLF 的全部1000行、328窗口、完整 refs/范围/顺序及双次 ID oracle 通过；小数组子引用问题仍单列 |
 | partial_v4 验收器 | 两个独立工具 self-test 通过，旧 schema 保留严格验证 | `budget-v4-{profile,regression}-self-test-v1.log`；v4 ParseWork 为声明的混合 admission units，payload peak 不是 RSS。新主仓 quality/profile 冻结尚待执行 |
 | structural-session 主仓全测 | debug/release 各 1138/1138，strict check、info/fmt 通过；公共 façade 接口相同 | `structural-session-{debug,release}-tests.log`、`structural-session-{check,info,fmt}.log`；这是新集成源码的全测，不将旧 935 或安装 v5 自动继承为通过 |
+| structural-session 冻结 | 新产物标准与 partial_v4 侧车各 935/935，3324 equal + 五项精确审查，0 未审定 | `structural-session-freeze.md`、`structural-session-output-review.json`；来源位置冻结为比较基线，原始 comparator 五项 unexpected 与非零退出保留；每个其它字段和资产完全相同 |
+| 本地安装 v6 | moon install、CLI 与新库 consumer check/run 通过；安装二进制 7,833,856B；另跑935/935、3329输出一致 | `local-install-v6/`、`local-install-v6-regression/`、`local-install-v6-comparison/`；Mach-O arm64，系统 libSystem 依赖。安装/源码构建 SHA 独立，不互相代替 |
+| 临时固定 Git 安装尝试 | clone/checkout/SHA 成功，实际 install exit255 失败 | `pinned-local-git-install-v1/`；file:// 不被当前 moon install 分类为 Git URL。只在临时源副本创建提交，主仓未提交/推送；不称真实远程固定 Git 验收通过 |
+| structural-session v4 采样 | benchmark378/378、quality935/935有效，合计1313 measured/0 failures；九条缺失候选保留 | `structural-session-budget-profile-review.md`；混合ParseWork与payload模型按schema/profile独立分组；非 timing/RSS、默认值或完整预算验收 |
+| CI 精确规则兼容 | +73 strict通过，debug/release各1138/1138再次通过，Native产物SHA完全相同 | `w73-ci-overlay-review.md`与`structural-session-ci-*`；仅去85个compiler精确指出的prefix，无规则放宽。原失败日志保留，新源码归档独立于原freeze |
 
 冻结基线的机器、编译器与二进制指纹分别见 `frozen-inputs/machine.txt`、
 `frozen-inputs/toolchain.txt`、回归 `fingerprints.tsv`。旧 HTML/Markdown/XLSX 不同

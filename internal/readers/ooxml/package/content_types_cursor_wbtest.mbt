@@ -61,7 +61,7 @@ fn content_types_scope(
 ) -> (@budget.BudgetContext, Array[@budget.BudgetLease]) {
   let account = @budget.Budget::new(
     @budget.BudgetLimits::new(
-      @budget.MeasurementOnly,
+      MeasurementOnly,
       inflate_bytes=None,
       parse_work=None,
       output_utf8_bytes=None,
@@ -251,8 +251,8 @@ async test "content types cache and source metadata caps propagate typed Resourc
     if cache_limit {
       assert_true(
         error
-        is @budget.LimitExceeded(
-          @budget.Resident(@budget.CacheBytes),
+        is LimitExceeded(
+          Resident(CacheBytes),
           used=0L,
           requested=36L,
           limit=35L
@@ -261,8 +261,8 @@ async test "content types cache and source metadata caps propagate typed Resourc
     } else {
       assert_true(
         error
-        is @budget.LimitExceeded(
-          @budget.Cumulative(@budget.SourceMetadataBytes),
+        is LimitExceeded(
+          Cumulative(SourceMetadataBytes),
           used=0L,
           requested=18L,
           limit=17L
@@ -319,7 +319,7 @@ async test "content types preserves an earlier archive integrity failure before 
   let prior = try @zip.read_entry(archive, "other.xml") |> Ok catch {
     error => Err(error)
   }
-  assert_true(prior is Err(@zip.ChecksumMismatch(_, _, _)))
+  assert_true(prior is Err(ChecksumMismatch(_, _, _)))
   let opened = try open_ooxml_archive(archive) |> Ok catch {
     error => Err(error)
   }

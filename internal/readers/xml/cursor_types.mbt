@@ -118,7 +118,7 @@ pub fn XmlCursorLimits::new(
     match cap {
       Some(value) if value < 0L =>
         return Err(InvalidState("negative XML cursor cap"))
-      None if profile == @budget.Enforced =>
+      None if profile == Enforced =>
         return Err(InvalidState("enforced XML cursor requires every cap"))
       _ => ()
     }

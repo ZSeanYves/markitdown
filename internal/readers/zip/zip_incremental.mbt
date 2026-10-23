@@ -9,7 +9,7 @@ fn zip_budget_check(context : @budget.BudgetContext?) -> Unit raise ZipError {
   match context {
     None => ()
     Some(context) =>
-      match context.account.charge(@budget.InflateBytes, 0L) {
+      match context.account.charge(InflateBytes, 0L) {
         Ok(_) => ()
         Err(error) => raise BudgetExceeded(error)
       }
@@ -32,7 +32,7 @@ fn zip_charge_inflate(
   match context {
     None => ()
     Some(context) =>
-      match context.account.charge(@budget.InflateBytes, produced.to_int64()) {
+      match context.account.charge(InflateBytes, produced.to_int64()) {
         Ok(_) => ()
         Err(error) => raise BudgetExceeded(error)
       }
@@ -63,7 +63,7 @@ fn zip_reserve_scratch(
   match context {
     None => None
     Some(context) =>
-      match context.account.reserve(@budget.WorkingBytes, amount) {
+      match context.account.reserve(WorkingBytes, amount) {
         Ok(lease) => Some(lease)
         Err(error) => raise BudgetExceeded(error)
       }
@@ -146,7 +146,7 @@ async fn deliver_zip_copied_chunk(
   on_chunk : async (Bytes) -> Result[Unit, String],
 ) -> Result[Unit, ZipEmitError] noraise {
   let copied_payload = if retain_chunks {
-    zip_retain_payload(context, @budget.WorkingBytes, produced.to_int64()) catch {
+    zip_retain_payload(context, WorkingBytes, produced.to_int64()) catch {
       error => return Err(EntryFailure(error))
     }
     None
@@ -233,11 +233,7 @@ async fn emit_zip_entry_chunks(
           )
         }
         if retain_chunks {
-          zip_retain_payload(
-            context,
-            @budget.WorkingBytes,
-            chunk.length().to_int64(),
-          ) catch {
+          zip_retain_payload(context, WorkingBytes, chunk.length().to_int64()) catch {
             error => return fail(error)
           }
         }
@@ -276,7 +272,7 @@ async fn emit_zip_entry_chunks(
             output.mut_view(),
             end=pos == slice.data_end,
           ) catch {
-            @inflate.InflateError(_, message) => {
+            InflateError(_, message) => {
               // A corrupt step may already have written scratch output. The
               // local leaf preserves that count before releasing its views.
               // Account the physical work, but never copy/deliver failed data.

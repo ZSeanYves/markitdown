@@ -169,14 +169,7 @@ async test "ZIP all entry paths share aggregate inflate exhaustion and retain ea
       }
       assert_true(rejected)
       match context.account.failure() {
-        Some(
-          @budget.LimitExceeded(
-            Cumulative(InflateBytes),
-            used~,
-            requested~,
-            limit~
-          )
-        ) => {
+        Some(LimitExceeded(Cumulative(InflateBytes), used~, requested~, limit~)) => {
           assert_eq(used, 65536L)
           assert_eq(requested, 4464L)
           assert_eq(limit, 65536L)
@@ -219,7 +212,7 @@ async test "ZIP resident reservation fails before decoded output allocation or i
     }
     assert_true(rejected)
     match context.account.failure() {
-      Some(@budget.LimitExceeded(dimension, used~, requested~, limit~)) => {
+      Some(LimitExceeded(dimension, used~, requested~, limit~)) => {
         assert_true(dimension is Resident(_))
         assert_eq(used, 0L)
         assert_true(requested >= 4L)
@@ -374,12 +367,7 @@ async test "ZIP charges failed-step physical output without delivering it and pr
       if limited {
         match context.account.failure() {
           Some(
-            @budget.LimitExceeded(
-              Cumulative(InflateBytes),
-              used~,
-              requested~,
-              limit~
-            )
+            LimitExceeded(Cumulative(InflateBytes), used~, requested~, limit~)
           ) => {
             assert_eq(used, 0L)
             assert_eq(requested, 1L)

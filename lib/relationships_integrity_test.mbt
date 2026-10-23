@@ -74,8 +74,7 @@ async fn relationship_integrity_rejected(
   let input = @lib.Input::from_bytes(raw, source_name="relations." + format)
   let options = @lib.ConvertOptions::default().with_format_hint(Some(format))
   let collected = match @lib.convert(input, options~) {
-    Err(@lib.ConvertError::DetectionFailed(_)) | Err(@lib.ParseFailed(_)) =>
-      true
+    Err(DetectionFailed(_)) | Err(ParseFailed(_)) => true
     _ => false
   }
   let writes = Ref(0)
@@ -95,8 +94,7 @@ async fn relationship_integrity_rejected(
       ),
       options~,
     ) {
-    Err(@lib.ConvertError::DetectionFailed(_)) | Err(@lib.ParseFailed(_)) =>
-      true
+    Err(DetectionFailed(_)) | Err(ParseFailed(_)) => true
     _ => false
   }
   (collected, streamed, writes.val, finishes.val)

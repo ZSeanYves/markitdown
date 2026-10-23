@@ -53,7 +53,7 @@ async fn xlsx_encoding_wbtest_rejects_row(
     )
     false
   } catch {
-    @ox.OoxmlError::InvalidEncoding(message) => message.contains("utf8")
+    InvalidEncoding(message) => message.contains("utf8")
     _ => false
   }
   assert_true(

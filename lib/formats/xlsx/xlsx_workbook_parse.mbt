@@ -972,9 +972,9 @@ async fn xlsx_parse_sheet_view(
       )
     }
   } catch {
-    @ox.OoxmlError::InvalidEncoding(message) => {
+    InvalidEncoding(message) => {
       @dzip.record_hard_failure(pkg.archive, message)
-      raise @ox.OoxmlError::InvalidEncoding(message)
+      raise InvalidEncoding(message)
     }
     error => raise error
   }
@@ -1143,8 +1143,7 @@ async fn xlsx_parse_sheet_xml_bytes_streaming(
     build_cell_source_refs~,
     cell_window_bounds=None,
   ) catch {
-    @ox.OoxmlError::InvalidEncoding(message) =>
-      return Err(InvalidEncoding(message))
+    InvalidEncoding(message) => return Err(InvalidEncoding(message))
     error => return Err(ReadFailed(error.to_string()))
   }
   Ok(parsed)

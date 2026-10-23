@@ -282,7 +282,7 @@ async fn read_entry_impl(
     archive,
     slice,
     max_output_size,
-    @budget.CacheBytes,
+    CacheBytes,
   )
   archive.read_miss_count.val += 1
   archive.read_entry_cache.set(path, decoded)
@@ -315,12 +315,7 @@ async fn read_entry_transient_impl(
 ) -> Bytes raise ZipError {
   zip_check_archive_ready(archive)
   let slice = read_entry_data_slice(archive, path)
-  collect_zip_entry_chunks(
-    archive,
-    slice,
-    max_output_size,
-    @budget.WorkingBytes,
-  )
+  collect_zip_entry_chunks(archive, slice, max_output_size, WorkingBytes)
 }
 
 ///|
