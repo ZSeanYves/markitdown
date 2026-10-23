@@ -85,7 +85,7 @@ pub extend DocxWarningSeverity with Eq::{equal, not_equal}
 ///|
 pub struct DocxSourceKey {
   part_name : String
-  block_index : Int
+  block_index : Int32
   node_key : String
 }
 
@@ -503,22 +503,22 @@ pub struct DocxSourceRun {
 
 ///|
 pub struct DocxSourceTableCell {
-  row_index : Int
-  cell_index : Int
+  row_index : Int32
+  cell_index : Int32
   blocks : Array[DocxSourceBlock]
   text : String
   grid_span : String?
   vertical_merge : String?
   has_nested_table : Bool
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
 
 ///|
 pub struct DocxSourceTableRow {
-  row_index : Int
+  row_index : Int32
   is_header : Bool
   cells : Array[DocxSourceTableCell]
   source_key : DocxSourceKey
@@ -527,8 +527,8 @@ pub struct DocxSourceTableRow {
 ///|
 pub struct DocxSourceTable {
   rows : Array[DocxSourceTableRow]
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
@@ -851,22 +851,22 @@ pub struct DocxParagraph {
 
 ///|
 pub struct DocxTableCell {
-  row_index : Int
-  cell_index : Int
+  row_index : Int32
+  cell_index : Int32
   blocks : Array[DocxBlock]
   text : String
   grid_span : String?
   vertical_merge : String?
   has_nested_table : Bool
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
 
 ///|
 pub struct DocxTableRow {
-  row_index : Int
+  row_index : Int32
   is_header : Bool
   cells : Array[DocxTableCell]
   source_key : DocxSourceKey
@@ -875,8 +875,8 @@ pub struct DocxTableRow {
 ///|
 pub struct DocxTable {
   rows : Array[DocxTableRow]
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }

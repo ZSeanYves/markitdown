@@ -118,8 +118,8 @@ fn collect_html_semantic_noise_candidate_fact(
   ctx : HtmlSemanticCollectCtx,
   block_source_key : String?,
   parent_source_key : String?,
-  source_order : Int,
-  depth : Int,
+  source_order : Int32,
+  depth : Int32,
   attributes : Array[HtmlSemanticAttributeSummary],
   text_preview : String,
 ) -> Unit {

@@ -3,7 +3,9 @@
 ///
 /// Missing `docProps/core.xml` is represented by a struct whose fields are
 /// `None`.
-pub fn read_core_properties(pkg : OoxmlPackage) -> OoxmlCoreProperties {
+pub async fn read_core_properties(
+  pkg : OoxmlPackage,
+) -> OoxmlCoreProperties raise OoxmlError {
   let xml = read_optional_xml_text(pkg, "docProps/core.xml")
   {
     title: tag_text(xml, "title"),
@@ -23,7 +25,9 @@ pub fn read_core_properties(pkg : OoxmlPackage) -> OoxmlCoreProperties {
 ///
 /// Missing `docProps/app.xml` is represented by a struct whose fields are
 /// `None`.
-pub fn read_app_properties(pkg : OoxmlPackage) -> OoxmlAppProperties {
+pub async fn read_app_properties(
+  pkg : OoxmlPackage,
+) -> OoxmlAppProperties raise OoxmlError {
   let xml = read_optional_xml_text(pkg, "docProps/app.xml")
   {
     application: tag_text(xml, "Application"),
@@ -40,7 +44,9 @@ pub fn read_app_properties(pkg : OoxmlPackage) -> OoxmlAppProperties {
 /// Read lightweight custom document properties.
 ///
 /// Missing `docProps/custom.xml` is represented by an empty array.
-pub fn read_custom_properties(pkg : OoxmlPackage) -> Array[OoxmlCustomProperty] {
+pub async fn read_custom_properties(
+  pkg : OoxmlPackage,
+) -> Array[OoxmlCustomProperty] raise OoxmlError {
   let xml = read_optional_xml_text(pkg, "docProps/custom.xml")
   if xml == "" {
     return []
@@ -120,7 +126,11 @@ fn parse_custom_property_block(block : String) -> OoxmlCustomProperty? {
 }
 
 ///|
-fn find_substring_from(haystack : String, needle : String, start : Int) -> Int? {
+fn find_substring_from(
+  haystack : String,
+  needle : String,
+  start : Int32,
+) -> Int32? {
   if needle == "" {
     return Some(start)
   }
@@ -137,8 +147,12 @@ fn find_substring_from(haystack : String, needle : String, start : Int) -> Int? 
 }
 
 ///|
-fn read_optional_xml_text(pkg : OoxmlPackage, part_name : String) -> String {
+async fn read_optional_xml_text(
+  pkg : OoxmlPackage,
+  part_name : String,
+) -> String raise OoxmlError {
   read_part_text(pkg, part_name) catch {
-    _ => ""
+    MissingPart(_) => ""
+    error => raise error
   }
 }

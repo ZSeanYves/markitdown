@@ -7,8 +7,8 @@ pub(all) suberror XmlError {
 ///|
 /// Line-based source span for XML tokens and nodes.
 pub struct XmlSourceSpan {
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 ///|
@@ -83,7 +83,7 @@ pub struct XmlCData {
 pub struct XmlDocument {
   nodes : Array[XmlNode]
   root : XmlElement?
-  source_length : Int
+  source_length : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
 }
@@ -139,36 +139,36 @@ pub extend XmlValidationIssueKind with Eq::{equal, not_equal}
 pub struct XmlValidationIssue {
   kind : XmlValidationIssueKind
   severity : XmlValidationSeverity
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   message : String
 }
 
 ///|
 /// Aggregated XML validation report.
 pub struct XmlValidationReport {
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[XmlValidationIssue]
 }
 
 ///|
 /// Structural summary for a parsed XML document.
 pub struct XmlInspectReport {
-  node_count : Int
-  element_count : Int
-  attribute_count : Int
-  text_node_count : Int
-  comment_count : Int
-  cdata_count : Int
-  processing_instruction_count : Int
-  max_depth : Int
+  node_count : Int32
+  element_count : Int32
+  attribute_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  cdata_count : Int32
+  processing_instruction_count : Int32
+  max_depth : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   is_empty : Bool
 }
 

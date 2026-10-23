@@ -12,9 +12,9 @@ priv struct PptxSourceParseContext {
   rel_by_id_cache : Map[String, Map[String, PptxRelationship]]
   warnings : Array[PptxWarning]
   budget : PptxParseBudget
-  total_source_nodes : Ref[Int]
-  media_ref_count : Ref[Int]
-  media_bytes_loaded : Ref[Int]
+  total_source_nodes : Ref[Int32]
+  media_ref_count : Ref[Int32]
+  media_bytes_loaded : Ref[Int32]
 }
 
 ///|
@@ -81,10 +81,13 @@ fn push_over_budget_warning(
 }
 
 ///|
-fn read_source_part_bytes(
+async fn read_source_part_bytes(
   ctx : PptxSourceParseContext,
   part_name : String,
-) -> Bytes? {
+) -> Bytes? noraise {
+  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
+    return None
+  }
   match ctx.part_cache.get(part_name) {
     Some(cached) =>
       match cached.bytes {
@@ -103,10 +106,13 @@ fn read_source_part_bytes(
 }
 
 ///|
-fn read_source_part_text(
+async fn read_source_part_text(
   ctx : PptxSourceParseContext,
   part_name : String,
-) -> String? {
+) -> String? noraise {
+  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
+    return None
+  }
   match ctx.part_cache.get(part_name) {
     Some(cached) =>
       match cached.text {
@@ -148,10 +154,13 @@ fn to_pptx_relationship(
 }
 
 ///|
-fn read_source_relationships(
+async fn read_source_relationships(
   ctx : PptxSourceParseContext,
   source_part : String,
-) -> Array[PptxRelationship] {
+) -> Array[PptxRelationship] noraise {
+  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
+    return []
+  }
   match ctx.rel_cache.get(source_part) {
     Some(rels) => return rels
     None => ()
@@ -190,11 +199,11 @@ fn read_source_relationships(
 }
 
 ///|
-fn find_source_relationship_by_id(
+async fn find_source_relationship_by_id(
   ctx : PptxSourceParseContext,
   source_part : String,
   rel_id : String,
-) -> PptxRelationship? {
+) -> PptxRelationship? noraise {
   match ctx.rel_by_id_cache.get(source_part) {
     Some(by_id) => return by_id.get(rel_id)
     None => ()
@@ -217,7 +226,9 @@ fn part_content_type(
 }
 
 ///|
-fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
+async fn build_pptx_part_graph(
+  ctx : PptxSourceParseContext,
+) -> PptxPartGraph noraise {
   let parts : Array[PptxPartInfo] = []
   for info in @ox.list_part_infos(ctx.pkg) {
     parts.push({
@@ -270,9 +281,9 @@ fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
 }
 
 ///|
-fn parse_pptx_document_metadata(
+async fn parse_pptx_document_metadata(
   ctx : PptxSourceParseContext,
-) -> PptxDocumentMetadata raise {
+) -> PptxDocumentMetadata {
   let core = @ox.read_core_properties(ctx.pkg)
   let app = @ox.read_app_properties(ctx.pkg)
   {
@@ -293,9 +304,9 @@ fn parse_pptx_document_metadata(
 }
 
 ///|
-fn parse_custom_properties(
+async fn parse_custom_properties(
   ctx : PptxSourceParseContext,
-) -> Array[PptxCustomProperty] raise {
+) -> Array[PptxCustomProperty] {
   let xml = match read_source_part_bytes(ctx, "docProps/custom.xml") {
     Some(bytes) => bytes
     None => return []
@@ -380,30 +391,39 @@ fn read_custom_property_value(block : Bytes) -> (String?, String) raise {
 }
 
 ///|
-pub fn open_pptx_document(path : String) -> PptxDocument raise {
-  let bytes = @fs.read_file_to_bytes(path) catch {
-    e => raise PptxError::OpenFailed(path + ": " + (e : Error).to_string())
+pub async fn open_pptx_document(path : String) -> PptxDocument {
+  let session = @input.begin_input_session(@input.input_from_path(path))
+  defer @input.end_input_session(session)
+  let document = match prepare_pptx_document_from_source(session.source) {
+    Ok(prepared) => prepared.document
+    Err(message) => raise PptxError::OpenFailed(path + ": " + message)
   }
-  let pkg = @ox.open_ooxml_package(bytes) catch {
-    e => raise PptxError::OoxmlFailure(e.to_string())
+  if @input.input_session_error(session) is Some(message) {
+    raise PptxError::OpenFailed(path + ": " + message)
   }
-  parse_pptx_document_from_package(pkg)
+  document
 }
 
 ///|
-pub fn parse_pptx_document_from_package(
+pub async fn parse_pptx_document_from_package(
   pkg : @ox.OoxmlPackage,
-) -> PptxDocument raise {
+) -> PptxDocument {
   let source = parse_pptx_source(pkg)
-  normalize_pptx_source(source)
+  let document = normalize_pptx_source(source)
+  ensure_pptx_package_integrity(pkg)
+  document
 }
 
 ///|
-pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
+pub async fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument {
+  ensure_pptx_package_integrity(pkg)
   let ctx = new_pptx_source_parse_context(pkg)
   let part_graph0 = build_pptx_part_graph(ctx)
+  ensure_pptx_package_integrity(pkg)
   let metadata = parse_pptx_document_metadata(ctx)
+  ensure_pptx_package_integrity(pkg)
   let presentation = parse_source_presentation(ctx, part_graph0)
+  ensure_pptx_package_integrity(pkg)
   let layouts = parse_source_layouts(ctx)
   let masters = parse_source_masters(ctx)
   let comment_authors = parse_comment_authors(ctx)
@@ -433,6 +453,7 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
     root_presentation_part: part_graph0.root_presentation_part,
     warnings: ctx.warnings.copy(),
   }
+  ensure_pptx_package_integrity(pkg)
   {
     metadata,
     part_graph,
@@ -442,5 +463,14 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
     masters,
     comment_authors,
     warnings: ctx.warnings.copy(),
+  }
+}
+
+///|
+fn ensure_pptx_package_integrity(
+  pkg : @ox.OoxmlPackage,
+) -> Unit raise PptxError {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(message) {
+    raise OoxmlFailure(message)
   }
 }

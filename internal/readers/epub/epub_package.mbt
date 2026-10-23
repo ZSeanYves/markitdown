@@ -1,5 +1,5 @@
 ///|
-pub fn open_epub_package(
+pub async fn open_epub_package(
   bytes : Bytes,
   source_name : String,
 ) -> EpubPackage raise EpubError {
@@ -11,10 +11,13 @@ pub fn open_epub_package(
 
 ///|
 /// Open EPUB semantics over an already validated ZIP archive.
-pub fn open_epub_archive(
+pub async fn open_epub_archive(
   archive : @zip.ZipArchive,
   source_name : String,
 ) -> EpubPackage raise EpubError {
+  if @zip.archive_hard_failure(archive) is Some(message) {
+    raise ZipError(message)
+  }
   let (entries, entry_index) = plan_archive_entries(archive)
 
   if entry_index.contains("META-INF/encryption.xml") {
@@ -86,11 +89,21 @@ pub fn open_epub_archive(
           )
         }
       } catch {
-        _ => []
+        InvalidEncoding(message) => raise InvalidEncoding(message)
+        error => {
+          if @zip.archive_hard_failure(archive) is Some(message) {
+            raise ZipError(message)
+          }
+          ignore(error)
+          []
+        }
       }
     None => []
   }
 
+  if @zip.archive_hard_failure(archive) is Some(message) {
+    raise ZipError(message)
+  }
   let pkg = {
     archive,
     entries,
@@ -371,6 +384,17 @@ pub fn classify_epub_error(err : EpubError) -> EpubErrorInfo {
         }
       }
     InvalidXml(msg) => classify_invalid_xml_detail(msg)
+    InvalidEncoding(msg) =>
+      {
+        kind: InvalidEncoding,
+        detail: msg,
+        part_name: None,
+        rootfile_path: None,
+        manifest_id: None,
+        source_part: None,
+        path: None,
+        href: None,
+      }
     InvalidPath(path) => classify_invalid_path_detail(path)
     InvalidPackage(msg) =>
       {
@@ -433,7 +457,7 @@ pub fn collect_epub_validation_issues(
       message: "no EPUB3 nav document or NCX navigation document was discovered",
     })
   }
-  let seen_idrefs : Map[String, Int] = Map([])
+  let seen_idrefs : Map[String, Int32] = Map([])
   for item in pkg.spine {
     if seen_idrefs.contains(item.idref) {
       out.push({
@@ -545,7 +569,7 @@ pub fn has_part(pkg : EpubPackage, part_name : String) -> Bool {
 }
 
 ///|
-pub fn read_part_bytes(
+pub async fn read_part_bytes(
   pkg : EpubPackage,
   part_name : String,
 ) -> Bytes raise EpubError {
@@ -554,7 +578,21 @@ pub fn read_part_bytes(
 }
 
 ///|
-pub fn read_part_text(
+/// Decode a package XML/XHTML part exactly once. Invalid encoding is a hard
+/// archive failure, including when a caller has a syntax-recovery fallback.
+pub fn decode_part_text(
+  pkg : EpubPackage,
+  part_name : String,
+  bytes : Bytes,
+) -> String raise EpubError {
+  if @zip.archive_hard_failure(pkg.archive) is Some(message) {
+    raise ZipError(message)
+  }
+  bytes_to_xml_text(pkg.archive, bytes, part_name)
+}
+
+///|
+pub async fn read_part_text(
   pkg : EpubPackage,
   part_name : String,
 ) -> String raise EpubError {
@@ -587,7 +625,7 @@ pub fn list_parts(pkg : EpubPackage) -> Array[String] {
 }
 
 ///|
-pub fn read_nav_document(pkg : EpubPackage) -> String? {
+pub async fn read_nav_document(pkg : EpubPackage) -> String? noraise {
   match pkg.nav_item {
     Some(item) =>
       try read_part_text(pkg, item.resolved_path) catch {
@@ -684,7 +722,7 @@ fn select_primary_rootfile(
 }
 
 ///|
-fn first_usable_rootfile_index(rootfiles : Array[EpubRootfileInfo]) -> Int {
+fn first_usable_rootfile_index(rootfiles : Array[EpubRootfileInfo]) -> Int32 {
   for i in 0..<rootfiles.length() {
     if rootfiles[i].usable {
       return i
@@ -978,7 +1016,7 @@ fn extract_duplicate_manifest_id(msg : String) -> String? {
 fn compare_validation_issue(
   a : EpubValidationIssue,
   b : EpubValidationIssue,
-) -> Int {
+) -> Int32 {
   validation_issue_sort_key(a)[:].lexical_compare(
     validation_issue_sort_key(b)[:],
   )

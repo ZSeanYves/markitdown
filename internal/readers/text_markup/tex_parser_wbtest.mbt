@@ -1,5 +1,5 @@
 ///|
-test "TeX facade delegates parsing inspection and inline lowering" {
+async test "TeX facade delegates parsing inspection and inline lowering" {
   let text = "\\section{Title}\nBody \\href{/x}{link}"
   let doc = parse_tex_document(text)
   assert_true(inspect_text_markup_document(doc, text).block_count > 0)

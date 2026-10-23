@@ -4,7 +4,7 @@ fn rag_test_document(blocks : Array[@core.CoreBlock]) -> @core.DocumentIR {
 }
 
 ///|
-fn rag_test_source_ref(page : Int) -> @core.SourceRef {
+fn rag_test_source_ref(page : Int32) -> @core.SourceRef {
   {
     ..@core.empty_source_ref(),
     file_id: Some("fixture"),
@@ -79,7 +79,7 @@ test "document chunks render lists quotes raw and rich inline text" {
 }
 
 ///|
-fn rag_test_cell(text : String, column : Int) -> @core.CoreBlock {
+fn rag_test_cell(text : String, column : Int32) -> @core.CoreBlock {
   @core.make_block(TableCell, text)
   |> @core.block_with_attr("column_index", column.to_string())
 }

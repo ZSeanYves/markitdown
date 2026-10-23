@@ -8,7 +8,7 @@ pub fn Input::from_path(path : String) -> Input {
 /// Create an in-memory UTF-8 text input.
 pub fn Input::from_text(
   text : String,
-  source_name? : String = "input.txt",
+  source_name~ : String = "input.txt",
 ) -> Input {
   { source: @input.input_from_text(text, source_name~), kind: Text, }
 }
@@ -17,7 +17,7 @@ pub fn Input::from_text(
 /// Create an in-memory byte input.
 pub fn Input::from_bytes(
   bytes : Bytes,
-  source_name? : String = "input.bin",
+  source_name~ : String = "input.bin",
 ) -> Input {
   { source: @input.input_from_bytes(bytes, source_name~), kind: Bytes, }
 }
@@ -25,9 +25,9 @@ pub fn Input::from_bytes(
 ///|
 /// Create a random-access reader input.
 pub fn Input::from_reader(
-  read_at : (Int64, Int) -> Result[Bytes, String],
+  read_at : (Int64, Int32) -> Result[Bytes, String],
   size? : Int64,
-  source_name? : String = "input.bin",
+  source_name~ : String = "input.bin",
 ) -> Input {
   let reader = match size {
     Some(value) => @input.make_input_reader(read_at, size=value)
@@ -44,9 +44,9 @@ pub fn Input::from_reader(
 /// callers can migrate without changing the established synchronous reader
 /// contract.
 pub fn Input::from_async_reader(
-  read_at : async (Int64, Int) -> Result[Bytes, String],
+  read_at : async (Int64, Int32) -> Result[Bytes, String],
   size? : Int64,
-  source_name? : String = "input.bin",
+  source_name~ : String = "input.bin",
 ) -> Input {
   let reader = match size {
     Some(value) => @input.make_async_input_reader(read_at, size=value)

@@ -1,11 +1,11 @@
 ///|
-fn parse_docx_paragraph_runs(
+async fn parse_docx_paragraph_runs(
   xml : String,
   paragraph_key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceRun] {
+) -> Array[DocxSourceRun] noraise {
   let runs : Array[DocxSourceRun] = []
   let mut i = 0
   let mut run_index = 0
@@ -266,14 +266,14 @@ fn docx_content_control_body_xml(source_xml : String, tag : String) -> String {
 }
 
 ///|
-fn docx_content_control_source_block(
+async fn docx_content_control_source_block(
   tag : String,
   key : DocxSourceKey,
   inner : String,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceBlock {
+) -> DocxSourceBlock noraise {
   let blocks = if docx_content_control_has_block_content(inner) {
     parse_docx_body_inner(key.part_name, inner, relationships, pkg, warnings)
   } else {
@@ -308,16 +308,16 @@ fn docx_content_control_source_block(
 }
 
 ///|
-fn parse_docx_inline_content_control(
+async fn parse_docx_inline_content_control(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   tag : String,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceContentControl {
+) -> DocxSourceContentControl noraise {
   let inner = docx_content_control_body_xml(
     xml[start:end_exclusive].to_owned(),
     tag,
@@ -354,15 +354,15 @@ fn docx_content_control_has_block_content(xml : String) -> Bool {
 }
 
 ///|
-fn parse_docx_smart_tag_inline(
+async fn parse_docx_smart_tag_inline(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceSmartTag {
+) -> DocxSourceSmartTag noraise {
   let inner = docx_inner_xml_for_element(
     xml, start, end_exclusive, "w:smartTag",
   )
@@ -376,13 +376,13 @@ fn parse_docx_smart_tag_inline(
 }
 
 ///|
-fn parse_docx_run_inlines(
+async fn parse_docx_run_inlines(
   xml : String,
   run_key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceInline] {
+) -> Array[DocxSourceInline] noraise {
   let inlines : Array[DocxSourceInline] = []
   let mut i = 0
   let mut inline_index = 0
@@ -718,15 +718,15 @@ fn parse_docx_run_inlines(
 }
 
 ///|
-fn parse_docx_alternate_content_inlines(
+async fn parse_docx_alternate_content_inlines(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceInline] {
+) -> Array[DocxSourceInline] noraise {
   let inner = docx_inner_xml_for_element(
     xml, start, end_exclusive, "mc:AlternateContent",
   )
@@ -767,7 +767,7 @@ fn docx_non_visible_run_child_tags() -> Array[String] {
 }
 
 ///|
-fn docx_non_visible_run_child(xml : String, start : Int) -> Bool {
+fn docx_non_visible_run_child(xml : String, start : Int32) -> Bool {
   for tag in docx_non_visible_run_child_tags() {
     if is_docx_start_tag_at(xml, start, tag) {
       return true
@@ -816,8 +816,8 @@ fn docx_source_blocks_have_table(blocks : Array[DocxSourceBlock]) -> Bool {
 ///|
 fn docx_source_blocks_max_table_depth(
   blocks : Array[DocxSourceBlock],
-  default_depth : Int,
-) -> Int {
+  default_depth : Int32,
+) -> Int32 {
   let mut out = default_depth
   for block in blocks {
     match block.table {
@@ -911,7 +911,7 @@ fn read_docx_attr_in_first_tag(
 }
 
 ///|
-fn find_docx_start_tag_from(xml : String, from : Int, tag : String) -> Int? {
+fn find_docx_start_tag_from(xml : String, from : Int32, tag : String) -> Int32? {
   let mut i = if from < 0 { 0 } else { from }
   while i < xml.length() {
     let pos = match find_docx_char_from(xml, i, 60) {
@@ -927,7 +927,7 @@ fn find_docx_start_tag_from(xml : String, from : Int, tag : String) -> Int? {
 }
 
 ///|
-fn docx_open_tag_at(xml : String, start : Int) -> String {
+fn docx_open_tag_at(xml : String, start : Int32) -> String {
   match find_docx_any_tag_end(xml, start) {
     Some(end_exclusive) => xml[start:end_exclusive].to_owned()
     None => ""

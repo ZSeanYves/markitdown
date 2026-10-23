@@ -1,5 +1,5 @@
 ///|
-fn parse_docx_body_blocks(
+async fn parse_docx_body_blocks(
   part_name : String,
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
@@ -25,13 +25,13 @@ fn parse_docx_body_blocks(
 }
 
 ///|
-fn parse_docx_body_inner(
+async fn parse_docx_body_inner(
   part_name : String,
   body : String,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceBlock] {
+) -> Array[DocxSourceBlock] noraise {
   let blocks : Array[DocxSourceBlock] = []
   let mut i = 0
   let mut block_index = 0
@@ -191,17 +191,17 @@ fn parse_docx_body_inner(
 }
 
 ///|
-fn parse_docx_table(
+async fn parse_docx_table(
   xml : String,
   table_key : DocxSourceKey,
-  nesting_depth : Int,
+  nesting_depth : Int32,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceTable {
+) -> DocxSourceTable noraise {
   let inner = docx_inner_xml_for_element(xml, 0, xml.length(), "w:tbl")
   let rows : Array[DocxSourceTableRow] = []
-  let max_depth_seen : Ref[Int] = { val: nesting_depth, }
+  let max_depth_seen : Ref[Int32] = { val: nesting_depth, }
   let guard_triggered : Ref[Bool] = { val: false, }
   let mut i = 0
   let mut row_index = 0
@@ -243,7 +243,10 @@ fn parse_docx_table(
 }
 
 ///|
-fn docx_structural_block_kind(xml : String, start : Int) -> DocxStructuralKind? {
+fn docx_structural_block_kind(
+  xml : String,
+  start : Int32,
+) -> DocxStructuralKind? {
   if is_docx_start_tag_at(xml, start, "w:sectPr") {
     Some(SectionProperties)
   } else if is_docx_start_tag_at(xml, start, "w:bookmarkStart") ||
@@ -272,10 +275,10 @@ fn docx_structural_block_kind(xml : String, start : Int) -> DocxStructuralKind? 
 ///|
 fn parse_docx_structural_block(
   part_name : String,
-  block_index : Int,
+  block_index : Int32,
   xml : String,
-  start : Int,
-) -> (DocxSourceBlock, Int)? {
+  start : Int32,
+) -> (DocxSourceBlock, Int32)? {
   let tag = docx_tag_name_at(xml, start)
   if tag == "" {
     return None
@@ -295,10 +298,10 @@ fn parse_docx_structural_block(
 ///|
 fn parse_docx_structural_child_block(
   parent_key : DocxSourceKey,
-  block_index : Int,
+  block_index : Int32,
   xml : String,
-  start : Int,
-) -> (DocxSourceBlock, Int)? {
+  start : Int32,
+) -> (DocxSourceBlock, Int32)? {
   let tag = docx_tag_name_at(xml, start)
   if tag == "" {
     return None
@@ -318,9 +321,9 @@ fn parse_docx_structural_child_block(
 ///|
 fn docx_structural_end_exclusive(
   xml : String,
-  start : Int,
+  start : Int32,
   tag : String,
-) -> Int? {
+) -> Int32? {
   if tag == "w:sectPr" {
     match find_docx_element_end(xml, start, tag) {
       Some(value) => Some(value)
@@ -356,9 +359,9 @@ fn docx_structural_source_block(
 ///|
 fn parse_docx_structural_inline(
   xml : String,
-  start : Int,
+  start : Int32,
   source_key : DocxSourceKey,
-) -> (DocxSourceInline, Int)? {
+) -> (DocxSourceInline, Int32)? {
   let tag = docx_tag_name_at(xml, start)
   if tag == "" {
     return None
@@ -375,17 +378,17 @@ fn parse_docx_structural_inline(
 }
 
 ///|
-fn parse_docx_table_row(
+async fn parse_docx_table_row(
   xml : String,
-  row_index : Int,
+  row_index : Int32,
   row_key : DocxSourceKey,
-  nesting_depth : Int,
-  max_depth_seen : Ref[Int],
+  nesting_depth : Int32,
+  max_depth_seen : Ref[Int32],
   guard_triggered : Ref[Bool],
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceTableRow {
+) -> DocxSourceTableRow noraise {
   let inner = docx_inner_xml_for_element(xml, 0, xml.length(), "w:tr")
   let cells : Array[DocxSourceTableCell] = []
   let mut i = 0
@@ -440,18 +443,18 @@ fn read_docx_table_row_is_header(row_inner : String) -> Bool {
 }
 
 ///|
-fn parse_docx_table_cell(
+async fn parse_docx_table_cell(
   xml : String,
-  row_index : Int,
-  cell_index : Int,
+  row_index : Int32,
+  cell_index : Int32,
   cell_key : DocxSourceKey,
-  nesting_depth : Int,
-  max_depth_seen : Ref[Int],
+  nesting_depth : Int32,
+  max_depth_seen : Ref[Int32],
   guard_triggered : Ref[Bool],
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceTableCell {
+) -> DocxSourceTableCell noraise {
   let inner = docx_inner_xml_for_element(xml, 0, xml.length(), "w:tc")
   let blocks = parse_docx_table_cell_blocks(
     inner, cell_key, nesting_depth, max_depth_seen, guard_triggered, relationships,
@@ -481,16 +484,16 @@ fn parse_docx_table_cell(
 }
 
 ///|
-fn parse_docx_table_cell_blocks(
+async fn parse_docx_table_cell_blocks(
   xml : String,
   cell_key : DocxSourceKey,
-  nesting_depth : Int,
-  max_depth_seen : Ref[Int],
+  nesting_depth : Int32,
+  max_depth_seen : Ref[Int32],
   guard_triggered : Ref[Bool],
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceBlock] {
+) -> Array[DocxSourceBlock] noraise {
   let blocks : Array[DocxSourceBlock] = []
   let mut i = 0
   let mut block_index = 0

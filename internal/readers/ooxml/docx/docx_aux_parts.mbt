@@ -1,11 +1,11 @@
 ///|
-fn parse_docx_styles_from_package(
+async fn parse_docx_styles_from_package(
   pkg : @ox.OoxmlPackage,
   main_part : String,
   relationships : Array[@ox.OoxmlRelationship],
   blocks : Array[DocxSourceBlock],
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceStyles {
+) -> DocxSourceStyles noraise {
   let part_name = match
     find_docx_relationship_by_type(relationships, "styles") {
     Some(rel) => Some(rel.resolved_target)
@@ -43,13 +43,13 @@ fn parse_docx_styles_from_package(
 }
 
 ///|
-fn parse_docx_numbering_from_package(
+async fn parse_docx_numbering_from_package(
   pkg : @ox.OoxmlPackage,
   main_part : String,
   relationships : Array[@ox.OoxmlRelationship],
   blocks : Array[DocxSourceBlock],
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceNumbering {
+) -> DocxSourceNumbering noraise {
   let part_name = match
     find_docx_relationship_by_type(relationships, "numbering") {
     Some(rel) => Some(rel.resolved_target)
@@ -100,13 +100,16 @@ fn find_docx_relationship_by_type(
 }
 
 ///|
-fn read_docx_service_part_text(
+async fn read_docx_service_part_text(
   pkg : @ox.OoxmlPackage,
   part_name : String,
   warning_kind : DocxSourceWarningKind,
   message_prefix : String,
   warnings : Array[DocxSourceWarning],
-) -> String? {
+) -> String? noraise {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(_) {
+    return None
+  }
   if !@ox.has_part(pkg, part_name) {
     warnings.push({
       kind: warning_kind,
@@ -470,12 +473,12 @@ fn docx_source_blocks_have_numbering_refs(
 }
 
 ///|
-fn parse_docx_notes_from_part_graph(
+async fn parse_docx_notes_from_part_graph(
   pkg : @ox.OoxmlPackage,
   part_graph : DocxPartGraph,
   kind : DocxNoteKind,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceNote] {
+) -> Array[DocxSourceNote] noraise {
   let out : Array[DocxSourceNote] = []
   let part_kind = match kind {
     Footnote => DocxDiscoveredPartKind::Footnotes
@@ -507,11 +510,11 @@ fn parse_docx_notes_from_part_graph(
 }
 
 ///|
-fn parse_docx_comments_from_part_graph(
+async fn parse_docx_comments_from_part_graph(
   pkg : @ox.OoxmlPackage,
   part_graph : DocxPartGraph,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceComment] {
+) -> Array[DocxSourceComment] noraise {
   let out : Array[DocxSourceComment] = []
   for part in docx_part_graph_parts_by_kind(part_graph, Comments) {
     match read_docx_discovered_part_text(pkg, part, warnings) {
@@ -538,13 +541,13 @@ fn parse_docx_comments_from_part_graph(
 }
 
 ///|
-fn parse_docx_part_bodies_from_relationships(
+async fn parse_docx_part_bodies_from_relationships(
   pkg : @ox.OoxmlPackage,
   document_xml : String,
   relationships : Array[@ox.OoxmlRelationship],
   kind : DocxPartBodyKind,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourcePartBody] {
+) -> Array[DocxSourcePartBody] noraise {
   let out : Array[DocxSourcePartBody] = []
   let suffix = match kind {
     Header => "header"
@@ -624,11 +627,11 @@ fn docx_part_body_slot_type(
 }
 
 ///|
-fn parse_docx_textboxes_from_relationships(
+async fn parse_docx_textboxes_from_relationships(
   pkg : @ox.OoxmlPackage,
   relationships : Array[@ox.OoxmlRelationship],
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceTextBox] {
+) -> Array[DocxSourceTextBox] noraise {
   let out : Array[DocxSourceTextBox] = []
   for rel in relationships {
     if docx_relationship_type_matches(rel, "header") ||
@@ -659,14 +662,14 @@ fn parse_docx_textboxes_from_relationships(
 }
 
 ///|
-fn parse_docx_notes_part(
+async fn parse_docx_notes_part(
   part_name : String,
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
   kind : DocxNoteKind,
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceNote] {
+) -> Array[DocxSourceNote] noraise {
   let out : Array[DocxSourceNote] = []
   let tag = match kind {
     Footnote => "w:footnote"
@@ -711,13 +714,13 @@ fn parse_docx_notes_part(
 }
 
 ///|
-fn parse_docx_comments_part(
+async fn parse_docx_comments_part(
   part_name : String,
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceComment] {
+) -> Array[DocxSourceComment] noraise {
   let out : Array[DocxSourceComment] = []
   let mut i = 0
   let mut comment_index = 0
@@ -759,14 +762,14 @@ fn parse_docx_comments_part(
 }
 
 ///|
-fn parse_docx_textboxes_in_part(
+async fn parse_docx_textboxes_in_part(
   part_name : String,
   relationship_id : String?,
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceTextBox] {
+) -> Array[DocxSourceTextBox] noraise {
   let out : Array[DocxSourceTextBox] = []
   let mut i = 0
   let mut textbox_index = 0
@@ -826,16 +829,16 @@ fn parse_docx_textboxes_in_part(
 }
 
 ///|
-fn docx_textbox_anchor_id(part_name : String, index : Int) -> String {
+fn docx_textbox_anchor_id(part_name : String, index : Int32) -> String {
   part_name + "#textbox:" + index.to_string()
 }
 
 ///|
 fn docx_textbox_owner_block_index(
   xml : String,
-  start : Int,
-  default_index : Int,
-) -> Int {
+  start : Int32,
+  default_index : Int32,
+) -> Int32 {
   let paragraph_count = docx_count_start_tags_before(xml, start, "w:p")
   if paragraph_count > 0 {
     paragraph_count - 1
@@ -845,7 +848,11 @@ fn docx_textbox_owner_block_index(
 }
 
 ///|
-fn docx_count_start_tags_before(xml : String, end : Int, tag : String) -> Int {
+fn docx_count_start_tags_before(
+  xml : String,
+  end : Int32,
+  tag : String,
+) -> Int32 {
   let mut count = 0
   let mut i = 0
   while i < end {
@@ -891,8 +898,8 @@ fn docx_textbox_anchor_vml_attr(anchor_xml : String, attr : String) -> String? {
 ///|
 fn docx_textbox_anchor_xml(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
 ) -> String {
   let mut anchor_start = start
   let mut anchor_end = end_exclusive
@@ -917,11 +924,11 @@ fn docx_textbox_anchor_xml(
 ///|
 fn find_docx_enclosing_element(
   xml : String,
-  pos : Int,
+  pos : Int32,
   tag : String,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let mut i = 0
-  let mut out : (Int, Int)? = None
+  let mut out : (Int32, Int32)? = None
   while i < pos {
     match find_docx_start_tag_from(xml, i, tag) {
       Some(start) => {
@@ -952,11 +959,14 @@ fn docx_relationship_type_matches(
 }
 
 ///|
-fn read_docx_related_part_text(
+async fn read_docx_related_part_text(
   pkg : @ox.OoxmlPackage,
   rel : @ox.OoxmlRelationship,
   warnings : Array[DocxSourceWarning],
-) -> String? {
+) -> String? noraise {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(_) {
+    return None
+  }
   if !@ox.has_part(pkg, rel.resolved_target) {
     warnings.push({
       kind: MissingContainerPart,
@@ -979,11 +989,14 @@ fn read_docx_related_part_text(
 }
 
 ///|
-fn read_docx_discovered_part_text(
+async fn read_docx_discovered_part_text(
   pkg : @ox.OoxmlPackage,
   part : DocxDiscoveredPart,
   warnings : Array[DocxSourceWarning],
-) -> String? {
+) -> String? noraise {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(_) {
+    return None
+  }
   if !@ox.has_part(pkg, part.part_name) {
     warnings.push({
       kind: MissingContainerPart,
@@ -1006,10 +1019,13 @@ fn read_docx_discovered_part_text(
 }
 
 ///|
-fn read_docx_part_relationships_or_empty(
+async fn read_docx_part_relationships_or_empty(
   pkg : @ox.OoxmlPackage,
   part_name : String,
-) -> Array[@ox.OoxmlRelationship] {
+) -> Array[@ox.OoxmlRelationship] noraise {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(_) {
+    return []
+  }
   @ox.read_part_relationships(pkg, part_name) catch {
     _ => []
   }

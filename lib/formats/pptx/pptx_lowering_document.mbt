@@ -1,21 +1,20 @@
 ///|
-fn pptx_fill_package_metrics(
+async fn pptx_fill_package_metrics(
   diagnostics : @core.Diagnostics,
   pkg : @ox.OoxmlPackage,
   presentation : @pptxdoc.PptxDocument,
-) -> Unit {
+) -> Unit noraise {
   let inventory = @ox.inspect_ooxml_inventory(pkg)
   let validation = @ox.validate_ooxml_package(pkg)
   let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
     _ => []
   }).length()
-  let part_relationship_count = inventory.relationship_source_parts.fold(
-    init=0,
-    fn(acc, source_part) {
-      acc +
-      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
-    },
-  )
+  let mut part_relationship_count = 0
+  for source_part in inventory.relationship_source_parts {
+    part_relationship_count += (@ox.read_part_relationships(pkg, source_part) catch {
+      _ => []
+    }).length()
+  }
   diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
@@ -129,12 +128,12 @@ fn pptx_fill_package_metrics(
     inspect.comment_count.to_string(),
   )
 
-  let placeholder_count : Ref[Int] = { val: 0, }
-  let resolved_placeholder_count : Ref[Int] = { val: 0, }
-  let unresolved_placeholder_count : Ref[Int] = { val: 0, }
-  let text_box_count : Ref[Int] = { val: 0, }
-  let image_count : Ref[Int] = { val: 0, }
-  let external_media_count : Ref[Int] = { val: 0, }
+  let placeholder_count : Ref[Int32] = { val: 0, }
+  let resolved_placeholder_count : Ref[Int32] = { val: 0, }
+  let unresolved_placeholder_count : Ref[Int32] = { val: 0, }
+  let text_box_count : Ref[Int32] = { val: 0, }
+  let image_count : Ref[Int32] = { val: 0, }
+  let external_media_count : Ref[Int32] = { val: 0, }
   let mut visible_slide_count = 0
   let mut hidden_slide_count = 0
   for slide in presentation.slides {
@@ -179,7 +178,7 @@ fn pptx_fill_package_metrics(
 }
 
 ///|
-fn count_pptx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn count_pptx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     if part.part_name.has_prefix("ppt/media/") &&
@@ -194,12 +193,12 @@ fn count_pptx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
 fn pptx_accumulate_object_metrics(
   obj : @pptxdoc.PptxObject,
   diagnostics : @core.Diagnostics,
-  placeholder_count : Ref[Int],
-  resolved_placeholder_count : Ref[Int],
-  unresolved_placeholder_count : Ref[Int],
-  text_box_count : Ref[Int],
-  image_count : Ref[Int],
-  external_media_count : Ref[Int],
+  placeholder_count : Ref[Int32],
+  resolved_placeholder_count : Ref[Int32],
+  unresolved_placeholder_count : Ref[Int32],
+  text_box_count : Ref[Int32],
+  image_count : Ref[Int32],
+  external_media_count : Ref[Int32],
 ) -> Unit {
   ignore(diagnostics)
   match obj {
@@ -244,7 +243,7 @@ fn pptx_accumulate_object_metrics(
 }
 
 ///|
-fn pptx_theme_count(presentation : @pptxdoc.PptxDocument) -> Int {
+fn pptx_theme_count(presentation : @pptxdoc.PptxDocument) -> Int32 {
   let themes : Array[String] = []
   for slide in presentation.slides {
     match slide.master_ref {

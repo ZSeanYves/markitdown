@@ -5,19 +5,19 @@
 /// narrower than the array renderer: callers must select it only for a parser
 /// whose event contract is `TextLine`/`BlankLine`.
 pub struct MarkdownEventSink {
-  push : (@core.CoreEvent) -> Result[Unit, String]
-  finish : () -> Result[Unit, String]
+  push : async (@core.CoreEvent) -> Result[Unit, String]
+  finish : async () -> Result[Unit, String]
 }
 
 ///|
 /// Open a line-event Markdown writer backed by a caller-owned sink callback.
 pub fn open_markdown_line_event_sink(
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
 ) -> MarkdownEventSink {
   let wrote_paragraph = Ref(false)
   let paragraph_open = Ref(false)
   {
-    push: fn(event) {
+    push: async fn(event) {
       match event.kind {
         TextLine => {
           let line = StringBuilder()
@@ -62,14 +62,14 @@ pub fn open_markdown_line_event_sink(
 ///|
 /// Open the compact subtitle-record writer used by streaming SRT/VTT parsers.
 pub fn open_markdown_subtitle_event_sink(
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
 ) -> MarkdownEventSink {
   let wrote_any = Ref(false)
   let in_quote = Ref(false)
   let heading = Ref("")
   let paragraph = Ref("")
   {
-    push: fn(event) {
+    push: async fn(event) {
       match event.kind {
         StartBlock(BlockQuote) => {
           if event.text == "" {
@@ -141,7 +141,7 @@ pub fn open_markdown_subtitle_event_sink(
         _ => Ok(())
       }
     },
-    finish: fn() {
+    finish: async fn() {
       if !in_quote.val {
         return Ok(())
       }
@@ -161,13 +161,13 @@ pub fn open_markdown_subtitle_event_sink(
 /// row determines the stable Markdown width used by parser-side two-pass
 /// streams such as CSV and JSONL.
 pub fn open_markdown_table_event_sink(
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
 ) -> MarkdownEventSink {
   let row : Array[String] = []
   let width = Ref(0)
   let wrote_table = Ref(false)
   let wrote_any = Ref(false)
-  let flush_row = fn() -> Result[Unit, String] {
+  let flush_row = async fn() -> Result[Unit, String] {
     if row.length() == 0 {
       return Ok(())
     }
@@ -189,7 +189,7 @@ pub fn open_markdown_table_event_sink(
     write(out.to_string())
   }
   {
-    push: fn(event) {
+    push: async fn(event) {
       match event.kind {
         Cell => {
           row.push(event.text)
@@ -241,6 +241,6 @@ pub fn open_markdown_table_event_sink(
         _ => Ok(())
       }
     },
-    finish: fn() { flush_row() },
+    finish: async fn() { flush_row() },
   }
 }

@@ -8,13 +8,13 @@ fn bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -22,21 +22,21 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -48,7 +48,7 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 ///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : String,
 ) -> Unit {
@@ -81,7 +81,7 @@ fn add_store_entry(
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -164,6 +164,8 @@ fn expect_error_info(
 }
 
 ///|
+// Preserve the error as data so tests can classify both outcomes.
+#warnings("-result_error_return")
 fn[T] ok_or_err_unit(
   result : Result[T, OoxmlError],
 ) -> Result[Unit, OoxmlError] {
@@ -174,7 +176,7 @@ fn[T] ok_or_err_unit(
 }
 
 ///|
-test "ooxml package opens generated docx and resolves core relationships" {
+async test "ooxml package opens generated docx and resolves core relationships" {
   let bytes = build_store_zip([
     (
       "[Content_Types].xml",
@@ -232,7 +234,7 @@ test "ooxml package opens generated docx and resolves core relationships" {
 }
 
 ///|
-test "ooxml package malformed content types is classified" {
+async test "ooxml package malformed content types is classified" {
   let bytes = build_store_zip([
     (
       "[Content_Types].xml",
@@ -259,7 +261,7 @@ test "ooxml package malformed content types is classified" {
 }
 
 ///|
-test "ooxml package rejects unsafe relationship target path" {
+async test "ooxml package rejects unsafe relationship target path" {
   let bytes = build_store_zip([
     (
       "[Content_Types].xml",
@@ -298,7 +300,7 @@ test "ooxml package rejects unsafe relationship target path" {
 }
 
 ///|
-test "ooxml package inventory skips directory entries" {
+async test "ooxml package inventory skips directory entries" {
   let bytes = build_store_zip([
     (
       "[Content_Types].xml",
@@ -318,7 +320,7 @@ test "ooxml package inventory skips directory entries" {
 }
 
 ///|
-test "ooxml package inspect reports relationships media and properties" {
+async test "ooxml package inspect reports relationships media and properties" {
   let bytes = build_store_zip([
     (
       "[Content_Types].xml",

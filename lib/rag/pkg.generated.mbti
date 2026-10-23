@@ -14,7 +14,7 @@ pub fn default_rag_options() -> RagOptions
 
 pub fn make_rag_chunk(String, ChunkKind, String, Array[String], Array[@core.SourceRef], Array[String], Map[String, @core.JsonValue]) -> RagChunk
 
-pub fn make_rag_options(Int, Int, Bool, Bool, Bool, Bool) -> RagOptions
+pub fn make_rag_options(Int32, Int32, Bool, Bool, Bool, Bool) -> RagOptions
 
 pub fn normalize_rag_options(RagOptions) -> RagOptions
 
@@ -43,8 +43,8 @@ pub struct RagChunk {
 }
 
 pub struct RagOptions {
-  chunk_size : Int
-  chunk_overlap : Int
+  chunk_size : Int32
+  chunk_overlap : Int32
   preserve_heading_path : Bool
   preserve_source_ref : Bool
   split_tables : Bool

@@ -333,7 +333,7 @@ fn pdf_native_json_string_field(
 fn pdf_native_json_number_field(
   payload : Map[String, @core.JsonValue],
   key : String,
-) -> Int? {
+) -> Int32? {
   match payload.get(key) {
     Some(Number(value)) => pdf_native_parse_int(value)
     Some(String(value)) => pdf_native_parse_int(value)
@@ -401,7 +401,7 @@ fn pdf_native_annotation_display_subtype(subtype : String) -> String {
 fn pdf_native_annotation_appendix_compare(
   left : @core.JsonValue,
   right : @core.JsonValue,
-) -> Int {
+) -> Int32 {
   let left_payload = match left {
     Object(value) => value
     _ => return 0
@@ -419,7 +419,7 @@ fn pdf_native_annotation_appendix_compare(
 fn pdf_native_form_appendix_compare(
   left : @core.JsonValue,
   right : @core.JsonValue,
-) -> Int {
+) -> Int32 {
   let left_payload = match left {
     Object(value) => value
     _ => return 0
@@ -437,7 +437,7 @@ fn pdf_native_form_appendix_compare(
 fn pdf_native_bookmark_appendix_compare(
   left : @core.JsonValue,
   right : @core.JsonValue,
-) -> Int {
+) -> Int32 {
   let left_payload = match left {
     Object(value) => value
     _ => return 0
@@ -456,7 +456,7 @@ fn pdf_native_compare_payload_fields(
   left : Map[String, @core.JsonValue],
   right : Map[String, @core.JsonValue],
   keys : Array[String],
-) -> Int {
+) -> Int32 {
   for key in keys {
     let left_number = pdf_native_json_number_field(left, key)
     let right_number = pdf_native_json_number_field(right, key)
@@ -714,7 +714,7 @@ fn pdf_native_looks_like_uri(value : String) -> Bool {
 }
 
 ///|
-fn pdf_native_parse_int(value : String) -> Int? {
+fn pdf_native_parse_int(value : String) -> Int32? {
   Some(@string.parse_int(value.trim().to_owned()) catch { _ => return None })
 }
 

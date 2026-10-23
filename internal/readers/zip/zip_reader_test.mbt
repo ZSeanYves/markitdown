@@ -46,27 +46,27 @@ fn bytes_to_string(bytes : Bytes) -> String {
   for b in bytes {
     let v = b.to_int()
     let code = if v >= 0 { v } else { v + 256 }
-    chars.push(Int::unsafe_to_char(code))
+    chars.push(Int32::unsafe_to_char(code))
   }
   String::from_array(chars)
 }
 
 ///|
-fn crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -76,13 +76,13 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -90,7 +90,7 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn write_u32_le(out : Array[Byte], offset : Int, value : Int) -> Unit {
+fn write_u32_le(out : Array[Byte], offset : Int32, value : Int32) -> Unit {
   out[offset] = (value & 0xFF).to_byte()
   out[offset + 1] = ((value >> 8) & 0xFF).to_byte()
   out[offset + 2] = ((value >> 16) & 0xFF).to_byte()
@@ -98,7 +98,7 @@ fn write_u32_le(out : Array[Byte], offset : Int, value : Int) -> Unit {
 }
 
 ///|
-fn add_raw_bytes(out : Array[Byte], bytes : Array[Int]) -> Unit {
+fn add_raw_bytes(out : Array[Byte], bytes : Array[Int32]) -> Unit {
   for value in bytes {
     out.push(value.to_byte())
   }
@@ -107,10 +107,10 @@ fn add_raw_bytes(out : Array[Byte], bytes : Array[Int]) -> Unit {
 ///|
 fn add_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32, Int32)],
   name : String,
   data : String,
-  method_code? : Int = 0,
+  method_code~ : Int32 = 0,
 ) -> Unit {
   let local_offset = out.length()
   let name_bytes = bytes_of_string(name)
@@ -139,9 +139,9 @@ fn add_entry(
 }
 
 ///|
-fn build_zip(entries : Array[(String, String, Int)]) -> Bytes {
+fn build_zip(entries : Array[(String, String, Int32)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data, method_code) = entry
@@ -189,7 +189,7 @@ fn build_zip(entries : Array[(String, String, Int)]) -> Bytes {
 
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
-  let decorated : Array[(String, String, Int)] = []
+  let decorated : Array[(String, String, Int32)] = []
   for entry in entries {
     let (name, data) = entry
     decorated.push((name, data, 0))
@@ -205,7 +205,7 @@ fn open_inline_zip(entries : Array[(String, String)]) -> @zip.ZipArchive raise {
 }
 
 ///|
-test "zip archive cache reuses inspect report and decoded entry bytes" {
+async test "zip archive cache reuses inspect report and decoded entry bytes" {
   let archive = open_inline_zip([
     ("alpha/readme.md", "# Alpha\n\nBody\n"),
     ("beta/page.html", "<html><body><h1>Beta</h1></body></html>"),
@@ -226,7 +226,7 @@ test "zip archive cache reuses inspect report and decoded entry bytes" {
 }
 
 ///|
-fn repeated_path_segment(base : String, count : Int, leaf : String) -> String {
+fn repeated_path_segment(base : String, count : Int32, leaf : String) -> String {
   let parts : Array[String] = []
   for _ in 0..<count {
     parts.push(base)
@@ -237,11 +237,11 @@ fn repeated_path_segment(base : String, count : Int, leaf : String) -> String {
 
 ///|
 fn build_data_descriptor_zip(
-  entries : Array[(String, Array[Int], Int, Int, Bool, Int)],
-  flags_override? : Int = 0,
+  entries : Array[(String, Array[Int32], Int32, Int32, Bool, Int32)],
+  flags_override~ : Int32 = 0,
 ) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, compressed_data, uncompressed_size, crc32, with_sig, method_code) = entry
@@ -341,8 +341,8 @@ test "zip validation reports overlong and overdeep normalized paths" {
 
 ///|
 fn open_data_descriptor_zip(
-  entries : Array[(String, Array[Int], Int, Int, Bool, Int)],
-  flags_override? : Int = 0,
+  entries : Array[(String, Array[Int32], Int32, Int32, Bool, Int32)],
+  flags_override~ : Int32 = 0,
 ) -> @zip.ZipArchive raise {
   @zip.open_zip(build_data_descriptor_zip(entries, flags_override~)) catch {
     e => fail("open data-descriptor zip failed: " + e.to_string())
@@ -350,10 +350,10 @@ fn open_data_descriptor_zip(
 }
 
 ///|
-fn assert_entry_readable(
+async fn assert_entry_readable(
   archive : @zip.ZipArchive,
   entry_path : String,
-) -> Unit raise {
+) -> Unit {
   let data = @zip.read_entry(archive, entry_path) catch {
     e => fail("read_entry failed: " + entry_path + " : " + e.to_string())
   }
@@ -363,7 +363,7 @@ fn assert_entry_readable(
 }
 
 ///|
-test "zip reader can list and read docx core entry" {
+async test "zip reader can list and read docx core entry" {
   let z = open_sample_zip("samples/fixtures/contracts/docx/golden.docx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
@@ -373,7 +373,7 @@ test "zip reader can list and read docx core entry" {
 }
 
 ///|
-test "zip reader can list and read xlsx core entry" {
+async test "zip reader can list and read xlsx core entry" {
   let z = open_sample_zip("samples/fixtures/contracts/xlsx/sheet_simple.xlsx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
@@ -383,7 +383,7 @@ test "zip reader can list and read xlsx core entry" {
 }
 
 ///|
-test "zip reader can list and read pptx core entry" {
+async test "zip reader can list and read pptx core entry" {
   let z = open_sample_zip("samples/fixtures/contracts/pptx/pptx_simple.pptx")
   let entries = @zip.list_entries(z)
   if entries.length() == 0 {
@@ -502,7 +502,7 @@ test "zip facade inventory reports deterministic normalized entry info" {
 }
 
 ///|
-test "zip facade can read entry bytes and classify missing entry" {
+async test "zip facade can read entry bytes and classify missing entry" {
   let archive = open_inline_zip([("notes/hello.txt", "hello zip")])
   let data = @zip.read_entry(archive, "notes/hello.txt") catch {
     e => fail("read_entry failed: " + e.to_string())
@@ -587,7 +587,7 @@ test "zip validation reports unsafe paths and normalized collisions" {
 }
 
 ///|
-test "zip validation reports unsupported compression and nested archive candidates" {
+async test "zip validation reports unsupported compression and nested archive candidates" {
   let bytes = build_zip([
     ("nested/archive.zip", "PK", 0),
     ("unsupported.bin", "raw", 99),
@@ -628,6 +628,9 @@ test "zip validation reports unsupported compression and nested archive candidat
       }
     }
   }
+  // The first archive is stopped after its unsupported-method failure.
+  // Transient parity is a separate request against an independent archive.
+  let archive = @zip.open_zip(bytes)
   let transient = try
     @zip.read_entry_transient(archive, "unsupported.bin") |> Ok
   catch {
@@ -642,7 +645,7 @@ test "zip validation reports unsupported compression and nested archive candidat
 }
 
 ///|
-test "zip transient read reports malformed deflate data" {
+async test "zip transient read reports malformed deflate data" {
   let archive = @zip.open_zip(build_zip([("bad.bin", "raw", 8)])) catch {
     e => fail("open malformed deflate zip failed: " + e.to_string())
   }
@@ -709,7 +712,7 @@ test "zip error classifier distinguishes direct and best-effort mappings" {
 }
 
 ///|
-test "zip reader supports central-directory data descriptor entries" {
+async test "zip reader supports central-directory data descriptor entries" {
   let archive = open_data_descriptor_zip([
     (
       "hello.txt",
@@ -735,7 +738,7 @@ test "zip reader supports central-directory data descriptor entries" {
 }
 
 ///|
-test "zip reader supports data descriptor entries with descriptor signature" {
+async test "zip reader supports data descriptor entries with descriptor signature" {
   let archive = open_data_descriptor_zip([
     (
       "hello.txt",
@@ -759,7 +762,7 @@ test "zip reader supports data descriptor entries with descriptor signature" {
 }
 
 ///|
-test "zip reader still supports equivalent stored inline entry" {
+async test "zip reader still supports equivalent stored inline entry" {
   let archive = open_inline_zip([("hello.txt", "hello zip\n")])
   let bytes = @zip.read_entry(archive, "hello.txt") catch {
     e => fail("read_entry failed for stored entry: " + e.to_string())
@@ -835,7 +838,7 @@ test "zip reader still rejects zip64 sentinel sizes on data descriptor entries" 
 }
 
 ///|
-test "zip reader still rejects unsupported compression on data descriptor entries" {
+async test "zip reader still rejects unsupported compression on data descriptor entries" {
   let archive = open_data_descriptor_zip([
     (
       "hello.txt",

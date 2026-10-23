@@ -15,7 +15,7 @@ fn xlsx_comment_item_text(comment : XlsxComment) -> String {
 fn xlsx_row_source_ref(
   source_name : String,
   sheet : XlsxSheet,
-  row_index : Int,
+  row_index : Int32,
 ) -> @core.SourceRef {
   @core.source_ref_with_extra(
     xlsx_sheet_table_source_ref(source_name, sheet),
@@ -28,11 +28,11 @@ fn xlsx_row_source_ref(
 fn xlsx_cell_source_ref(
   sheet_info : XlsxSheetInfo,
   cell_ref : String,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
   formula_text : String?,
   style_id : String?,
-  shared_string_index : Int?,
+  shared_string_index : Int32?,
   merge_range : String?,
 ) -> @core.SourceRef {
   let base = @core.source_ref_with_container_entry(
@@ -139,8 +139,8 @@ fn xlsx_blank_cell_source_ref(
   source_name : String,
   sheet : XlsxSheet,
   cell_ref : String,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
   merge_range : String?,
 ) -> @core.SourceRef {
   let info : XlsxSheetInfo = {
@@ -164,7 +164,7 @@ fn xlsx_blank_cell_source_ref(
 }
 
 ///|
-fn xlsx_merged_cell_area(ranges : Array[String]) -> Int {
+fn xlsx_merged_cell_area(ranges : Array[String]) -> Int32 {
   let mut total = 0
   for range_ref in ranges {
     match xlsx_parse_range_ref(range_ref) {
@@ -176,12 +176,12 @@ fn xlsx_merged_cell_area(ranges : Array[String]) -> Int {
 }
 
 ///|
-fn xlsx_lookup_key(row_index : Int, column_index : Int) -> String {
+fn xlsx_lookup_key(row_index : Int32, column_index : Int32) -> String {
   row_index.to_string() + "," + column_index.to_string()
 }
 
 ///|
-fn xlsx_parse_range_ref(range_ref : String) -> (Int, Int, Int, Int)? {
+fn xlsx_parse_range_ref(range_ref : String) -> (Int32, Int32, Int32, Int32)? {
   match xlsx_find_char(range_ref, ':', 0, range_ref.length()) {
     Some(split) => {
       let (r1, c1) = xlsx_cell_ref_to_rc_range(range_ref, 0, split)
@@ -214,9 +214,9 @@ fn xlsx_parse_range_ref(range_ref : String) -> (Int, Int, Int, Int)? {
 ///|
 fn xlsx_cell_ref_to_rc_range(
   text : String,
-  start : Int,
-  end_ : Int,
-) -> (Int, Int) {
+  start : Int32,
+  end_ : Int32,
+) -> (Int32, Int32) {
   let (trimmed_start, trimmed_end) = xlsx_trimmed_slice_bounds(
     text, start, end_,
   )
@@ -258,7 +258,7 @@ fn xlsx_cell_ref_to_rc_range(
 }
 
 ///|
-fn xlsx_rc_to_cell_ref(row : Int, col : Int) -> String {
+fn xlsx_rc_to_cell_ref(row : Int32, col : Int32) -> String {
   if row <= 0 || col <= 0 {
     return ""
   }
@@ -266,7 +266,7 @@ fn xlsx_rc_to_cell_ref(row : Int, col : Int) -> String {
   let mut current = col
   while current > 0 {
     let rem = (current - 1) % 26
-    out.push(String::from_array([Int::unsafe_to_char('A'.to_int() + rem)]))
+    out.push(String::from_array([Int32::unsafe_to_char('A'.to_int() + rem)]))
     current = (current - 1) / 26
   }
   let rev : Array[String] = []
@@ -282,12 +282,12 @@ fn xlsx_rc_to_cell_ref(row : Int, col : Int) -> String {
 }
 
 ///|
-fn xlsx_parse_int(text : String) -> Int {
+fn xlsx_parse_int(text : String) -> Int32 {
   xlsx_parse_int_range(text, 0, text.length())
 }
 
 ///|
-fn xlsx_parse_int_range(text : String, start : Int, end_ : Int) -> Int {
+fn xlsx_parse_int_range(text : String, start : Int32, end_ : Int32) -> Int32 {
   let (trimmed_start, trimmed_end) = xlsx_trimmed_slice_bounds(
     text, start, end_,
   )
@@ -325,7 +325,7 @@ fn xlsx_parse_int_range(text : String, start : Int, end_ : Int) -> Int {
 }
 
 ///|
-fn xlsx_find_sub(text : String, pattern : String, start : Int) -> Int? {
+fn xlsx_find_sub(text : String, pattern : String, start : Int32) -> Int32? {
   xlsx_find_sub_range(text, pattern, start, text.length())
 }
 
@@ -333,9 +333,9 @@ fn xlsx_find_sub(text : String, pattern : String, start : Int) -> Int? {
 fn xlsx_find_char(
   text : String,
   target : Char,
-  start : Int,
-  end_ : Int,
-) -> Int? {
+  start : Int32,
+  end_ : Int32,
+) -> Int32? {
   let limit = if end_ > text.length() { text.length() } else { end_ }
   let mut i = if start < 0 { 0 } else { start }
   while i < limit {
@@ -351,9 +351,9 @@ fn xlsx_find_char(
 fn xlsx_find_sub_range(
   text : String,
   pattern : String,
-  start : Int,
-  end_ : Int,
-) -> Int? {
+  start : Int32,
+  end_ : Int32,
+) -> Int32? {
   let n = text.length()
   let m = pattern.length()
   if m == 0 {
@@ -403,10 +403,10 @@ fn xlsx_get_attr(tag : String, key : String) -> String? {
 ///|
 fn xlsx_attr_value_bounds(
   text : String,
-  tag_start : Int,
-  tag_end : Int,
+  tag_start : Int32,
+  tag_end : Int32,
   key : String,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   let pattern = key + "=\""
   let start0 = xlsx_find_sub_range(text, pattern, tag_start, tag_end + 1)
   match start0 {
@@ -425,8 +425,8 @@ fn xlsx_attr_value_bounds(
 ///|
 fn xlsx_get_attr_range(
   text : String,
-  tag_start : Int,
-  tag_end : Int,
+  tag_start : Int32,
+  tag_end : Int32,
   key : String,
 ) -> String? {
   match xlsx_attr_value_bounds(text, tag_start, tag_end, key) {
@@ -470,7 +470,7 @@ fn xlsx_decode_numeric_entities(text : String) -> String {
         }
         match codepoint {
           Some(value) => {
-            out.push(Int::unsafe_to_char(value))
+            out.push(Int32::unsafe_to_char(value))
             i = j + 1
             continue
           }
@@ -487,9 +487,9 @@ fn xlsx_decode_numeric_entities(text : String) -> String {
 ///|
 fn xlsx_trimmed_slice_bounds(
   text : String,
-  start : Int,
-  end_ : Int,
-) -> (Int, Int) {
+  start : Int32,
+  end_ : Int32,
+) -> (Int32, Int32) {
   let limit = if end_ > text.length() { text.length() } else { end_ }
   let mut left = if start < 0 { 0 } else { start }
   let mut right = limit
@@ -536,7 +536,7 @@ fn xlsx_is_blank_text(text : String) -> Bool {
 }
 
 ///|
-fn xlsx_parse_dec_int(text : String) -> Int? {
+fn xlsx_parse_dec_int(text : String) -> Int32? {
   if text == "" {
     return None
   }
@@ -555,7 +555,7 @@ fn xlsx_parse_dec_int(text : String) -> Int? {
 }
 
 ///|
-fn xlsx_parse_hex_int(text : String) -> Int? {
+fn xlsx_parse_hex_int(text : String) -> Int32? {
   if text == "" {
     return None
   }
@@ -580,7 +580,7 @@ fn xlsx_parse_hex_int(text : String) -> Int? {
 }
 
 ///|
-fn xlsx_style_numfmt(styles : XlsxStyles, style_index : Int) -> Int {
+fn xlsx_style_numfmt(styles : XlsxStyles, style_index : Int32) -> Int32 {
   if style_index < 0 || style_index >= styles.xf_numfmts.length() {
     -1
   } else {
@@ -589,7 +589,10 @@ fn xlsx_style_numfmt(styles : XlsxStyles, style_index : Int) -> Int {
 }
 
 ///|
-fn xlsx_numfmt_is_datetime_like(num_fmt_id : Int, styles : XlsxStyles) -> Bool {
+fn xlsx_numfmt_is_datetime_like(
+  num_fmt_id : Int32,
+  styles : XlsxStyles,
+) -> Bool {
   if xlsx_builtin_datetime_numfmt(num_fmt_id) {
     return true
   }
@@ -600,7 +603,7 @@ fn xlsx_numfmt_is_datetime_like(num_fmt_id : Int, styles : XlsxStyles) -> Bool {
 }
 
 ///|
-fn xlsx_builtin_datetime_numfmt(num_fmt_id : Int) -> Bool {
+fn xlsx_builtin_datetime_numfmt(num_fmt_id : Int32) -> Bool {
   num_fmt_id == 14 ||
   num_fmt_id == 15 ||
   num_fmt_id == 16 ||
@@ -627,7 +630,7 @@ fn xlsx_datetime_code_like(code : String) -> Bool {
 ///|
 fn xlsx_format_excel_datetime(
   raw : String,
-  num_fmt_id : Int,
+  num_fmt_id : Int32,
   custom_code : String?,
   uses_date_1904 : Bool,
 ) -> String {
@@ -694,7 +697,7 @@ fn xlsx_format_excel_datetime(
 }
 
 ///|
-fn xlsx_parse_excel_serial(text : String) -> (Int, Int, Int)? {
+fn xlsx_parse_excel_serial(text : String) -> (Int32, Int32, Int32)? {
   let trimmed = text.trim()
   if trimmed == "" {
     return None
@@ -754,7 +757,10 @@ fn xlsx_parse_excel_serial(text : String) -> (Int, Int, Int)? {
 }
 
 ///|
-fn xlsx_frac_to_hms(frac_num : Int, frac_den : Int) -> (Int, Int, Int, Int) {
+fn xlsx_frac_to_hms(
+  frac_num : Int32,
+  frac_den : Int32,
+) -> (Int32, Int32, Int32, Int32) {
   if frac_den <= 0 || frac_num <= 0 {
     return (0, 0, 0, 0)
   }
@@ -783,9 +789,9 @@ fn xlsx_frac_to_hms(frac_num : Int, frac_den : Int) -> (Int, Int, Int, Int) {
 
 ///|
 fn xlsx_excel_serial_to_ymd(
-  serial : Int,
+  serial : Int32,
   uses_date_1904 : Bool,
-) -> (Int, Int, Int) {
+) -> (Int32, Int32, Int32) {
   if uses_date_1904 {
     return xlsx_excel_serial_to_ymd_1904(serial)
   }
@@ -822,7 +828,7 @@ fn xlsx_excel_serial_to_ymd(
 }
 
 ///|
-fn xlsx_excel_serial_to_ymd_1904(serial : Int) -> (Int, Int, Int) {
+fn xlsx_excel_serial_to_ymd_1904(serial : Int32) -> (Int32, Int32, Int32) {
   if serial < 0 {
     return (1903, 12, 31)
   }
@@ -853,7 +859,7 @@ fn xlsx_excel_serial_to_ymd_1904(serial : Int) -> (Int, Int, Int) {
 }
 
 ///|
-fn xlsx_is_leap_year(year : Int) -> Bool {
+fn xlsx_is_leap_year(year : Int32) -> Bool {
   if year % 400 == 0 {
     true
   } else if year % 100 == 0 {
@@ -864,7 +870,7 @@ fn xlsx_is_leap_year(year : Int) -> Bool {
 }
 
 ///|
-fn xlsx_days_in_month(year : Int, month : Int) -> Int {
+fn xlsx_days_in_month(year : Int32, month : Int32) -> Int32 {
   if month == 1 ||
     month == 3 ||
     month == 5 ||
@@ -883,7 +889,7 @@ fn xlsx_days_in_month(year : Int, month : Int) -> Int {
 }
 
 ///|
-fn xlsx_pad2(value : Int) -> String {
+fn xlsx_pad2(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {
@@ -892,7 +898,7 @@ fn xlsx_pad2(value : Int) -> String {
 }
 
 ///|
-fn xlsx_pad4(value : Int) -> String {
+fn xlsx_pad4(value : Int32) -> String {
   let text = value.to_string()
   if text.length() >= 4 {
     text

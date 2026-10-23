@@ -3,7 +3,7 @@ fn yaml_fill_common_metrics(
   diagnostics : @core.Diagnostics,
   inspect : @dyaml.YamlInspectReport,
   text : String,
-  event_count : Int,
+  event_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("root_kind", inspect.root_kind.unwrap_or("none"))
   diagnostics.metrics.set("is_empty", @fshared.bool_string(inspect.is_empty))
@@ -160,7 +160,7 @@ fn yaml_array_object_rows(
   values : Array[@dyaml.YamlValue],
 ) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
-  let key_index : Map[String, Int] = Map([])
+  let key_index : Map[String, Int32] = Map([])
   let mut has_key_index = false
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
@@ -195,7 +195,7 @@ fn yaml_members_to_row(
   members : Array[@dyaml.YamlMember],
   keys : Array[String],
 ) -> Array[String] {
-  let member_index : Map[String, Int] = Map([])
+  let member_index : Map[String, Int32] = Map([])
   for i in 0..<members.length() {
     member_index.set(members[i].key, i)
   }
@@ -265,7 +265,7 @@ fn yaml_stringify_inline(value : @dyaml.YamlValue) -> String {
 }
 
 ///|
-fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int) -> String {
+fn yaml_stringify_block(value : @dyaml.YamlValue, indent : Int32) -> String {
   let prefix = "  ".repeat(indent)
   match value {
     Mapping(members) => {
@@ -473,7 +473,7 @@ fn yaml_source_ref(
 }
 
 ///|
-fn yaml_join_index(parent : String, index : Int) -> String {
+fn yaml_join_index(parent : String, index : Int32) -> String {
   parent + "[" + index.to_string() + "]"
 }
 
@@ -491,7 +491,7 @@ fn yaml_generic_block_events(
 ///|
 priv struct YamlEventCursor {
   events : Array[@dyaml.YamlStructureEvent]
-  mut index : Int
+  mut index : Int32
 }
 
 ///|
@@ -543,7 +543,7 @@ fn yaml_append_value_events(
       let table_rows : Array[Array[String]] = []
       let table_refs : Array[@core.SourceRef] = []
       let mut header_keys : Array[String]? = None
-      let header_key_index : Map[String, Int] = Map([])
+      let header_key_index : Map[String, Int32] = Map([])
       let mut has_header_key_index = false
       let mut can_render_table = true
       let mut item_index = 0
@@ -653,7 +653,7 @@ fn yaml_event_value_preview(
   cursor : YamlEventCursor,
   source : @input.InputSource,
   path : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
@@ -693,7 +693,7 @@ fn yaml_event_mapping_preview(
   cursor : YamlEventCursor,
   source : @input.InputSource,
   path : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let start = cursor.events[cursor.index].source
   let root_depth = start.depth
@@ -751,7 +751,7 @@ fn yaml_event_sequence_preview(
   cursor : YamlEventCursor,
   source : @input.InputSource,
   path : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let start = cursor.events[cursor.index].source
   let root_depth = start.depth
@@ -853,7 +853,7 @@ fn yaml_collect_mapping_row(
 
 ///|
 fn yaml_mapping_summary_text(
-  member_count : Int,
+  member_count : Int32,
   samples : Array[String],
 ) -> String {
   let out = StringBuilder()
@@ -878,7 +878,7 @@ fn yaml_mapping_summary_text(
 
 ///|
 fn yaml_sequence_summary_text(
-  item_count : Int,
+  item_count : Int32,
   sample_values : Array[String],
 ) -> String {
   let out = StringBuilder()
@@ -902,7 +902,7 @@ fn yaml_sequence_summary_text(
 }
 
 ///|
-fn yaml_preview_member_limit(preview_depth : Int) -> Int {
+fn yaml_preview_member_limit(preview_depth : Int32) -> Int32 {
   if preview_depth <= 0 {
     0
   } else {
@@ -911,7 +911,7 @@ fn yaml_preview_member_limit(preview_depth : Int) -> Int {
 }
 
 ///|
-fn yaml_preview_sample_limit(preview_depth : Int) -> Int {
+fn yaml_preview_sample_limit(preview_depth : Int32) -> Int32 {
   if preview_depth <= 0 {
     0
   } else if preview_depth == 1 {
@@ -922,7 +922,7 @@ fn yaml_preview_sample_limit(preview_depth : Int) -> Int {
 }
 
 ///|
-fn yaml_clip_preview_text(text : String, max_chars : Int) -> String {
+fn yaml_clip_preview_text(text : String, max_chars : Int32) -> String {
   let normalized = text
     .replace(old="\n", new=" ")
     .replace(old="\r", new=" ")
@@ -1038,8 +1038,8 @@ fn yaml_append_paragraph_events(
 fn yaml_event_source_ref(
   source : @input.InputSource,
   path : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> @core.SourceRef {
   @core.source_ref_with_lines(
     yaml_source_ref(source, path),
@@ -1066,7 +1066,7 @@ fn yaml_generic_block_ref(
 }
 
 ///|
-fn count_yaml_event_tables(events : Array[@core.CoreEvent]) -> Int {
+fn count_yaml_event_tables(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     if event.kind == StartBlock(Table) {
@@ -1077,7 +1077,7 @@ fn count_yaml_event_tables(events : Array[@core.CoreEvent]) -> Int {
 }
 
 ///|
-fn count_yaml_event_blocks(events : Array[@core.CoreEvent]) -> Int {
+fn count_yaml_event_blocks(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     match event.kind {

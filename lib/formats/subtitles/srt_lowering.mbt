@@ -4,18 +4,18 @@ pub fn srt_parser() -> @parser.Parser {
     "srt_parser",
     StreamingEvent,
     srt_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
       parse_subtitle_result(source, context, "srt")
     },
-    stream_events=Some(open_srt_event_stream),
+    open_stream=Some((source, context) => open_srt_event_stream(source, context)),
   )
 }
 
 ///|
-fn open_srt_event_stream(
+async fn open_srt_event_stream(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseEventStream?, String] {
@@ -26,7 +26,7 @@ fn open_srt_event_stream(
       max_line_chars=@parser.max_line_chars(context),
     ) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(message) => return Err(message)
   }
   let stats : LargeSrtStats = {
     cue_count: 0,
@@ -49,7 +49,7 @@ fn open_srt_event_stream(
   Ok(
     Some(
       @parser.make_parse_event_stream(
-        fn() {
+        async fn() {
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -80,6 +80,7 @@ fn open_srt_event_stream(
           Ok(None)
         },
         fn() {
+          (blocks.close)()
           diagnostics.metrics.set("parser_name", "srt_parser")
           diagnostics.metrics.set("parser_mode", "streaming_event")
           diagnostics.metrics.set("detected_format", "srt")
@@ -163,7 +164,7 @@ fn srt_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-fn parse_subtitle_result(
+async fn parse_subtitle_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   format_name : String,
@@ -182,7 +183,7 @@ fn parse_subtitle_result(
     )
   }
   let normalized_text = large_srt_normalized_text(text_payload.text)
-  let normalized_source = @input.with_text_payload(
+  let normalized_source = @input.with_prepared_text_payload(
     text_payload.prepared_source,
     normalized_text,
   )
@@ -305,12 +306,12 @@ fn parse_subtitle_result(
 
 ///|
 priv struct LargeSrtStats {
-  mut cue_count : Int
-  mut invalid_count : Int
-  mut multiline_count : Int
-  mut char_count : Int
-  mut max_lines_per_cue : Int
-  mut line_count : Int
+  mut cue_count : Int32
+  mut invalid_count : Int32
+  mut multiline_count : Int32
+  mut char_count : Int32
+  mut max_lines_per_cue : Int32
+  mut line_count : Int32
 }
 
 ///|
@@ -412,7 +413,7 @@ fn append_large_srt_block(
   events : Array[@core.CoreEvent],
   source : @input.InputSource,
   block : Array[String],
-  line_start : Int,
+  line_start : Int32,
   stats : LargeSrtStats,
 ) -> Unit {
   let first = block[0].trim().to_owned()
@@ -629,9 +630,9 @@ fn subtitle_events_from_document(
 fn subtitle_source_ref(
   source : @input.InputSource,
   format_name : String,
-  cue_index : Int,
-  line_start : Int,
-  line_end : Int,
+  cue_index : Int32,
+  line_start : Int32,
+  line_end : Int32,
   time_start : String?,
   time_end : String?,
 ) -> @core.SourceRef {
@@ -671,7 +672,7 @@ fn subtitle_generic_block_ref(
 }
 
 ///|
-fn count_subtitle_event_blocks(events : Array[@core.CoreEvent]) -> Int {
+fn count_subtitle_event_blocks(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     match event.kind {
@@ -683,7 +684,7 @@ fn count_subtitle_event_blocks(events : Array[@core.CoreEvent]) -> Int {
 }
 
 ///|
-fn count_subtitle_lines(text : String) -> Int {
+fn count_subtitle_lines(text : String) -> Int32 {
   if text == "" {
     return 0
   }

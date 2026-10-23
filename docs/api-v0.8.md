@@ -1,8 +1,10 @@
 # Stable Library API 0.8
 
 `ZSeanYves/markitdown/lib` is the only compatibility-stable library package in
-the 0.8 line. Its text contract builds on Native and linear Wasm. Native-only
-extensions are isolated below the façade. All other project
+the 0.8 line. The product supports Native on Linux x86_64 and macOS arm64;
+Wasm/JavaScript product targets are retired under the
+[Native plan](architecture/native-performance-plan.md). P2–P6 remain unfinished
+acceptance gates. Host bindings are isolated below the façade. All other project
 packages are implementation or extension packages and may change without a
 deprecation period before 1.0.
 
@@ -17,6 +19,8 @@ The façade exposes only implementation-neutral models:
   `Capability`;
 - typed `ConvertError`, stable `ErrorCode` strings and process exit mappings;
 - asynchronous `convert`, `api_v0_8` and the explicit `ApiV0_8` version handle.
+- façade-owned `OutputSink`, asynchronous `convert_to_sink`, and
+  `ConversionSummary` without a body or chunk text.
 
 `Input` has private fields. The interface does not expose parser registries,
 format-reader records, IR, pipeline contexts, renderer types, async handles,
@@ -50,13 +54,39 @@ async test "stable library conversion" {
 the asynchronous call directly and does not use an `await` keyword. The façade
 owns parser scheduling and does not expose community futures or FFI handles.
 
+## Sink delivery
+
+`OutputSink::new(write, finish)` accepts asynchronous callbacks returning
+`Result[Unit, String]`. `convert_to_sink(input, sink, options~)` waits for each
+write before producing the next fragment, then calls `finish` once on success.
+Read/write failures and cancellation stop delivery; failure does not call
+`finish`. A callback failure maps to the existing `RenderFailed` error class.
+
+Markdown, Debug and RAG use this boundary. The JSON collector and Sink share
+the same fragment cursor. The summary retains metadata, diagnostics, assets,
+source map and chunk count, and does not contain the rendered body. It is a
+separate type from collected `Output`; existing `convert` calls retain their
+return type and behavior. Consumers import only the façade for these types.
+
+Path handles opened by a conversion belong to its input session and close on
+success, error or cancellation. Reader callbacks remain caller-owned. This
+ownership and output delivery work does not establish bounded memory for the
+whole parse: IR, RAG chunks and metadata can still reside in memory. Aggregate
+cache, work, output and temporary-storage budgets remain tracked P2 work.
+
 Reader callbacks receive `(offset, length)` and return at most `length` bytes.
 An empty result means end of input. Reader resource ownership stays with the
-caller. `Input::from_async_reader` is the asynchronous resource boundary; the
-current shared parser chain materializes that reader once under
-`ResourceLimits.max_input_bytes` before entering the same detection, routing
-and semantic pipeline. The adapter rejects oversized chunks, reads beyond a
-declared size and data beyond the input budget.
+caller. Synchronous and asynchronous constructors adapt to one asynchronous
+read protocol used by detection and parsers; there is no complete-input
+materialization adapter before routing. Prefix and fixed-range reads fill
+legal short reads. An empty result before a declared size, callback over-read,
+I/O failure or exceeded byte ceiling terminates conversion. Subsequent reads
+cannot clear the first hard input error. Invalid UTF16 in `Input::from_text`
+returns a controlled error before Native UTF8 encoding can abort.
+
+Selected tree formats still collect their required text. CSV/JSONL preserve
+their established bounded multipass ordering; these protocol changes do not
+claim that every format is a single-pass stream.
 
 `ResourceLimits` and `RagOptions` are immutable. Start with `default()` and use
 their `with_*` methods to set every supported field before attaching them to
@@ -91,8 +121,8 @@ package.
 Run:
 
 ```text
-moon info --package ZSeanYves/markitdown/lib
-moon check --target all --warn-list +73 --deny-warn
+moon info lib
+moon check --target native --warn-list +73 --deny-warn
 ```
 
 An intentional golden change is Risk R3 and requires an accepted RFC or ADR,

@@ -92,7 +92,7 @@ pub fn pdf_native_fail_closed_diagnostics(
 ///|
 /// Return the native PDF parser result, including fail-closed diagnostics when
 /// the runtime gate is disabled.
-pub fn pdf_native_parser_result(
+pub async fn pdf_native_parser_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> @parser.ParseResult {
@@ -103,7 +103,7 @@ pub fn pdf_native_parser_result(
 }
 
 ///|
-fn pdf_native_parser_result_with_gate(
+async fn pdf_native_parser_result_with_gate(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, @parser.ParseResult] {
@@ -133,7 +133,7 @@ fn pdf_native_parser_result_with_gate(
 /// Construct the native-text PDF parser entrypoint.
 pub fn pdf_native_parser() -> @parser.Parser {
   let capability = pdf_native_parser_capability()
-  @parser.make_parser(pdf_native_parser_name(), PageSinglePass, capability, fn(
+  @parser.make_parser(pdf_native_parser_name(), PageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {

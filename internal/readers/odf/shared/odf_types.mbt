@@ -1,6 +1,7 @@
 ///|
 pub(all) suberror OdfError {
   ParseError(String)
+  InvalidEncoding(String)
 }
 
 ///|
@@ -87,16 +88,16 @@ pub struct OdtImageRef {
 pub struct OdtBlock {
   kind : OdtBlockKind
   text : String
-  level : Int?
-  list_depth : Int?
+  level : Int32?
+  list_depth : Int32?
   rows : Array[OdtTableRow]
   image : OdtImageRef?
   inlines : Array[OdtInline]
   note : OdtNote?
   content_path : String
   xml_path : String
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   attrs : Map[String, String]
 }
 
@@ -110,17 +111,17 @@ pub struct OdtDocument {
 
 ///|
 pub struct OdtInspectReport {
-  block_count : Int
-  heading_count : Int
-  paragraph_count : Int
-  list_item_count : Int
-  code_block_count : Int
-  raw_block_count : Int
-  table_count : Int
-  image_count : Int
-  note_count : Int
-  comment_count : Int
-  max_heading_level : Int
+  block_count : Int32
+  heading_count : Int32
+  paragraph_count : Int32
+  list_item_count : Int32
+  code_block_count : Int32
+  raw_block_count : Int32
+  table_count : Int32
+  image_count : Int32
+  note_count : Int32
+  comment_count : Int32
+  max_heading_level : Int32
 }
 
 ///|
@@ -128,17 +129,17 @@ pub struct OdsCell {
   text : String
   formula : String?
   covered : Bool
-  col_span : Int
-  row_span : Int
-  repeat_count : Int
+  col_span : Int32
+  row_span : Int32
+  repeat_count : Int32
 }
 
 ///|
 pub struct OdsRow {
   cells : Array[OdsCell]
-  row_index : Int
+  row_index : Int32
   hidden : Bool
-  repeat_count : Int
+  repeat_count : Int32
 }
 
 ///|
@@ -159,18 +160,18 @@ pub struct OdsDocument {
 
 ///|
 pub struct OdsInspectReport {
-  sheet_count : Int
-  visible_sheet_count : Int
-  hidden_sheet_count : Int
-  row_count : Int
-  non_empty_row_count : Int
-  cell_count : Int
-  used_cell_count : Int
-  hidden_row_count : Int
-  covered_cell_count : Int
-  max_sheet_rows : Int
-  max_sheet_cols : Int
-  max_used_cols : Int
+  sheet_count : Int32
+  visible_sheet_count : Int32
+  hidden_sheet_count : Int32
+  row_count : Int32
+  non_empty_row_count : Int32
+  cell_count : Int32
+  used_cell_count : Int32
+  hidden_row_count : Int32
+  covered_cell_count : Int32
+  max_sheet_rows : Int32
+  max_sheet_cols : Int32
+  max_used_cols : Int32
 }
 
 ///|
@@ -213,14 +214,14 @@ pub struct OdpSlideBlock {
   image : OdpImageRef?
   content_path : String
   xml_path : String
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   attrs : Map[String, String]
 }
 
 ///|
 pub struct OdpSlide {
-  index : Int
+  index : Int32
   name : String?
   blocks : Array[OdpSlideBlock]
 }
@@ -235,21 +236,22 @@ pub struct OdpDocument {
 
 ///|
 pub struct OdpInspectReport {
-  slide_count : Int
-  block_count : Int
-  heading_count : Int
-  paragraph_count : Int
-  list_item_count : Int
-  table_count : Int
-  image_count : Int
-  notes_count : Int
-  raw_block_count : Int
+  slide_count : Int32
+  block_count : Int32
+  heading_count : Int32
+  paragraph_count : Int32
+  list_item_count : Int32
+  table_count : Int32
+  image_count : Int32
+  notes_count : Int32
+  raw_block_count : Int32
 }
 
 ///|
 pub impl Show for OdfError with fn to_string(self : OdfError) -> String {
   match self {
     ParseError(msg) => "odf parse error: " + msg
+    InvalidEncoding(msg) => "invalid ODF encoding: " + msg
   }
 }
 

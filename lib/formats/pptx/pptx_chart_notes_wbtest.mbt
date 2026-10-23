@@ -56,13 +56,13 @@ test "PPTX chart calendar helpers cover Gregorian leap rules and month tables" {
 }
 
 ///|
-test "PPTX malformed package fails closed with initialized product diagnostics" {
+async test "PPTX malformed package fails closed with initialized product diagnostics" {
   let capability = pptx_parser_capability()
   assert_true(capability.requires_random_access)
   assert_true(capability.supports_document_ir)
   assert_true(capability.produces_tables)
   let source = @input.input_from_bytes_with_format(
-    Bytes::from_array([1, 2, 3].map(Int::to_byte)),
+    Bytes::from_array([1, 2, 3].map(Int32::to_byte)),
     "broken.pptx",
     Some(Pptx),
   )
@@ -81,14 +81,23 @@ test "PPTX malformed package fails closed with initialized product diagnostics" 
 }
 
 ///|
-test "PPTX parser lowers repository notes groups tables hidden and reading-order fixtures" {
+async test "PPTX parser lowers repository notes groups tables hidden and reading-order fixtures" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx", "samples/fixtures/contracts/pptx/pptx_hidden_slides_policy.pptx",
     "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx",
   ]
   for path in fixtures {
     let result = (pptx_parser().parse)(
-      @input.input_from_path(path),
+      owned_input_path(path),
       @parser.new_parse_context(Pptx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -98,7 +107,16 @@ test "PPTX parser lowers repository notes groups tables hidden and reading-order
 }
 
 ///|
-test "PPTX parser lowers repository accurate presentation contracts" {
+async test "PPTX parser lowers repository accurate presentation contracts" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/pptx/pptx_callout_blocks_basic.pptx", "samples/fixtures/contracts/pptx/pptx_hidden_slides_policy.pptx",
     "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx", "samples/fixtures/contracts/pptx/pptx_speaker_notes_basic.pptx",
@@ -120,7 +138,7 @@ test "PPTX parser lowers repository accurate presentation contracts" {
     ]),
   )
   for path in fixtures {
-    let result = (pptx_parser().parse)(@input.input_from_path(path), context).unwrap()
+    let result = (pptx_parser().parse)(owned_input_path(path), context).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     assert_true(result.document.unwrap().blocks.length() > 0)
     assert_true(result.diagnostics.metrics.get("pptx_slide_count") != Some("0"))
@@ -131,11 +149,18 @@ test "PPTX parser lowers repository accurate presentation contracts" {
 }
 
 ///|
-test "PPTX parser extracts repository image contract assets" {
+async test "PPTX parser extracts repository image contract assets" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let result = (pptx_parser().parse)(
-    @input.input_from_path(
-      "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
-    ),
+    owned_input_path("samples/fixtures/contracts/pptx/pptx_image_single.pptx"),
     @parser.new_parse_context(Pptx),
   ).unwrap()
   assert_eq(result.diagnostics.errors.length(), 0)
@@ -143,33 +168,46 @@ test "PPTX parser extracts repository image contract assets" {
 }
 
 ///|
-test "PPTX parser rejects media over the request asset budget" {
+async test "PPTX parser rejects media over the request asset budget" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let context = @parser.parse_context_with_asset_limits(
     @parser.new_parse_context(Pptx),
     1L,
     1L,
   )
   let result = (pptx_parser().parse)(
-    @input.input_from_path(
-      "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
-    ),
+    owned_input_path("samples/fixtures/contracts/pptx/pptx_image_single.pptx"),
     context,
-  ).unwrap()
-  assert_eq(result.document.unwrap().assets.length(), 0)
-  assert_true(
-    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
   )
+  assert_true(result is Err(_))
 }
 
 ///|
-test "PPTX synthetic chart cache lowers title date categories and series table" {
+async test "PPTX synthetic chart cache lowers title date categories and series table" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let path = "samples/fixtures/contracts/pptx/pptx_chart_cache_synthetic.pptx"
   let prepared = @pptxdoc.prepare_pptx_document_from_source(
-    @input.input_from_path(path),
+    owned_input_path(path),
   ).unwrap()
   assert_true(prepared.document.slides.length() == 1)
   let result = (pptx_parser().parse)(
-    @input.input_from_path(path),
+    owned_input_path(path),
     @parser.new_parse_context(Pptx),
   ).unwrap()
   let blocks = result.document.unwrap().blocks
@@ -185,7 +223,16 @@ test "PPTX synthetic chart cache lowers title date categories and series table" 
 }
 
 ///|
-test "PPTX synthetic fixtures cover shape source references and hidden notes" {
+async test "PPTX synthetic fixtures cover shape source references and hidden notes" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let paths = [
     "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx", "samples/fixtures/contracts/pptx/pptx_image_single.pptx",
     "samples/fixtures/contracts/pptx/pptx_hidden_slides_policy.pptx",
@@ -195,7 +242,7 @@ test "PPTX synthetic fixtures cover shape source references and hidden notes" {
   let mut seen_picture = false
   let mut seen_table = false
   for path in paths {
-    let source = @input.input_from_path(path)
+    let source = owned_input_path(path)
     let prepared = @pptxdoc.prepare_pptx_document_from_source(source).unwrap()
     assert_true(prepared.document.slides.length() > 0)
     ignore(pptx_root_source_ref(source))

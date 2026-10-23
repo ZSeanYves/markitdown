@@ -28,7 +28,7 @@ pub fn xlsx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical XLSX parser entrypoint.
 pub fn xlsx_parser() -> @parser.Parser {
   let capability = xlsx_parser_capability()
-  @parser.make_parser("xlsx_parser", PackageSinglePass, capability, fn(
+  @parser.make_parser("xlsx_parser", PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -38,11 +38,11 @@ pub fn xlsx_parser() -> @parser.Parser {
 
 ///|
 /// Reuse an already-opened OOXML package to produce an XLSX parse result.
-pub fn xlsx_parse_with_package(
+pub async fn xlsx_parse_with_package(
   source : @input.InputSource,
   context : @parser.ParseContext,
   pkg : @ox.OoxmlPackage,
-) -> @parser.ParseResult {
+) -> @parser.ParseResult noraise {
   xlsx_parse_document_result_from_package(
     source,
     context,
@@ -53,12 +53,12 @@ pub fn xlsx_parse_with_package(
 }
 
 ///|
-pub fn xlsx_parse_with_prepared_package(
+pub async fn xlsx_parse_with_prepared_package(
   _source : @input.InputSource,
   context : @parser.ParseContext,
   prepared : @drxlsx.PreparedXlsxPackage,
-  probe_artifact_reused? : Bool = true,
-) -> @parser.ParseResult {
+  probe_artifact_reused~ : Bool = true,
+) -> @parser.ParseResult noraise {
   xlsx_parse_document_result_from_package(
     prepared.prepared_source,
     context,
@@ -71,7 +71,9 @@ pub fn xlsx_parse_with_prepared_package(
 ///|
 /// Benchmark-oriented helper that parses workbook-level OOXML structures and
 /// returns the included visible sheet count.
-pub fn xlsx_workbook_metric(source : @input.InputSource) -> Result[Int, String] {
+pub async fn xlsx_workbook_metric(
+  source : @input.InputSource,
+) -> Result[Int32, String] noraise {
   let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -95,9 +97,9 @@ pub fn xlsx_workbook_metric(source : @input.InputSource) -> Result[Int, String] 
 ///|
 /// Benchmark-oriented helper that parses workbook structures and returns the
 /// non-empty cell count of the first included sheet.
-pub fn xlsx_first_sheet_metric(
+pub async fn xlsx_first_sheet_metric(
   source : @input.InputSource,
-) -> Result[Int, String] {
+) -> Result[Int32, String] noraise {
   let workbook = xlsx_workbook_from_source(source)
   match workbook {
     Ok(value) =>
@@ -113,20 +115,20 @@ pub fn xlsx_first_sheet_metric(
 ///|
 /// Cheap workbook-level summary used by route probing and benchmarks.
 pub struct XlsxPreflightSummary {
-  sheet_count : Int
-  visible_sheet_count : Int
-  hidden_sheet_count : Int
-  very_hidden_sheet_count : Int
-  max_sheet_rows : Int
-  max_sheet_cols : Int
-  estimated_cells : Int
+  sheet_count : Int32
+  visible_sheet_count : Int32
+  hidden_sheet_count : Int32
+  very_hidden_sheet_count : Int32
+  max_sheet_rows : Int32
+  max_sheet_cols : Int32
+  estimated_cells : Int32
 }
 
 ///|
 /// Build a workbook preflight summary directly from an input source.
-pub fn xlsx_preflight_summary(
+pub async fn xlsx_preflight_summary(
   source : @input.InputSource,
-) -> Result[XlsxPreflightSummary, String] {
+) -> Result[XlsxPreflightSummary, String] noraise {
   let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -136,9 +138,9 @@ pub fn xlsx_preflight_summary(
 
 ///|
 /// Build a workbook preflight summary from an already-opened OOXML package.
-pub fn xlsx_preflight_summary_with_package(
+pub async fn xlsx_preflight_summary_with_package(
   pkg : @ox.OoxmlPackage,
-) -> Result[XlsxPreflightSummary, String] {
+) -> Result[XlsxPreflightSummary, String] noraise {
   let shared = try xlsx_load_workbook_shared_state(pkg) |> Ok catch {
     err => Err(err.to_string())
   }
@@ -202,12 +204,12 @@ pub fn xlsx_preflight_summary_with_package(
 ///|
 /// Route-probing variant of workbook preflight that respects explicit resource
 /// ceilings.
-pub fn xlsx_route_preflight_summary_with_package(
+pub async fn xlsx_route_preflight_summary_with_package(
   pkg : @ox.OoxmlPackage,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-) -> Result[XlsxPreflightSummary, String] {
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
+) -> Result[XlsxPreflightSummary, String] noraise {
   let shared = try xlsx_load_workbook_shared_state(pkg) |> Ok catch {
     err => Err(err.to_string())
   }
@@ -294,10 +296,10 @@ pub fn xlsx_route_preflight_summary_with_package(
 
 ///|
 fn xlsx_preflight_sheet_probe_byte_limit(
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-) -> Int {
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
+) -> Int32 {
   let row_col_budget = if max_rows > 0 && max_cols > 0 {
     max_rows * max_cols
   } else {
@@ -320,7 +322,7 @@ fn xlsx_preflight_sheet_probe_byte_limit(
 fn xlsx_preflight_sheet_part_size(
   parts : Array[@ox.OoxmlPartInfo],
   part_name : String,
-) -> Int {
+) -> Int32 {
   for part in parts {
     if part.part_name == part_name {
       return part.size
@@ -330,7 +332,7 @@ fn xlsx_preflight_sheet_part_size(
 }
 
 ///|
-fn xlsx_preflight_estimated_cells_from_sheet_xml_bytes(size : Int) -> Int {
+fn xlsx_preflight_estimated_cells_from_sheet_xml_bytes(size : Int32) -> Int32 {
   if size <= 0 {
     0
   } else if size % 32 == 0 {
@@ -341,11 +343,11 @@ fn xlsx_preflight_estimated_cells_from_sheet_xml_bytes(size : Int) -> Int {
 }
 
 ///|
-fn xlsx_parse_document_result(
+async fn xlsx_parse_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) =>
@@ -365,13 +367,13 @@ fn xlsx_parse_document_result(
 }
 
 ///|
-fn xlsx_parse_document_result_from_package(
+async fn xlsx_parse_document_result_from_package(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
   pkg : @ox.OoxmlPackage,
-  probe_artifact_reused? : Bool = false,
-) -> @parser.ParseResult {
+  probe_artifact_reused~ : Bool = false,
+) -> @parser.ParseResult noraise {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xlsx_parser",
     PackageSinglePass,

@@ -62,15 +62,15 @@ pub struct PassPipeline {
 fn make_product_pass_context(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
-  execution_profile? : @product.ExecutionProfile = Standard,
-  lowering_profile? : @product.LoweringProfile = Canonical,
-  render_profile? : @product.RenderProfile = DefaultMarkdown,
-  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  assets? : Array[@core.AssetRef] = [],
-  metadata? : @core.DocumentMetadata = Map([]),
-  source_map? : @core.SourceMap? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  execution_profile~ : @product.ExecutionProfile = Standard,
+  lowering_profile~ : @product.LoweringProfile = Canonical,
+  render_profile~ : @product.RenderProfile = DefaultMarkdown,
+  accurate_features~ : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  assets~ : Array[@core.AssetRef] = [],
+  metadata~ : @core.DocumentMetadata = Map([]),
+  source_map~ : @core.SourceMap? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> PassContext {
   {
     mode,
@@ -94,7 +94,7 @@ fn make_product_pass_context(
 pub fn make_pass_context(
   debug : Bool,
   mode_name : String,
-  pdf_cleanup_enabled? : Bool = false,
+  pdf_cleanup_enabled~ : Bool = false,
 ) -> PassContext {
   let mode = match mode_name {
     "stream" => @product.ConvertMode::Stream
@@ -124,15 +124,15 @@ pub fn make_pass_context(
 pub fn make_pass_context_with_product_options(
   mode : @product.ConvertMode,
   options : @product.ProductOptions,
-  execution_profile? : @product.ExecutionProfile = Standard,
-  lowering_profile? : @product.LoweringProfile = Canonical,
-  render_profile? : @product.RenderProfile = DefaultMarkdown,
-  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  assets? : Array[@core.AssetRef] = [],
-  metadata? : @core.DocumentMetadata = Map([]),
-  source_map? : @core.SourceMap? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  execution_profile~ : @product.ExecutionProfile = Standard,
+  lowering_profile~ : @product.LoweringProfile = Canonical,
+  render_profile~ : @product.RenderProfile = DefaultMarkdown,
+  accurate_features~ : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  assets~ : Array[@core.AssetRef] = [],
+  metadata~ : @core.DocumentMetadata = Map([]),
+  source_map~ : @core.SourceMap? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> PassContext {
   make_product_pass_context(
     mode,
@@ -249,7 +249,7 @@ pub fn default_pass_pipeline() -> PassPipeline {
 pub fn run_default_pipeline(
   input : @core.IRInput,
   context : PassContext,
-  trace_passes? : Bool = true,
+  trace_passes~ : Bool = true,
 ) -> Result[@core.IRInput, PassError] {
   let selected_pipeline = default_pipeline_for_context(context)
   let output = run_pipeline_with_trace(
@@ -339,9 +339,9 @@ fn default_pipeline_for_context(context : PassContext) -> PassPipeline {
 pub fn build_document_with_default_pipeline(
   input : @core.IRInput,
   context : PassContext,
-  trace_builder? : Bool = true,
-  trace_passes? : Bool = true,
-) -> @core.DocumentIR {
+  trace_builder~ : Bool = true,
+  trace_passes~ : Bool = true,
+) -> Result[@core.DocumentIR, PassError] {
   let initial = if trace_builder {
     append_pass_trace(input, context, "builder:default_ir_builder")
   } else {
@@ -349,15 +349,10 @@ pub fn build_document_with_default_pipeline(
   }
   let output = match run_default_pipeline(initial, context, trace_passes~) {
     Ok(value) => value
-    Err(err) => abort(pass_error_message(err))
+    Err(err) => return Err(err)
   }
   let document = ir_input_to_document(output)
-  document_from_input_context(document, context)
-}
-
-///|
-fn pass_error_message(err : PassError) -> String {
-  err.message
+  Ok(document_from_input_context(document, context))
 }
 
 ///|

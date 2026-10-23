@@ -76,7 +76,7 @@ pub fn text_markup_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-pub fn parse_text_markup_result(
+pub async fn parse_text_markup_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   hooks : TextMarkupHooks,
@@ -631,7 +631,7 @@ pub fn parse_text_markup_result_with_preparsed_document(
   doc : @dmark.TextMarkupDocument,
   inspect : @dmark.TextMarkupInspectReport,
   hooks : TextMarkupHooks,
-  diagnostics? : @core.Diagnostics = empty_parser_diagnostics(
+  diagnostics~ : @core.Diagnostics = empty_parser_diagnostics(
     hooks.parser_name,
     DomAstModel,
     source,
@@ -1087,7 +1087,7 @@ fn text_markup_rebase_cached_block(
 ///|
 priv struct CachedLoweredBlock {
   block : @core.CoreBlock
-  content_crc : UInt
+  content_crc : UInt32
 }
 
 ///|
@@ -1098,7 +1098,7 @@ fn cached_lowered_block(block : @core.CoreBlock) -> CachedLoweredBlock {
 ///|
 priv struct CachedLoweredTree {
   block : @core.CoreBlock
-  content_crc : UInt
+  content_crc : UInt32
   children : Array[CachedLoweredTree]
 }
 
@@ -1166,7 +1166,7 @@ fn text_markup_apply_raw_diagnostics(
 }
 
 ///|
-fn prepare_text_markup_document_for_hooks(
+async fn prepare_text_markup_document_for_hooks(
   source : @input.InputSource,
   hooks : TextMarkupHooks,
 ) -> Result[@dmark.PreparedTextMarkupDocument, String] {
@@ -1212,8 +1212,8 @@ fn text_markup_apply_semantic_attrs(
 pub fn text_markup_source_ref(
   source : @input.InputSource,
   format_name : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> @core.SourceRef {
   @core.source_ref_with_lines(
     @core.empty_source_ref(),

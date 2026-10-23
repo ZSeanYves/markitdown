@@ -1,9 +1,8 @@
 ///|
-#cfg(target="native")
 #borrow(payload)
 extern "C" fn decode_cp932_native_ffi(
   payload : Bytes,
-  payload_len : Int,
+  payload_len : Int32,
 ) -> Bytes = "markitdown_decode_cp932"
 
 ///|

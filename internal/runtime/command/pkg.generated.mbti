@@ -12,7 +12,7 @@ pub fn is_executable_file(String) -> Bool
 
 pub fn join_shell_command(Array[String]) -> String
 
-pub fn make_command_limits(timeout_ms? : Int, max_stdout_bytes? : Int, max_stderr_bytes? : Int, termination_grace_ms? : Int) -> CommandLimits
+pub fn make_command_limits(timeout_ms? : Int32, max_stdout_bytes? : Int32, max_stderr_bytes? : Int32, termination_grace_ms? : Int32) -> CommandLimits
 
 pub fn make_resolved_command(String, String, ResolvedCommandSource) -> ResolvedCommand
 
@@ -48,15 +48,15 @@ pub fn split_shell_command(String) -> Result[Array[String], ShellCommandSplitErr
 
 // Types and methods
 pub struct CommandLimits {
-  timeout_ms : Int
-  max_stdout_bytes : Int
-  max_stderr_bytes : Int
-  termination_grace_ms : Int
+  timeout_ms : Int32
+  max_stdout_bytes : Int32
+  max_stderr_bytes : Int32
+  termination_grace_ms : Int32
 }
 
 pub struct CommandOutput {
-  exit_code : Int
-  signal : Int
+  exit_code : Int32
+  signal : Int32
   stdout : String
   stderr : String
   timed_out : Bool
@@ -69,6 +69,8 @@ pub struct ResolvedCommand {
   display_command : String
   source : ResolvedCommandSource
 } derive(Eq)
+pub fn ResolvedCommand::equal(Self, Self) -> Bool
+pub fn ResolvedCommand::not_equal(Self, Self) -> Bool
 
 pub(all) enum ResolvedCommandSource {
   ExplicitArg
@@ -77,11 +79,15 @@ pub(all) enum ResolvedCommandSource {
   Path
   Fallback
 } derive(Eq)
+pub fn ResolvedCommandSource::equal(Self, Self) -> Bool
+pub fn ResolvedCommandSource::not_equal(Self, Self) -> Bool
 
 pub(all) enum ShellCommandSplitError {
   TrailingEscape
   UnterminatedQuotes
 } derive(Eq)
+pub fn ShellCommandSplitError::equal(Self, Self) -> Bool
+pub fn ShellCommandSplitError::not_equal(Self, Self) -> Bool
 
 // Type aliases
 

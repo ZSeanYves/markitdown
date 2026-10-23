@@ -16,19 +16,19 @@ pub fn inspect_ods_document(@shared.OdsDocument) -> @shared.OdsInspectReport
 
 pub fn inspect_odt_document(@shared.OdtDocument) -> @shared.OdtInspectReport
 
-pub fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo raise
+pub async fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo
 
-pub fn open_odp_document(Bytes) -> @shared.OdpDocument raise
+pub async fn open_odp_document(Bytes) -> @shared.OdpDocument
 
-pub fn open_ods_document(Bytes) -> @shared.OdsDocument raise
+pub async fn open_ods_document(Bytes) -> @shared.OdsDocument
 
-pub fn open_odt_document(Bytes) -> @shared.OdtDocument raise
+pub async fn open_odt_document(Bytes) -> @shared.OdtDocument
 
-pub fn prepare_odp_document_from_source(@input.InputSource) -> Result[@odp.PreparedOdpDocument, String]
+pub async fn prepare_odp_document_from_source(@input.InputSource) -> Result[@odp.PreparedOdpDocument, String] noraise
 
-pub fn prepare_ods_document_from_source(@input.InputSource) -> Result[@ods.PreparedOdsDocument, String]
+pub async fn prepare_ods_document_from_source(@input.InputSource) -> Result[@ods.PreparedOdsDocument, String] noraise
 
-pub fn prepare_odt_document_from_source(@input.InputSource) -> Result[@odt.PreparedOdtDocument, String]
+pub async fn prepare_odt_document_from_source(@input.InputSource) -> Result[@odt.PreparedOdtDocument, String] noraise
 
 // Errors
 

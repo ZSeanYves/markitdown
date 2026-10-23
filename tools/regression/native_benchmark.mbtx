@@ -1,0 +1,1936 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/process",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/x@0.5.5/crypto",
+}
+
+///|
+struct BenchCase {
+  id : String
+  format : String
+  input : String
+  bytes : Int64
+  sha256 : String
+} derive(ToJson, @json.FromJson)
+
+///|
+struct Metrics {
+  wall_ms : Double?
+  user_ms : Double?
+  system_ms : Double?
+  rss_bytes : Double?
+} derive(ToJson, @json.FromJson)
+
+///|
+struct Sample {
+  case_id : String
+  lane : String
+  phase : String
+  iteration : Int32
+  order : String
+  directory : String
+  started_ms : UInt64
+  ended_ms : UInt64
+  exit_code : Int32
+  observed_ms : Double
+  first_output_ms : Double?
+  first_output_kind : String
+  metrics : Metrics
+  output_fingerprint : String
+  error : String
+} derive(ToJson, @json.FromJson)
+
+///|
+struct Window {
+  schema : Int32
+  window : Int32
+  started_ms : UInt64
+  ended_ms : UInt64
+  configuration : String
+  harness_sha256 : String
+  baseline_sha256 : String
+  candidate_sha256 : String
+  manifest_sha256 : String
+  corpus_fingerprint : String
+  machine : String
+  toolchain : String
+  cases : Array[BenchCase]
+  accepted : Int32
+  missing_candidates : Int32
+  samples : Array[Sample]
+  limitations : Array[String]
+  errors : Array[String]
+} derive(ToJson, @json.FromJson)
+
+///|
+struct Inventory {
+  cases : Array[BenchCase]
+  rows : Array[String]
+  mut missing : Int32
+  errors : Array[String]
+}
+
+///|
+fn usage() -> String {
+  "usage: native_benchmark.mbtx --baseline ABS_NATIVE --candidate ABS_NATIVE --lab ABS_LAB --evidence NEW_ABS_DIR --window 1|2 [--surface single|startup|batch] [--batch-input ABS_DIRECTORY] [--mode balance|accurate|stream] [--view markdown|debug|rag] [--case ID] [--format FORMAT] [--quality-baseline ABS_EVIDENCE --quality-candidate ABS_EVIDENCE] [--limits-contract ABS_JSON] [--validate-only true|false] [--timeout-ms N] [--max-spread 1.20] | --aggregate ABS_WINDOW1,ABS_WINDOW2 --evidence NEW_ABS_DIR | --self-test true"
+}
+
+///|
+fn clean_field(value : String) -> String {
+  value
+  .replace_all(old="\t", new=" ")
+  .replace_all(old="\n", new=" ")
+  .replace_all(old="\r", new=" ")
+}
+
+///|
+fn safe_id(value : String) -> Bool {
+  value != "" &&
+  value != "." &&
+  value != ".." &&
+  value
+  .iter()
+  .all(ch => {
+    (ch >= 'a' && ch <= 'z') ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= '0' && ch <= '9') ||
+    ch == '_' ||
+    ch == '-' ||
+    ch == '.'
+  })
+}
+
+///|
+fn safe_relative(value : String) -> Bool {
+  value != "" &&
+  !value.has_prefix("/") &&
+  !value.contains("\\") &&
+  !value.contains(":") &&
+  !value.contains("\t") &&
+  !value.contains("\n") &&
+  !value.contains("\r") &&
+  value.split("/").all(part => part != "" && part != "." && part != "..")
+}
+
+///|
+fn natural(value : String) -> Int64? {
+  if value == "" || !value.iter().all(ch => ch >= '0' && ch <= '9') {
+    return None
+  }
+  Some(@string.parse_int64(value)) catch {
+    _ => None
+  }
+}
+
+///|
+fn number(value : String) -> Double? {
+  let value = @string.parse_double(value.trim()) catch { _ => return None }
+  if value.is_nan() || value.is_inf() || value < 0.0 {
+    None
+  } else {
+    Some(value)
+  }
+}
+
+///|
+fn words(value : String) -> Array[String] {
+  value
+  .replace_all(old="\t", new=" ")
+  .split(" ")
+  .filter(part => part != "")
+  .map(part => part.to_owned())
+  .to_array()
+}
+
+///|
+fn clock_seconds(value : String) -> Double? {
+  let parts = value.split(":").to_array()
+  let mut total = 0.0
+  if parts.length() < 1 || parts.length() > 3 {
+    return None
+  }
+  for i in 0..<parts.length() {
+    let part = parts[i]
+    let value = match number(part.to_owned()) {
+      Some(value) => value
+      None => return None
+    }
+    if (i < parts.length() - 1 && natural(part.to_owned()) is None) ||
+      (i > 0 && value >= 60.0) {
+      return None
+    }
+    total = total * 60.0 + value
+  }
+  Some(total)
+}
+
+///|
+fn time_metrics(text : String, platform : String) -> Metrics {
+  let mut wall_ms = None
+  let mut user_ms = None
+  let mut system_ms = None
+  let mut rss_bytes = None
+  for raw in text.split("\n") {
+    let line = raw.trim().to_owned()
+    if platform == "Darwin" {
+      let parts = words(line)
+      for i in 1..<parts.length() {
+        match parts[i] {
+          "real" => wall_ms = number(parts[i - 1]).map(value => value * 1000.0)
+          "user" => user_ms = number(parts[i - 1]).map(value => value * 1000.0)
+          "sys" => system_ms = number(parts[i - 1]).map(value => value * 1000.0)
+          _ => ()
+        }
+      }
+      if line.has_suffix("maximum resident set size") && parts.length() > 0 {
+        rss_bytes = number(parts[0])
+      }
+    } else {
+      for
+        (label, kind) in [
+          ("User time (seconds):", "user"),
+          ("System time (seconds):", "system"),
+          ("Elapsed (wall clock) time (h:mm:ss or m:ss):", "wall"),
+          ("Maximum resident set size (kbytes):", "rss"),
+        ] {
+        if line.has_prefix(label) {
+          let value = line[label.length():].trim().to_owned()
+          match kind {
+            "user" => user_ms = number(value).map(value => value * 1000.0)
+            "system" => system_ms = number(value).map(value => value * 1000.0)
+            "wall" =>
+              wall_ms = clock_seconds(value).map(value => value * 1000.0)
+            "rss" => rss_bytes = number(value).map(value => value * 1024.0)
+            _ => ()
+          }
+        }
+      }
+    }
+  }
+  { wall_ms, user_ms, system_ms, rss_bytes, }
+}
+
+///|
+fn percentile(values : Array[Double], percent : Int32) -> Double? {
+  if values.length() == 0 {
+    return None
+  }
+  let sorted = values.copy()
+  sorted.sort()
+  let index = ((sorted.length() * percent + 99) / 100 - 1)
+    .max(0)
+    .min(sorted.length() - 1)
+  Some(sorted[index])
+}
+
+///|
+fn stable_json(value : Json, path~ : String = "") -> String {
+  match value {
+    Object(fields) => {
+      let keys = fields.keys().to_array()
+      keys.sort()
+      let parts : Array[String] = []
+      for key in keys {
+        if (
+            path == "diagnostics.metrics" &&
+            [
+              "timing_detect_probe_ms", "timing_parse_lower_ms", "timing_pipeline_ms",
+              "timing_render_ms", "timing_total_ms",
+            ].contains(key)
+          ) ||
+          (path == "" && key == "stage_timings_ms") {
+          continue
+        }
+        let next = if path == "" { key } else { path + "." + key }
+        parts.push(
+          Json(key).stringify() + ":" + stable_json(fields[key], path=next),
+        )
+      }
+      "{" + parts.join(",") + "}"
+    }
+    Array(items) =>
+      "[" + items.map(item => stable_json(item, path~)).join(",") + "]"
+    _ => value.stringify()
+  }
+}
+
+///|
+fn digest(bytes : Bytes) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+}
+
+///|
+fn text_digest(value : String) -> String {
+  digest(@utf8.encode(value))
+}
+
+///|
+async fn file_digest(path : String) -> String {
+  digest(@fs.read_file(path).binary())
+}
+
+///|
+async fn capture(
+  program : String,
+  args : Array[String],
+  directory : String,
+  label : String,
+) -> String {
+  let result = @shell.Cmd(program, args, env={ "LC_ALL": "C", "LANG": "C" }).output()
+  @fs.write_file(directory + "/" + label + ".stdout", result.stdout_bytes())
+  @fs.write_file(directory + "/" + label + ".stderr", result.stderr())
+  @fs.write_file(
+    directory + "/" + label + ".exit",
+    result.exit_code().to_string(),
+  )
+  if result.exit_code() != 0 {
+    fail(label + " exited with " + result.exit_code().to_string())
+  }
+  result.stdout()
+}
+
+///|
+async fn inventory(lab : String) -> Inventory {
+  let result : Inventory = {
+    cases: [],
+    rows: ["id\tstatus\tbytes\tsha256"],
+    missing: 0,
+    errors: [],
+  }
+  let base = lab + "/external_bench/"
+  let lines = @fs.read_file(base + "MANIFEST.tsv").text().split("\n").to_array()
+  let header = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes\tcomparison_class\tcomparison_reason\tcomparison_signals"
+  if lines.length() == 0 || lines[0].trim() != header {
+    fail("invalid benchmark manifest header")
+  }
+  let seen : Map[String, Bool] = Map([])
+  for i in 1..<lines.length() {
+    if i == lines.length() - 1 && lines[i] == "" {
+      continue
+    }
+    let row = lines[i].split("\t").map(part => part.to_owned()).to_array()
+    let context = "manifest line " + (i + 1).to_string()
+    try {
+      if row.length() != 16 ||
+        !safe_id(row[0]) ||
+        row[1] == "" ||
+        !safe_relative(row[3]) {
+        fail(context + ": malformed row")
+      }
+      if ![
+          "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "yaml", "toml",
+          "xml", "html", "markdown", "ipynb", "eml", "tex", "rst", "asciidoc", "zip",
+          "epub", "docx", "xlsx", "pptx", "odt", "ods", "odp", "pdf",
+        ].contains(row[1]) ||
+        !["smoke", "regular", "release", "stress", "disabled"].contains(row[8]) ||
+        !["self_baseline", "external_compare"].contains(row[13]) ||
+        row[15] != "non_empty" {
+        fail(context + ": unknown format/tier/comparison contract")
+      }
+      if seen.contains(row[0]) {
+        fail(context + ": duplicate ID " + row[0])
+      }
+      seen[row[0]] = true
+      let path = base + row[3]
+      if row[11] == "missing_candidate" {
+        result.missing += 1
+        if row[8] != "disabled" || @fs.exists(path) {
+          fail(context + ": inconsistent missing candidate")
+        }
+        result.rows.push(row[0] + "\tmissing_candidate\t0\t-")
+        continue
+      }
+      if row[11] != "accepted" || row[8] == "disabled" || !@fs.exists(path) {
+        fail(
+          context +
+          ": unknown status, disabled accepted row or missing accepted input",
+        )
+      }
+      if @fs.kind(path, follow_symlink=false) != @fs.Regular ||
+        !@fs.realpath(path).has_prefix(@fs.realpath(base) + "/") {
+        fail(
+          context +
+          ": accepted input is not a regular file within external_bench",
+        )
+      }
+      let expected = match natural(row[6]) {
+        Some(value) => value
+        None => fail(context + ": invalid byte count")
+      }
+      let data = @fs.read_file(path).binary()
+      let hash = digest(data)
+      if data.length().to_int64() != expected || hash != row[7] {
+        fail(context + ": size/SHA-256 mismatch")
+      }
+      result.cases.push({
+        id: row[0],
+        format: row[1],
+        input: path,
+        bytes: expected,
+        sha256: hash,
+      })
+      result.rows.push(row[0] + "\tverified\t" + row[6] + "\t" + hash)
+    } catch {
+      error => result.errors.push(error.to_string())
+    }
+  }
+  if result.cases.length() == 0 {
+    result.errors.push("zero accepted benchmark cases")
+  }
+  result
+}
+
+///|
+async fn files(root : String, relative~ : String = "") -> Array[String] {
+  let out : Array[String] = []
+  for
+    name in @fs.readdir(
+      root + (if relative == "" { "" } else { "/" + relative }),
+    ) {
+    if name.contains("\t") || name.contains("\n") || name.contains("\r") {
+      fail("control character in artifact filename")
+    }
+    let path = if relative == "" { name } else { relative + "/" + name }
+    match @fs.kind(root + "/" + path, follow_symlink=false) {
+      @fs.Directory => out.append(files(root, relative=path))
+      @fs.Regular => out.push(path)
+      _ => fail("nonregular artifact entry: " + root + "/" + path)
+    }
+  }
+  out.sort()
+  out
+}
+
+///|
+async fn output_fingerprint(directory : String, save~ : Bool = true) -> String {
+  let rows : Array[String] = []
+  let semantic_json : Map[String, Bool] = {
+    "provenance.json": true,
+    "manifest.json": true,
+    "result.debug.json": true,
+    "result.rag.json": true,
+  }
+  if @fs.exists(directory + "/product/manifest.json") {
+    let manifest = @json.parse(
+      @fs.read_file(directory + "/product/manifest.json").text(),
+      reject_duplicate_keys=true,
+    )
+    match json_field(manifest, "results") {
+      Some(Array(results)) =>
+        for result in results {
+          match json_string(json_field(result, "output_path")) {
+            Some(path) => {
+              if !path.has_prefix("product/") || !safe_relative(path) {
+                fail("unsafe batch output path in manifest")
+              }
+              let relative = path["product/".length():].to_owned()
+              if relative.has_suffix(".debug.json") ||
+                relative.has_suffix(".rag.json") {
+                semantic_json[relative] = true
+              }
+            }
+            None => ()
+          }
+        }
+      _ => fail("invalid batch output manifest")
+    }
+  }
+  for name in ["stdout.bin", "stderr.bin"] {
+    if !@fs.exists(directory + "/" + name) {
+      fail("missing " + name)
+    }
+    rows.push(name + "\t" + file_digest(directory + "/" + name))
+  }
+  for name in files(directory + "/product") {
+    let path = directory + "/product/" + name
+    let hash = if semantic_json.contains(name) {
+      text_digest(
+        stable_json(
+          @json.parse(
+            @fs.read_file(path).text(),
+            reject_duplicate_keys=true,
+            preserve_number_repr=true,
+          ),
+        ),
+      )
+    } else {
+      file_digest(path)
+    }
+    rows.push("product/" + name + "\t" + hash)
+  }
+  if save {
+    @fs.write_file(
+      directory + "/output-fingerprints.tsv",
+      rows.join("\n") + "\n",
+    )
+  }
+  text_digest(rows.join("\n"))
+}
+
+///|
+async fn native_binary(
+  path : String,
+  platform : String,
+  architecture : String,
+) -> (String, Int64) {
+  if !path.has_prefix("/") || !@fs.can_execute(path) {
+    fail("expected absolute executable: " + path)
+  }
+  let data = @fs.read_file(path).binary()
+  if data.length() < 20 {
+    fail("short Native executable: " + path)
+  }
+  let elf = data[0] == b'\x7f' &&
+    data[1] == b'E' &&
+    data[2] == b'L' &&
+    data[3] == b'F' &&
+    data[4] == b'\x02' &&
+    data[5] == b'\x01' &&
+    data[18] == b'\x3e' &&
+    data[19] == b'\x00'
+  let macho = data[0] == b'\xcf' &&
+    data[1] == b'\xfa' &&
+    data[2] == b'\xed' &&
+    data[3] == b'\xfe' &&
+    data[4] == b'\x0c' &&
+    data[5] == b'\x00' &&
+    data[6] == b'\x00' &&
+    data[7] == b'\x01'
+  if !((platform == "Linux" && architecture == "x86_64" && elf) ||
+    (platform == "Darwin" && architecture == "arm64" && macho)) {
+    fail("Native executable/host architecture mismatch: " + path)
+  }
+  (digest(data), data.length().to_int64())
+}
+
+///|
+async fn quality_evidence(path : String, binary_hash : String) -> Bool {
+  if path == "" {
+    return false
+  }
+  let rows = @fs.read_file(path + "/summary.tsv").text().split("\n").to_array()
+  if rows.length() < 2 {
+    return false
+  }
+  let header = rows[0].split("\t").map(value => value.to_owned()).to_array()
+  let row = rows[1].split("\t").map(value => value.to_owned()).to_array()
+  if header.length() != row.length() {
+    return false
+  }
+  let values : Map[String, String] = Map([])
+  for i in 0..<header.length() {
+    values[header[i]] = row[i]
+  }
+  if values.get("status") != Some("pass") ||
+    values.get("target") != Some("native") ||
+    values.get("suite") != Some("all") ||
+    values.get("failed") != Some("0") ||
+    values.get("manifest_errors") != Some("0") ||
+    values.get("filtered") != Some("0") {
+    return false
+  }
+  let executed = values.get("executed").bind(natural)
+  if executed is None ||
+    executed == Some(0L) ||
+    values.get("selected") != values.get("executed") ||
+    values.get("valid") != values.get("executed") ||
+    values.get("passed") != values.get("executed") {
+    return false
+  }
+  for line in @fs.read_file(path + "/fingerprints.tsv").text().split("\n") {
+    let fields = line.split("\t").to_array()
+    if fields.length() == 3 &&
+      fields[0] == "native_executable" &&
+      fields[2] == binary_hash {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn json_field(value : Json, key : String) -> Json? {
+  match value {
+    Object(fields) => fields.get(key)
+    _ => None
+  }
+}
+
+///|
+fn json_string(value : Json?) -> String? {
+  match value {
+    Some(String(value)) => Some(value)
+    _ => None
+  }
+}
+
+///|
+fn limits_contract_valid(
+  value : Json,
+  baseline : String,
+  candidate : String,
+) -> Bool {
+  if json_string(json_field(value, "baseline_sha256")) != Some(baseline) ||
+    json_string(json_field(value, "candidate_sha256")) != Some(candidate) {
+    return false
+  }
+  let required = [
+    "baseline_compiler", "candidate_compiler", "baseline_build_flags", "candidate_build_flags",
+    "audit_reference", "baseline_origin", "candidate_origin", "execution_conditions",
+  ]
+  for key in required {
+    if json_string(json_field(value, key)).unwrap_or("") == "" {
+      return false
+    }
+  }
+  if json_field(value, "exclusive_window") != Some(Json(true)) {
+    return false
+  }
+  if json_field(value, "baseline_compiler") !=
+    json_field(value, "candidate_compiler") ||
+    json_field(value, "baseline_build_flags") !=
+    json_field(value, "candidate_build_flags") ||
+    json_field(value, "baseline_origin") !=
+    json_field(value, "candidate_origin") {
+    return false
+  }
+  let limits = match json_field(value, "baseline_limits") {
+    Some(Object(fields)) => fields
+    _ => return false
+  }
+  if json_field(value, "baseline_limits") !=
+    json_field(value, "candidate_limits") {
+    return false
+  }
+  for
+    (name, maximum) in [
+      ("max_rows", 2000L),
+      ("max_cols", 50L),
+      ("max_cells", 100000L),
+      ("max_line_chars", 4000L),
+      ("max_input_bytes", 536870912L),
+      ("max_asset_bytes", 33554432L),
+      ("max_total_asset_bytes", 134217728L),
+    ] {
+    let limit : Int64 = match limits.get(name) {
+      Some(value) => @json.from_json(value) catch { _ => return false }
+      None => return false
+    }
+    if limit != maximum {
+      return false
+    }
+  }
+  true
+}
+
+///|
+async fn measure(
+  binary : String,
+  args : Array[String],
+  directory : String,
+  platform : String,
+  target : String,
+  timeout_ms : Int32,
+) -> (Int32, Double, Double?, Metrics) {
+  @fs.mkdir(directory + "/product", recursive=true)
+  let time_args = [
+    if platform == "Darwin" {
+      "-l"
+    } else {
+      "-v"
+    },
+    "-o",
+    directory + "/time.txt",
+    binary,
+  ]
+  time_args.append(args)
+  @fs.write_file(
+    directory + "/command.json",
+    (
+      {
+        "program": Json("/usr/bin/time"),
+        "args": Json(time_args),
+        "cwd": Json(directory),
+        "locale": Json("C"),
+      } : Json).stringify(indent=2),
+  )
+  let first : Ref[Double?] = Ref(None)
+  let done = Ref(false)
+  let started = @env.now()
+  let exit_code = @async.with_timeout_opt(timeout_ms, async fn() {
+    @async.with_task_group(async fn(group) {
+      let (reader, writer) = @process.read_from_process()
+      defer reader.close()
+      let stderr = @process.redirect_to_file(directory + "/stderr.bin")
+      let process = @process.spawn(
+        group,
+        "/usr/bin/time",
+        time_args,
+        cwd=directory,
+        extra_env={ "LC_ALL": "C", "LANG": "C" },
+        stdout=writer,
+        stderr~,
+        cancel_handler=@process.hard_cancel(),
+        no_wait=true,
+      )
+      let stdout = group.spawn(async fn() {
+        let file = @fs.create(directory + "/stdout.bin")
+        defer file.close()
+        let mut total = 0L
+        for ;; {
+          match reader.read_some(max_len=65536) {
+            None => break
+            Some(bytes) => {
+              if target == "" && first.val is None {
+                first.val = Some((@env.now() - started).to_double())
+              }
+              total += bytes.length().to_int64()
+              if total > 268435456L {
+                process.cancel()
+                fail("stdout exceeded harness 256 MiB ceiling")
+              }
+              file.write(bytes)
+            }
+          }
+        }
+      })
+      let observer = group.spawn(async fn() {
+        if target == "" {
+          return
+        }
+        while !done.val && first.val is None {
+          if @fs.exists(directory + "/" + target) &&
+            @fs.file_size(directory + "/" + target) > 0L {
+            first.val = Some((@env.now() - started).to_double())
+            break
+          }
+          @async.sleep(1)
+        }
+      })
+      let exit_code = process.wait()
+      done.val = true
+      stdout.wait()
+      observer.wait()
+      if target != "" &&
+        first.val is None &&
+        @fs.exists(directory + "/" + target) &&
+        @fs.file_size(directory + "/" + target) > 0L {
+        first.val = Some((@env.now() - started).to_double())
+      }
+      exit_code
+    })
+  }).unwrap_or(-1)
+  let elapsed = (@env.now() - started).to_double()
+  let text = if @fs.exists(directory + "/time.txt") {
+    @fs.read_file(directory + "/time.txt").text()
+  } else {
+    ""
+  }
+  (exit_code, elapsed, first.val, time_metrics(text, platform))
+}
+
+///|
+fn sample_metric(sample : Sample, metric : String, bytes : Int64) -> Double? {
+  match metric {
+    "wall_ms" => sample.metrics.wall_ms
+    "rss_bytes" => sample.metrics.rss_bytes
+    "cpu_ms" =>
+      match (sample.metrics.user_ms, sample.metrics.system_ms) {
+        (Some(a), Some(b)) => Some(a + b)
+        _ => None
+      }
+    "first_output_ms" => sample.first_output_ms
+    "throughput_per_second" =>
+      sample.metrics.wall_ms.bind(value => {
+        if value > 0.0 {
+          Some(
+            (if bytes == 0L { 1.0 } else { bytes.to_double() }) * 1000.0 / value,
+          )
+        } else {
+          None
+        }
+      })
+    _ => None
+  }
+}
+
+///|
+fn stats(
+  samples : Array[Sample],
+  id : String,
+  lane : String,
+  metric : String,
+  bytes : Int64,
+) -> (Double?, Double?, Int32) {
+  let values : Array[Double] = []
+  for sample in samples {
+    if sample.case_id == id && sample.lane == lane && sample.phase == "measure" {
+      match sample_metric(sample, metric, bytes) {
+        Some(value) => values.push(value)
+        None => ()
+      }
+    }
+  }
+  (percentile(values, 50), percentile(values, 95), values.length())
+}
+
+///|
+fn option_number(
+  options : Map[String, String],
+  key : String,
+  fallback : String,
+) -> Double raise {
+  match number(options.get(key).unwrap_or(fallback)) {
+    Some(value) => value
+    None => fail("invalid " + key)
+  }
+}
+
+///|
+fn options() -> Map[String, String] raise {
+  let args = @env.args()
+  if (args.length() - 1) % 2 != 0 {
+    fail(usage())
+  }
+  let options : Map[String, String] = Map([])
+  let allowed = [
+    "--baseline", "--candidate", "--lab", "--evidence", "--window", "--surface",
+    "--batch-input", "--mode", "--view", "--case", "--format", "--quality-baseline",
+    "--quality-candidate", "--limits-contract", "--validate-only", "--timeout-ms",
+    "--max-spread", "--aggregate", "--self-test",
+  ]
+  for i = 1; i < args.length(); i = i + 2 {
+    if !allowed.contains(args[i]) || options.contains(args[i]) {
+      fail(usage())
+    }
+    options[args[i]] = args[i + 1]
+  }
+  options
+}
+
+///|
+async fn self_test() -> Unit {
+  let mac = time_metrics(
+    " 1.23 real 0.20 user 0.03 sys\n 4096 maximum resident set size\n", "Darwin",
+  )
+  assert_eq(mac.wall_ms, Some(1230.0))
+  assert_eq(mac.rss_bytes, Some(4096.0))
+  assert_eq(mac.user_ms, Some(200.0))
+  let linux = time_metrics(
+    "User time (seconds): 0.25\nSystem time (seconds): 0.05\nElapsed (wall clock) time (h:mm:ss or m:ss): 1:02.50\nMaximum resident set size (kbytes): 42\n",
+    "Linux",
+  )
+  assert_eq(linux.wall_ms, Some(62500.0))
+  assert_eq(linux.rss_bytes, Some(43008.0))
+  assert_eq(
+    time_metrics("time: sysctl failed\n0.01 real 0.00 user 0.00 sys", "Darwin").rss_bytes,
+    None,
+  )
+  assert_eq(clock_seconds("1:02:03.5"), Some(3723.5))
+  assert_eq(clock_seconds("1:60"), None)
+  assert_eq(clock_seconds("1.5:00"), None)
+  assert_eq(percentile([30.0, 10.0, 20.0], 50), Some(20.0))
+  assert_eq(percentile([30.0, 10.0, 20.0], 95), Some(30.0))
+  assert_true(
+    !safe_relative("../asset") &&
+    !safe_id("../case") &&
+    natural("42bad") is None,
+  )
+  let a = @json.parse(
+    "{\"diagnostics\":{\"metrics\":{\"timing_parse_lower_ms\":1,\"body\":\"kept\"}},\"assets\":[1]}",
+  )
+  let b = @json.parse(
+    "{\"assets\":[1],\"diagnostics\":{\"metrics\":{\"body\":\"kept\",\"timing_parse_lower_ms\":2}}}",
+  )
+  assert_eq(stable_json(a), stable_json(b))
+  assert_true(stable_json(a) != stable_json(@json.parse("{\"assets\":[]}")))
+  let root = @fs.tmpdir(prefix="markitdown-benchmark-selftest")
+  defer @fs.rmdir(root, recursive=true)
+  @fs.mkdir(root + "/external_bench")
+  @fs.write_file(root + "/external_bench/input.txt", "same input\n")
+  let header = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes\tcomparison_class\tcomparison_reason\tcomparison_signals\n"
+  let row = "example\ttxt\tsmall\tinput.txt\trepo\tself\t11\t" +
+    text_digest("same input\n") +
+    "\tsmoke\tcli\ttest\taccepted\tfixture\tself_baseline\tcontract\tnon_empty\n"
+  let missing = "missing\tpdf\tsmall\tabsent.pdf\trepo\tself\t0\t-\tdisabled\tcli\ttest\tmissing_candidate\tfixture\tself_baseline\tcontract\tnon_empty\n"
+  @fs.write_file(root + "/external_bench/MANIFEST.tsv", header + row + missing)
+  let valid = inventory(root)
+  assert_eq(valid.cases.length(), 1)
+  assert_eq(valid.missing, 1)
+  assert_eq(valid.errors.length(), 0)
+  for
+    invalid in [
+      row + row,
+      row.replace_all(old="accepted", new="unreviewed"),
+      row.replace_all(old="input.txt", new="absent.txt"),
+      row.replace_all(old=text_digest("same input\n"), new="bad-hash"),
+      row.replace_all(old="non_empty", new="unknown_signal"),
+      missing,
+    ] {
+    @fs.write_file(root + "/external_bench/MANIFEST.tsv", header + invalid)
+    assert_true(inventory(root).errors.length() > 0)
+  }
+  @fs.mkdir(root + "/output/product/assets", recursive=true)
+  @fs.write_file(root + "/output/stdout.bin", "")
+  @fs.write_file(root + "/output/stderr.bin", "")
+  @fs.write_file(root + "/output/product/assets/a.bin", b"asset")
+  let first_hash = output_fingerprint(root + "/output")
+  @fs.write_file(root + "/output/product/assets/a.bin", b"changed")
+  assert_true(first_hash != output_fingerprint(root + "/output"))
+  @fs.write_file(root + "/output/product/assets/data.json", "{\"a\":1,\"b\":2}")
+  let asset_json = output_fingerprint(root + "/output")
+  @fs.write_file(root + "/output/product/assets/data.json", "{\"b\":2,\"a\":1}")
+  assert_true(asset_json != output_fingerprint(root + "/output"))
+  let samples : Array[Sample] = []
+  for phase in ["warmup", "measure"] {
+    for iteration in 1..<=(if phase == "warmup" { 3 } else { 30 }) {
+      let order = if (iteration + 1) % 2 == 0 { "AB" } else { "BA" }
+      for
+        lane in (if order == "AB" {
+          ["baseline", "candidate"]
+        } else {
+          ["candidate", "baseline"]
+        }) {
+        let start = samples.length().to_uint64() * 100UL
+        samples.push({
+          case_id: "example",
+          lane,
+          phase,
+          iteration,
+          order,
+          directory: "self-test-only",
+          started_ms: start,
+          ended_ms: start + 50UL,
+          exit_code: 0,
+          observed_ms: 50.0,
+          first_output_ms: Some(20.0),
+          first_output_kind: "self-test-only",
+          metrics: {
+            wall_ms: Some(50.0),
+            user_ms: Some(30.0),
+            system_ms: Some(10.0),
+            rss_bytes: Some(1024.0),
+          },
+          output_fingerprint: "self-test-equality",
+          error: "",
+        })
+      }
+    }
+  }
+  let window : Window = {
+    schema: 1,
+    window: 1,
+    started_ms: 0UL,
+    ended_ms: 7000UL,
+    configuration: "self-test-only",
+    harness_sha256: "",
+    baseline_sha256: "",
+    candidate_sha256: "",
+    manifest_sha256: "",
+    corpus_fingerprint: "",
+    machine: "",
+    toolchain: "",
+    cases: valid.cases,
+    accepted: 1,
+    missing_candidates: 1,
+    samples,
+    limitations: [],
+    errors: [],
+  }
+  assert_eq(judge(window, 1.20).0.length(), 0)
+  assert_eq(judge(window, 1.20).1.length(), 0)
+  let partial = { ..window, samples: samples[:65].to_owned(), }
+  assert_true(judge(partial, 1.20).1.length() > 0)
+  let different = samples.copy()
+  different[0] = { ..different[0], output_fingerprint: "different-asset", }
+  assert_true(judge({ ..window, samples: different, }, 1.20).0.length() > 0)
+  let no_rss = samples.map(sample => {
+    ..sample,
+    metrics: { ..sample.metrics, rss_bytes: None, },
+  })
+  assert_true(judge({ ..window, samples: no_rss, }, 1.20).1.length() > 0)
+  let noisy = samples.map(sample => {
+    if sample.iteration % 3 == 0 {
+      { ..sample, metrics: { ..sample.metrics, wall_ms: Some(100.0), }, }
+    } else {
+      sample
+    }
+  })
+  assert_true(judge({ ..window, samples: noisy, }, 1.20).1.length() > 0)
+  let wrong_order = samples.copy()
+  wrong_order.swap(0, 1)
+  assert_true(judge({ ..window, samples: wrong_order, }, 1.20).0.length() > 0)
+  let platform = @shell.Cmd("uname", ["-s"]).output().stdout().trim().to_owned()
+  @fs.mkdir(root + "/process")
+  let process_result = measure(
+    "/bin/echo",
+    ["harness-process-selftest"],
+    root + "/process",
+    platform,
+    "",
+    5000,
+  )
+  assert_eq(process_result.0, 0)
+  assert_eq(
+    @fs.read_file(root + "/process/stdout.bin").text(),
+    "harness-process-selftest\n",
+  )
+  assert_true(process_result.2 is Some(_))
+  println("Harness self-tests passed; zero product measurements executed")
+}
+
+///|
+fn display(value : Double?) -> String {
+  value.map(value => value.to_string()).unwrap_or("missing")
+}
+
+///|
+fn statistics_table(window : Window) -> String {
+  let rows = ["window\tcase\tlane\tmetric\tp50\tp95\tmeasurements\tunit"]
+  for item in window.cases {
+    for lane in ["baseline", "candidate"] {
+      for
+        metric in [
+          "wall_ms", "rss_bytes", "cpu_ms", "first_output_ms", "throughput_per_second",
+        ] {
+        let (p50, p95, count) = stats(
+          window.samples,
+          item.id,
+          lane,
+          metric,
+          item.bytes,
+        )
+        let unit = if metric == "rss_bytes" {
+          "bytes"
+        } else if metric == "throughput_per_second" {
+          if item.bytes == 0L {
+            "operations/s"
+          } else {
+            "input_bytes/s"
+          }
+        } else {
+          "ms"
+        }
+        rows.push(
+          window.window.to_string() +
+          "\t" +
+          item.id +
+          "\t" +
+          lane +
+          "\t" +
+          metric +
+          "\t" +
+          display(p50) +
+          "\t" +
+          display(p95) +
+          "\t" +
+          count.to_string() +
+          "\t" +
+          unit,
+        )
+      }
+    }
+  }
+  rows.join("\n") + "\n"
+}
+
+///|
+fn judge(
+  window : Window,
+  max_spread : Double,
+) -> (Array[String], Array[String]) {
+  let errors = window.errors.copy()
+  let limitations = window.limitations.copy()
+  if window.schema != 1 ||
+    (window.window != 1 && window.window != 2) ||
+    window.cases.length() == 0 {
+    errors.push("invalid window schema/identity or zero cases")
+  }
+  if window.samples.length() != window.cases.length() * 66 {
+    limitations.push(
+      "incomplete sample count; require 3 warmups + 30 measurements for each lane/case",
+    )
+  }
+  let mut previous_end = window.started_ms
+  for sample in window.samples {
+    if !window.cases.any(item => item.id == sample.case_id) {
+      errors.push("unknown case in saved samples")
+    }
+    if sample.started_ms < previous_end ||
+      sample.ended_ms < sample.started_ms ||
+      sample.ended_ms > window.ended_ms {
+      errors.push("samples overlap or have invalid timestamps")
+    }
+    previous_end = sample.ended_ms
+  }
+  for item in window.cases {
+    let fingerprints : Map[String, Bool] = Map([])
+    let seen : Map[String, Bool] = Map([])
+    let mut scheduled = 0
+    for sample in window.samples {
+      if sample.case_id != item.id {
+        continue
+      }
+      let phase_index = if scheduled < 6 { scheduled } else { scheduled - 6 }
+      let expected_phase = if scheduled < 6 { "warmup" } else { "measure" }
+      let expected_iteration = phase_index / 2 + 1
+      let expected_order = if (expected_iteration + window.window) % 2 == 0 {
+        "AB"
+      } else {
+        "BA"
+      }
+      let expected_lane = if (expected_order == "AB") == (phase_index % 2 == 0) {
+        "baseline"
+      } else {
+        "candidate"
+      }
+      if sample.phase != expected_phase ||
+        sample.iteration != expected_iteration ||
+        sample.lane != expected_lane {
+        errors.push(
+          item.id + ": saved sample sequence is not the scheduled AB/BA order",
+        )
+      }
+      scheduled += 1
+      let key = sample.phase +
+        "/" +
+        sample.iteration.to_string() +
+        "/" +
+        sample.lane
+      if seen.contains(key) {
+        errors.push(item.id + ": duplicate sample " + key)
+      }
+      seen[key] = true
+      if !["baseline", "candidate"].contains(sample.lane) ||
+        !["warmup", "measure"].contains(sample.phase) ||
+        sample.iteration < 1 ||
+        sample.iteration > (if sample.phase == "warmup" { 3 } else { 30 }) {
+        errors.push(item.id + ": invalid sample identity")
+      }
+      let expected_order = if (sample.iteration + window.window) % 2 == 0 {
+        "AB"
+      } else {
+        "BA"
+      }
+      if sample.order != expected_order {
+        errors.push(item.id + ": invalid AB/BA order")
+      }
+      if sample.exit_code != 0 || sample.error != "" {
+        errors.push(
+          item.id + ": conversion/measurement failed: " + sample.error,
+        )
+      }
+      if sample.output_fingerprint == "" {
+        errors.push(item.id + ": missing output fingerprint")
+      }
+      fingerprints[sample.output_fingerprint] = true
+    }
+    for phase in ["warmup", "measure"] {
+      let count = if phase == "warmup" { 3 } else { 30 }
+      for iteration in 1..<=count {
+        for lane in ["baseline", "candidate"] {
+          if !seen.contains(phase + "/" + iteration.to_string() + "/" + lane) {
+            limitations.push(item.id + ": missing scheduled sample")
+          }
+        }
+      }
+    }
+    if fingerprints.length() != 1 {
+      errors.push(
+        item.id + ": output/assets/channels differ; no speedup admissible",
+      )
+    }
+    for lane in ["baseline", "candidate"] {
+      for
+        metric in [
+          "wall_ms", "rss_bytes", "cpu_ms", "first_output_ms", "throughput_per_second",
+        ] {
+        let (p50, p95, count) = stats(
+          window.samples,
+          item.id,
+          lane,
+          metric,
+          item.bytes,
+        )
+        if count != 30 || p50 is None || p95 is None {
+          limitations.push(
+            item.id + "/" + lane + ": missing/insufficient " + metric,
+          )
+        }
+        match (p50, p95) {
+          (Some(a), Some(b)) => {
+            if a <= 0.0 {
+              limitations.push(
+                item.id + "/" + lane + ": timer resolution/zero " + metric,
+              )
+            }
+            if metric == "wall_ms" && a < 20.0 {
+              limitations.push(
+                item.id +
+                "/" +
+                lane +
+                ": wall time too short for centisecond time precision; library batch measurement required",
+              )
+            }
+            if metric == "wall_ms" && a > 0.0 && b / a > max_spread {
+              limitations.push(
+                item.id +
+                "/" +
+                lane +
+                ": p95/p50 exceeds configured spread threshold",
+              )
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+  (errors, limitations)
+}
+
+///|
+async fn run_sample(
+  binary : String,
+  item : BenchCase,
+  lane : String,
+  phase : String,
+  iteration : Int32,
+  order : String,
+  directory : String,
+  platform : String,
+  surface : String,
+  mode : String,
+  view : String,
+  timeout_ms : Int32,
+) -> Sample {
+  let started_ms = @env.now()
+  let extension = if view == "debug" {
+    "debug.json"
+  } else if view == "rag" {
+    "rag.json"
+  } else {
+    "md"
+  }
+  let target = if surface == "startup" {
+    ""
+  } else if surface == "batch" {
+    "product/manifest.json"
+  } else {
+    "product/result." + extension
+  }
+  let args : Array[String] = if surface == "startup" {
+    ["--help"]
+  } else if surface == "batch" {
+    ["batch", mode]
+  } else {
+    [mode, "--format", item.format]
+  }
+  if surface != "startup" {
+    if view != "markdown" {
+      args.push("--" + view)
+    }
+    if surface == "single" {
+      args.append(["--provenance-out", "product/provenance.json"])
+    }
+    args.append([
+      item.input,
+      if surface == "batch" {
+        "product"
+      } else {
+        target
+      },
+    ])
+  }
+  let kind = if surface == "startup" {
+    "stdout_first_read_upper_bound_ms_clock"
+  } else if surface == "batch" {
+    "batch_manifest_visible_upper_bound_poll_1ms"
+  } else {
+    "nonempty_final_path_visible_upper_bound_poll_1ms"
+  }
+  let mut exit_code = -1
+  let mut observed_ms = 0.0
+  let mut first_output_ms = None
+  let mut metrics : Metrics = {
+    wall_ms: None,
+    user_ms: None,
+    system_ms: None,
+    rss_bytes: None,
+  }
+  let mut output_fingerprint_value = ""
+  let mut error_text = ""
+  try {
+    let result = measure(binary, args, directory, platform, target, timeout_ms)
+    exit_code = result.0
+    observed_ms = result.1
+    first_output_ms = result.2
+    metrics = result.3
+    if exit_code != 0 {
+      error_text = "nonzero exit or timeout: " + exit_code.to_string()
+    }
+    if target != "" &&
+      (
+        !@fs.exists(directory + "/" + target) ||
+        @fs.file_size(directory + "/" + target) == 0L
+      ) {
+      error_text += "; missing/empty accepted output"
+    }
+    if surface == "startup" && @fs.file_size(directory + "/stdout.bin") == 0L {
+      error_text += "; empty startup output"
+    }
+    output_fingerprint_value = output_fingerprint(directory)
+  } catch {
+    error => error_text += "; " + error.to_string()
+  }
+  let sample : Sample = {
+    case_id: item.id,
+    lane,
+    phase,
+    iteration,
+    order,
+    directory,
+    started_ms,
+    ended_ms: @env.now(),
+    exit_code,
+    observed_ms,
+    first_output_ms,
+    first_output_kind: kind,
+    metrics,
+    output_fingerprint: output_fingerprint_value,
+    error: error_text,
+  }
+  @fs.write_file(directory + "/sample.json", Json(sample).stringify(indent=2))
+  sample
+}
+
+///|
+async fn tree_fingerprint(root : String) -> String {
+  let rows : Array[String] = []
+  for path in files(root) {
+    rows.push(path + "\t" + file_digest(root + "/" + path))
+  }
+  text_digest(rows.join("\n"))
+}
+
+///|
+async fn run_window(options : Map[String, String], evidence : String) -> Unit {
+  let started_ms = @env.now()
+  let errors : Array[String] = []
+  let limitations : Array[String] = []
+  let samples : Array[Sample] = []
+  let mut cases : Array[BenchCase] = []
+  let mut accepted = 0
+  let mut missing_candidates = 0
+  let mut baseline_hash = ""
+  let mut candidate_hash = ""
+  let mut manifest_hash = ""
+  let mut corpus_hash = ""
+  let mut harness_hash = ""
+  let mut machine = ""
+  let mut toolchain = ""
+  let mut configuration = ""
+  let mut window_number = 0
+  let validate_only = options.get("--validate-only").unwrap_or("false")
+  let mut max_spread = 1.20
+  try {
+    max_spread = option_number(options, "--max-spread", "1.20")
+    let platform = capture("uname", ["-s"], evidence, "platform")
+      .trim()
+      .to_owned()
+    let architecture = capture("uname", ["-m"], evidence, "architecture")
+      .trim()
+      .to_owned()
+    machine = capture("uname", ["-a"], evidence, "machine")
+    if platform == "Darwin" {
+      machine += capture(
+        "/usr/sbin/sysctl",
+        ["hw.model", "hw.ncpu", "hw.memsize"],
+        evidence,
+        "hardware",
+      )
+    } else if platform == "Linux" {
+      let hardware = @fs.read_file("/proc/cpuinfo")
+        .text()
+        .split("\n")
+        .filter(line => {
+          line.has_prefix("model name") || line.has_prefix("processor")
+        })
+        .map(line => line.to_owned())
+        .to_array()
+        .join("\n") +
+        "\n" +
+        @fs.read_file("/proc/meminfo")
+        .text()
+        .split("\n")
+        .filter(line => line.has_prefix("MemTotal:"))
+        .map(line => line.to_owned())
+        .to_array()
+        .join("\n")
+      @fs.write_file(evidence + "/hardware.stdout", hardware)
+      machine += hardware
+    }
+    toolchain = capture("moon", ["version", "--all"], evidence, "toolchain")
+    let root = @env.current_dir().unwrap_or(".")
+    let harness = root + "/tools/regression/native_benchmark.mbtx"
+    if !@fs.exists(harness) {
+      fail(
+        "run from the product root so the actual harness can be fingerprinted",
+      )
+    }
+    harness_hash = file_digest(harness)
+    let baseline = options.get("--baseline").unwrap_or("")
+    let candidate = options.get("--candidate").unwrap_or("")
+    let baseline_info = native_binary(baseline, platform, architecture)
+    let candidate_info = native_binary(candidate, platform, architecture)
+    baseline_hash = baseline_info.0
+    candidate_hash = candidate_info.0
+    @fs.write_file(
+      evidence + "/binaries.tsv",
+      "lane\tpath\tbytes\tsha256\n" +
+      "baseline\t" +
+      clean_field(baseline) +
+      "\t" +
+      baseline_info.1.to_string() +
+      "\t" +
+      baseline_hash +
+      "\ncandidate\t" +
+      clean_field(candidate) +
+      "\t" +
+      candidate_info.1.to_string() +
+      "\t" +
+      candidate_hash +
+      "\n",
+    )
+    let lab = options.get("--lab").unwrap_or("")
+    if !lab.has_prefix("/") {
+      fail("--lab must be absolute")
+    }
+    let inv = inventory(lab)
+    accepted = inv.cases.length()
+    missing_candidates = inv.missing
+    errors.append(inv.errors)
+    @fs.write_file(evidence + "/inventory.tsv", inv.rows.join("\n") + "\n")
+    manifest_hash = file_digest(lab + "/external_bench/MANIFEST.tsv")
+    corpus_hash = text_digest(inv.rows.join("\n"))
+    if errors.length() > 0 {
+      fail("benchmark manifest verification failed")
+    }
+    ignore(
+      capture("git", ["-C", lab, "rev-parse", "HEAD"], evidence, "lab-head"),
+    )
+    ignore(
+      capture("git", ["-C", lab, "status", "--short"], evidence, "lab-status"),
+    )
+    let surface = options.get("--surface").unwrap_or("single")
+    let mode = options.get("--mode").unwrap_or("balance")
+    let view = options.get("--view").unwrap_or("markdown")
+    if !["single", "startup", "batch"].contains(surface) ||
+      !["balance", "accurate", "stream"].contains(mode) ||
+      !["markdown", "debug", "rag"].contains(view) {
+      fail("invalid surface/mode/view")
+    }
+    if validate_only != "true" && validate_only != "false" {
+      fail("invalid --validate-only")
+    }
+    if max_spread <= 1.0 || max_spread > 2.0 {
+      fail(
+        "--max-spread must be > 1 and <= 2; record the threshold before measuring",
+      )
+    }
+    window_number = match options.get("--window") {
+      Some("1") => 1
+      Some("2") => 2
+      _ =>
+        fail(
+          "one --window 1|2 is required; aggregate two independent invocations",
+        )
+    }
+    let timeout_value = option_number(options, "--timeout-ms", "600000")
+    if timeout_value < 1.0 || timeout_value > 3600000.0 {
+      fail("invalid --timeout-ms")
+    }
+    let timeout_ms = timeout_value.to_int()
+    let selected_id = options.get("--case").unwrap_or("")
+    let selected_format = options.get("--format").unwrap_or("")
+    cases = inv.cases.filter(item => {
+      (selected_id == "" || item.id == selected_id) &&
+      (selected_format == "" || item.format == selected_format)
+    })
+    let mut batch_hash = ""
+    if surface == "startup" {
+      if mode != "balance" ||
+        view != "markdown" ||
+        selected_id != "" ||
+        selected_format != "" {
+        fail(
+          "startup measures --help only, without conversion mode/view or case filters",
+        )
+      }
+      cases = [
+        {
+          id: "startup_help",
+          format: "startup",
+          input: "",
+          bytes: 0L,
+          sha256: "",
+        },
+      ]
+    } else if surface == "batch" {
+      let input = options.get("--batch-input").unwrap_or("")
+      if !input.has_prefix("/") ||
+        !@fs.realpath(input).has_prefix(
+          @fs.realpath(lab + "/external_bench") + "/",
+        ) {
+        fail("--batch-input must be an existing directory below external_bench")
+      }
+      let batch_cases = inv.cases.filter(item => {
+        item.input.has_prefix(input + "/")
+      })
+      if selected_id != "" || selected_format != "" || batch_cases.length() == 0 {
+        fail(
+          "batch uses its complete explicit directory; no case/format filters",
+        )
+      }
+      let mut bytes = 0L
+      for item in batch_cases {
+        bytes += item.bytes
+      }
+      batch_hash = tree_fingerprint(input)
+      cases = [
+        {
+          id: "batch_directory",
+          format: "batch",
+          input,
+          bytes,
+          sha256: batch_hash,
+        },
+      ]
+    }
+    if cases.length() == 0 {
+      fail("zero selected benchmark cases")
+    }
+    let baseline_quality = options.get("--quality-baseline").unwrap_or("")
+    let candidate_quality = options.get("--quality-candidate").unwrap_or("")
+    for path in [baseline_quality, candidate_quality] {
+      if path != "" && !path.has_prefix("/") {
+        fail("quality evidence path must be absolute")
+      }
+    }
+    if !quality_evidence(baseline_quality, baseline_hash) ||
+      !quality_evidence(candidate_quality, candidate_hash) {
+      limitations.push(
+        "full quality evidence bound to both executable hashes is missing or not passing",
+      )
+    }
+    let contract = options.get("--limits-contract").unwrap_or("")
+    if contract != "" && !contract.has_prefix("/") {
+      fail("limits contract path must be absolute")
+    }
+    let mut contract_hash = ""
+    if contract == "" {
+      limitations.push(
+        "effective limits/build/compiler audit contract missing; CLI has no limits introspection/override",
+      )
+    } else {
+      contract_hash = file_digest(contract)
+      let value = @json.parse(
+        @fs.read_file(contract).text(),
+        reject_duplicate_keys=true,
+      )
+      @fs.write_file(
+        evidence + "/limits-contract.json",
+        value.stringify(indent=2),
+      )
+      if !limits_contract_valid(value, baseline_hash, candidate_hash) {
+        limitations.push(
+          "limits/build/compiler contract mismatch or default limits relaxed",
+        )
+      }
+    }
+    configuration = stable_json({
+      "surface": Json(surface),
+      "mode": Json(mode),
+      "view": Json(view),
+      "cases": Json(cases),
+      "batch_hash": Json(batch_hash),
+      "limits_contract_sha256": Json(contract_hash),
+      "quality_baseline": Json(baseline_quality),
+      "quality_candidate": Json(candidate_quality),
+      "max_spread": Json(max_spread),
+      "timeout_ms": Json(timeout_ms),
+      "warmups": Json(3),
+      "measurements": Json(30),
+      "target": Json("fresh cwd with identical relative product paths"),
+      "locale": Json("C"),
+    })
+    if validate_only == "false" {
+      for item in cases {
+        for phase in ["warmup", "measure"] {
+          let count = if phase == "warmup" { 3 } else { 30 }
+          for iteration in 1..<=count {
+            let order = if (iteration + window_number) % 2 == 0 {
+              "AB"
+            } else {
+              "BA"
+            }
+            let lanes = if order == "AB" {
+              ["baseline", "candidate"]
+            } else {
+              ["candidate", "baseline"]
+            }
+            for lane in lanes {
+              let directory = evidence +
+                "/runs/" +
+                item.id +
+                "/" +
+                phase +
+                "-" +
+                iteration.to_string() +
+                "/" +
+                lane
+              let sample = run_sample(
+                if lane == "baseline" {
+                  baseline
+                } else {
+                  candidate
+                },
+                item,
+                lane,
+                phase,
+                iteration,
+                order,
+                directory,
+                platform,
+                surface,
+                mode,
+                view,
+                timeout_ms,
+              )
+              samples.push(sample)
+              if sample.exit_code == -1 {
+                fail(
+                  "measurement/timeout failure; stop before running another case",
+                )
+              }
+            }
+          }
+        }
+      }
+      if file_digest(baseline) != baseline_hash ||
+        file_digest(candidate) != candidate_hash {
+        errors.push("executable changed during window")
+      }
+      let after = inventory(lab)
+      if after.errors.length() > 0 ||
+        text_digest(after.rows.join("\n")) != corpus_hash {
+        errors.push("benchmark corpus changed during window")
+      }
+      if surface == "batch" && tree_fingerprint(cases[0].input) != batch_hash {
+        errors.push("batch input tree changed during window")
+      }
+    }
+  } catch {
+    error => errors.push(error.to_string())
+  }
+  let window : Window = {
+    schema: 1,
+    window: window_number,
+    started_ms,
+    ended_ms: @env.now(),
+    configuration,
+    harness_sha256: harness_hash,
+    baseline_sha256: baseline_hash,
+    candidate_sha256: candidate_hash,
+    manifest_sha256: manifest_hash,
+    corpus_fingerprint: corpus_hash,
+    machine,
+    toolchain,
+    cases,
+    accepted,
+    missing_candidates,
+    samples,
+    limitations,
+    errors,
+  }
+  let (judged_errors, judged_limits) = if validate_only == "true" {
+    (errors, limitations)
+  } else {
+    judge(window, max_spread)
+  }
+  let status = if judged_errors.length() > 0 {
+    "fail"
+  } else if validate_only == "true" {
+    "validated_only"
+  } else if judged_limits.length() > 0 {
+    "inconclusive"
+  } else {
+    "window_complete_pending_second"
+  }
+  @fs.write_file(evidence + "/window.json", Json(window).stringify(indent=2))
+  @fs.write_file(evidence + "/statistics.tsv", statistics_table(window))
+  @fs.write_file(evidence + "/errors.txt", judged_errors.join("\n") + "\n")
+  @fs.write_file(evidence + "/limitations.txt", judged_limits.join("\n") + "\n")
+  @fs.write_file(
+    evidence + "/summary.tsv",
+    "scope_status\tformal_plan_status\twindow\taccepted\tmissing_candidates\tselected\tsamples\twarmups_per_lane\tmeasurements_per_lane\n" +
+    status +
+    "\tinconclusive\t" +
+    window_number.to_string() +
+    "\t" +
+    accepted.to_string() +
+    "\t" +
+    missing_candidates.to_string() +
+    "\t" +
+    cases.length().to_string() +
+    "\t" +
+    samples.length().to_string() +
+    "\t3\t30\n",
+  )
+  println(
+    "Benchmark " +
+    status +
+    "; evidence: " +
+    evidence +
+    "; no formal P5/library/reliability acceptance implied",
+  )
+  if status == "fail" || status == "inconclusive" {
+    fail("benchmark not accepted; saved errors/limitations")
+  }
+}
+
+///|
+async fn aggregate(options : Map[String, String], evidence : String) -> Unit {
+  let paths = options["--aggregate"]
+    .split(",")
+    .map(value => value.to_owned())
+    .to_array()
+  let errors : Array[String] = []
+  let limitations : Array[String] = []
+  let reports : Array[String] = [
+    "window\tcase\twall_change_percent\trss_change_percent\tpdf_latency_target\tpdf_rss_target",
+  ]
+  let windows : Array[Window] = []
+  try {
+    if paths.length() != 2 ||
+      paths[0] == paths[1] ||
+      paths.any(path => !path.has_prefix("/")) {
+      fail("aggregate requires two distinct absolute window directories")
+    }
+    for path in paths {
+      let window : Window = @json.from_json(
+        @json.parse(
+          @fs.read_file(path + "/window.json").text(),
+          reject_duplicate_keys=true,
+        ),
+      )
+      windows.push(window)
+    }
+    let a = windows[0]
+    let b = windows[1]
+    if a.window == b.window ||
+      ![1, 2].contains(a.window) ||
+      ![1, 2].contains(b.window) ||
+      !(a.ended_ms <= b.started_ms || b.ended_ms <= a.started_ms) {
+      fail("windows must have different identities and nonoverlapping times")
+    }
+    if a.configuration != b.configuration ||
+      a.harness_sha256 != b.harness_sha256 ||
+      a.baseline_sha256 != b.baseline_sha256 ||
+      a.candidate_sha256 != b.candidate_sha256 ||
+      a.manifest_sha256 != b.manifest_sha256 ||
+      a.corpus_fingerprint != b.corpus_fingerprint ||
+      a.machine != b.machine ||
+      a.toolchain != b.toolchain {
+      fail(
+        "window source/corpus/machine/compiler/configuration fingerprints differ",
+      )
+    }
+    let config = @json.parse(a.configuration, reject_duplicate_keys=true)
+    let spread : Double = match json_field(config, "max_spread") {
+      Some(value) => @json.from_json(value)
+      None => fail("missing spread policy")
+    }
+    for index, window in windows {
+      let judged = judge(window, spread)
+      errors.append(judged.0)
+      limitations.append(judged.1)
+      for sample in window.samples {
+        if !@fs.realpath(sample.directory).has_prefix(
+            @fs.realpath(paths[index]) + "/runs/",
+          ) {
+          fail("saved sample directory is outside its window")
+        }
+        if output_fingerprint(sample.directory, save=false) !=
+          sample.output_fingerprint {
+          errors.push("saved output fingerprint changed: " + sample.directory)
+        }
+      }
+      for item in window.cases {
+        for metric in ["wall_ms", "rss_bytes"] {
+          let (before50, before95, _) = stats(
+            window.samples,
+            item.id,
+            "baseline",
+            metric,
+            item.bytes,
+          )
+          let (after50, after95, _) = stats(
+            window.samples,
+            item.id,
+            "candidate",
+            metric,
+            item.bytes,
+          )
+          match (before50, before95, after50, after95) {
+            (Some(x50), Some(x95), Some(y50), Some(y95)) =>
+              if y50 > x50 * 1.10 || y95 > x95 * 1.10 {
+                errors.push(
+                  item.id +
+                  ": " +
+                  metric +
+                  " exceeds per-case 10% regression ceiling",
+                )
+              }
+            _ => limitations.push(item.id + ": incomplete comparison")
+          }
+        }
+      }
+    }
+    // Preserve equality across windows, not only inside each AB/BA pair.
+    for item in a.cases {
+      let hashes : Map[String, Bool] = Map([])
+      for window in windows {
+        for sample in window.samples {
+          if sample.case_id == item.id {
+            hashes[sample.output_fingerprint] = true
+          }
+        }
+      }
+      if hashes.length() != 1 {
+        errors.push(item.id + ": semantic fingerprints differ across windows")
+      }
+    }
+    if errors.length() == 0 && limitations.length() == 0 {
+      for window in windows {
+        for item in window.cases {
+          let before = stats(
+            window.samples,
+            item.id,
+            "baseline",
+            "wall_ms",
+            item.bytes,
+          ).0.unwrap()
+          let after = stats(
+            window.samples,
+            item.id,
+            "candidate",
+            "wall_ms",
+            item.bytes,
+          ).0.unwrap()
+          let before_rss = stats(
+            window.samples,
+            item.id,
+            "baseline",
+            "rss_bytes",
+            item.bytes,
+          ).0.unwrap()
+          let after_rss = stats(
+            window.samples,
+            item.id,
+            "candidate",
+            "rss_bytes",
+            item.bytes,
+          ).0.unwrap()
+          reports.push(
+            window.window.to_string() +
+            "\t" +
+            item.id +
+            "\t" +
+            ((after / before - 1.0) * 100.0).to_string() +
+            "\t" +
+            ((after_rss / before_rss - 1.0) * 100.0).to_string() +
+            "\t" +
+            (if item.format == "pdf" {
+              if after <= before * 0.5 {
+                "met"
+              } else {
+                "not_met"
+              }
+            } else {
+              "not_applicable"
+            }) +
+            "\t" +
+            (if item.format == "pdf" {
+              if after_rss <= before_rss * 0.7 {
+                "met"
+              } else {
+                "not_met"
+              }
+            } else {
+              "not_applicable"
+            }),
+          )
+        }
+      }
+    }
+  } catch {
+    error => errors.push(error.to_string())
+  }
+  let status = if errors.length() > 0 {
+    "fail"
+  } else if limitations.length() > 0 {
+    "inconclusive"
+  } else {
+    "cli_two_window_pass"
+  }
+  @fs.write_file(evidence + "/errors.txt", errors.join("\n") + "\n")
+  @fs.write_file(
+    evidence + "/limitations.txt",
+    limitations.join("\n") +
+    "\npublic-library stable-loop, install/build cost, full reliability and platform acceptance remain separate\n",
+  )
+  @fs.write_file(evidence + "/comparisons.tsv", reports.join("\n") + "\n")
+  @fs.write_file(
+    evidence + "/summary.tsv",
+    "scope_status\tformal_plan_status\twindows\tlibrary_stable_loop\tinstallation_cost\treliability\n" +
+    status +
+    "\tinconclusive\t" +
+    windows.length().to_string() +
+    "\tpending\tpending\tpending\n",
+  )
+  println(
+    status +
+    "; formal plan acceptance remains inconclusive; evidence: " +
+    evidence,
+  )
+  if status != "cli_two_window_pass" {
+    fail("two-window CLI comparison not accepted; no speedup reported")
+  }
+}
+
+///|
+async fn main {
+  let options = options()
+  if options.get("--self-test") == Some("true") {
+    self_test()
+    return
+  }
+  let evidence = options.get("--evidence").unwrap_or("")
+  if !evidence.has_prefix("/") || @fs.exists(evidence) {
+    fail("--evidence must be a fresh absolute directory")
+  }
+  @fs.mkdir(evidence, recursive=true)
+  if options.contains("--aggregate") {
+    aggregate(options, evidence)
+  } else {
+    run_window(options, evidence)
+  }
+}

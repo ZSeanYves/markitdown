@@ -1,3 +1,9 @@
+import {
+  "moonbitlang/core/json",
+} for "wbtest"
+
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

@@ -4,23 +4,23 @@ package "ZSeanYves/markitdown/internal/format_readers/ooxml/package"
 // Values
 pub fn classify_ooxml_error(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError) -> OoxmlErrorInfo
 
-pub fn dump_media_assets_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
+pub async fn dump_media_assets_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn dump_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
+pub async fn dump_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn dump_package_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
+pub async fn dump_package_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn dump_properties_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
+pub async fn dump_properties_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn dump_relationships_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String
+pub async fn dump_relationships_summary(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> String raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn find_part_info(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPartInfo?
+pub async fn find_part_info(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPartInfo? noraise
 
-pub fn inspect_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> OoxmlPackageInspectReport
+pub async fn inspect_ooxml_package(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> OoxmlPackageInspectReport raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
-pub fn list_content_type_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> Array[@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlContentTypeInfo]
+pub async fn list_content_type_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage) -> Array[@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlContentTypeInfo] noraise
 
-pub fn list_relationship_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
+pub async fn list_relationship_infos(@ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackage, String) -> Array[OoxmlRelationshipInfo] raise @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlError
 
 // Errors
 
@@ -36,13 +36,13 @@ pub struct OoxmlErrorInfo {
 }
 
 pub struct OoxmlPackageInspectReport {
-  part_count : Int
-  content_type_default_count : Int
-  content_type_override_count : Int
-  relationship_source_count : Int
-  package_relationship_count : Int
-  part_relationship_count : Int
-  media_asset_count : Int
+  part_count : Int32
+  content_type_default_count : Int32
+  content_type_override_count : Int32
+  relationship_source_count : Int32
+  package_relationship_count : Int32
+  part_relationship_count : Int32
+  media_asset_count : Int32
   inventory : @ZSeanYves/markitdown/internal/readers/ooxml/package.OoxmlPackageInventory
   package_relationships : Array[OoxmlRelationshipInfo]
   part_relationships : Array[OoxmlRelationshipInfo]

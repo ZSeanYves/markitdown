@@ -12,7 +12,7 @@ pub fn assemble_section_tree_pass() -> IRPass
 
 pub fn build_document_from_events(Array[@core.CoreEvent]) -> @core.DocumentIR
 
-pub fn build_document_with_default_pipeline(@core.IRInput, PassContext, trace_builder? : Bool, trace_passes? : Bool) -> @core.DocumentIR
+pub fn build_document_with_default_pipeline(@core.IRInput, PassContext, trace_builder? : Bool, trace_passes? : Bool) -> Result[@core.DocumentIR, PassError]
 
 pub fn collect_asset_refs_pass() -> IRPass
 

@@ -1,5 +1,5 @@
 ///|
-fn finalize_pipeline_execution(
+async fn finalize_pipeline_execution(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -31,21 +31,25 @@ fn finalize_pipeline_execution(
     source_map=parsed.source_map,
     assembly=parsed.assembly,
   )
+  let parsed_input = match @runtime.parse_result_to_ir_input(parsed) {
+    Ok(value) => value
+    Err(message) => return Err(ParseFailed(message))
+  }
   let pipeline_started = @env.now()
   let pipeline_result = match
-    @pipeline.run_default_pipeline(
-      @runtime.parse_result_to_ir_input(parsed),
-      pass_context,
-    ) {
+    @pipeline.run_default_pipeline(parsed_input, pass_context) {
     Ok(value) => value
-    Err(err) => abort(err.message)
+    Err(err) => return Err(ParseFailed("pipeline failed: " + err.message))
   }
-  let limited_assets = apply_asset_payload_limits(
-    pass_context.assets.val,
-    execution_plan.limits,
-    diagnostics,
-  )
-  pass_context.assets.val = limited_assets.0
+  pass_context.assets.val = match
+    apply_asset_payload_limits(
+      pass_context.assets.val,
+      execution_plan.limits,
+      diagnostics,
+    ) {
+    Ok(assets) => assets
+    Err(error) => return Err(error)
+  }
   diagnostics.metrics.set(
     "timing_pipeline_ms",
     (@env.now() - pipeline_started).to_string(),
@@ -99,44 +103,56 @@ fn finalize_pipeline_execution(
     assets=Some(pass_context.assets.val),
     assembly=pass_context.assembly.val,
   )
+  let render_input : @render.RenderInput = match render_input {
+    Document(document) =>
+      Document({
+        ..document,
+        metadata: pass_context.metadata.val,
+        diagnostics: final_diagnostics,
+        assets: pass_context.assets.val,
+        source_map: pass_context.source_map.val,
+        assembly: pass_context.assembly.val,
+      })
+    other => other
+  }
   let render_started = @env.now()
-  let sink_renderer_active = sink is Some(_) &&
-    effective_options.output_mode == Markdown &&
-    limited_assets.1.length() == 0
-  let rendered = match sink {
-    Some(output_sink) if effective_options.output_mode == Markdown &&
-      limited_assets.1.length() == 0 =>
-      match
-        @render.render_markdown_input_to_sink(render_input, render_context, fn(
-          chunk,
-        ) {
-          write_output_sink_bounded(output_sink, chunk)
-        }) {
-        Ok(value) => value
-        Err(message) =>
-          return Err(RenderFailed("sink write failed: " + message))
-      }
-    _ =>
-      match render_input {
-        Document(document) => {
-          let prepared = {
-            ..document,
-            metadata: pass_context.metadata.val,
-            diagnostics: final_diagnostics,
-            assets: pass_context.assets.val,
-            source_map: pass_context.source_map.val,
-            assembly: pass_context.assembly.val,
-          }
-          (renderer.render)(prepared, render_context)
-        }
-        _ => (renderer.render_input)(render_input, render_context)
-      }
+  let collected = StringBuilder()
+  let output_sink = sink.unwrap_or(
+    make_output_sink(
+      fn(part) {
+        collected.write_string(part)
+        Ok(())
+      },
+      fn() { Ok(()) },
+    ),
+  )
+  let confirmed_bytes = Ref(0L)
+  let write = async fn(chunk) {
+    write_output_sink_bounded(output_sink, chunk, source~, confirmed_bytes~)
+  }
+  let rendered = match
+    (if effective_options.output_mode == Markdown {
+      @render.render_markdown_input_to_sink(render_input, render_context, write)
+    } else {
+      @render.render_json_input_to_sink(render_input, render_context, write)
+    }) {
+    Ok(value) => value
+    Err(message) =>
+      return Err(
+        input_failure_convert_error(source).unwrap_or(
+          RenderFailed("sink write failed: " + message),
+        ),
+      )
   }
   match sink {
-    Some(_) if !sink_renderer_active =>
-      rendered.diagnostics.metrics.set("sink_renderer_fallback", "true")
-    _ => ()
+    Some(_) =>
+      rendered.diagnostics.metrics.set("sink_renderer_fallback", "false")
+    None => {
+      rendered.diagnostics.metrics.remove("sink_renderer_fallback")
+      rendered.diagnostics.metrics.remove("renderer_stream_mode")
+    }
   }
+  record_budget_diagnostics(source, rendered.diagnostics, confirmed_bytes.val)
   rendered.diagnostics.metrics.set(
     "timing_render_ms",
     (@env.now() - render_started).to_string(),
@@ -145,22 +161,12 @@ fn finalize_pipeline_execution(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),
   )
-  let final_content = if effective_options.output_mode == Markdown {
-    remove_skipped_asset_references(rendered.content, limited_assets.1)
-  } else {
-    rendered.content
-  }
-  match sink {
-    Some(output_sink) if final_content != "" =>
-      match write_output_sink_bounded(output_sink, final_content) {
-        Ok(_) => ()
-        Err(message) =>
-          return Err(RenderFailed("sink write failed: " + message))
-      }
-    _ => ()
-  }
   let result : ConvertResult = {
-    content: final_content,
+    content: if sink is None {
+      collected.to_string()
+    } else {
+      ""
+    },
     fidelity_mode: execution_plan.fidelity_mode,
     output_mode: effective_options.output_mode,
     detected_format,
@@ -228,9 +234,7 @@ fn apply_asset_payload_limits(
   assets : Array[@core.AssetRef],
   limits : ResourceLimits,
   diagnostics : @core.Diagnostics,
-) -> (Array[@core.AssetRef], Array[@core.AssetRef]) {
-  let limited : Array[@core.AssetRef] = []
-  let skipped : Array[@core.AssetRef] = []
+) -> Result[Array[@core.AssetRef], ConvertError] {
   let mut total = 0L
   for asset in assets {
     let size = match asset.payload {
@@ -239,117 +243,29 @@ fn apply_asset_payload_limits(
       _ => None
     }
     match size {
-      Some(observed) if observed > limits.max_asset_bytes => {
-        let next = { ..asset, payload: None, }
-        next.attrs.set("payload_skipped", "single_asset_limit")
-        limited.push(next)
-        skipped.push(next)
-        record_asset_payload_limit(
-          diagnostics,
-          asset,
-          "single_asset_bytes",
-          observed,
-          limits.max_asset_bytes,
+      Some(observed) if observed > limits.max_asset_bytes =>
+        return Err(
+          ResourceLimitExceeded(
+            kind="single_asset_bytes",
+            observed~,
+            limit=limits.max_asset_bytes,
+          ),
         )
-      }
-      Some(observed) if total + observed > limits.max_total_asset_bytes => {
-        let next = { ..asset, payload: None, }
-        next.attrs.set("payload_skipped", "total_asset_limit")
-        limited.push(next)
-        skipped.push(next)
-        record_asset_payload_limit(
-          diagnostics,
-          asset,
-          "total_asset_bytes",
-          total + observed,
-          limits.max_total_asset_bytes,
+      Some(observed) if total + observed > limits.max_total_asset_bytes =>
+        return Err(
+          ResourceLimitExceeded(
+            kind="total_asset_bytes",
+            observed=total + observed,
+            limit=limits.max_total_asset_bytes,
+          ),
         )
-      }
-      Some(observed) => {
-        total = total + observed
-        limited.push(asset)
-      }
-      None => limited.push(asset)
-    }
-  }
-  diagnostics.metrics.set("asset_payload_bytes", total.to_string())
-  diagnostics.metrics.set("asset_payload_skipped", skipped.length().to_string())
-  (limited, skipped)
-}
-
-///|
-fn record_asset_payload_limit(
-  diagnostics : @core.Diagnostics,
-  asset : @core.AssetRef,
-  kind : String,
-  observed : Int64,
-  limit : Int64,
-) -> Unit {
-  diagnostics.warnings.push(
-    "asset payload skipped: " +
-    asset.asset_id +
-    "; kind=" +
-    kind +
-    "; observed=" +
-    observed.to_string() +
-    "; limit=" +
-    limit.to_string(),
-  )
-  if !diagnostics.degraded_features.contains("asset_payload_limit_skip") {
-    diagnostics.degraded_features.push("asset_payload_limit_skip")
-  }
-}
-
-///|
-fn remove_skipped_asset_references(
-  content : String,
-  skipped : Array[@core.AssetRef],
-) -> String {
-  let rendered = Ref(content)
-  for asset in skipped {
-    match asset.path {
-      Some(path) =>
-        rendered.val = remove_markdown_image_target(rendered.val, path)
+      Some(observed) => total = total + observed
       None => ()
     }
   }
-  rendered.val
-}
-
-///|
-fn remove_markdown_image_target(content : String, path : String) -> String {
-  if path == "" {
-    return content
-  }
-  let close_marker = "](" + path + ")"
-  let rendered = Ref(content)
-  while true {
-    let close_index = match rendered.val.find(close_marker) {
-      Some(value) => value
-      None => break
-    }
-    let mut cursor = 0
-    let mut open_index : Int? = None
-    while cursor < close_index {
-      match rendered.val[cursor:close_index].find("![") {
-        Some(relative) => {
-          let absolute = cursor + relative
-          open_index = Some(absolute)
-          cursor = absolute + 2
-        }
-        None => break
-      }
-    }
-    let open_index = match open_index {
-      Some(value) => value
-      None => break
-    }
-    let alt = rendered.val[open_index + 2:close_index].to_owned()
-    rendered.val = rendered.val[:open_index].to_owned() +
-      alt +
-      rendered.val[close_index + close_marker.length():].to_owned()
-  }
-  rendered.val
+  diagnostics.metrics.set("asset_payload_bytes", total.to_string())
+  diagnostics.metrics.set("asset_payload_skipped", "0")
+  Ok(assets)
 }
 
 ///|

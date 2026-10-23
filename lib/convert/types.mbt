@@ -42,20 +42,20 @@ pub type AccurateFeatureProfile = @product.AccurateFeatureProfile
 
 ///|
 priv struct DocxProbeArtifact {
-  block_count : Int
-  image_count : Int
-  comment_count : Int
-  textbox_count : Int
-  header_count : Int
-  footer_count : Int
-  note_count : Int
+  block_count : Int32
+  image_count : Int32
+  comment_count : Int32
+  textbox_count : Int32
+  header_count : Int32
+  footer_count : Int32
+  note_count : Int32
 }
 
 ///|
 priv struct PptxProbeArtifact {
-  hidden_slide_count : Int
-  text_block_count : Int
-  image_count : Int
+  hidden_slide_count : Int32
+  text_block_count : Int32
+  image_count : Int32
 }
 
 ///|
@@ -65,8 +65,8 @@ priv struct PptxProbeArtifact {
 /// for routing, and `note` keeps small human-readable context for summaries.
 priv struct ProbeSignal {
   kind : ProbeSignalKind
-  observed : Int
-  limit : Int?
+  observed : Int32
+  limit : Int32?
   note : String?
 }
 
@@ -80,9 +80,9 @@ priv struct ProbeFailure {
 ///|
 fn make_probe_signal(
   kind : ProbeSignalKind,
-  observed : Int,
-  limit? : Int? = None,
-  note? : String? = None,
+  observed : Int32,
+  limit~ : Int32? = None,
+  note~ : String? = None,
 ) -> ProbeSignal {
   { kind, observed, limit, note, }
 }
@@ -237,7 +237,7 @@ priv struct ResolvedExecutionPlan {
 ///|
 priv enum RouteProbeArtifact {
   MarkdownPrepared(@fmarkdown.PreparedMarkdownDocument)
-  MarkdownLargeLiteral(@input.InputSource, String, Int)
+  MarkdownLargeLiteral(@input.InputSource, String, Int32)
   HtmlPrepared(@dhtml.PreparedHtmlDocument)
   IpynbPrepared(@dipynb.PreparedIpynbNotebook)
   JsonPrepared(@fjson.PreparedJsonText)
@@ -250,7 +250,7 @@ priv enum RouteProbeArtifact {
   OdsPrepared(@dodf.PreparedOdsDocument)
   OdpPrepared(@dodf.PreparedOdpDocument)
   XlsxPrepared(@drxlsx.PreparedXlsxPackage)
-  PdfNativeDocument(@dpdfnative.PdfNativeDocument)
+  PdfNativeSession(@dpdfnative.PdfNativeSession)
   ZipPrepared(@dzipsource.PreparedZipArchive)
   EpubPrepared(@depub.PreparedEpubPackage)
   YamlPrepared(@dyaml.PreparedYamlDocument)
@@ -342,7 +342,7 @@ pub fn make_convert_options(
   output_mode : OutputMode,
   explicit_format : @input.DetectedFormat?,
   limits : ResourceLimits,
-  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
+  rag_options~ : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ConvertOptions {
   { mode, output_mode, explicit_format, limits, rag_options, }
 }

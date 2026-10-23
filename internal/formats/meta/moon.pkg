@@ -27,6 +27,8 @@ import {
   "ZSeanYves/markitdown/lib/product",
 }
 
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

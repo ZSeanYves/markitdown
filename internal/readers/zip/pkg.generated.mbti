@@ -1,14 +1,22 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/internal/readers/zip"
 
+import {
+  "ZSeanYves/markitdown/internal/resource_budget",
+}
+
 // Values
+pub fn archive_budget_context(ZipArchive) -> @resource_budget.BudgetContext?
+
+pub fn archive_hard_failure(ZipArchive) -> String?
+
 pub fn build_store_zip_bytes(Array[(String, Bytes)]) -> Bytes
 
 pub fn classify_zip_error(ZipError) -> ZipErrorInfo
 
 pub fn collect_zip_validation_issues(ZipArchive) -> Array[ZipValidationIssue]
 
-pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int) -> Bytes raise CodecError
+pub fn decompress(CompressionMethod, Bytes, max_output_size? : Int32) -> Bytes raise CodecError
 
 pub fn find_entry_info(ZipArchive, String) -> ZipEntryInfo?
 
@@ -26,27 +34,31 @@ pub fn list_entry_infos(ZipArchive) -> Array[ZipEntryInfo]
 
 pub fn normalize_entry_path(String) -> String?
 
-pub fn open_zip(Bytes) -> ZipArchive raise ZipError
+pub fn open_zip(Bytes, budget_context? : @resource_budget.BudgetContext) -> ZipArchive raise ZipError
 
-pub fn open_zip_reader(Int, (Int, Int) -> Result[Bytes, String]) -> ZipArchive raise ZipError
+pub async fn open_zip_reader(Int32, async (Int32, Int32) -> Result[Bytes, String], budget_context? : @resource_budget.BudgetContext) -> ZipArchive raise ZipError
 
-pub fn read_entry(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
+pub async fn read_entry(ZipArchive, String, max_output_size? : Int32) -> Bytes raise ZipError
 
-pub fn read_entry_data_slice(ZipArchive, String) -> ZipEntryDataSlice raise ZipError
+pub async fn read_entry_data_slice(ZipArchive, String) -> ZipEntryDataSlice raise ZipError
 
-pub fn read_entry_transient(ZipArchive, String, max_output_size? : Int) -> Bytes raise ZipError
+pub async fn read_entry_transient(ZipArchive, String, max_output_size? : Int32) -> Bytes raise ZipError
+
+pub fn record_hard_failure(ZipArchive, String) -> Unit
+
+pub fn set_hard_failure_reporter(ZipArchive, (String) -> Unit) -> Unit
 
 pub fn validate_zip_archive(ZipArchive) -> ZipValidationReport
 
-pub fn visit_inflated_entry_chunks(ZipArchive, String, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
+pub async fn visit_inflated_entry_chunks(ZipArchive, String, chunk_size? : Int32, max_output_size? : Int32, async (Bytes) -> Result[Unit, String]) -> Result[Unit, String] noraise
 
-pub fn visit_inflated_entry_chunks_from_slice(Bytes, ZipEntryDataSlice, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
+pub async fn visit_inflated_entry_chunks_from_slice(Bytes, ZipEntryDataSlice, chunk_size? : Int32, max_output_size? : Int32, budget_context? : @resource_budget.BudgetContext, async (Bytes) -> Result[Unit, String]) -> Result[Unit, String] noraise
 
 // Errors
 pub(all) suberror CodecError {
-  UnsupportedCompressionMethod(Int)
+  UnsupportedCompressionMethod(Int32)
   DecodeFailed(String)
-  OutputTooLarge(Int, Int)
+  OutputTooLarge(Int32, Int32)
 }
 pub fn CodecError::output(Self, &Logger) -> Unit
 pub fn CodecError::to_string(Self) -> String
@@ -54,11 +66,13 @@ pub impl Show for CodecError
 
 pub(all) suberror ZipError {
   UnexpectedEOF(String)
-  InvalidSignature(String, Int, Int)
+  InvalidSignature(String, Int32, Int32)
   InvalidStructure(String)
-  UnsupportedCompressionMethod(Int)
+  UnsupportedCompressionMethod(Int32)
   EntryNotFound(String)
   DecodeFailed(String)
+  ChecksumMismatch(String, Int32, Int32)
+  BudgetExceeded(@resource_budget.BudgetError)
 }
 pub fn ZipError::output(Self, &Logger) -> Unit
 pub fn ZipError::to_string(Self) -> String
@@ -68,7 +82,7 @@ pub impl Show for ZipError
 pub(all) enum CompressionMethod {
   Store
   DeflateRaw
-  Unsupported(Int)
+  Unsupported(Int32)
 } derive(Eq)
 pub fn CompressionMethod::equal(Self, Self) -> Bool
 pub fn CompressionMethod::not_equal(Self, Self) -> Bool
@@ -76,46 +90,46 @@ pub fn CompressionMethod::not_equal(Self, Self) -> Bool
 pub struct ZipArchive {
   bytes : Bytes
   entries : Array[ZipEntryMeta]
-  entry_index : Map[String, Int]
+  entry_index : Map[String, Int32]
   // private fields
 }
 
 pub struct ZipArchiveInspectReport {
-  entry_count : Int
-  file_entry_count : Int
-  directory_entry_count : Int
-  unsafe_entry_count : Int
-  duplicate_normalized_entry_count : Int
-  encrypted_entry_count : Int
-  unsupported_compression_entry_count : Int
-  total_uncompressed_size : Int
-  total_compressed_size : Int
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  entry_count : Int32
+  file_entry_count : Int32
+  directory_entry_count : Int32
+  unsafe_entry_count : Int32
+  duplicate_normalized_entry_count : Int32
+  encrypted_entry_count : Int32
+  unsupported_compression_entry_count : Int32
+  total_uncompressed_size : Int32
+  total_compressed_size : Int32
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   inventory : ZipArchiveInventory
   issues : Array[ZipValidationIssue]
 }
 
 pub struct ZipArchiveInventory {
   entries : Array[ZipEntryInfo]
-  entry_count : Int
-  file_entry_count : Int
-  directory_entry_count : Int
-  unsafe_entry_count : Int
-  duplicate_normalized_entry_count : Int
-  encrypted_entry_count : Int
-  unsupported_compression_entry_count : Int
-  total_uncompressed_size : Int
-  total_compressed_size : Int
+  entry_count : Int32
+  file_entry_count : Int32
+  directory_entry_count : Int32
+  unsafe_entry_count : Int32
+  duplicate_normalized_entry_count : Int32
+  encrypted_entry_count : Int32
+  unsupported_compression_entry_count : Int32
+  total_uncompressed_size : Int32
+  total_compressed_size : Int32
   has_unsafe_paths : Bool
   has_duplicate_normalized_paths : Bool
 }
 
 pub struct ZipEntryDataSlice {
   entry : ZipEntryMeta
-  data_start : Int
-  data_end : Int
+  data_start : Int32
+  data_end : Int32
 }
 
 pub struct ZipEntryInfo {
@@ -125,28 +139,28 @@ pub struct ZipEntryInfo {
   is_file : Bool
   extension : String?
   compression_method : CompressionMethod
-  compressed_size : Int
-  uncompressed_size : Int
-  local_header_offset : Int
-  crc32 : Int
-  flags : Int
+  compressed_size : Int32
+  uncompressed_size : Int32
+  local_header_offset : Int32
+  crc32 : Int32
+  flags : Int32
   is_encrypted : Bool
   has_data_descriptor : Bool
   uses_zip64 : Bool
   is_unsafe_path : Bool
   is_hidden_metadata : Bool
   is_nested_archive_candidate : Bool
-  issue_count : Int
+  issue_count : Int32
 }
 
 pub struct ZipEntryMeta {
   name : String
   compression_method : CompressionMethod
-  compressed_size : Int
-  uncompressed_size : Int
-  local_header_offset : Int
-  crc32 : Int
-  flags : Int
+  compressed_size : Int32
+  uncompressed_size : Int32
+  local_header_offset : Int32
+  crc32 : Int32
+  flags : Int32
   is_directory : Bool
   is_encrypted : Bool
   has_data_descriptor : Bool
@@ -203,12 +217,12 @@ pub fn ZipValidationIssueKind::equal(Self, Self) -> Bool
 pub fn ZipValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct ZipValidationReport {
-  entry_count : Int
-  file_entry_count : Int
-  directory_entry_count : Int
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  entry_count : Int32
+  file_entry_count : Int32
+  directory_entry_count : Int32
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[ZipValidationIssue]
 }
 

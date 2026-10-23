@@ -12,6 +12,8 @@ pub fn classify_epub_error(EpubError) -> EpubErrorInfo
 
 pub fn collect_epub_validation_issues(EpubPackage) -> Array[EpubValidationIssue]
 
+pub fn decode_part_text(EpubPackage, String, Bytes) -> String raise EpubError
+
 pub fn find_epub_cover_candidates(EpubPackage) -> Array[EpubCoverCandidate]
 
 pub fn find_epub_manifest_item(EpubPackage, String) -> EpubManifestItem?
@@ -40,17 +42,17 @@ pub fn list_epub_spine_reading_order(EpubPackage) -> Array[String]
 
 pub fn list_parts(EpubPackage) -> Array[String]
 
-pub fn open_epub_archive(@zip.ZipArchive, String) -> EpubPackage raise EpubError
+pub async fn open_epub_archive(@zip.ZipArchive, String) -> EpubPackage raise EpubError
 
-pub fn open_epub_package(Bytes, String) -> EpubPackage raise EpubError
+pub async fn open_epub_package(Bytes, String) -> EpubPackage raise EpubError
 
-pub fn prepare_epub_package_from_source(@input.InputSource) -> Result[PreparedEpubPackage, String]
+pub async fn prepare_epub_package_from_source(@input.InputSource) -> Result[PreparedEpubPackage, String] noraise
 
-pub fn read_nav_document(EpubPackage) -> String?
+pub async fn read_nav_document(EpubPackage) -> String? noraise
 
-pub fn read_part_bytes(EpubPackage, String) -> Bytes raise EpubError
+pub async fn read_part_bytes(EpubPackage, String) -> Bytes raise EpubError
 
-pub fn read_part_text(EpubPackage, String) -> String raise EpubError
+pub async fn read_part_text(EpubPackage, String) -> String raise EpubError
 
 pub fn validate_epub_package(EpubPackage) -> EpubValidationReport
 
@@ -59,6 +61,7 @@ pub(all) suberror EpubError {
   ZipError(String)
   MissingPart(String)
   InvalidXml(String)
+  InvalidEncoding(String)
   InvalidPath(String)
   InvalidPackage(String)
   UnsupportedFeature(String)
@@ -71,7 +74,7 @@ pub impl Show for EpubError
 pub struct EpubArchiveEntry {
   raw_path : String
   path : String
-  uncompressed_size : Int
+  uncompressed_size : Int32
 }
 
 pub struct EpubCoverCandidate {
@@ -109,6 +112,7 @@ pub(all) enum EpubErrorKind {
   MissingPart
   DuplicateManifestId
   InvalidXml
+  InvalidEncoding
   InvalidPath
   InvalidPackage
   UnsupportedFeature
@@ -124,8 +128,8 @@ pub struct EpubInspectReport {
   rootfile_path : String
   primary_rootfile : EpubRootfileInfo
   rootfiles : Array[EpubRootfileInfo]
-  manifest_count : Int
-  spine_count : Int
+  manifest_count : Int32
+  spine_count : Int32
   nav_path : String?
   nav_document_path : String?
   ncx_path : String?
@@ -143,7 +147,7 @@ pub struct EpubInspectSpineItem {
   href : String
   media_type : String?
   linear : Bool
-  spine_index : Int
+  spine_index : Int32
   action : String
 }
 
@@ -174,7 +178,7 @@ pub struct EpubMetadataEntry {
 pub struct EpubNavPoint {
   label : String
   href : String
-  depth : Int
+  depth : Int32
   source_path : String?
 }
 
@@ -204,14 +208,14 @@ pub struct EpubPackageInventory {
   source_name : String
   mimetype : String?
   primary_rootfile_path : String
-  part_count : Int
-  rootfile_count : Int
-  manifest_count : Int
-  spine_count : Int
-  spine_linear_count : Int
-  nav_point_count : Int
-  metadata_count : Int
-  cover_candidate_count : Int
+  part_count : Int32
+  rootfile_count : Int32
+  manifest_count : Int32
+  spine_count : Int32
+  spine_linear_count : Int32
+  nav_point_count : Int32
+  metadata_count : Int32
+  cover_candidate_count : Int32
   has_encryption : Bool
   nav_path : String?
   nav_document_path : String?
@@ -236,7 +240,7 @@ pub struct EpubRootfileInfo {
 pub struct EpubSpineItem {
   idref : String
   linear : Bool
-  spine_index : Int
+  spine_index : Int32
   manifest_item : EpubManifestItem?
   resolved_path : String?
 }
@@ -250,7 +254,7 @@ pub struct EpubValidationIssue {
   part_name : String?
   href : String?
   media_type : String?
-  spine_index : Int?
+  spine_index : Int32?
   message : String
 }
 
@@ -267,13 +271,13 @@ pub fn EpubValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct EpubValidationReport {
   source_name : String
-  part_count : Int
-  rootfile_count : Int
-  manifest_count : Int
-  spine_count : Int
-  issue_count : Int
-  error_count : Int
-  warning_count : Int
+  part_count : Int32
+  rootfile_count : Int32
+  manifest_count : Int32
+  spine_count : Int32
+  issue_count : Int32
+  error_count : Int32
+  warning_count : Int32
   issues : Array[EpubValidationIssue]
 }
 

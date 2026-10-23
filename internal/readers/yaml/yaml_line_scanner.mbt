@@ -2,7 +2,7 @@
 fn prepare_yaml_lines(
   text : String,
   profile_totals : YamlParseProfileTotals?,
-  has_cr? : Bool? = None,
+  has_cr~ : Bool? = None,
 ) -> Array[YamlLine] raise {
   let raw_lines = collect_yaml_raw_lines(text, profile_totals, has_cr~)
 
@@ -106,7 +106,7 @@ fn is_yaml_document_end_marker(line : YamlLine) -> Bool {
 fn collect_yaml_raw_lines(
   text : String,
   profile_totals : YamlParseProfileTotals?,
-  has_cr? : Bool? = None,
+  has_cr~ : Bool? = None,
 ) -> Array[String] {
   let normalize_started = match profile_totals {
     Some(_) => @env.now()
@@ -162,7 +162,7 @@ fn collect_yaml_raw_lines(
 ///|
 fn prepare_yaml_line(
   raw_line : String,
-  line_no : Int,
+  line_no : Int32,
   is_first_line : Bool,
 ) -> YamlLine? raise {
   let raw = if is_first_line { strip_bom(raw_line) } else { raw_line }
@@ -292,7 +292,7 @@ fn split_mapping_entry(content : String) -> (String, String)? {
 }
 
 ///|
-fn find_mapping_colon(content : String) -> Int? {
+fn find_mapping_colon(content : String) -> Int32? {
   let chars = content.to_array()
   let mut i = 0
   let mut in_single = false
@@ -379,10 +379,10 @@ pub fn yaml_value_kind(value : YamlValue) -> String {
 fn append_yaml_structure_events(
   events : Array[YamlStructureEvent],
   value : YamlValue,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   path : String,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   match value {
     Mapping(members) => {
@@ -472,7 +472,7 @@ fn yaml_member_path(parent : String, key : String) -> String {
 }
 
 ///|
-fn yaml_index_path(parent : String, index : Int) -> String {
+fn yaml_index_path(parent : String, index : Int32) -> String {
   parent + "[" + index.to_string() + "]"
 }
 

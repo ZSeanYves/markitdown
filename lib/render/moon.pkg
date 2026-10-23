@@ -5,6 +5,17 @@ import {
   "ZSeanYves/markitdown/lib/rag",
 }
 
+import {
+  "moonbitlang/core/json" @corejson,
+} for "test"
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/json" @probe_json,
+} for "wbtest"
+
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

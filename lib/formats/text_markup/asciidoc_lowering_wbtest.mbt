@@ -1,5 +1,5 @@
 ///|
-test "AsciiDoc parser lowers headings lists blocks tables admonitions and includes" {
+async test "AsciiDoc parser lowers headings lists blocks tables admonitions and includes" {
   let text = [
     "= Title", "", "Paragraph with *bold* and https://example.test[link].", "", "* First",
     "* Second", "", "NOTE: Important body", "", "include::chapter.adoc[]", "", "[source,python]",
@@ -17,7 +17,7 @@ test "AsciiDoc parser lowers headings lists blocks tables admonitions and includ
 }
 
 ///|
-test "AsciiDoc edge syntax retains attributes xrefs footnotes and local includes" {
+async test "AsciiDoc edge syntax retains attributes xrefs footnotes and local includes" {
   let text = [
     ":project: MarkItDown", "", "See <<target,{project}>> and footnote:[A note].",
     "", "[[target]]", "== Target", "", "WARNING: Retained warning", "", "include::local-only.adoc[]",
@@ -83,7 +83,7 @@ test "AsciiDoc table retains headers and cells" {
 }
 
 ///|
-test "AsciiDoc image remains a local reference" {
+async test "AsciiDoc image remains a local reference" {
   let result = (asciidoc_parser().parse)(
     @input.input_from_text_with_format(
       "image::local.png[Local image]",

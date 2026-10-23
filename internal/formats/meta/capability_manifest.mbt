@@ -8,39 +8,37 @@ pub fn capability_manifest_json() -> Json {
     let contract = product_parser_contract_spec_by_format(entry.format)
     formats.push(
       Json::object({
-        "format": @input.detected_format_name(entry.format).to_json(),
-        "group": capability_group_name(entry.group).to_json(),
-        "cli_supported": entry.cli_supported.to_json(),
-        "canonical_route": route_name(profile.canonical_route).to_json(),
-        "canonical_parser_mode": @parser.mode_name(
-          profile.canonical_parser_mode,
-        ).to_json(),
-        "canonical_ir_input_kind": profile.canonical_ir_input_kind.to_json(),
-        "stream_supported": profile.explicit_stream_supported.to_json(),
-        "stream_route": profile.explicit_stream_route
-        .map(route => route_name(route).to_json())
-        .unwrap_or((None : String?).to_json()),
-        "large_route": profile.over_limit_route
-        .map(route => route_name(route).to_json())
-        .unwrap_or((None : String?).to_json()),
-        "streaming_granularity": @parser.streaming_granularity_name(
-          profile.capability_granularity,
-        ).to_json(),
-        "parser_contract": contract
-        .map(spec => spec.parser_name.to_json())
-        .unwrap_or((None : String?).to_json()),
-        "current_state": profile.current_state_label.to_json(),
+        "format": Json(@input.detected_format_name(entry.format)),
+        "group": Json(capability_group_name(entry.group)),
+        "cli_supported": Json(entry.cli_supported),
+        "canonical_route": Json(route_name(profile.canonical_route)),
+        "canonical_parser_mode": Json(
+          @parser.mode_name(profile.canonical_parser_mode),
+        ),
+        "canonical_ir_input_kind": Json(profile.canonical_ir_input_kind),
+        "stream_supported": Json(profile.explicit_stream_supported),
+        "stream_route": Json(
+          profile.explicit_stream_route.map(route => route_name(route)),
+        ),
+        "large_route": Json(
+          profile.over_limit_route.map(route => route_name(route)),
+        ),
+        "streaming_granularity": Json(
+          @parser.streaming_granularity_name(profile.capability_granularity),
+        ),
+        "parser_contract": Json(contract.map(spec => spec.parser_name)),
+        "current_state": Json(profile.current_state_label),
       }),
     )
   }
   Json::object({
-    "schema_version": (1).to_json(),
-    "formats": formats.to_json(),
+    "schema_version": Json(1),
+    "formats": Json(formats),
     "aliases": Json::array([
       Json::object({
-        "alias": "msg".to_json(),
-        "target": "eml".to_json(),
-        "native_binary_support": false.to_json(),
+        "alias": Json("msg"),
+        "target": Json("eml"),
+        "native_binary_support": Json(false),
       }),
     ]),
   })

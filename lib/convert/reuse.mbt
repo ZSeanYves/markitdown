@@ -1,5 +1,5 @@
 ///|
-fn parse_with_route_probe_artifact(
+async fn parse_with_route_probe_artifact(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   context : @parser.ParseContext,
@@ -251,18 +251,42 @@ fn parse_with_route_probe_artifact(
         } else {
           None
         }
-      PdfNativeDocument(document) =>
+      PdfNativeSession(session) =>
         if format == Pdf {
-          Some(
-            Ok(
-              @fpdfinternal.pdf_parse_with_native_document(
+          match @dpdfnative.extract_pdf_native_document_from_session(session) {
+            Err(error) => Some(Err(error.to_string()))
+            Ok(document) => {
+              let parsed = @fpdfinternal.pdf_parse_with_native_document(
                 source,
                 context,
                 document,
                 probe_artifact_reused=true,
-              ),
-            ),
-          )
+              )
+              let mut native_text_pages = 0
+              for page in document.pages {
+                if page.text_blocks.any(block => {
+                    block.lines.any(line => line.spans.length() > 0)
+                  }) {
+                  native_text_pages += 1
+                }
+              }
+              parsed.diagnostics.metrics.set(
+                "pdf_text_classification_phase", "completed",
+              )
+              parsed.diagnostics.metrics.set(
+                "pdf_native_text_page_count",
+                native_text_pages.to_string(),
+              )
+              parsed.diagnostics.metrics.set(
+                "pdf_scanned_page_count",
+                (document.pages.length() - native_text_pages).to_string(),
+              )
+              parsed.diagnostics.metrics.set(
+                "pdf_probe_artifact_kind", "conversion_session",
+              )
+              Some(Ok(parsed))
+            }
+          }
         } else {
           None
         }
@@ -324,7 +348,7 @@ fn parse_with_route_probe_artifact(
 }
 
 ///|
-fn parse_prepared_request(
+async fn parse_prepared_request(
   request : PreparedParseRequest,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,

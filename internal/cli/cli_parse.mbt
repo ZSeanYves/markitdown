@@ -27,7 +27,7 @@ async fn cli_requested_format_label(opts : CliOptions) -> String {
 }
 
 ///|
-fn cli_requested_format_from_input(
+async fn cli_requested_format_from_input(
   input_path : String,
   explicit_format : @input.DetectedFormat?,
 ) -> @input.DetectedFormat {
@@ -161,7 +161,7 @@ fn normalize_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-fn find_first_eq(s : String) -> Int? {
+fn find_first_eq(s : String) -> Int32? {
   let chars = s.to_array()
   let mut i = 0
   while i < chars.length() {
@@ -181,8 +181,8 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
 ///|
 fn parse_cli_options_from_index(
   args : Array[String],
-  start_index : Int,
-  mode? : @convert.ConvertMode = Balanced,
+  start_index : Int32,
+  mode~ : @convert.ConvertMode = Balanced,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None

@@ -29,21 +29,21 @@ pub fn inspect_eml_message(message : EmlMessage) -> EmlInspectReport {
 
 ///|
 priv struct EmlInspectState {
-  mut part_count : Int
-  mut multipart_count : Int
-  mut text_part_count : Int
-  mut html_part_count : Int
-  mut attachment_count : Int
-  mut inline_image_count : Int
-  mut nested_message_count : Int
-  mut max_depth : Int
-  mut max_part_chars : Int
+  mut part_count : Int32
+  mut multipart_count : Int32
+  mut text_part_count : Int32
+  mut html_part_count : Int32
+  mut attachment_count : Int32
+  mut inline_image_count : Int32
+  mut nested_message_count : Int32
+  mut max_depth : Int32
+  mut max_part_chars : Int32
 }
 
 ///|
 fn inspect_eml_part(
   part : EmlPart,
-  depth : Int,
+  depth : Int32,
   state : EmlInspectState,
 ) -> Unit {
   state.part_count += 1

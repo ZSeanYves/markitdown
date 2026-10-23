@@ -17,7 +17,7 @@ pub fn requested_mode_name(context : @parser.ParseContext) -> String {
 }
 
 ///|
-pub fn min_int(left : Int, right : Int) -> Int {
+pub fn min_int(left : Int32, right : Int32) -> Int32 {
   if left < right {
     left
   } else {
@@ -137,10 +137,10 @@ pub fn init_parser_product_mode_metrics(
 ///|
 pub fn init_parser_count_metrics(
   diagnostics : @core.Diagnostics,
-  warning_count? : String = "0",
-  degraded_feature_count? : String = "0",
-  fallback_count? : String = "0",
-  asset_count? : String = "0",
+  warning_count~ : String = "0",
+  degraded_feature_count~ : String = "0",
+  fallback_count~ : String = "0",
+  asset_count~ : String = "0",
 ) -> Unit {
   diagnostics.metrics.set("warning_count", warning_count)
   diagnostics.metrics.set("degraded_feature_count", degraded_feature_count)
@@ -196,7 +196,7 @@ pub fn mark_structured_document_profile(
 pub fn count_blocks_by_kind(
   blocks : Array[@core.CoreBlock],
   kind : @core.BlockKind,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for block in blocks {
     if block.kind == kind {
@@ -216,7 +216,7 @@ pub fn bool_string(value : Bool) -> String {
 }
 
 ///|
-pub fn max_int(left : Int, right : Int) -> Int {
+pub fn max_int(left : Int32, right : Int32) -> Int32 {
   if left > right {
     left
   } else {
@@ -225,7 +225,7 @@ pub fn max_int(left : Int, right : Int) -> Int {
 }
 
 ///|
-pub fn clamp_int(value : Int, min_value : Int, max_value : Int) -> Int {
+pub fn clamp_int(value : Int32, min_value : Int32, max_value : Int32) -> Int32 {
   if value < min_value {
     min_value
   } else if value > max_value {
@@ -236,7 +236,7 @@ pub fn clamp_int(value : Int, min_value : Int, max_value : Int) -> Int {
 }
 
 ///|
-pub fn count_physical_lines(text : String) -> Int {
+pub fn count_physical_lines(text : String) -> Int32 {
   if text == "" {
     return 0
   }

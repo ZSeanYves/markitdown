@@ -1,17 +1,19 @@
 ///|
 priv struct PullDelimitedRow {
   fields : Array[String]
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 ///|
 priv struct PullDelimitedReader {
-  next : () -> Result[PullDelimitedRow?, String]
+  next : async () -> Result[PullDelimitedRow?, String]
+  input_error : () -> String?
+  close : () -> Unit
 }
 
 ///|
-fn open_pull_delimited_reader(
+async fn open_pull_delimited_reader(
   source : @input.InputSource,
   context : @parser.ParseContext,
   delimiter : Char,
@@ -39,7 +41,7 @@ fn open_pull_delimited_reader(
   let line_no = Ref(1)
   let row_start = Ref(1)
   let last_record_break = Ref(false)
-  let next_char = fn() -> Result[Char?, String] {
+  let next_char = async fn() -> Result[Char?, String] {
     while true {
       match replay.val {
         Some(ch) => {
@@ -90,7 +92,7 @@ fn open_pull_delimited_reader(
     field_chars.val = 0
     field_started.val = false
   }
-  let finish_row = fn(line_end : Int) -> PullDelimitedRow? {
+  let finish_row = fn(line_end : Int32) -> PullDelimitedRow? {
     finish_field()
     let values = row_fields.copy()
     row_fields.clear()
@@ -104,7 +106,9 @@ fn open_pull_delimited_reader(
     result
   }
   Ok({
-    next: fn() {
+    input_error: chunks.input_error,
+    close: chunks.close,
+    next: async fn() {
       while true {
         let next = match next_char() {
           Ok(value) => value
@@ -191,7 +195,7 @@ fn open_pull_delimited_reader(
 }
 
 ///|
-fn open_delimited_event_stream(
+async fn open_delimited_event_stream(
   parser_name : String,
   format : @input.DetectedFormat,
   is_tsv : Bool,
@@ -202,12 +206,13 @@ fn open_delimited_event_stream(
   let scan_reader = match
     open_pull_delimited_reader(source, context, delimiter) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(message) => return Err(message)
   }
+  defer (scan_reader.close)()
   let mut raw_rows = 0
   let mut raw_cols = 0
   let mut ragged_rows = 0
-  let mut first_width : Int? = None
+  let mut first_width : Int32? = None
   while true {
     match (scan_reader.next)() {
       Ok(Some(row)) => {
@@ -219,7 +224,18 @@ fn open_delimited_event_stream(
         }
       }
       Ok(None) => break
-      Err(_) => return Ok(None)
+      Err(message) => {
+        if (scan_reader.input_error)() is Some(_) {
+          return Err(message)
+        }
+        // Only decoder inapplicability and this scanner's recoverable syntax
+        // error may select the established buffered parser.
+        if message == "utf8 decode failed" ||
+          message == "unterminated quoted field" {
+          return Ok(None)
+        }
+        return Err(message)
+      }
     }
   }
   let max_rows = context.max_rows.unwrap_or(200)
@@ -233,7 +249,7 @@ fn open_delimited_event_stream(
   }
   let rows = match open_pull_delimited_reader(source, context, delimiter) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(message) => return Err(message)
   }
   let emitted_rows = Ref(0)
   let event_count = Ref(0)
@@ -249,7 +265,7 @@ fn open_delimited_event_stream(
   Ok(
     Some(
       @parser.make_parse_event_stream(
-        fn() {
+        async fn() {
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -260,6 +276,7 @@ fn open_delimited_event_stream(
             queued.clear()
             queued_index.val = 0
             if emitted_rows.val >= allowed_rows {
+              (rows.close)()
               return Ok(None)
             }
             match (rows.next)() {
@@ -288,12 +305,16 @@ fn open_delimited_event_stream(
                 emitted_rows.val += 1
               }
               Ok(None) => return Ok(None)
-              Err(message) => return Err(message)
+              Err(message) => {
+                (rows.close)()
+                return Err(message)
+              }
             }
           }
           Ok(None)
         },
         fn() {
+          (rows.close)()
           diagnostics.metrics.set("parser_name", parser_name)
           diagnostics.metrics.set("parser_mode", "streaming_event")
           diagnostics.metrics.set("detected_format", format_name)

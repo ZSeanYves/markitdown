@@ -109,7 +109,7 @@ async test "markdown image blocks keep linked asset refs in the root-pipeline do
   let document = unwrap_pipeline_output(
     @pipeline.run_pipeline(
       @pipeline.default_pass_pipeline(),
-      @runtime.parse_result_to_ir_input(parsed),
+      @runtime.parse_result_to_ir_input(parsed).unwrap(),
       @pipeline.make_pass_context(false, "balanced"),
     ),
     "markdown image pipeline",

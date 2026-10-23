@@ -2,15 +2,15 @@
 fn pdf_extract_text_fragments_from_stream(
   source : @input.InputSource,
   geometry : PdfPageGeometry,
-  font_aliases : Map[String, Int],
-  fonts : Map[Int, PdfNativeFontInfo],
-  inline_font_ids : Map[String, Int],
+  font_aliases : Map[String, Int32],
+  fonts : Map[Int32, PdfNativeFontInfo],
+  inline_font_ids : Map[String, Int32],
   content_text : String,
-  object_index? : Map[Int, PdfNativeObject] = Map([]),
-  resources_text? : String? = None,
-  base_matrix? : PdfNativeGraphicsMatrix = pdf_identity_matrix(),
-  remaining_depth? : Int = 6,
-) -> Result[Array[PdfNativeTextFragment], PdfNativeError] {
+  object_index~ : Map[Int32, PdfNativeObject] = Map([]),
+  resources_text~ : String? = None,
+  base_matrix~ : PdfNativeGraphicsMatrix = pdf_identity_matrix(),
+  remaining_depth~ : Int32 = 6,
+) -> Result[Array[PdfNativeTextFragment], PdfNativeError] raise PdfHardDecodeFailure {
   if remaining_depth <= 0 {
     return Ok([])
   }
@@ -314,14 +314,14 @@ fn pdf_extract_text_fragments_from_stream(
 fn pdf_extract_text_fragments_from_xobject_name(
   source : @input.InputSource,
   geometry : PdfPageGeometry,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   resources_text : String?,
-  fonts : Map[Int, PdfNativeFontInfo],
-  inline_font_ids : Map[String, Int],
+  fonts : Map[Int32, PdfNativeFontInfo],
+  inline_font_ids : Map[String, Int32],
   xobject_name : String,
   current_matrix : PdfNativeGraphicsMatrix,
-  remaining_depth : Int,
-) -> Result[Array[PdfNativeTextFragment], PdfNativeError] {
+  remaining_depth : Int32,
+) -> Result[Array[PdfNativeTextFragment], PdfNativeError] raise PdfHardDecodeFailure {
   if remaining_depth <= 0 {
     return Ok([])
   }
@@ -432,8 +432,8 @@ fn pdf_scan_content_tokens(
 ///|
 fn pdf_parse_array_token(
   content : String,
-  start : Int,
-) -> Result[(Array[PdfNativeContentToken], Int), PdfNativeError] {
+  start : Int32,
+) -> Result[(Array[PdfNativeContentToken], Int32), PdfNativeError] {
   let tokens : Array[PdfNativeContentToken] = []
   let mut index = start + 1
   while index < content.length() {
@@ -500,8 +500,8 @@ fn pdf_parse_array_token(
 ///|
 fn pdf_parse_literal_token(
   content : String,
-  start : Int,
-) -> (PdfNativeTokenizedString, Int) {
+  start : Int32,
+) -> (PdfNativeTokenizedString, Int32) {
   let out : Array[Char] = []
   let mut index = start + 1
   let mut depth = 1
@@ -571,7 +571,7 @@ fn pdf_parse_literal_token(
           if pdf_is_octal_digit(next) {
             let octal = pdf_collect_octal_escape(content, index + 1)
             let code = pdf_parse_octal(octal.0).unwrap_or(0)
-            out.push(Int::unsafe_to_char(code & 0xFF))
+            out.push(Int32::unsafe_to_char(code & 0xFF))
             index = octal.1
             continue
           }
@@ -606,7 +606,7 @@ fn pdf_parse_literal_token(
 }
 
 ///|
-fn pdf_parse_hex_token(content : String, start : Int) -> (String, Int) {
+fn pdf_parse_hex_token(content : String, start : Int32) -> (String, Int32) {
   let mut index = start + 1
   let out : Array[Char] = []
   while index < content.length() && pdf_char_at(content, index) != '>' {
@@ -623,7 +623,7 @@ fn pdf_parse_hex_token(content : String, start : Int) -> (String, Int) {
 }
 
 ///|
-fn pdf_parse_dict_token(content : String, start : Int) -> (String, Int) {
+fn pdf_parse_dict_token(content : String, start : Int32) -> (String, Int32) {
   let mut index = start
   let mut depth = 0
   while index + 1 < content.length() {
@@ -648,7 +648,7 @@ fn pdf_parse_dict_token(content : String, start : Int) -> (String, Int) {
 }
 
 ///|
-fn pdf_parse_name_token(content : String, start : Int) -> (String, Int) {
+fn pdf_parse_name_token(content : String, start : Int32) -> (String, Int32) {
   let mut index = start + 1
   while index < content.length() &&
         !pdf_is_token_delimiter(pdf_char_at(content, index)) &&
@@ -659,7 +659,7 @@ fn pdf_parse_name_token(content : String, start : Int) -> (String, Int) {
 }
 
 ///|
-fn pdf_parse_word_token(content : String, start : Int) -> (String, Int) {
+fn pdf_parse_word_token(content : String, start : Int32) -> (String, Int32) {
   let mut index = start
   while index < content.length() &&
         !pdf_is_token_delimiter(pdf_char_at(content, index)) &&
@@ -672,8 +672,8 @@ fn pdf_parse_word_token(content : String, start : Int) -> (String, Int) {
 ///|
 fn pdf_skip_content_whitespace_and_comments(
   content : String,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   let mut index = start
   while index < content.length() {
     let ch = pdf_char_at(content, index)
@@ -706,7 +706,7 @@ fn pdf_fragment_from_text_operand(
   font_info : PdfNativeFontInfo?,
   token : PdfNativeContentToken,
   actual_text : String?,
-  text_rise? : Double = 0.0,
+  text_rise~ : Double = 0.0,
 ) -> PdfNativeTextFragment? {
   let resolved_text = match actual_text {
     Some(value) if value.trim() != "" => value
@@ -772,8 +772,8 @@ fn pdf_append_text_operand_fragment(
   text_matrix : PdfNativeGraphicsMatrix,
   current_font_alias : String?,
   current_font_size : Double?,
-  font_aliases : Map[String, Int],
-  fonts : Map[Int, PdfNativeFontInfo],
+  font_aliases : Map[String, Int32],
+  fonts : Map[Int32, PdfNativeFontInfo],
   token : PdfNativeContentToken,
   actual_text : String?,
   char_spacing : Double,
@@ -818,8 +818,8 @@ fn pdf_append_text_operand_fragment(
 ///|
 fn pdf_font_info_for_alias(
   current_font_alias : String?,
-  font_aliases : Map[String, Int],
-  fonts : Map[Int, PdfNativeFontInfo],
+  font_aliases : Map[String, Int32],
+  fonts : Map[Int32, PdfNativeFontInfo],
 ) -> PdfNativeFontInfo? {
   let font_object_id = match current_font_alias {
     Some(font_alias_name) => font_aliases.get(font_alias_name)
@@ -1107,7 +1107,7 @@ fn pdf_finalize_line(
   source : @input.InputSource,
   geometry : PdfPageGeometry,
   fragments : Array[PdfNativeTextFragment],
-  line_index : Int,
+  line_index : Int32,
 ) -> PdfNativeTextLine {
   let vertical_line = fragments.any(fn(fragment) { fragment.vertical_writing })
   let ordered : Array[PdfNativeTextFragment] = []
@@ -1221,7 +1221,7 @@ fn pdf_finalize_text_block(
   source : @input.InputSource,
   geometry : PdfPageGeometry,
   lines : Array[PdfNativeTextLine],
-  block_index : Int,
+  block_index : Int32,
 ) -> PdfNativeTextBlock {
   let block_bbox = pdf_native_lines_bbox(lines)
   let first_line = lines[0]

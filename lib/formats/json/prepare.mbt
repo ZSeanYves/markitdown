@@ -9,7 +9,7 @@ pub struct PreparedJsonText {
 }
 
 ///|
-pub fn prepare_json_document_from_source(
+pub async fn prepare_json_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedJsonText, String] {
   let text_payload = match @sourceio.read_source_text(source) {

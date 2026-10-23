@@ -21,7 +21,7 @@ pub fn odp_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn odp_parser() -> @parser.Parser {
   let capability = odp_parser_capability()
-  @parser.make_parser(ODP_PARSER_NAME, PackageSinglePass, capability, fn(
+  @parser.make_parser(ODP_PARSER_NAME, PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -30,11 +30,11 @@ pub fn odp_parser() -> @parser.Parser {
 }
 
 ///|
-fn parse_odp_document_result(
+async fn parse_odp_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @dodf.prepare_odp_document_from_source(source) {
     Ok(value) => value
     Err(err) => {
@@ -396,7 +396,7 @@ fn odp_image_block(
   assets : Array[@core.AssetRef],
   source_ref : @core.SourceRef,
   context : @parser.ParseContext,
-  diagnostics : @core.Diagnostics,
+  _diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   match block.image {
     Some(image) => {
@@ -411,27 +411,12 @@ fn odp_image_block(
         return unavailable
       }
       let observed = image.bytes.unwrap().length().to_int64()
-      if !@parser.asset_payload_within_limits(
+      if !@parser.require_asset_payload_within_limits(
           context,
           observed,
           @parser.materialized_asset_payload_bytes(assets),
         ) {
-        @parser.record_asset_payload_budget_skip(
-          diagnostics,
-          "odp-image-" + assets.length().to_string(),
-          "single_or_total_asset_bytes",
-          observed,
-          @parser.max_asset_payload_bytes(context),
-        )
-        let unavailable = @core.make_block(
-          BlockQuote,
-          "Asset unavailable: " + image.href,
-          source_ref~,
-        )
-        unavailable.attrs.set("asset_missing", "true")
-        unavailable.attrs.set("asset_source_path", image.href)
-        unavailable.attrs.set("payload_skipped", "asset_limit")
-        return unavailable
+        return @core.make_block(BlockQuote, "", source_ref~)
       }
       let asset_id = odp_asset_output_path(slide.index, image.href)
       let asset = @core.make_asset_ref(Image, asset_id, source_ref~)
@@ -489,7 +474,7 @@ fn odp_slide_source_ref(
   source : @input.InputSource,
   document : @dodf.OdpDocument,
   slide : @dodf.OdpSlide,
-  line_start : Int?,
+  line_start : Int32?,
 ) -> @core.SourceRef {
   let container_path = @input.input_path(source).unwrap_or(source.source_name)
   let base = @core.source_ref_with_container_entry(
@@ -546,7 +531,7 @@ fn odp_block_source_ref(
 }
 
 ///|
-fn odp_asset_output_path(slide_index : Int, href : String) -> String {
+fn odp_asset_output_path(slide_index : Int32, href : String) -> String {
   let clean = href.trim().to_owned().replace_all(old="Pictures/", new="")
   "assets/odp-slide" + (slide_index + 1).to_string() + "-" + odp_slug(clean)
 }

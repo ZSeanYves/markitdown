@@ -38,17 +38,17 @@ pub fn classify_toml_error(err : TomlError) -> TomlErrorInfo {
 ///|
 priv struct TomlParser {
   chars : Array[Char]
-  mut pos : Int
-  mut line : Int
+  mut pos : Int32
+  mut line : Int32
   root_members : Array[TomlMember]
   root_member_keys : Map[String, Bool]
   tables : Array[TomlTable]
-  table_index_by_path : Map[String, Int]
+  table_index_by_path : Map[String, Int32]
   table_member_keys : Map[String, Map[String, Bool]]
-  array_item_count_by_base_path : Map[String, Int]
+  array_item_count_by_base_path : Map[String, Int32]
   mut current_table_path : String
   mut current_table_segments : Array[String]
-  mut current_table_index : Int?
+  mut current_table_index : Int32?
   mut current_member_keys : Map[String, Bool]
 }
 
@@ -265,7 +265,7 @@ fn TomlParser::insert_member(
 fn TomlParser::find_or_create_table(
   self : TomlParser,
   target_path : String,
-) -> Int {
+) -> Int32 {
   match self.table_index_by_path.get(target_path) {
     Some(index) => index
     None => {
@@ -358,7 +358,7 @@ fn TomlParser::parse_bare_key(self : TomlParser) -> String {
 }
 
 ///|
-fn TomlParser::parse_value(self : TomlParser) -> (TomlValue, Int) raise {
+fn TomlParser::parse_value(self : TomlParser) -> (TomlValue, Int32) raise {
   match self.peek_char() {
     Some('"') =>
       if self.starts_with("\"\"\"") {
@@ -393,7 +393,9 @@ fn TomlParser::parse_value(self : TomlParser) -> (TomlValue, Int) raise {
 }
 
 ///|
-fn TomlParser::parse_array(self : TomlParser) -> (Array[TomlValue], Int) raise {
+fn TomlParser::parse_array(
+  self : TomlParser,
+) -> (Array[TomlValue], Int32) raise {
   let values : Array[TomlValue] = []
   let start_line = self.line
   self.expect_char('[')
@@ -423,7 +425,7 @@ fn TomlParser::parse_array(self : TomlParser) -> (Array[TomlValue], Int) raise {
 ///|
 fn TomlParser::parse_inline_table(
   self : TomlParser,
-) -> (Array[TomlMember], Int) raise {
+) -> (Array[TomlMember], Int32) raise {
   let members : Array[TomlMember] = []
   let member_keys : Map[String, Bool] = Map([])
   let start_line = self.line
@@ -466,7 +468,7 @@ fn TomlParser::parse_inline_table(
 }
 
 ///|
-fn TomlParser::parse_scalar_token(self : TomlParser) -> (String, Int) raise {
+fn TomlParser::parse_scalar_token(self : TomlParser) -> (String, Int32) raise {
   let out : Array[Char] = []
   let mut nesting = 0
   while true {
@@ -557,7 +559,7 @@ fn TomlParser::parse_literal_string_single_line(
 ///|
 fn TomlParser::parse_multiline_basic_string(
   self : TomlParser,
-) -> (String, Int) raise {
+) -> (String, Int32) raise {
   self.expect_literal("\"\"\"")
   if self.peek_char() == Some('\n') {
     self.advance_char()
@@ -616,7 +618,7 @@ fn TomlParser::parse_multiline_basic_string(
 ///|
 fn TomlParser::parse_multiline_literal_string(
   self : TomlParser,
-) -> (String, Int) raise {
+) -> (String, Int32) raise {
   self.expect_literal("'''")
   if self.peek_char() == Some('\n') {
     self.advance_char()
@@ -856,7 +858,7 @@ fn normalize_toml_chars(text : String) -> Array[Char] {
 }
 
 ///|
-fn toml_parse_unicode_escape(parser : TomlParser, digits : Int) -> Char raise {
+fn toml_parse_unicode_escape(parser : TomlParser, digits : Int32) -> Char raise {
   let mut value = 0
   for _ in 0..<digits {
     let ch = match parser.peek_char() {
@@ -871,11 +873,11 @@ fn toml_parse_unicode_escape(parser : TomlParser, digits : Int) -> Char raise {
       })
     parser.advance_char()
   }
-  Int::unsafe_to_char(value)
+  Int32::unsafe_to_char(value)
 }
 
 ///|
-fn toml_hex_value(ch : Char) -> Int raise {
+fn toml_hex_value(ch : Char) -> Int32 raise {
   if ch >= '0' && ch <= '9' {
     return ch.to_int() - '0'.to_int()
   }
@@ -889,7 +891,10 @@ fn toml_hex_value(ch : Char) -> Int raise {
 }
 
 ///|
-fn toml_scalar_value_from_token(token : String, line : Int) -> TomlValue raise {
+fn toml_scalar_value_from_token(
+  token : String,
+  line : Int32,
+) -> TomlValue raise {
   let lower = token.to_lower()
   if lower == "true" {
     return Bool(true)
@@ -927,7 +932,7 @@ fn toml_token_is_float(token : String) -> Bool {
     return true
   }
   let chars = token.to_array()
-  let mut exponent_index : Int? = None
+  let mut exponent_index : Int32? = None
   for index in 0..<chars.length() {
     if chars[index] == 'e' || chars[index] == 'E' {
       if exponent_index is Some(_) {
@@ -956,7 +961,7 @@ fn toml_token_is_float(token : String) -> Bool {
     (chars[mantissa_start] == '+' || chars[mantissa_start] == '-') {
     mantissa_start += 1
   }
-  let mut dot_index : Int? = None
+  let mut dot_index : Int32? = None
   for index in mantissa_start..<mantissa_end {
     if chars[index] == '.' {
       if dot_index is Some(_) {
@@ -996,8 +1001,8 @@ fn toml_token_is_integer(token : String) -> Bool {
 ///|
 fn toml_decimal_integer_body(
   chars : Array[Char],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Bool {
   if !toml_decimal_digits_with_underscores(chars, start, end_) {
     return false
@@ -1009,8 +1014,8 @@ fn toml_decimal_integer_body(
 ///|
 fn toml_decimal_digits_with_underscores(
   chars : Array[Char],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> Bool {
   toml_digits_with_underscores(chars, start, end_, 10)
 }
@@ -1018,8 +1023,8 @@ fn toml_decimal_digits_with_underscores(
 ///|
 fn toml_based_digits_with_underscores(
   chars : Array[Char],
-  start : Int,
-  base : Int,
+  start : Int32,
+  base : Int32,
 ) -> Bool {
   toml_digits_with_underscores(chars, start, chars.length(), base)
 }
@@ -1027,9 +1032,9 @@ fn toml_based_digits_with_underscores(
 ///|
 fn toml_digits_with_underscores(
   chars : Array[Char],
-  start : Int,
-  end_ : Int,
-  base : Int,
+  start : Int32,
+  end_ : Int32,
+  base : Int32,
 ) -> Bool {
   if start >= end_ || chars[start] == '_' || chars[end_ - 1] == '_' {
     return false
@@ -1108,7 +1113,7 @@ fn toml_token_is_local_date(token : String) -> Bool {
 }
 
 ///|
-fn toml_days_in_month(year : Int, month : Int) -> Int {
+fn toml_days_in_month(year : Int32, month : Int32) -> Int32 {
   match month {
     2 =>
       if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) {
@@ -1233,7 +1238,7 @@ fn toml_digits_only(token : String) -> Bool {
 }
 
 ///|
-fn toml_parse_decimal(token : String) -> Int {
+fn toml_parse_decimal(token : String) -> Int32 {
   let mut value = 0
   for ch in token.to_array() {
     value = value * 10 + (ch.to_int() - '0'.to_int())
@@ -1248,7 +1253,7 @@ fn toml_without_suffix_char(token : String) -> String {
 }
 
 ///|
-fn toml_slice_chars(chars : Array[Char], start : Int, end_ : Int) -> String {
+fn toml_slice_chars(chars : Array[Char], start : Int32, end_ : Int32) -> String {
   let out : Array[Char] = []
   for i in start..<end_ {
     out.push(chars[i])
@@ -1282,7 +1287,7 @@ fn toml_path_to_segments(path : String) -> Array[String] {
 ///|
 fn toml_append_array_item_segment(
   segments : Array[String],
-  item_index : Int,
+  item_index : Int32,
 ) -> Array[String] {
   let out = segments.copy()
   if out.length() == 0 {

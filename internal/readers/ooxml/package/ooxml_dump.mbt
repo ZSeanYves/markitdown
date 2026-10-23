@@ -3,7 +3,9 @@
 ///
 /// These helpers are intentionally read-only and lossy: they are for debugging
 /// package structure, not for feeding conversion logic.
-pub fn inspect_ooxml_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
+pub async fn inspect_ooxml_inventory(
+  pkg : OoxmlPackage,
+) -> OoxmlPackageInventory noraise {
   match pkg.inventory_cache.val {
     Some(inventory) => inventory
     None => {
@@ -15,12 +17,16 @@ pub fn inspect_ooxml_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
 }
 
 ///|
-pub fn list_part_infos(pkg : OoxmlPackage) -> Array[OoxmlPartInfo] {
+pub async fn list_part_infos(
+  pkg : OoxmlPackage,
+) -> Array[OoxmlPartInfo] noraise {
   inspect_ooxml_inventory(pkg).parts
 }
 
 ///|
-fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
+async fn build_package_inventory(
+  pkg : OoxmlPackage,
+) -> OoxmlPackageInventory noraise {
   let parts : Array[OoxmlPartInfo] = []
   let content_types : Array[OoxmlContentTypeInfo] = []
   let relationship_source_parts : Array[String] = []
@@ -86,7 +92,7 @@ fn build_package_inventory(pkg : OoxmlPackage) -> OoxmlPackageInventory {
 fn compare_content_type_infos(
   a : OoxmlContentTypeInfo,
   b : OoxmlContentTypeInfo,
-) -> Int {
+) -> Int32 {
   let a_key = content_type_sort_key(a)
   let b_key = content_type_sort_key(b)
   a_key[:].lexical_compare(b_key[:])
@@ -115,6 +121,6 @@ fn is_relationships_part_name(part_name : String) -> Bool {
 }
 
 ///|
-fn part_size(pkg : OoxmlPackage, part_name : String) -> Int {
+fn part_size(pkg : OoxmlPackage, part_name : String) -> Int32 {
   pkg.part_size_index.get(part_name).unwrap_or(0)
 }

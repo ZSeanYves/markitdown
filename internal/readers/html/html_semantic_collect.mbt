@@ -17,8 +17,8 @@ priv struct HtmlSemanticCollectCtx {
     Array[String],
   ]
   parent_source_key_by_block_source_key : Map[String, String]
-  list_depth_by_block_source_key : Map[String, Int]
-  quote_depth_by_block_source_key : Map[String, Int]
+  list_depth_by_block_source_key : Map[String, Int32]
+  quote_depth_by_block_source_key : Map[String, Int32]
   nearest_list_source_key_by_block_source_key : Map[String, String]
   nearest_list_item_source_key_by_block_source_key : Map[String, String]
   nearest_quote_source_key_by_block_source_key : Map[String, String]
@@ -31,7 +31,7 @@ priv struct HtmlSemanticCollectCtx {
   link_source_key_by_inline_source_key : Map[String, String]
   link_source_keys_by_block_source_key : Map[String, Array[String]]
   images : Array[HtmlImageFact]
-  image_index_by_source_key : Map[String, Int]
+  image_index_by_source_key : Map[String, Int32]
   image_source_key_by_inline_source_key : Map[String, String]
   image_source_keys_by_block_source_key : Map[String, Array[String]]
   image_source_keys_by_parent_inline_source_key : Map[String, Array[String]]
@@ -56,29 +56,29 @@ priv struct HtmlSemanticCollectCtx {
   noise_candidates : Array[HtmlNoiseCandidateFact]
   unsupported : Array[HtmlUnsupportedFact]
   warnings : Array[HtmlSemanticWarning]
-  mut next_order : Int
-  mut next_inline_order : Int
-  mut next_link_order : Int
-  mut next_image_order : Int
-  mut next_table_order : Int
-  mut next_table_section_order : Int
-  mut next_table_row_order : Int
-  mut next_table_cell_order : Int
-  mut next_code_block_order : Int
-  mut next_figure_order : Int
-  mut next_note_ref_order : Int
-  mut next_note_body_order : Int
-  mut next_note_order : Int
-  mut next_noise_order : Int
-  mut next_unsupported_order : Int
-  mut max_depth : Int
+  mut next_order : Int32
+  mut next_inline_order : Int32
+  mut next_link_order : Int32
+  mut next_image_order : Int32
+  mut next_table_order : Int32
+  mut next_table_section_order : Int32
+  mut next_table_row_order : Int32
+  mut next_table_cell_order : Int32
+  mut next_code_block_order : Int32
+  mut next_figure_order : Int32
+  mut next_note_ref_order : Int32
+  mut next_note_body_order : Int32
+  mut next_note_order : Int32
+  mut next_noise_order : Int32
+  mut next_unsupported_order : Int32
+  mut max_depth : Int32
 }
 
 ///|
 fn collect_html_semantic_node(
   node : HtmlNode,
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_source_key : String?,
 ) -> String? {
   match node {
@@ -92,7 +92,7 @@ fn collect_html_semantic_node(
 fn collect_html_semantic_element(
   element : HtmlElement,
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_source_key : String?,
 ) -> String? {
   let kind = if element.tag_name == "code" &&
@@ -294,7 +294,7 @@ fn collect_html_semantic_element(
 fn collect_html_semantic_inlines_from_children(
   children : Array[HtmlNode],
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
 ) -> Array[String] {
@@ -321,7 +321,7 @@ fn collect_html_semantic_inlines_from_children(
 fn collect_html_semantic_inline_node(
   node : HtmlNode,
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
   has_surrounding_text : Bool,
@@ -343,7 +343,7 @@ fn collect_html_semantic_inline_node(
 fn collect_html_semantic_text_inline(
   text : HtmlText,
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
 ) -> String? {
@@ -437,7 +437,7 @@ fn collect_html_semantic_text_inline(
 fn collect_html_semantic_inline_element(
   element : HtmlElement,
   ctx : HtmlSemanticCollectCtx,
-  depth : Int,
+  depth : Int32,
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
   has_surrounding_text : Bool,
@@ -619,7 +619,7 @@ fn collect_html_semantic_link_fact(
   ctx : HtmlSemanticCollectCtx,
   inline_source_key : String,
   parent_block_source_key : String?,
-  depth : Int,
+  depth : Int32,
   text_preview : String,
   inline_child_keys : Array[String],
   inline_warnings : Array[HtmlSemanticWarning],
@@ -735,7 +735,7 @@ fn collect_html_semantic_image_fact(
   inline_source_key : String,
   parent_block_source_key : String?,
   parent_inline_source_key : String?,
-  depth : Int,
+  depth : Int32,
   inline_warnings : Array[HtmlSemanticWarning],
 ) -> Unit {
   ctx.next_image_order += 1

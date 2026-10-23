@@ -2,8 +2,10 @@
 package "ZSeanYves/markitdown/internal/readers/pdf"
 
 import {
+  "ZSeanYves/markitdown/internal/resource_budget",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/input",
+  "moonbit-community/flate/zlib",
 }
 
 // Values
@@ -15,41 +17,45 @@ pub fn decode_pdf_run_length_stream(Bytes) -> Result[Bytes, String]
 
 pub fn decode_pdf_stream_filters(Bytes, Array[String]) -> Result[Bytes, String]
 
-pub fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
+pub async fn extract_pdf_native_document(@input.InputSource) -> Result[PdfNativeDocument, PdfNativeError]
 
-pub fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
+pub async fn extract_pdf_native_document_from_path(String) -> Result[PdfNativeDocument, PdfNativeError]
+
+pub async fn extract_pdf_native_document_from_session(PdfNativeSession) -> Result[PdfNativeDocument, PdfNativeError]
 
 pub fn inflate_pdf_stream(Bytes) -> Result[Bytes, String]
 
 pub fn make_pdf_bbox(Double, Double, Double, Double) -> PdfBBox
 
-pub fn make_pdf_native_annotation(Int, String, bbox? : PdfBBox?, text? : String?, title? : String?, subject? : String?, file_name? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int?, object_id? : Int?) -> PdfNativeAnnotation
+pub fn make_pdf_native_annotation(Int32, String, bbox? : PdfBBox?, text? : String?, title? : String?, subject? : String?, file_name? : String?, name? : String?, modified_at? : String?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, annotation_index? : Int32?, object_id? : Int32?) -> PdfNativeAnnotation
 
 pub fn make_pdf_native_artifact_candidate(String, PdfBBox, source_ref? : @core.SourceRef?) -> PdfNativeArtifactCandidate
 
-pub fn make_pdf_native_destination(page_index? : Int?, target_page_index? : Int?, target_page_object_id? : Int?, kind? : String?, raw_value? : String?, name? : String?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeDestination
+pub fn make_pdf_native_destination(page_index? : Int32?, target_page_index? : Int32?, target_page_object_id? : Int32?, kind? : String?, raw_value? : String?, name? : String?, source_ref? : @core.SourceRef?, object_id? : Int32?) -> PdfNativeDestination
 
 pub fn make_pdf_native_document(pages? : Array[PdfNativePage], form_fields? : Array[PdfNativeFormField], outline_items? : Array[PdfNativeOutlineItem], named_destinations? : Array[PdfNativeDestination], metadata? : Map[String, @core.JsonValue], diagnostics? : @core.Diagnostics) -> PdfNativeDocument
 
-pub fn make_pdf_native_form_field(page_index? : Int?, field_type? : String?, field_name? : String?, alternate_name? : String?, value? : String?, default_value? : String?, options? : Array[String], bbox? : PdfBBox?, source_ref? : @core.SourceRef?, object_id? : Int?, widget_object_id? : Int?, flags? : Int?) -> PdfNativeFormField
+pub fn make_pdf_native_form_field(page_index? : Int32?, field_type? : String?, field_name? : String?, alternate_name? : String?, value? : String?, default_value? : String?, options? : Array[String], bbox? : PdfBBox?, source_ref? : @core.SourceRef?, object_id? : Int32?, widget_object_id? : Int32?, flags? : Int32?) -> PdfNativeFormField
 
-pub fn make_pdf_native_image_candidate(PdfBBox, source_ref? : @core.SourceRef?, asset_ref? : @core.AssetRef?, reading_order_index? : Int?) -> PdfNativeImageCandidate
+pub fn make_pdf_native_image_candidate(PdfBBox, source_ref? : @core.SourceRef?, asset_ref? : @core.AssetRef?, reading_order_index? : Int32?) -> PdfNativeImageCandidate
 
-pub fn make_pdf_native_link_candidate(PdfBBox, String, text? : String?, source_ref? : @core.SourceRef?, annotation_index? : Int?, annotation_object_id? : Int?) -> PdfNativeLinkCandidate
+pub fn make_pdf_native_link_candidate(PdfBBox, String, text? : String?, source_ref? : @core.SourceRef?, annotation_index? : Int32?, annotation_object_id? : Int32?) -> PdfNativeLinkCandidate
 
-pub fn make_pdf_native_outline_item(String, Int, Int, page_index? : Int?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, object_id? : Int?) -> PdfNativeOutlineItem
+pub fn make_pdf_native_outline_item(String, Int32, Int32, page_index? : Int32?, action_kind? : String?, target? : String?, destination? : PdfNativeDestination?, source_ref? : @core.SourceRef?, object_id? : Int32?) -> PdfNativeOutlineItem
 
 pub fn make_pdf_native_page(PdfPageGeometry, text_blocks? : Array[PdfNativeTextBlock], image_candidates? : Array[PdfNativeImageCandidate], link_candidates? : Array[PdfNativeLinkCandidate], annotations? : Array[PdfNativeAnnotation], destinations? : Array[PdfNativeDestination], table_candidates? : Array[PdfNativeTableCandidate], artifact_candidates? : Array[PdfNativeArtifactCandidate], diagnostics? : @core.Diagnostics) -> PdfNativePage
 
-pub fn make_pdf_native_table_candidate(PdfBBox, source_ref? : @core.SourceRef?, row_count? : Int?, column_count? : Int?, cell_bboxes? : Array[PdfBBox]) -> PdfNativeTableCandidate
+pub fn make_pdf_native_table_candidate(PdfBBox, source_ref? : @core.SourceRef?, row_count? : Int32?, column_count? : Int32?, cell_bboxes? : Array[PdfBBox]) -> PdfNativeTableCandidate
 
-pub fn make_pdf_native_text_block(Array[PdfNativeTextLine], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextBlock
+pub fn make_pdf_native_text_block(Array[PdfNativeTextLine], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int32?) -> PdfNativeTextBlock
 
-pub fn make_pdf_native_text_line(Array[PdfNativeTextSpan], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int?) -> PdfNativeTextLine
+pub fn make_pdf_native_text_line(Array[PdfNativeTextSpan], PdfBBox, source_ref? : @core.SourceRef?, reading_order_index? : Int32?) -> PdfNativeTextLine
 
-pub fn make_pdf_native_text_span(String, PdfBBox, source_ref? : @core.SourceRef?, confidence? : Int?, font_name? : String?, font_size? : Double?, reading_order_index? : Int?) -> PdfNativeTextSpan
+pub fn make_pdf_native_text_span(String, PdfBBox, source_ref? : @core.SourceRef?, confidence? : Int32?, font_name? : String?, font_size? : Double?, reading_order_index? : Int32?) -> PdfNativeTextSpan
 
-pub fn make_pdf_page_geometry(Int, Double, Double, rotation_degrees? : Int, crop_box? : PdfBBox?) -> PdfPageGeometry
+pub fn make_pdf_page_geometry(Int32, Double, Double, rotation_degrees? : Int32, crop_box? : PdfBBox?) -> PdfPageGeometry
+
+pub async fn open_pdf_native_session(@input.InputSource) -> Result[PdfNativeSession, PdfNativeError]
 
 pub fn pdf_bbox_bottom(PdfBBox) -> Double
 
@@ -57,15 +63,17 @@ pub fn pdf_bbox_is_empty(PdfBBox) -> Bool
 
 pub fn pdf_bbox_right(PdfBBox) -> Double
 
-pub fn pdf_decode_gb2312_first_bytes(Array[Int]) -> PdfRawCjkDecodeResult
+pub fn pdf_decode_gb2312_first_bytes(Array[Int32]) -> PdfRawCjkDecodeResult
 
-pub fn pdf_decode_raw_cjk_bytes(Array[Int], PdfRawCjkEncodingKind) -> PdfRawCjkDecodeResult
+pub fn pdf_decode_raw_cjk_bytes(Array[Int32], PdfRawCjkEncodingKind) -> PdfRawCjkDecodeResult
 
-pub fn pdf_raw_cjk_bytes_need_decode(Array[Int], PdfRawCjkEncodingKind) -> Bool
+pub fn pdf_raw_cjk_bytes_need_decode(Array[Int32], PdfRawCjkEncodingKind) -> Bool
 
 pub fn pdf_raw_cjk_decode_result_is_confident(PdfRawCjkDecodeResult) -> Bool
 
 pub fn pdf_raw_cjk_decode_result_is_confident_gb2312(PdfRawCjkDecodeResult) -> Bool
+
+pub fn pdf_structural_facts(PdfNativeSession) -> PdfStructuralFacts
 
 pub fn pdf_union_bbox(PdfBBox, PdfBBox) -> PdfBBox
 
@@ -80,7 +88,7 @@ pub struct PdfBBox {
 }
 
 pub struct PdfNativeAnnotation {
-  page_index : Int
+  page_index : Int32
   subtype : String
   bbox : PdfBBox?
   text : String?
@@ -93,8 +101,8 @@ pub struct PdfNativeAnnotation {
   target : String?
   destination : PdfNativeDestination?
   source_ref : @core.SourceRef?
-  annotation_index : Int?
-  object_id : Int?
+  annotation_index : Int32?
+  object_id : Int32?
 }
 
 pub struct PdfNativeArtifactCandidate {
@@ -104,14 +112,14 @@ pub struct PdfNativeArtifactCandidate {
 }
 
 pub struct PdfNativeDestination {
-  page_index : Int?
-  target_page_index : Int?
-  target_page_object_id : Int?
+  page_index : Int32?
+  target_page_index : Int32?
+  target_page_object_id : Int32?
   kind : String?
   raw_value : String?
   name : String?
   source_ref : @core.SourceRef?
-  object_id : Int?
+  object_id : Int32?
 }
 
 pub struct PdfNativeDocument {
@@ -130,6 +138,8 @@ pub(all) enum PdfNativeError {
   EncryptedUnsupported(String)
   EmptyTextLayer(String)
   UnsupportedFeature(String)
+  BudgetExceeded(@resource_budget.BudgetError)
+  StreamIntegrityFailed(@zlib.ZlibErrorKind, String)
 } derive(Eq)
 pub fn PdfNativeError::equal(Self, Self) -> Bool
 pub fn PdfNativeError::not_equal(Self, Self) -> Bool
@@ -138,7 +148,7 @@ pub fn PdfNativeError::to_string(Self) -> String
 pub impl Show for PdfNativeError
 
 pub struct PdfNativeFormField {
-  page_index : Int?
+  page_index : Int32?
   field_type : String?
   field_name : String?
   alternate_name : String?
@@ -147,16 +157,16 @@ pub struct PdfNativeFormField {
   options : Array[String]
   bbox : PdfBBox?
   source_ref : @core.SourceRef?
-  object_id : Int?
-  widget_object_id : Int?
-  flags : Int?
+  object_id : Int32?
+  widget_object_id : Int32?
+  flags : Int32?
 }
 
 pub struct PdfNativeImageCandidate {
   bbox : PdfBBox
   source_ref : @core.SourceRef?
   asset_ref : @core.AssetRef?
-  reading_order_index : Int?
+  reading_order_index : Int32?
 }
 
 pub struct PdfNativeLinkCandidate {
@@ -164,20 +174,20 @@ pub struct PdfNativeLinkCandidate {
   href : String
   text : String?
   source_ref : @core.SourceRef?
-  annotation_index : Int?
-  annotation_object_id : Int?
+  annotation_index : Int32?
+  annotation_object_id : Int32?
 }
 
 pub struct PdfNativeOutlineItem {
   title : String
-  level : Int
-  order_index : Int
-  page_index : Int?
+  level : Int32
+  order_index : Int32
+  page_index : Int32?
   action_kind : String?
   target : String?
   destination : PdfNativeDestination?
   source_ref : @core.SourceRef?
-  object_id : Int?
+  object_id : Int32?
 }
 
 pub struct PdfNativePage {
@@ -192,11 +202,15 @@ pub struct PdfNativePage {
   diagnostics : @core.Diagnostics
 }
 
+pub struct PdfNativeSession {
+  // private fields
+}
+
 pub struct PdfNativeTableCandidate {
   bbox : PdfBBox
   source_ref : @core.SourceRef?
-  row_count : Int?
-  column_count : Int?
+  row_count : Int32?
+  column_count : Int32?
   cell_bboxes : Array[PdfBBox]
 }
 
@@ -204,39 +218,39 @@ pub struct PdfNativeTextBlock {
   lines : Array[PdfNativeTextLine]
   bbox : PdfBBox
   source_ref : @core.SourceRef?
-  reading_order_index : Int?
+  reading_order_index : Int32?
 }
 
 pub struct PdfNativeTextLine {
   spans : Array[PdfNativeTextSpan]
   bbox : PdfBBox
   source_ref : @core.SourceRef?
-  reading_order_index : Int?
+  reading_order_index : Int32?
 }
 
 pub struct PdfNativeTextSpan {
   text : String
   bbox : PdfBBox
   source_ref : @core.SourceRef?
-  confidence : Int?
+  confidence : Int32?
   font_name : String?
   font_size : Double?
-  reading_order_index : Int?
+  reading_order_index : Int32?
 }
 
 pub struct PdfPageGeometry {
-  page_no : Int
+  page_no : Int32
   width : Double
   height : Double
-  rotation_degrees : Int
+  rotation_degrees : Int32
   crop_box : PdfBBox?
 }
 
 pub(all) struct PdfRawCjkDecodeResult {
   text : String
-  decoded_cjk_count : Int
-  decoded_two_byte_count : Int
-  invalid_byte_count : Int
+  decoded_cjk_count : Int32
+  decoded_two_byte_count : Int32
+  invalid_byte_count : Int32
   has_high_bytes : Bool
 }
 
@@ -247,6 +261,14 @@ pub(all) enum PdfRawCjkEncodingKind {
 } derive(Eq)
 pub fn PdfRawCjkEncodingKind::equal(Self, Self) -> Bool
 pub fn PdfRawCjkEncodingKind::not_equal(Self, Self) -> Bool
+
+pub struct PdfStructuralFacts {
+  page_count : Int32?
+  deferred_repair : Bool
+  reason : String
+  metadata_object_count : Int32
+  metadata_object_stream_count : Int32
+}
 
 // Type aliases
 

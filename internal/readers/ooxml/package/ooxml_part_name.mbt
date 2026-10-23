@@ -82,7 +82,7 @@ fn split_dir_file(path : String) -> (String, String) {
   if slash < 0 {
     ("", path)
   } else {
-    (path[:slash].to_owned(), path[slash + 1:].to_owned())
+    (String::from_array(chars[:slash]), String::from_array(chars[slash + 1:]))
   }
 }
 
@@ -132,6 +132,6 @@ fn extension_of_part(path : String) -> String {
   if dot < 0 || dot + 1 >= chars.length() {
     ""
   } else {
-    path[dot + 1:].to_owned()
+    String::from_array(chars[dot + 1:])
   }
 }

@@ -1,0 +1,1376 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/async@0.22.4/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x@0.5.5/crypto",
+}
+
+///|
+struct BenchCase {
+  id : String
+  format : String
+  input : String
+  bytes : Int64
+  sha256 : String
+}
+
+///|
+struct Report {
+  evidence : String
+  fingerprints : Array[String]
+  samples : Array[String]
+  values : Array[String]
+  errors : Array[String]
+  maxima : Map[String, Int64]
+  witnesses : Map[String, String]
+  policies : Map[String, Bool]
+  mut accepted : Int32
+  mut missing : Int32
+  mut selected : Int32
+  mut passed : Int32
+  mut benchmark_measured : Int32
+  mut quality_measured : Int32
+  mut benchmark_failed : Int32
+  mut quality_failed : Int32
+  mut failed : Int32
+  mut unavailable : Int32
+}
+
+///|
+fn new_report(evidence : String) -> Report {
+  {
+    evidence,
+    fingerprints: [],
+    samples: [],
+    values: [],
+    errors: [],
+    maxima: Map([]),
+    witnesses: Map([]),
+    policies: Map([]),
+    accepted: 0,
+    missing: 0,
+    selected: 0,
+    passed: 0,
+    benchmark_measured: 0,
+    quality_measured: 0,
+    benchmark_failed: 0,
+    quality_failed: 0,
+    failed: 0,
+    unavailable: 0,
+  }
+}
+
+///|
+fn counter_keys(schema : String) -> Array[String] raise {
+  let result = [
+    "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+    "budget_output_confirmed_utf8_bytes",
+  ]
+  match schema {
+    "legacy_v1" =>
+      result.append([
+        "budget_zip_cache_payload_peak_bytes", "budget_zip_working_payload_peak_bytes",
+      ])
+    "partial_v2" | "partial_v3" | "partial_v4" =>
+      result.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+    _ => fail("unknown budget schema")
+  }
+  result
+}
+
+///|
+fn budget_schema(value : Json) -> String raise {
+  guard value is Object(fields) else { fail("missing budget usage object") }
+  match fields.get("budget_schema") {
+    None => "legacy_v1"
+    Some(String("partial_v2")) => "partial_v2"
+    Some(String("partial_v3")) => "partial_v3"
+    Some(String("partial_v4")) => "partial_v4"
+    _ => fail("unknown budget schema")
+  }
+}
+
+///|
+fn accounting_policy(schema : String) -> (String, String) raise {
+  match schema {
+    "legacy_v1" =>
+      (
+        "source_read_traffic,zip_entry_payloads,output_utf8_admission", "parse_work,source_metadata,rag_metadata,ir,temporary_storage,non_zip_inflate,non_zip_working_and_cache",
+      )
+    "partial_v2" =>
+      (
+        "source_read_traffic,zip_inflate,zip_payload_resident,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,output_utf8_admission",
+        "non_content_types_parse_work,non_content_types_source_metadata,rag_metadata,ir,temporary_storage,non_zip_inflate,other_working_and_cache",
+      )
+    "partial_v3" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,output_utf8_admission",
+        "non_content_types_parse_work,non_content_types_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,other_working_and_cache",
+      )
+    "partial_v4" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
+      )
+    _ => fail("unknown budget schema")
+  }
+}
+
+///|
+fn counter_unit(schema : String, dimension : String) -> String {
+  if dimension == "budget_parse_work" {
+    if schema == "partial_v4" { "modeled_parse_work_units" } else { "modeled_utf8_work_units" }
+  } else {
+    "bytes"
+  }
+}
+
+///|
+fn measurement_scope(schema : String, dimension : String) -> String {
+  match dimension {
+    "budget_inflate_bytes" =>
+      if schema == "partial_v3" || schema == "partial_v4" {
+        "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured"
+      } else {
+        "zip_entry_output_only;non_zip_inflate_unmeasured"
+      }
+    "budget_zip_cache_payload_peak_bytes" =>
+      "zip_payload_upper_bound;non_zip_cache_unmeasured"
+    "budget_zip_working_payload_peak_bytes" =>
+      "zip_payload_upper_bound;non_zip_working_unmeasured"
+    "budget_cache_payload_peak_bytes" =>
+      if schema == "partial_v4" {
+        "zip_ooxml_content_types_relationships_and_pdf_probe_payload_upper_bound;allocator_and_other_cache_unmeasured"
+      } else {
+        "zip_cache_and_ooxml_content_types_map_payload_upper_bound;other_cache_unmeasured"
+      }
+    "budget_working_payload_peak_bytes" =>
+      if schema == "partial_v4" {
+        "zip_ooxml_content_types_relationships_and_pdf_flate_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      } else if schema == "partial_v3" {
+        "zip_ooxml_content_types_and_pdf_flate_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      } else {
+        "zip_and_ooxml_content_types_workspace_payload_upper_bound;other_working_unmeasured"
+      }
+    "budget_parse_work" =>
+      if schema == "partial_v4" {
+        "ooxml_cursor_utf8_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons;other_parse_work_unmeasured"
+      } else {
+        "ooxml_content_types_xml_work_only;other_parse_work_unmeasured"
+      }
+    "budget_source_metadata_bytes" =>
+      if schema == "partial_v4" {
+        "ooxml_content_types_and_relationships_row_index_utf8_payload_only;other_source_metadata_unmeasured"
+      } else {
+        "ooxml_content_types_map_utf8_payload_only;other_source_metadata_unmeasured"
+      }
+    "budget_output_admitted_utf8_bytes" => "output_write_admission"
+    "budget_output_confirmed_utf8_bytes" => "confirmed_successful_output_writes"
+    "budget_read_traffic_bytes" => "input_read_view_and_memory_payload_traffic"
+    _ => "unmeasured_unknown_dimension"
+  }
+}
+
+///|
+fn usage() -> String {
+  "usage: native_budget_profile.mbtx --binary ABS_NATIVE --evidence NEW_ABS_DIR [--lab ABS_LAB] [--case ID] [--format FORMAT] [--view all|markdown|debug|rag] [--mode balance|accurate|stream] [--quality-evidence ABS_NATIVE_REGRESSION] [--source-archive ABS_TAR] [--timeout-ms N] [--validate-only true|false] | --self-test true"
+}
+
+///|
+fn clean(text : String) -> String {
+  text
+  .replace_all(old="\t", new=" ")
+  .replace_all(old="\n", new=" ")
+  .replace_all(old="\r", new=" ")
+}
+
+///|
+fn safe_id(value : String) -> Bool {
+  value != "" &&
+  value != "." &&
+  value != ".." &&
+  value
+  .iter()
+  .all(fn(ch) {
+    (ch >= 'a' && ch <= 'z') ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= '0' && ch <= '9') ||
+    ch == '_' ||
+    ch == '-' ||
+    ch == '.'
+  })
+}
+
+///|
+fn safe_relative(value : String) -> Bool {
+  value != "" &&
+  !value.has_prefix("/") &&
+  !value.contains("\\") &&
+  !value.contains(":") &&
+  !value.contains("\t") &&
+  !value.contains("\n") &&
+  !value.contains("\r") &&
+  value.split("/").all(part => part != "" && part != "." && part != "..")
+}
+
+///|
+fn natural(text : String) -> Int64? {
+  if text == "" || (text.length() > 1 && text[0] == '0') {
+    return None
+  }
+  let mut value = 0L
+  for ch in text {
+    let digit = ch.to_int() - 48
+    if digit < 0 ||
+      digit > 9 ||
+      value > (9223372036854775807L - digit.to_int64()) / 10L {
+      return None
+    }
+    value = value * 10L + digit.to_int64()
+  }
+  Some(value)
+}
+
+///|
+fn field(value : Json, key : String) -> Json {
+  match value {
+    Object(fields) => fields.get(key).unwrap_or(Json::null())
+    _ => Json::null()
+  }
+}
+
+///|
+fn string(value : Json) -> String {
+  match value {
+    String(text) => text
+    _ => ""
+  }
+}
+
+///|
+fn profile(provenance : String) -> Json raise {
+  let root = @json.parse(provenance, reject_duplicate_keys=true)
+  let result = field(root, "budget_usage")
+  guard result is Object(fields) else { fail("missing budget_usage object") }
+  if !["measurement_only", "explicit_enforced"].contains(
+      string(field(result, "budget_profile")),
+    ) {
+    fail("requires an explicit recognized budget profile")
+  }
+  let schema = budget_schema(result)
+  let (coverage, unmeasured) = accounting_policy(schema)
+  if string(field(result, "budget_coverage")) != coverage ||
+    string(field(result, "budget_unmeasured")) != unmeasured ||
+    string(field(result, "budget_resident_policy")) !=
+    "scope_retained_payload_upper_bound" {
+    fail("missing or unknown coverage/unmeasured/resident policy")
+  }
+  let allowed = counter_keys(schema)
+  allowed.append([
+    "budget_profile", "budget_coverage", "budget_unmeasured", "budget_resident_policy",
+  ])
+  if schema != "legacy_v1" {
+    allowed.push("budget_schema")
+  }
+  for key, _ in fields {
+    if !allowed.contains(key) {
+      fail("unknown budget field: " + key)
+    }
+  }
+  for key in counter_keys(schema) {
+    guard field(result, key) is String(value) else {
+      fail("counter must be an Int64 decimal string: " + key)
+    }
+    if natural(value) is None {
+      fail("negative, overflowing or malformed counter: " + key)
+    }
+  }
+  if field(result, "budget_output_admitted_utf8_bytes") !=
+    field(result, "budget_output_confirmed_utf8_bytes") {
+    fail("successful conversion has unconfirmed output admission")
+  }
+  result
+}
+
+///|
+fn sample_profile(
+  provenance : String,
+  expected_format : String?,
+  expected_view : String?,
+) -> (Json, String, String) raise {
+  let value = profile(provenance)
+  let parsed = @json.parse(provenance, reject_duplicate_keys=true)
+  let format = string(field(field(parsed, "route_plan"), "detected_format"))
+  let view = string(field(parsed, "output_mode"))
+  if !safe_id(format) || !["markdown", "debug", "rag"].contains(view) {
+    fail("missing or invalid actual format/view")
+  }
+  if expected_format is Some(expected) {
+    if format != expected {
+      fail(
+        "actual format mismatch: expected=" + expected + "; actual=" + format,
+      )
+    }
+  }
+  if expected_view is Some(expected) {
+    if view != expected {
+      fail("actual view mismatch: expected=" + expected + "; actual=" + view)
+    }
+  }
+  (value, format, view)
+}
+
+///|
+fn digest(bytes : Bytes) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+}
+
+///|
+async fn fingerprint(report : Report, kind : String, path : String) -> String {
+  let bytes = @fs.read_file(path).binary()
+  let hash = digest(bytes)
+  report.fingerprints.push(
+    kind + "\t" + clean(path) + "\t" + bytes.length().to_string() + "\t" + hash,
+  )
+  hash
+}
+
+///|
+async fn capture(
+  report : Report,
+  label : String,
+  program : String,
+  args : Array[String],
+) -> String {
+  @fs.write_file(
+    report.evidence + "/" + label + ".command.json",
+    ({ "program": Json(program), "args": Json(args) } : Json).stringify(),
+  )
+  let result = @shell.Cmd(program, args).output()
+  @fs.write_file(
+    report.evidence + "/" + label + ".stdout",
+    result.stdout_bytes(),
+  )
+  @fs.write_file(report.evidence + "/" + label + ".stderr", result.stderr())
+  @fs.write_file(
+    report.evidence + "/" + label + ".exit",
+    result.exit_code().to_string(),
+  )
+  if result.exit_code() != 0 {
+    fail(label + " failed: " + result.exit_code().to_string())
+  }
+  result.stdout()
+}
+
+///|
+async fn files(root : String, relative~ : String = "") -> Array[String] {
+  let result : Array[String] = []
+  for
+    name in @fs.readdir(
+      root + (if relative == "" { "" } else { "/" + relative }),
+    ) {
+    let path = if relative == "" { name } else { relative + "/" + name }
+    if !safe_relative(path) {
+      fail("unsafe artifact filename")
+    }
+    match @fs.kind(root + "/" + path, follow_symlink=false) {
+      @fs.Regular => result.push(path)
+      @fs.Directory => result.append(files(root, relative=path))
+      _ => fail("nonregular artifact: " + path)
+    }
+  }
+  result.sort()
+  result
+}
+
+///|
+// Manifest schema and file checks follow native_benchmark.mbtx::inventory.
+async fn inventory(report : Report, lab : String) -> Array[BenchCase] {
+  let base = lab + "/external_bench"
+  let manifest = base + "/MANIFEST.tsv"
+  ignore(fingerprint(report, "benchmark_manifest", manifest))
+  let lines = @fs.read_file(manifest).text().split("\n").to_array()
+  let header = "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes\tcomparison_class\tcomparison_reason\tcomparison_signals"
+  if lines.length() == 0 || lines[0].trim() != header {
+    fail("invalid benchmark manifest header")
+  }
+  let cases : Array[BenchCase] = []
+  let rows = ["id\tstatus\tbytes\tsha256"]
+  let seen : Map[String, Bool] = Map([])
+  let paths : Map[String, Bool] = Map([])
+  for i in 1..<lines.length() {
+    if i == lines.length() - 1 && lines[i] == "" {
+      continue
+    }
+    let row = lines[i].split("\t").map(part => part.to_owned()).to_array()
+    try {
+      if row.length() != 16 || !safe_id(row[0]) || !safe_relative(row[3]) {
+        fail("malformed row")
+      }
+      if seen.contains(row[0]) {
+        fail("duplicate ID: " + row[0])
+      }
+      seen[row[0]] = true
+      if paths.contains(row[3]) {
+        fail("duplicate input path: " + row[3])
+      }
+      paths[row[3]] = true
+      if ![
+          "txt", "csv", "tsv", "srt", "vtt", "json", "jsonl", "ndjson", "yaml", "toml",
+          "xml", "html", "markdown", "ipynb", "eml", "tex", "rst", "asciidoc", "zip",
+          "epub", "docx", "xlsx", "pptx", "odt", "ods", "odp", "pdf",
+        ].contains(row[1]) ||
+        !["smoke", "regular", "release", "stress", "disabled"].contains(row[8]) ||
+        !["self_baseline", "external_compare"].contains(row[13]) ||
+        row[15] != "non_empty" {
+        fail("unknown format/tier/comparison contract")
+      }
+      let path = base + "/" + row[3]
+      if row[11] == "missing_candidate" {
+        report.missing += 1
+        if row[8] != "disabled" || @fs.exists(path) {
+          fail("inconsistent missing candidate")
+        }
+        rows.push(row[0] + "\tmissing_candidate_unverified\t-\t-")
+        continue
+      }
+      if row[11] != "accepted" || row[8] == "disabled" || !@fs.exists(path) {
+        fail("unknown status/disabled accepted/missing accepted input")
+      }
+      if @fs.kind(path, follow_symlink=false) != @fs.Regular ||
+        !@fs.realpath(path).has_prefix(@fs.realpath(base) + "/") {
+        fail("input is not a regular file within external_bench")
+      }
+      let bytes = @fs.read_file(path).binary()
+      let hash = digest(bytes)
+      if natural(row[6]) != Some(bytes.length().to_int64()) || row[7] != hash {
+        fail("size/SHA256 mismatch")
+      }
+      report.accepted += 1
+      report.fingerprints.push(
+        "benchmark_input\t" + path + "\t" + row[6] + "\t" + hash,
+      )
+      rows.push(row[0] + "\tverified\t" + row[6] + "\t" + hash)
+      cases.push({
+        id: row[0],
+        format: row[1],
+        input: path,
+        bytes: bytes.length().to_int64(),
+        sha256: hash,
+      })
+    } catch {
+      error =>
+        report.errors.push(
+          "manifest row " + (i + 1).to_string() + ": " + error.to_string(),
+        )
+    }
+  }
+  @fs.write_file(report.evidence + "/inventory.tsv", rows.join("\n") + "\n")
+  if cases.length() == 0 || report.errors.length() > 0 {
+    fail("benchmark manifest verification failed")
+  }
+  cases
+}
+
+///|
+fn record_sample(
+  report : Report,
+  origin : String,
+  id : String,
+  format : String,
+  view : String,
+  value : Json,
+  provenance_path : String,
+) -> Unit raise {
+  let schema = budget_schema(value)
+  let account_profile = string(field(value, "budget_profile"))
+  report.passed += 1
+  if origin == "benchmark" {
+    report.benchmark_measured += 1
+  } else {
+    report.quality_measured += 1
+  }
+  let coverage = string(field(value, "budget_coverage"))
+  let unmeasured = string(field(value, "budget_unmeasured"))
+  let policy = string(field(value, "budget_resident_policy"))
+  report.policies[schema +
+  "\t" +
+  account_profile +
+  "\t" +
+  coverage +
+  "\t" +
+  unmeasured +
+  "\t" +
+  policy] = true
+  report.samples.push(
+    origin +
+    "\t" +
+    schema +
+    "\t" +
+    account_profile +
+    "\t" +
+    id +
+    "\t" +
+    format +
+    "\t" +
+    view +
+    "\tmeasured\t" +
+    provenance_path +
+    "\t" +
+    coverage +
+    "\t" +
+    unmeasured +
+    "\t" +
+    policy,
+  )
+  for dimension in counter_keys(schema) {
+    let count = natural(string(field(value, dimension))).unwrap()
+    report.values.push(
+      origin +
+      "\t" +
+      schema +
+      "\t" +
+      account_profile +
+      "\t" +
+      id +
+      "\t" +
+      format +
+      "\t" +
+      view +
+      "\t" +
+      dimension +
+      "\t" +
+      count.to_string() +
+      "\t" +
+      counter_unit(schema, dimension) +
+      "\t" +
+      measurement_scope(schema, dimension),
+    )
+    for group_origin in [origin, "all"] {
+      for
+        (group_format, group_view) in [
+          ("*", "*"),
+          (format, "*"),
+          ("*", view),
+          (format, view),
+        ] {
+        let key = group_origin +
+          "\t" +
+          schema +
+          "\t" +
+          account_profile +
+          "\t" +
+          group_format +
+          "\t" +
+          group_view +
+          "\t" +
+          dimension
+        if report.maxima.get(key) is None ||
+          count > report.maxima.get(key).unwrap() {
+          report.maxima[key] = count
+          report.witnesses[key] = origin + "/" + id
+        }
+      }
+    }
+  }
+}
+
+///|
+async fn benchmark_sample(
+  report : Report,
+  root : String,
+  binary : String,
+  item : BenchCase,
+  mode : String,
+  view : String,
+  timeout_ms : Int32,
+) -> Unit {
+  let directory = report.evidence + "/cases/benchmark/" + item.id + "/" + view
+  @fs.mkdir(directory, recursive=true)
+  let output = directory +
+    "/result." +
+    (if view == "markdown" { "md" } else { view + ".json" })
+  let args = [mode]
+  if view == "debug" {
+    args.push("--debug")
+  }
+  if view == "rag" {
+    args.push("--rag")
+  }
+  args.append([
+    "--format",
+    item.format,
+    "--provenance-out",
+    directory + "/provenance.json",
+    item.input,
+    output,
+  ])
+  @fs.write_file(
+    directory + "/command.json",
+    (
+      { "program": Json(binary), "args": Json(args), "route": "collecting_cli" } :
+      Json).stringify(),
+  )
+  try {
+    let before = @fs.read_file(item.input).binary()
+    if before.length().to_int64() != item.bytes || digest(before) != item.sha256 {
+      fail("input changed after inventory")
+    }
+    let exit = @async.with_timeout_opt(timeout_ms, async fn() {
+      @process.run(
+        binary,
+        args,
+        cwd=root,
+        extra_env={ "LC_ALL": "C", "LANG": "C" },
+        stdout=@process.redirect_to_file(directory + "/stdout.bin"),
+        stderr=@process.redirect_to_file(directory + "/stderr.log"),
+        cancel_handler=@process.hard_cancel(),
+      )
+    })
+    @fs.write_file(
+      directory + "/exit_code.txt",
+      exit.map(value => value.to_string()).unwrap_or("unavailable_timeout"),
+    )
+    guard exit is Some(code) else {
+      fail("process timeout; partial stdout/stderr retained")
+    }
+    if code != 0 {
+      fail("exit code " + code.to_string())
+    }
+    let after = @fs.read_file(item.input).binary()
+    if after.length().to_int64() != item.bytes || digest(after) != item.sha256 {
+      fail("input changed during conversion")
+    }
+    if !@fs.exists(output) || @fs.file_size(output) == 0L {
+      fail("missing/empty accepted body")
+    }
+    if view != "markdown" {
+      let body = @json.parse(
+        @fs.read_file(output).text(),
+        reject_duplicate_keys=true,
+      )
+      guard body is Object(_) else {
+        fail("Debug/RAG body must be a JSON object")
+      }
+    }
+    let provenance = directory + "/provenance.json"
+    let (value, actual_format, actual_view) = sample_profile(
+      @fs.read_file(provenance).text(),
+      Some(item.format),
+      Some(view),
+    )
+    record_sample(
+      report,
+      "benchmark",
+      item.id,
+      actual_format,
+      actual_view,
+      value,
+      provenance,
+    )
+  } catch {
+    error => {
+      report.failed += 1
+      report.benchmark_failed += 1
+      report.errors.push(item.id + "/" + view + ": " + error.to_string())
+      report.samples.push(
+        "benchmark\t-\t-\t" +
+        item.id +
+        "\t" +
+        item.format +
+        "\t" +
+        view +
+        "\tfailed_unavailable\t" +
+        directory +
+        "\t-\t-\t-",
+      )
+    }
+  }
+  let rows = ["path\tbytes\tsha256"]
+  for path in files(directory) {
+    let data = @fs.read_file(directory + "/" + path).binary()
+    rows.push(path + "\t" + data.length().to_string() + "\t" + digest(data))
+  }
+  @fs.write_file(directory + "/artifacts.tsv", rows.join("\n") + "\n")
+}
+
+///|
+fn row_map(text : String) -> Map[String, String] raise {
+  let lines = text.trim_end().split("\n").to_array()
+  if lines.length() != 2 {
+    fail("expected one summary row")
+  }
+  let names = lines[0].split("\t").to_array()
+  let values = lines[1].split("\t").to_array()
+  if names.length() != values.length() {
+    fail("invalid summary width")
+  }
+  let result : Map[String, String] = Map([])
+  for i in 0..<names.length() {
+    if result.contains(names[i].to_owned()) {
+      fail("duplicate summary field")
+    }
+    result[names[i].to_owned()] = values[i].to_owned()
+  }
+  result
+}
+
+///|
+async fn quality_samples(
+  report : Report,
+  directory : String,
+  binary_hash : String,
+) -> Unit {
+  if !directory.has_prefix("/") {
+    fail("--quality-evidence must be absolute")
+  }
+  let summary = row_map(@fs.read_file(directory + "/summary.tsv").text())
+  let summary_keys = [
+    "status", "target", "suite", "total", "retired", "valid", "filtered", "selected",
+    "executed", "passed", "failed", "manifest_errors", "binary",
+  ]
+  if summary.length() != summary_keys.length() {
+    fail("unknown quality summary schema")
+  }
+  for key, _ in summary {
+    if !summary_keys.contains(key) {
+      fail("unknown quality summary field")
+    }
+  }
+  for
+    key in [
+      "total", "retired", "valid", "filtered", "selected", "executed", "passed",
+      "failed", "manifest_errors",
+    ] {
+    if summary.get(key).bind(natural) is None {
+      fail("invalid quality summary count: " + key)
+    }
+  }
+  if summary.get("status") != Some("pass") ||
+    summary.get("target") != Some("native") ||
+    summary.get("suite") != Some("all") ||
+    summary.get("failed") != Some("0") ||
+    summary.get("manifest_errors") != Some("0") ||
+    summary.get("filtered") != Some("0") ||
+    summary.get("valid") != summary.get("executed") ||
+    summary.get("passed") != summary.get("executed") ||
+    summary.get("selected") != summary.get("executed") ||
+    summary.get("executed").bind(natural).unwrap_or(0L) == 0L {
+    fail("quality evidence must be a complete passing all-suite execution")
+  }
+  if !@fs.read_file(directory + "/budget-profile-policy.txt")
+    .text()
+    .has_prefix("measurement_only;") {
+    fail("quality evidence did not request --budget-profile true")
+  }
+  let mut binary_matches = false
+  for raw in @fs.read_file(directory + "/fingerprints.tsv").text().split("\n") {
+    let row = raw.split("\t").to_array()
+    if row.length() == 3 &&
+      row[0] == "native_executable" &&
+      row[2] == binary_hash {
+      binary_matches = true
+    }
+  }
+  if !binary_matches {
+    fail("quality evidence binary hash mismatch")
+  }
+  for
+    name in [
+      "summary.tsv", "cases.tsv", "fingerprints.tsv", "budget-profile-policy.txt",
+    ] {
+    ignore(fingerprint(report, "quality_evidence", directory + "/" + name))
+  }
+  let seen : Map[String, Bool] = Map([])
+  let lines = @fs.read_file(directory + "/cases.tsv")
+    .text()
+    .split("\n")
+    .to_array()
+  if lines[0] != "suite\tid\tstatus\treason" {
+    fail("unknown quality cases schema")
+  }
+  let mut count = 0L
+  for i in 1..<lines.length() {
+    if i == lines.length() - 1 && lines[i] == "" {
+      continue
+    }
+    let row = lines[i].split("\t").to_array()
+    if row.length() != 4 ||
+      !["main", "quality", "accurate"].contains(row[0].to_owned()) ||
+      !safe_id(row[1].to_owned()) ||
+      row[2] != "pass" {
+      fail("invalid quality case row")
+    }
+    let id = row[0].to_owned() + "/" + row[1].to_owned()
+    if seen.contains(id) {
+      fail("duplicate quality case")
+    }
+    seen[id] = true
+    count += 1L
+    let location = directory + "/cases/" + id
+    try {
+      let exit = @fs.read_file(location + "/exit_code.txt")
+        .text()
+        .trim()
+        .to_owned()
+      if exit != "0" {
+        if natural(exit) is None ||
+          !@fs.read_file(location + "/budget-status.txt")
+          .text()
+          .has_prefix("unavailable_expected_rejection;") {
+          fail("failed case lacks expected-rejection profile status")
+        }
+        report.unavailable += 1
+        report.samples.push(
+          "quality\t-\t-\t" +
+          id +
+          "\t-\t-\tunavailable_expected_rejection\t" +
+          location +
+          "\t-\t-\t-",
+        )
+        continue
+      }
+      let provenance = location + "/provenance.json"
+      let text = @fs.read_file(provenance).text()
+      let (value, format, view) = sample_profile(text, None, None)
+      ignore(fingerprint(report, "quality_provenance", provenance))
+      record_sample(report, "quality", id, format, view, value, provenance)
+    } catch {
+      error => {
+        report.failed += 1
+        report.quality_failed += 1
+        report.errors.push("quality " + id + ": " + error.to_string())
+        report.samples.push(
+          "quality\t-\t-\t" +
+          id +
+          "\t-\t-\tfailed_unavailable\t" +
+          location +
+          "\t-\t-\t-",
+        )
+      }
+    }
+  }
+  if Some(count) != summary.get("executed").bind(natural) {
+    fail("quality case count mismatch")
+  }
+}
+
+///|
+async fn source_inventory(report : Report, root : String) -> Unit {
+  ignore(
+    capture(report, "source-head", "git", ["-C", root, "rev-parse", "HEAD"]),
+  )
+  ignore(
+    capture(report, "source-status", "git", ["-C", root, "status", "--short"]),
+  )
+  ignore(
+    capture(report, "source-patch", "git", ["-C", root, "diff", "--binary"]),
+  )
+  let listing = capture(report, "source-files", "git", [
+    "-C", root, "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+  ])
+  let seen : Map[String, Bool] = Map([])
+  for name in listing.split("\u0000") {
+    let name = name.to_owned()
+    if name == "" ||
+      seen.contains(name) ||
+      name.has_prefix("markitdown-quality-lab/") {
+      continue
+    }
+    seen[name] = true
+    if !safe_relative(name) {
+      fail("unsafe source filename")
+    }
+    let path = root + "/" + name
+    if @fs.exists(path) && @fs.kind(path, follow_symlink=false) == @fs.Regular {
+      ignore(fingerprint(report, "source_file", path))
+    }
+  }
+}
+
+///|
+async fn native_binary(report : Report, path : String) -> String {
+  if !path.has_prefix("/") || !@fs.can_execute(path) {
+    fail("expected absolute Native executable")
+  }
+  let data = @fs.read_file(path).binary()
+  if data.length() < 20 {
+    fail("short executable")
+  }
+  let platform = capture(report, "platform", "uname", ["-s"]).trim().to_owned()
+  let architecture = capture(report, "architecture", "uname", ["-m"])
+    .trim()
+    .to_owned()
+  let elf = data[0] == b'\x7f' &&
+    data[1] == b'E' &&
+    data[2] == b'L' &&
+    data[3] == b'F' &&
+    data[4] == b'\x02' &&
+    data[5] == b'\x01' &&
+    data[18] == b'\x3e' &&
+    data[19] == b'\x00'
+  let macho = data[0] == b'\xcf' &&
+    data[1] == b'\xfa' &&
+    data[2] == b'\xed' &&
+    data[3] == b'\xfe' &&
+    data[4] == b'\x0c' &&
+    data[5] == b'\x00' &&
+    data[6] == b'\x00' &&
+    data[7] == b'\x01'
+  if !((platform == "Darwin" && architecture == "arm64" && macho) ||
+    (platform == "Linux" && architecture == "x86_64" && elf)) {
+    fail("Native binary/host architecture mismatch")
+  }
+  fingerprint(report, "native_executable", path)
+}
+
+///|
+async fn save(report : Report, status : String) -> Unit {
+  @fs.write_file(
+    report.evidence + "/samples.tsv",
+    "origin\tschema\tprofile\tid\tformat\tview\tstatus\tprovenance\tcoverage\tunmeasured\tresident_policy\n" +
+    report.samples.join("\n") +
+    "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/values.tsv",
+    "origin\tschema\tprofile\tid\tformat\tview\tdimension\tvalue\tunit\tmeasurement_scope\n" +
+    report.values.join("\n") +
+    "\n",
+  )
+  let maxima = [
+    "origin\tschema\tprofile\tformat\tview\tdimension\tmax\twitness\tunit\tmeasurement_scope",
+  ]
+  let keys = report.maxima.keys().to_array()
+  keys.sort()
+  for key in keys {
+    let columns = key.split("\t").to_array()
+    maxima.push(
+      key +
+      "\t" +
+      report.maxima[key].to_string() +
+      "\t" +
+      report.witnesses[key] +
+      "\t" +
+      counter_unit(columns[1].to_owned(), columns[5].to_owned()) +
+      "\t" +
+      measurement_scope(columns[1].to_owned(), columns[5].to_owned()),
+    )
+  }
+  @fs.write_file(report.evidence + "/maxima.tsv", maxima.join("\n") + "\n")
+  let policies = report.policies.keys().to_array()
+  policies.sort()
+  if policies.length() == 0 {
+    policies.push(
+      "unavailable\tunavailable\tunavailable_no_valid_profile\tall_dimensions_unavailable\tunavailable",
+    )
+  }
+  @fs.write_file(
+    report.evidence + "/coverage.tsv",
+    "schema\tprofile\tcovered\tunmeasured\tresident_policy\n" +
+    policies.join("\n") +
+    "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/fingerprints.tsv",
+    "kind\tpath\tbytes\tsha256\n" + report.fingerprints.join("\n") + "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/errors.txt",
+    report.errors.join("\n") + "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/summary.tsv",
+    "status\tscope\troute\taccepted\tmissing_unverified\tselected_benchmark_runs\tmeasured\tfailed\texpected_rejection_unavailable\tbenchmark_measured\tquality_measured\tbenchmark_failed\tquality_failed\tprofile_groups\n" +
+    status +
+    "\tmeasurement_not_performance\tcollecting_cli\t" +
+    report.accepted.to_string() +
+    "\t" +
+    report.missing.to_string() +
+    "\t" +
+    report.selected.to_string() +
+    "\t" +
+    report.passed.to_string() +
+    "\t" +
+    report.failed.to_string() +
+    "\t" +
+    report.unavailable.to_string() +
+    "\t" +
+    report.benchmark_measured.to_string() +
+    "\t" +
+    report.quality_measured.to_string() +
+    "\t" +
+    report.benchmark_failed.to_string() +
+    "\t" +
+    report.quality_failed.to_string() +
+    "\t" +
+    report.policies.length().to_string() +
+    "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/LIMITATIONS.md",
+    "# Measurement only\n\nCollecting Native CLI, one invocation per selected input/view. No timing, RSS, headroom/default freeze, formal performance or complete budget acceptance. Resident values are scope-retained payload upper bounds. Missing candidates and expected rejections have unavailable usage, never zero. Uninstrumented dimensions are explicitly unmeasured. Successful output admission equals confirmed bytes; partial failed-write commitment is unknown. Source checkout fingerprints do not alone prove a binary was built from that checkout; retain its independent freeze/build evidence. Quality evidence is linked and fingerprinted read-only, not rewritten or re-executed. Maxima never combine legacy_v1/partial_v2/partial_v3/partial_v4 schemas or measurement_only/explicit_enforced profiles. All-corpus maxima combine origins only within the same schema/profile; explicit_enforced observations can be censored by their configured limits. Historical v2/v3 ParseWork counts modeled UTF8 work units; v4 uses mixed modeled parse-work admission units for cursor UTF8 work, YAML logical nodes/merge copies and PDF probe bytes/code units/entries/visits/comparisons. Neither unit measures machine instructions, elapsed time or a complete parse cost.\n",
+  )
+}
+
+///|
+fn self_test_profile_fields(
+  schema : String,
+  account_profile : String,
+) -> Map[String, Json] raise {
+  let (coverage, unmeasured) = accounting_policy(schema)
+  let fields : Map[String, Json] = {
+    "budget_profile": Json(account_profile),
+    "budget_coverage": Json(coverage),
+    "budget_unmeasured": Json(unmeasured),
+    "budget_resident_policy": Json("scope_retained_payload_upper_bound"),
+  }
+  if schema != "legacy_v1" {
+    fields["budget_schema"] = Json(schema)
+  }
+  for key in counter_keys(schema) {
+    fields[key] = Json("0")
+  }
+  fields
+}
+
+///|
+fn self_test() -> Unit raise {
+  assert_true(natural("0") == Some(0L))
+  assert_true(natural("9223372036854775807") == Some(9223372036854775807L))
+  for bad in ["", "-1", "01", "+1", "1.0", "9223372036854775808"] {
+    assert_true(natural(bad) is None)
+  }
+  assert_false(safe_relative("../escape"))
+  assert_false(safe_id("../id"))
+  let counters : Map[String, Json] = Map([])
+  counters["budget_profile"] = Json("measurement_only")
+  counters["budget_coverage"] = Json(
+    "source_read_traffic,zip_entry_payloads,output_utf8_admission",
+  )
+  counters["budget_unmeasured"] = Json(
+    "parse_work,source_metadata,rag_metadata,ir,temporary_storage,non_zip_inflate,non_zip_working_and_cache",
+  )
+  counters["budget_resident_policy"] = Json(
+    "scope_retained_payload_upper_bound",
+  )
+  for key in counter_keys("legacy_v1") {
+    counters[key] = Json("0")
+  }
+  let wrapped : Json = { "budget_usage": Json::object(counters) }
+  ignore(profile(wrapped.stringify()))
+  counters["budget_inflate_bytes"] = Json(0)
+  let rejected = try {
+    ignore(profile(wrapped.stringify()))
+    false
+  } catch {
+    _ => true
+  }
+  assert_true(rejected)
+  let rejects = fn(text : String) {
+    try {
+      ignore(profile(text))
+      false
+    } catch {
+      _ => true
+    }
+  }
+  assert_true(rejects("{}"))
+  for bad in ["-1", "9223372036854775808", "01", "1.5"] {
+    counters["budget_inflate_bytes"] = Json(bad)
+    assert_true(rejects(wrapped.stringify()))
+  }
+  counters["budget_inflate_bytes"] = Json("9223372036854775807")
+  let maximum = profile(wrapped.stringify())
+  let report = new_report("")
+  record_sample(
+    report, "benchmark", "maximum", "pdf", "markdown", maximum, "selftest",
+  )
+  assert_eq(
+    report.maxima["all\tlegacy_v1\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    9223372036854775807L,
+  )
+  assert_eq(
+    report.maxima["benchmark\tlegacy_v1\tmeasurement_only\tpdf\tmarkdown\tbudget_inflate_bytes"],
+    9223372036854775807L,
+  )
+  let routed : Json = {
+    "budget_usage": Json::object(counters),
+    "route_plan": { "detected_format": "pdf" },
+    "output_mode": "debug",
+  }
+  let routed_text = routed.stringify()
+  let (_, actual_format, actual_view) = sample_profile(
+    routed_text,
+    Some("pdf"),
+    Some("debug"),
+  )
+  assert_eq(actual_format, "pdf")
+  assert_eq(actual_view, "debug")
+  for (expected_format, expected_view) in [("txt", "debug"), ("pdf", "rag")] {
+    let rejected = try {
+      ignore(
+        sample_profile(routed_text, Some(expected_format), Some(expected_view)),
+      )
+      false
+    } catch {
+      _ => true
+    }
+    assert_true(rejected)
+  }
+  counters["budget_output_confirmed_utf8_bytes"] = Json("1")
+  assert_true(rejects(wrapped.stringify()))
+  counters["budget_output_confirmed_utf8_bytes"] = Json("0")
+  counters["budget_unmeasured"] = Json("")
+  assert_true(rejects(wrapped.stringify()))
+  let wrap = fn(fields : Map[String, Json]) {
+    ({ "budget_usage": Json::object(fields) } : Json).stringify()
+  }
+  for (schema, count) in [("partial_v2", "17"), ("partial_v3", "29"), ("partial_v4", "43")] {
+    let fields = self_test_profile_fields(schema, "measurement_only")
+    fields["budget_inflate_bytes"] = Json(count)
+    let value = profile(wrap(fields))
+    record_sample(
+      report, "benchmark", schema, "pdf", "markdown", value, "selftest",
+    )
+    assert_eq(
+      report.maxima["all\t" +
+      schema +
+      "\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+      natural(count).unwrap(),
+    )
+    fields["budget_zip_cache_payload_peak_bytes"] = Json("0")
+    assert_true(rejects(wrap(fields)))
+    fields.remove("budget_zip_cache_payload_peak_bytes")
+    fields["budget_working_payload_peak_bytes"] = Json(0)
+    assert_true(rejects(wrap(fields)))
+    fields["budget_working_payload_peak_bytes"] = Json("0")
+    fields["budget_unmeasured"] = Json("parse_work")
+    assert_true(rejects(wrap(fields)))
+  }
+  let enforced = self_test_profile_fields("partial_v4", "explicit_enforced")
+  enforced["budget_inflate_bytes"] = Json("31")
+  record_sample(
+    report,
+    "quality",
+    "enforced",
+    "pdf",
+    "markdown",
+    profile(wrap(enforced)),
+    "selftest",
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v3\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    29L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v4\texplicit_enforced\t*\t*\tbudget_inflate_bytes"],
+    31L,
+  )
+  assert_eq(
+    report.maxima["all\tlegacy_v1\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    9223372036854775807L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v4\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    43L,
+  )
+  assert_eq(report.benchmark_measured, 4)
+  assert_eq(report.quality_measured, 1)
+  let invalid_schema = self_test_profile_fields(
+    "partial_v3", "measurement_only",
+  )
+  invalid_schema["budget_schema"] = Json("partial_v5")
+  assert_true(rejects(wrap(invalid_schema)))
+  invalid_schema["budget_schema"] = Json::null()
+  assert_true(rejects(wrap(invalid_schema)))
+  invalid_schema["budget_schema"] = Json("partial_v3")
+  invalid_schema["budget_coverage"] = Json(accounting_policy("partial_v2").0)
+  assert_true(rejects(wrap(invalid_schema)))
+  assert_eq(counter_unit("partial_v3", "budget_parse_work"), "modeled_utf8_work_units")
+  assert_eq(counter_unit("partial_v4", "budget_parse_work"), "modeled_parse_work_units")
+  assert_eq(counter_unit("partial_v4", "budget_source_metadata_bytes"), "bytes")
+  invalid_schema["budget_schema"] = Json("partial_v4")
+  invalid_schema["budget_coverage"] = Json(accounting_policy("partial_v3").0)
+  assert_true(rejects(wrap(invalid_schema)))
+  assert_true(
+    measurement_scope("partial_v4", "budget_parse_work").contains("yaml_logical_nodes"),
+  )
+  assert_true(
+    measurement_scope("partial_v3", "budget_inflate_bytes").contains(
+      "pdf_flate",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v2", "budget_inflate_bytes").contains(
+      "non_zip_inflate_unmeasured",
+    ),
+  )
+  println("budget profile self-tests passed; no product run")
+}
+
+///|
+async fn main {
+  let options : Map[String, String] = Map([])
+  let args = @env.args()
+  if (args.length() - 1) % 2 != 0 {
+    fail(usage())
+  }
+  for i = 1; i < args.length(); i = i + 2 {
+    if ![
+        "--binary", "--evidence", "--lab", "--case", "--format", "--view", "--mode",
+        "--quality-evidence", "--source-archive", "--timeout-ms", "--validate-only",
+        "--self-test",
+      ].contains(args[i]) ||
+      options.contains(args[i]) {
+      fail("unknown or duplicate option: " + args[i])
+    }
+    options[args[i]] = args[i + 1]
+  }
+  if options.get("--self-test") == Some("true") {
+    self_test()
+    return
+  }
+  let evidence = options.get("--evidence").unwrap_or("")
+  if !evidence.has_prefix("/") || @fs.exists(evidence) {
+    fail("--evidence must be a fresh absolute directory")
+  }
+  @fs.mkdir(evidence, recursive=true)
+  let report = new_report(evidence)
+  let root = @env.current_dir().unwrap_or(".")
+  let validate_only = options.get("--validate-only").unwrap_or("false")
+  try {
+    if !["true", "false"].contains(validate_only) {
+      fail("invalid --validate-only")
+    }
+    let binary = options.get("--binary").unwrap_or("")
+    let hash = native_binary(report, binary)
+    ignore(
+      fingerprint(
+        report,
+        "acceptance_harness",
+        root + "/tools/regression/native_budget_profile.mbtx",
+      ),
+    )
+    source_inventory(report, root)
+    ignore(capture(report, "toolchain", "moon", ["version", "--all"]))
+    ignore(capture(report, "machine", "uname", ["-a"]))
+    if options.get("--source-archive") is Some(path) {
+      if !path.has_prefix("/") {
+        fail("--source-archive must be absolute")
+      }
+      ignore(fingerprint(report, "frozen_source_archive", path))
+    }
+    let lab = options.get("--lab").unwrap_or(root + "/markitdown-quality-lab")
+    if !lab.has_prefix("/") {
+      fail("--lab must be absolute")
+    }
+    ignore(capture(report, "lab-head", "git", ["-C", lab, "rev-parse", "HEAD"]))
+    ignore(
+      capture(report, "lab-status", "git", ["-C", lab, "status", "--short"]),
+    )
+    let manifest_path = lab + "/external_bench/MANIFEST.tsv"
+    let manifest_hash = digest(@fs.read_file(manifest_path).binary())
+    let cases = inventory(report, lab)
+    let selected = cases.filter(fn(item) {
+      (
+        options.get("--case").unwrap_or("") == "" ||
+        options["--case"] == item.id
+      ) &&
+      (
+        options.get("--format").unwrap_or("") == "" ||
+        options["--format"] == item.format
+      )
+    })
+    let view = options.get("--view").unwrap_or("all")
+    let mode = options.get("--mode").unwrap_or("balance")
+    let timeout = natural(options.get("--timeout-ms").unwrap_or("600000")).unwrap_or(
+      0L,
+    )
+    if timeout < 1L || timeout > 3600000L {
+      fail("invalid --timeout-ms; expected 1..3600000")
+    }
+    if !["all", "markdown", "debug", "rag"].contains(view) ||
+      !["balance", "accurate", "stream"].contains(mode) ||
+      selected.length() == 0 {
+      fail("invalid mode/view or zero selected cases")
+    }
+    let views = if view == "all" {
+      ["markdown", "debug", "rag"]
+    } else {
+      [view]
+    }
+    report.selected = selected.length() * views.length()
+    @fs.write_file(
+      evidence + "/configuration.json",
+      (
+        {
+          "scope": "measurement_not_performance",
+          "route": "collecting_cli",
+          "mode": Json(mode),
+          "views": Json(views),
+          "case_filter": Json(options.get("--case")),
+          "format_filter": Json(options.get("--format")),
+          "binary_sha256": Json(hash),
+          "validate_only": Json(validate_only),
+          "timeout_ms": Json(timeout.to_string()),
+        } : Json).stringify(indent=2),
+    )
+    if validate_only == "false" {
+      for item in selected {
+        for view in views {
+          benchmark_sample(
+            report,
+            root,
+            binary,
+            item,
+            mode,
+            view,
+            timeout.to_int(),
+          )
+        }
+      }
+    }
+    if options.get("--quality-evidence") is Some(path) {
+      quality_samples(report, path, hash)
+    }
+    if fingerprint(report, "native_executable_after", binary) != hash {
+      fail("binary changed during measurement")
+    }
+    if fingerprint(report, "benchmark_manifest_after", manifest_path) !=
+      manifest_hash {
+      fail("benchmark manifest changed during measurement")
+    }
+  } catch {
+    error => report.errors.push(error.to_string())
+  }
+  let status = if report.errors.length() > 0 || report.failed > 0 {
+    "fail"
+  } else if validate_only == "true" {
+    "validated_only"
+  } else {
+    "measurement_only"
+  }
+  save(report, status)
+  println(
+    status +
+    "; measured=" +
+    report.passed.to_string() +
+    "; failures=" +
+    report.failed.to_string() +
+    "; evidence=" +
+    evidence,
+  )
+  if status == "fail" {
+    fail("budget measurement failed; see saved evidence")
+  }
+}

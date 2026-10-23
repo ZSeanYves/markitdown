@@ -6,6 +6,8 @@ pub(all) enum PdfNativeError {
   EncryptedUnsupported(String)
   EmptyTextLayer(String)
   UnsupportedFeature(String)
+  BudgetExceeded(@budget.BudgetError)
+  StreamIntegrityFailed(@zlib.ZlibErrorKind, String)
 } derive(Eq)
 
 ///|
@@ -20,6 +22,8 @@ pub impl Show for PdfNativeError with fn to_string(self : PdfNativeError) -> Str
     EncryptedUnsupported(msg) => msg
     EmptyTextLayer(msg) => msg
     UnsupportedFeature(msg) => msg
+    BudgetExceeded(error) => @budget.budget_error_message(error)
+    StreamIntegrityFailed(_, message) => message
   }
 }
 
@@ -75,23 +79,29 @@ fn txt_ligature_expansion(ch : Char) -> String? {
 }
 
 ///|
-fn pdf_load_object_store(
+async fn pdf_load_object_store(
   source : @input.InputSource,
+  decode_context : PdfStreamDecodeContext?,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let cursor = match @input.open_source_cursor(source) {
     Ok(value) => value
-    Err(_) => return pdf_load_object_store_materialized(source)
+    Err(message) => return Err(ReadFailed(message))
+  }
+  match cursor.size {
+    Some(size) if size < 5L =>
+      return pdf_load_object_store_materialized(source, decode_context)
+    _ => ()
   }
   let prefix = match pdf_cursor_read_exact(cursor, 0, 5) {
     Ok(value) => value
-    Err(_) => return pdf_load_object_store_materialized(source)
+    Err(err) => return Err(err)
   }
   if pdf_byte_string(prefix) != "%PDF-" {
     return Err(
       ParseFailed("input is not a PDF file: " + pdf_native_source_id(source)),
     )
   }
-  match pdf_parse_objects_via_cursor(cursor) {
+  match pdf_parse_objects_via_cursor(cursor, decode_context~) {
     Ok(Some(store)) =>
       if pdf_parsed_store_is_encrypted(store) {
         Err(
@@ -103,13 +113,16 @@ fn pdf_load_object_store(
       } else {
         Ok(store)
       }
-    Ok(None) | Err(_) => pdf_load_object_store_materialized(source)
+    Err(ReadFailed(message)) => Err(ReadFailed(message))
+    Ok(None) | Err(_) =>
+      pdf_load_object_store_materialized(source, decode_context)
   }
 }
 
 ///|
-fn pdf_load_object_store_materialized(
+async fn pdf_load_object_store_materialized(
   source : @input.InputSource,
+  decode_context : PdfStreamDecodeContext?,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let bytes = match @input.read_input_bytes(source) {
     Ok(payload) => payload
@@ -142,24 +155,54 @@ fn pdf_load_object_store_materialized(
       ),
     )
   }
-  pdf_parse_objects(bytes, view)
+  pdf_parse_objects(bytes, view, decode_context~)
 }
 
 ///|
-pub fn extract_pdf_native_document_from_path(
+pub async fn extract_pdf_native_document_from_path(
   path : String,
 ) -> Result[PdfNativeDocument, PdfNativeError] {
   extract_pdf_native_document(@input.input_from_path(path))
 }
 
 ///|
-pub fn extract_pdf_native_document(
+/// Load through the shared asynchronous input session. Object/font/page
+/// materialization remains the current implementation; this entrypoint does
+/// not establish lightweight probing or the later page-lifetime optimization.
+pub async fn extract_pdf_native_document(
   source : @input.InputSource,
 ) -> Result[PdfNativeDocument, PdfNativeError] {
-  let parsed_store = match pdf_load_object_store(source) {
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let source = session.source
+  extract_pdf_native_document_impl(source) catch {
+    PdfHardDecodeFailure(error) => {
+      // Container callers may recover ordinary child parse errors. Compression
+      // integrity/resource failures must remain fatal in their shared scope.
+      @input.record_input_failure(source, error.to_string())
+      Err(error)
+    }
+    error => raise error
+  }
+}
+
+///|
+async fn extract_pdf_native_document_impl(
+  source : @input.InputSource,
+) -> Result[PdfNativeDocument, PdfNativeError] {
+  let parsed_store = match
+    pdf_load_object_store(source, pdf_make_stream_decode_context(source)) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
+  pdf_extract_document_from_store(source, parsed_store)
+}
+
+///|
+fn pdf_extract_document_from_store(
+  source : @input.InputSource,
+  parsed_store : PdfParsedObjectStore,
+) -> Result[PdfNativeDocument, PdfNativeError] raise PdfHardDecodeFailure {
   let objects = parsed_store.objects
   let object_index = parsed_store.object_index
   let font_registry = match pdf_collect_font_infos(object_index) {
@@ -541,7 +584,7 @@ pub fn extract_pdf_native_document(
 
 ///|
 priv struct PdfNativeObject {
-  object_id : Int
+  object_id : Int32
   dict_text : String
   stream : PdfNativeStreamSlice?
 }
@@ -550,7 +593,10 @@ priv struct PdfNativeObject {
 priv struct PdfNativeStreamSlice {
   primary_bytes : Bytes
   endstream_bytes : Bytes
-  declared_length : Int?
+  endstream_eol_suffix : Int32
+  endstream_eol_length : Int32
+  declared_length : Int32?
+  decode_context : PdfStreamDecodeContext?
 }
 
 ///|
@@ -559,7 +605,7 @@ priv struct PdfNativeFontInfo {
   normalized_base_font : String?
   descendant_subtype : String?
   encoding_name : String?
-  code_hex_widths : Array[Int]
+  code_hex_widths : Array[Int32]
   unicode_map : Map[String, String]
   tounicode_invalid_keys : Map[String, Bool]
   has_tounicode : Bool
@@ -568,33 +614,33 @@ priv struct PdfNativeFontInfo {
   predefined_cmap : PdfResolvedPredefinedCMap?
   cid_collection_cmap : PdfResolvedPredefinedCMap?
   embedded_font_program : PdfEmbeddedFontProgram?
-  cid_to_gid_map : Array[Int]?
-  simple_widths : Map[Int, Int]
-  simple_default_width : Int?
-  cid_width_pairs : Array[Int]
-  cid_default_width : Int?
-  cid_vertical_width_pairs : Array[Int]
-  cid_default_vertical_width : Int?
+  cid_to_gid_map : Array[Int32]?
+  simple_widths : Map[Int32, Int32]
+  simple_default_width : Int32?
+  cid_width_pairs : Array[Int32]
+  cid_default_width : Int32?
+  cid_vertical_width_pairs : Array[Int32]
+  cid_default_vertical_width : Int32?
 }
 
 ///|
 priv struct PdfNativeFontEncodingInfo {
   encoding_name : String?
-  code_hex_widths : Array[Int]
+  code_hex_widths : Array[Int32]
   unicode_map : Map[String, String]
 }
 
 ///|
 priv struct PdfFontRegistry {
-  infos : Map[Int, PdfNativeFontInfo]
-  inline_ids : Map[String, Int]
+  infos : Map[Int32, PdfNativeFontInfo]
+  inline_ids : Map[String, Int32]
 }
 
 ///|
 priv struct PdfToUnicodeCMapInfo {
   mapping : Map[String, String]
   invalid_keys : Map[String, Bool]
-  widths : Array[Int]
+  widths : Array[Int32]
   usecmap_name : String?
   builtin_parent_name : String?
 }
@@ -614,9 +660,9 @@ priv enum PdfCMapRawFallbackStatus {
 ///|
 priv struct PdfCMapStreamDecodeDiagnostics {
   filter_name : String
-  input_length : Int
-  declared_length : Int?
-  actual_sliced_length : Int
+  input_length : Int32
+  declared_length : Int32?
+  actual_sliced_length : Int32
   zlib_status : String
   raw_fallback : PdfCMapRawFallbackStatus
 }
@@ -675,7 +721,7 @@ priv struct PdfNativeGraphicsMatrix {
 ///|
 priv struct PdfParsedObjectStore {
   objects : Array[PdfNativeObject]
-  object_index : Map[Int, PdfNativeObject]
+  object_index : Map[Int32, PdfNativeObject]
   trailer_hints : Array[String]
   xref_mode : String
   filter_decode_mode : String
@@ -684,22 +730,22 @@ priv struct PdfParsedObjectStore {
 
 ///|
 priv enum PdfNativeXrefEntry {
-  InUse(Int, Int)
-  Compressed(Int, Int)
+  InUse(Int32, Int32)
+  Compressed(Int32, Int32)
 }
 
 ///|
 priv struct PdfParsedXrefSection {
-  entries : Map[Int, PdfNativeXrefEntry]
+  entries : Map[Int32, PdfNativeXrefEntry]
   trailer_text : String
-  next_offsets : Array[Int]
+  next_offsets : Array[Int32]
   used_xref_stream : Bool
   has_object_stream_refs : Bool
 }
 
 ///|
 priv struct PdfResolvedXrefChain {
-  entries : Map[Int, PdfNativeXrefEntry]
+  entries : Map[Int32, PdfNativeXrefEntry]
   trailer_hints : Array[String]
   used_xref_stream : Bool
   has_object_stream_refs : Bool
@@ -707,12 +753,12 @@ priv struct PdfResolvedXrefChain {
 
 ///|
 priv struct PdfXrefDirectObjectLocation {
-  object_id : Int
-  offset : Int
+  object_id : Int32
+  offset : Int32
 }
 
 ///|
 priv struct PdfXrefCompressedObjectRef {
-  object_id : Int
-  object_stream_id : Int
+  object_id : Int32
+  object_stream_id : Int32
 }

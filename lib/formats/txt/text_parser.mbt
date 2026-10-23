@@ -108,8 +108,8 @@ fn parse_text_document_with_profile(
   let paragraphs : Array[TextParagraph] = []
   let current_paragraph : Array[String] = []
   let line_chars : Array[Char] = []
-  let line_start : Ref[Int] = { val: 0, }
-  let line_end : Ref[Int] = { val: 0, }
+  let line_start : Ref[Int32] = { val: 0, }
+  let line_end : Ref[Int32] = { val: 0, }
   let mut line_no = 1
   let mut saw_lf = false
   let mut saw_crlf = false
@@ -204,8 +204,8 @@ fn parse_normalized_text_document_with_profile(
   let paragraphs : Array[TextParagraph] = []
   let current_paragraph : Array[String] = []
   let line_chars : Array[Char] = []
-  let line_start : Ref[Int] = { val: 0, }
-  let line_end : Ref[Int] = { val: 0, }
+  let line_start : Ref[Int32] = { val: 0, }
+  let line_end : Ref[Int32] = { val: 0, }
   let mut line_no = 1
 
   let newline_started = text_parse_profile_stage_started(profile)
@@ -332,12 +332,12 @@ fn summarize_text_newline_style(
 ///|
 fn finish_text_line(
   line_chars : Array[Char],
-  line_no : Int,
+  line_no : Int32,
   lines : Array[TextLine],
   current_paragraph : Array[String],
   paragraphs : Array[TextParagraph],
-  line_start : Ref[Int],
-  line_end : Ref[Int],
+  line_start : Ref[Int32],
+  line_end : Ref[Int32],
   profile_totals : TextParseProfileTotals?,
 ) -> Unit {
   let line_started = match profile_totals {
@@ -383,8 +383,8 @@ fn finish_text_line(
 fn flush_text_paragraph(
   current_paragraph : Array[String],
   paragraphs : Array[TextParagraph],
-  line_start : Ref[Int],
-  line_end : Ref[Int],
+  line_start : Ref[Int32],
+  line_end : Ref[Int32],
   profile_totals : TextParseProfileTotals?,
 ) -> Unit {
   if current_paragraph.length() == 0 {
@@ -410,7 +410,7 @@ fn flush_text_paragraph(
 }
 
 ///|
-fn bool_to_int(value : Bool) -> Int {
+fn bool_to_int(value : Bool) -> Int32 {
   if value {
     1
   } else {

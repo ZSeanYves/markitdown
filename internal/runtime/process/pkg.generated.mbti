@@ -2,7 +2,7 @@
 package "ZSeanYves/markitdown/internal/runtime/process"
 
 // Values
-pub fn exit_process(Int) -> Unit
+pub fn exit_process(Int32) -> Unit
 
 // Errors
 

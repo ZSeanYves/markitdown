@@ -1,4 +1,27 @@
 ///|
+async test "native upgrade sink chunks preserve Unicode scalar boundaries" {
+  let text = "a".repeat(64 * 1024 - 1) + "😀tail"
+  let chunks : Array[String] = []
+  let result = write_output_sink_bounded(
+    make_output_sink(
+      fn(chunk) {
+        chunks.push(chunk)
+        Ok(())
+      },
+      fn() { Ok(()) },
+    ),
+    text,
+  )
+  assert_eq(result, Ok(()))
+  assert_true(chunks.join("") == text)
+  for chunk in chunks {
+    assert_true(chunk.length() <= OUTPUT_SINK_CHUNK_CHARS)
+    assert_true(!chunk.at(chunk.length() - 1).is_leading_surrogate())
+    assert_true(!chunk.at(0).is_trailing_surrogate())
+  }
+}
+
+///|
 async test "sink output is equivalent to buffered conversion" {
   let source = @input.input_from_text("# Sink\n\nbody")
   let options = default_convert_options()

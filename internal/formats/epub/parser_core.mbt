@@ -2,25 +2,25 @@
 const EPUB_PARSER_NAME : String = "epub_parser"
 
 ///|
-const EPUB_MAX_CONTAINER_ENTRIES : Int = 512
+const EPUB_MAX_CONTAINER_ENTRIES : Int32 = 512
 
 ///|
-const EPUB_MAX_TOTAL_UNCOMPRESSED_BYTES : Int = 32 * 1024 * 1024
+const EPUB_MAX_TOTAL_UNCOMPRESSED_BYTES : Int32 = 32 * 1024 * 1024
 
 ///|
-const EPUB_MAX_SINGLE_ENTRY_BYTES : Int = 8 * 1024 * 1024
+const EPUB_MAX_SINGLE_ENTRY_BYTES : Int32 = 8 * 1024 * 1024
 
 ///|
-const EPUB_MAX_SELECTED_SPINE_DOCUMENTS : Int = 128
+const EPUB_MAX_SELECTED_SPINE_DOCUMENTS : Int32 = 128
 
 ///|
-const EPUB_MAX_MATERIALIZED_ASSETS : Int = 256
+const EPUB_MAX_MATERIALIZED_ASSETS : Int32 = 256
 
 ///|
-const EPUB_MAX_FILENAME_LENGTH : Int = 240
+const EPUB_MAX_FILENAME_LENGTH : Int32 = 240
 
 ///|
-const EPUB_MAX_DIRECTORY_DEPTH : Int = 16
+const EPUB_MAX_DIRECTORY_DEPTH : Int32 = 16
 
 ///|
 priv struct EpubAssetRewrite {
@@ -57,13 +57,20 @@ pub fn epub_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-fn epub_parse_with_package_core(
+async fn epub_parse_with_package_core(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
   pkg : @depub.EpubPackage,
   inspect : @depub.EpubInspectReport,
 ) -> @parser.ParseResult {
+  let context = @parser.parse_context_with_asset_limits(
+    context,
+    context.limits.max_asset_bytes.min(EPUB_MAX_SINGLE_ENTRY_BYTES.to_int64()),
+    context.limits.max_total_asset_bytes.min(
+      EPUB_MAX_TOTAL_UNCOMPRESSED_BYTES.to_int64(),
+    ),
+  )
   let requested_container = context.requested_mode == Some(ContainerRecursive)
   let effective_mode = if requested_container {
     @parser.ParserMode::ContainerRecursive
@@ -205,11 +212,15 @@ fn epub_parse_with_package_core(
   let nav_heading_blocks = epub_nav_blocks(pkg, container_path)
   merged_blocks.append(nav_heading_blocks[:])
   let cover_assets = epub_cover_assets(
-    pkg, container_path, asset_entry_infos, merged_blocks, merged_assets, diagnostics,
+    pkg, context, container_path, asset_entry_infos, merged_blocks, merged_assets,
+    diagnostics,
   )
   ignore(cover_assets)
 
   for spine_item in pkg.spine {
+    if @input.input_source_error(source) is Some(_) {
+      break
+    }
     if !spine_item.linear {
       continue
     }
@@ -277,11 +288,32 @@ fn epub_parse_with_package_core(
         selected_entry_count += 1
         decoded_total += entry_bytes.length()
         let inner_source = epub_inner_source(
-          container_path, resolved_path, detected_format, entry_bytes,
+          source, container_path, resolved_path, detected_format, entry_bytes,
+        )
+        let text = try
+          @depub.decode_part_text(pkg, resolved_path, entry_bytes) |> Ok
+        catch {
+          error => Err(error.to_string())
+        }
+        match text {
+          Ok(_) => ()
+          Err(_) => continue
+        }
+        // Validate the archive's encoding before the child parser can recover.
+        // Keep the verified raw representation: a Text payload would select
+        // runtime's separate predecoded HTML route and change valid content.
+        let inner_source = @input.with_prepared_bytes_payload(
+          inner_source, entry_bytes,
         )
         let inner_child = match
           epub_parse_inner_document(
-            registry, inner_source, detected_format, context,
+            registry,
+            inner_source,
+            detected_format,
+            @fshared.parse_context_with_remaining_asset_bytes(
+              context,
+              @parser.materialized_asset_payload_bytes(merged_assets),
+            ),
           ) {
           Ok(value) => value
           Err(err) => {
@@ -300,6 +332,8 @@ fn epub_parse_with_package_core(
         }
         epub_absorb_child_diagnostics(diagnostics, inner_child.diagnostics)
         let rewrites = epub_rewrite_child_assets(
+          pkg,
+          context,
           inner_child.assets,
           entry,
           asset_entry_infos,
@@ -359,7 +393,7 @@ fn epub_parse_with_package_core(
 }
 
 ///|
-pub fn epub_parse_with_package(
+pub async fn epub_parse_with_package(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
@@ -374,7 +408,7 @@ pub fn epub_parse_with_package(
 }
 
 ///|
-pub fn epub_parse_with_package_artifact(
+pub async fn epub_parse_with_package_artifact(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,

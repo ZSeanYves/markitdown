@@ -44,9 +44,9 @@ async fn convert_memory_text(
   text : String,
   source_name : String,
   format : @input.DetectedFormat,
-  mode? : @convert.ConvertMode = Balanced,
-  output? : @convert.OutputFormat = Markdown,
-  limits? : @product.ResourceLimits = @product.default_resource_limits(),
+  mode~ : @convert.ConvertMode = Balanced,
+  output~ : @convert.OutputFormat = Markdown,
+  limits~ : @product.ResourceLimits = @product.default_resource_limits(),
 ) -> @convert.ConvertResult {
   let options = @convert.make_convert_options(
     mode,
@@ -66,24 +66,26 @@ async fn convert_memory_text(
 
 ///|
 fn limits(
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-  max_line_chars? : Int = 4000,
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
+  max_line_chars~ : Int32 = 4000,
 ) -> @convert.ResourceLimits {
   @product.make_resource_limits(max_rows, max_cols, max_cells, max_line_chars~)
 }
 
 ///|
-fn default_registry_parse(
+async fn default_registry_parse(
   source : @input.InputSource,
   format : @input.DetectedFormat,
-  requested_mode? : @parser.ParserMode? = None,
-  max_rows? : Int? = None,
-  max_cols? : Int? = None,
-  max_cells? : Int? = None,
-  debug? : Bool = false,
+  requested_mode~ : @parser.ParserMode? = None,
+  max_rows~ : Int32? = None,
+  max_cols~ : Int32? = None,
+  max_cells~ : Int32? = None,
+  debug~ : Bool = false,
 ) -> @parser.ParseResult {
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(format),
@@ -94,7 +96,7 @@ fn default_registry_parse(
     None,
     debug,
   )
-  match @parser.registry_parse(registry, source, context) {
+  match @parser.registry_parse(registry, session.source, context) {
     Ok(result) => result
     Err(err) => abort("parse failed: " + err)
   }
@@ -183,7 +185,7 @@ fn assert_parse_result_matches_contract_spec(
   }
   assert_metric_pair("parser_name", spec.parser_name)
   assert_metric_pair("parser_mode", @parser.mode_name(spec.parser_mode))
-  let actual_shape = @runtime.parse_result_to_ir_input(result)
+  let actual_shape = @runtime.parse_result_to_ir_input(result).unwrap()
   let actual_ir_input_kind = match actual_shape {
     Document(_) => "document"
     BlockStream(_) => "block_stream"

@@ -17,7 +17,7 @@ fn xml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn xml_parser() -> @parser.Parser {
-  @parser.make_parser("xml_parser", DomAstModel, xml_parser_capability(), fn(
+  @parser.make_parser("xml_parser", DomAstModel, xml_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -37,6 +37,7 @@ pub fn xml_parse_with_structure_tokens(
     context,
     normalize_xml_text_for_next(text),
     tokenized=Some(tokens),
+    byte_normalization="leading_bom_removed_crlf_to_lf",
   )
 }
 
@@ -51,6 +52,7 @@ pub fn xml_parse_with_prepared_text(
     context,
     prepared.normalized_text,
     tokenized=prepared.tokens,
+    byte_normalization="leading_bom_removed",
   )
   if prepared.tokens is Some(_) &&
     context.requested_mode == Some(StreamingEvent) {
@@ -60,7 +62,7 @@ pub fn xml_parse_with_prepared_text(
 }
 
 ///|
-fn parse_xml_document_result(
+async fn parse_xml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
@@ -74,6 +76,7 @@ fn parse_xml_document_result(
       context,
       prepared.normalized_text,
       tokenized=prepared.tokens,
+      byte_normalization="leading_bom_removed",
     ),
   )
 }
@@ -83,7 +86,8 @@ fn parse_xml_document_result_from_normalized(
   source : @input.InputSource,
   context : @parser.ParseContext,
   normalized : String,
-  tokenized? : Array[@dxml.XmlToken]? = None,
+  tokenized~ : Array[@dxml.XmlToken]? = None,
+  byte_normalization~ : String,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "xml_parser",
@@ -203,7 +207,11 @@ fn parse_xml_document_result_from_normalized(
           summary.has_default_namespace ||
           has_multiline_attribute {
           return malformed_xml_text_parse_result(
-            source, normalized, diagnostics, "xml parser policy rejected structured lowering",
+            source,
+            normalized,
+            diagnostics,
+            "xml parser policy rejected structured lowering",
+            byte_normalization~,
           )
         }
         let compact_outline = normalized.length() >= 1_048_576
@@ -243,7 +251,13 @@ fn parse_xml_document_result_from_normalized(
         )
       }
       Err(err) =>
-        return malformed_xml_parse_result(source, normalized, diagnostics, err)
+        return malformed_xml_parse_result(
+          source,
+          normalized,
+          diagnostics,
+          err,
+          byte_normalization~,
+        )
     }
   }
 
@@ -256,7 +270,11 @@ fn parse_xml_document_result_from_normalized(
       let validation = @dxml.validate_xml_document(doc)
       if xml_requires_fail_closed_outline(doc, normalized) {
         return malformed_xml_text_parse_result(
-          source, normalized, diagnostics, "xml parser policy rejected structured lowering",
+          source,
+          normalized,
+          diagnostics,
+          "xml parser policy rejected structured lowering",
+          byte_normalization~,
         )
       }
       let document = lower_xml_document(doc, source)
@@ -284,7 +302,14 @@ fn parse_xml_document_result_from_normalized(
         xml_parser_capability(),
       )
     }
-    Err(err) => malformed_xml_parse_result(source, normalized, diagnostics, err)
+    Err(err) =>
+      malformed_xml_parse_result(
+        source,
+        normalized,
+        diagnostics,
+        err,
+        byte_normalization~,
+      )
   }
 }
 

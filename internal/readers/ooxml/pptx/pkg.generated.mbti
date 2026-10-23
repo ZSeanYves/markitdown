@@ -11,13 +11,13 @@ pub fn inspect_pptx_document(PptxDocument) -> PptxInspectReport
 
 pub fn normalize_pptx_source(PptxSourceDocument) -> PptxDocument
 
-pub fn open_pptx_document(String) -> PptxDocument raise
+pub async fn open_pptx_document(String) -> PptxDocument
 
-pub fn parse_pptx_document_from_package(@package.OoxmlPackage) -> PptxDocument raise
+pub async fn parse_pptx_document_from_package(@package.OoxmlPackage) -> PptxDocument
 
-pub fn parse_pptx_source(@package.OoxmlPackage) -> PptxSourceDocument raise
+pub async fn parse_pptx_source(@package.OoxmlPackage) -> PptxSourceDocument
 
-pub fn prepare_pptx_document_from_source(@input.InputSource) -> Result[PreparedPptxDocument, String]
+pub async fn prepare_pptx_document_from_source(@input.InputSource) -> Result[PreparedPptxDocument, String] noraise
 
 // Errors
 pub(all) suberror PptxError {
@@ -121,11 +121,11 @@ pub struct PptxDocumentMetadata {
 }
 
 pub struct PptxGeometry {
-  x : Int?
-  y : Int?
-  width : Int?
-  height : Int?
-  rotation : Int?
+  x : Int32?
+  y : Int32?
+  width : Int32?
+  height : Int32?
+  rotation : Int32?
 }
 
 pub struct PptxGroupShape {
@@ -170,16 +170,16 @@ pub(all) enum PptxInline {
 }
 
 pub struct PptxInspectReport {
-  slide_count : Int
-  object_count : Int
-  shape_count : Int
-  picture_count : Int
-  table_count : Int
-  unsupported_count : Int
-  media_count : Int
-  notes_count : Int
-  comment_count : Int
-  warning_count : Int
+  slide_count : Int32
+  object_count : Int32
+  shape_count : Int32
+  picture_count : Int32
+  table_count : Int32
+  unsupported_count : Int32
+  media_count : Int32
+  notes_count : Int32
+  comment_count : Int32
+  warning_count : Int32
 }
 
 pub struct PptxLayoutRef {
@@ -212,7 +212,7 @@ pub fn PptxLayoutRegionKind::equal(Self, Self) -> Bool
 pub fn PptxLayoutRegionKind::not_equal(Self, Self) -> Bool
 
 pub struct PptxListHint {
-  level : Int
+  level : Int32
   bullet : PptxBulletKind?
   source : String
   confidence : PptxConfidence
@@ -307,7 +307,7 @@ pub struct PptxPartGraph {
 pub struct PptxPartInfo {
   part_name : String
   content_type : String?
-  size : Int
+  size : Int32
   is_relationships_part : Bool
   has_relationships : Bool
 }
@@ -379,7 +379,7 @@ pub fn PptxReadingBucket::not_equal(Self, Self) -> Bool
 
 pub struct PptxReadingOrderHint {
   bucket : PptxReadingBucket
-  priority : Int
+  priority : Int32
   order_key : String
   confidence : PptxConfidence
   reason : String
@@ -429,7 +429,7 @@ pub struct PptxShape {
 
 pub struct PptxSlide {
   slide_id : String?
-  slide_index : Int
+  slide_index : Int32
   part_name : String
   relationship_id : String?
   hidden : Bool
@@ -447,7 +447,7 @@ pub struct PptxSlide {
 
 pub struct PptxSlideRef {
   slide_id : String?
-  slide_index : Int
+  slide_index : Int32
   part_name : String
   relationship_id : String?
   hidden : Bool
@@ -525,8 +525,8 @@ pub struct PptxSourceSlide {
 pub struct PptxSourceSpan {
   part_name : String
   node_key : String
-  start_offset : Int?
-  end_offset : Int?
+  start_offset : Int32?
+  end_offset : Int32?
 }
 
 pub struct PptxTable {
@@ -536,17 +536,17 @@ pub struct PptxTable {
 }
 
 pub struct PptxTableCell {
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   paragraphs : Array[PptxParagraph]
-  grid_span : Int?
-  row_span : Int?
+  grid_span : Int32?
+  row_span : Int32?
   merge_hint : String?
   source_key : PptxSourceKey
 }
 
 pub struct PptxTableRow {
-  row_index : Int
+  row_index : Int32
   cells : Array[PptxTableCell]
   source_key : PptxSourceKey
 }

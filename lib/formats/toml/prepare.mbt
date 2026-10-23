@@ -9,7 +9,7 @@ pub struct PreparedTomlDocument {
 }
 
 ///|
-pub fn prepare_toml_document_from_source(
+pub async fn prepare_toml_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTomlDocument, String] {
   let text_payload = match @sourceio.read_source_text(source) {

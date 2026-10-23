@@ -1,8 +1,8 @@
 ///|
 fn detect_asciidoc_attribute_table(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   if !asciidoc_is_attribute_entry(lines[index].trim().to_owned()) {
     return None
   }
@@ -41,8 +41,8 @@ fn detect_asciidoc_attribute_table(
 ///|
 fn detect_asciidoc_include_directive(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix("include::") {
     return None
@@ -89,8 +89,8 @@ fn detect_asciidoc_include_directive(
 ///|
 fn detect_asciidoc_source_block(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix("[") ||
     !trimmed.has_suffix("]") ||
@@ -145,8 +145,8 @@ fn detect_asciidoc_source_block(
 ///|
 fn detect_asciidoc_quote_block(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix("[") ||
     !trimmed.has_suffix("]") ||
@@ -209,8 +209,8 @@ fn detect_asciidoc_quote_block(
 ///|
 fn detect_asciidoc_block_admonition(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix("[") || !trimmed.has_suffix("]") {
     return None
@@ -262,8 +262,8 @@ fn detect_asciidoc_block_admonition(
 ///|
 fn detect_tex_metadata_table(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let rows : Array[(String, String)] = []
   let mut i = index
   while i < lines.length() {
@@ -301,8 +301,8 @@ fn detect_tex_metadata_table(
 ///|
 fn detect_tex_include_directive(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = tex_strip_trailing_comment(lines[index].trim().to_owned())
   if trimmed.has_prefix("\\includegraphics") && trimmed.has_suffix("}") {
     let open = match trimmed.find("{") {
@@ -369,8 +369,8 @@ fn detect_tex_include_directive(
 ///|
 fn detect_tex_environment_block(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = tex_strip_trailing_comment(lines[index].trim().to_owned())
   match tex_parse_begin_environment(trimmed) {
     Some((env, _suffix)) => {
@@ -460,8 +460,8 @@ fn tex_parse_begin_environment(line : String) -> (String, String)? {
 ///|
 fn detect_tex_item(
   context : MarkupParseContext,
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = markup_trimmed_line(context, index)
   if !trimmed.has_prefix("\\item") {
     return None
@@ -503,7 +503,7 @@ fn detect_tex_item(
 }
 
 ///|
-fn tex_heading_level(line : String) -> (Int, String)? {
+fn tex_heading_level(line : String) -> (Int32, String)? {
   let line = tex_strip_trailing_comment(line.trim().to_owned())
   for
     entry in [
@@ -560,7 +560,7 @@ fn rst_table_border(line : String) -> Bool {
 }
 
 ///|
-fn rst_heading_level(line : String) -> Int {
+fn rst_heading_level(line : String) -> Int32 {
   match line.to_array()[0] {
     '=' => 1
     '-' => 2
@@ -580,7 +580,7 @@ fn normalize_markup_text(text : String) -> String {
 }
 
 ///|
-fn count_markup_lines(text : String) -> Int {
+fn count_markup_lines(text : String) -> Int32 {
   if text == "" {
     return 0
   }

@@ -32,7 +32,7 @@ fn hidden_slide_note_text(slide : @pptxdoc.PptxSlide) -> String? {
 ///|
 fn pptx_note_hidden_slide_skipped(
   diagnostics : @core.Diagnostics,
-  slide_index : Int,
+  slide_index : Int32,
 ) -> Unit {
   let warning = "hidden pptx slide skipped: Slide " + slide_index.to_string()
   if !diagnostics.warnings.contains(warning) {
@@ -221,12 +221,12 @@ fn pptx_shape_source_ref(
 fn pptx_next_shape_top(
   slide : @pptxdoc.PptxSlide,
   shape : @pptxdoc.PptxShape,
-) -> Int? {
+) -> Int32? {
   let current_top = match shape_geometry_top(shape) {
     Some(value) => value
     None => return None
   }
-  let mut next_top : Int? = None
+  let mut next_top : Int32? = None
   for obj in slide.objects {
     match obj {
       Shape(other) =>
@@ -249,7 +249,7 @@ fn pptx_next_shape_top(
 }
 
 ///|
-fn shape_geometry_top(shape : @pptxdoc.PptxShape) -> Int? {
+fn shape_geometry_top(shape : @pptxdoc.PptxShape) -> Int32? {
   match shape.geometry {
     Some(geo) => geo.y
     None => None

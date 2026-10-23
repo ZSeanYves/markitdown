@@ -57,7 +57,7 @@ fn pdf_wbtest_image_only_pdf_bytes() -> Bytes {
 ///|
 fn pdf_wbtest_single_image_pdf_bytes(
   image_object_lines : Array[String],
-  extra_object_lines? : Array[String] = [],
+  extra_object_lines~ : Array[String] = [],
 ) -> Bytes {
   let content = ["q", "32 0 0 24 72 120 cm", "/Im0 Do", "Q", ""].join("\n")
   let lines : Array[String] = ["%PDF-1.4"]
@@ -88,7 +88,7 @@ fn pdf_wbtest_single_image_pdf_bytes(
 fn pdf_wbtest_single_page_text_pdf_bytes(
   font_object_lines : Array[String],
   content : String,
-  extra_object_lines? : Array[String] = [],
+  extra_object_lines~ : Array[String] = [],
 ) -> Bytes {
   let lines : Array[String] = ["%PDF-1.4"]
   lines.append(font_object_lines[:])
@@ -367,19 +367,19 @@ fn pdf_wbtest_bytes_from_hex(hex : String) -> Bytes {
 
 ///|
 priv struct PdfWbtestXrefEntry {
-  object_id : Int
-  entry_type : Int
-  field1 : Int
-  field2 : Int
+  object_id : Int32
+  entry_type : Int32
+  field1 : Int32
+  field2 : Int32
 }
 
 ///|
-fn pdf_wbtest_indirect_object_text(object_id : Int, body : String) -> String {
+fn pdf_wbtest_indirect_object_text(object_id : Int32, body : String) -> String {
   object_id.to_string() + " 0 obj\n" + body + "\nendobj\n"
 }
 
 ///|
-fn pdf_wbtest_hex_big_endian(value : Int, width : Int) -> String {
+fn pdf_wbtest_hex_big_endian(value : Int32, width : Int32) -> String {
   let parts : Array[String] = []
   let mut shift = (width - 1) * 8
   while shift >= 0 {
@@ -391,9 +391,9 @@ fn pdf_wbtest_hex_big_endian(value : Int, width : Int) -> String {
 
 ///|
 fn pdf_wbtest_xref_stream_entry_hex(
-  entry_type : Int,
-  field1 : Int,
-  field2 : Int,
+  entry_type : Int32,
+  field1 : Int32,
+  field2 : Int32,
 ) -> String {
   pdf_wbtest_hex_big_endian(entry_type, 1) +
   pdf_wbtest_hex_big_endian(field1, 4) +
@@ -402,13 +402,13 @@ fn pdf_wbtest_xref_stream_entry_hex(
 
 ///|
 fn pdf_wbtest_xref_stream_pdf_bytes(
-  direct_objects : Array[(Int, String)],
-  root_object_id : Int,
-  xref_object_id : Int,
-  extra_entries? : Array[PdfWbtestXrefEntry] = [],
+  direct_objects : Array[(Int32, String)],
+  root_object_id : Int32,
+  xref_object_id : Int32,
+  extra_entries~ : Array[PdfWbtestXrefEntry] = [],
 ) -> Bytes {
   let chunks : Array[String] = ["%PDF-1.5\n"]
-  let object_offsets : Map[Int, Int] = Map([])
+  let object_offsets : Map[Int32, Int32] = Map([])
   let mut current_offset = chunks[0].length()
   let mut max_object_id = xref_object_id
   for entry in direct_objects {
@@ -422,7 +422,7 @@ fn pdf_wbtest_xref_stream_pdf_bytes(
     }
   }
   let xref_offset = current_offset
-  let entry_overrides : Map[Int, PdfWbtestXrefEntry] = Map([])
+  let entry_overrides : Map[Int32, PdfWbtestXrefEntry] = Map([])
   for entry in extra_entries {
     entry_overrides.set(entry.object_id, entry)
     if entry.object_id > max_object_id {
@@ -473,7 +473,7 @@ fn pdf_wbtest_xref_stream_pdf_bytes(
 }
 
 ///|
-fn pdf_wbtest_object_stream_body(entries : Array[(Int, String)]) -> String {
+fn pdf_wbtest_object_stream_body(entries : Array[(Int32, String)]) -> String {
   let header_parts : Array[String] = []
   let body_parts : Array[String] = []
   let mut offset = 0
@@ -503,7 +503,70 @@ fn pdf_wbtest_object_stream_body(entries : Array[(Int, String)]) -> String {
 }
 
 ///|
-test "pdf native backend repeated extraction stays cache-free and artifact-neutral" {
+async test "pdf native backend awaits caller short reads without owning the Reader" {
+  let bytes = pdf_wbtest_tiny_pdf_bytes()
+  let calls = Ref(0)
+  let reader = @input.make_async_input_reader(
+    async fn(offset, length) {
+      calls.val += 1
+      @async.sleep(1)
+      let start = offset.to_int()
+      if start >= bytes.length() {
+        return Ok(b"")
+      }
+      Ok(bytes[start:(start + length.min(31)).min(bytes.length())].to_owned())
+    },
+    size=bytes.length().to_int64(),
+  )
+  let source = @input.input_from_reader_with_format(
+    reader,
+    "short-read.pdf",
+    Some(Pdf),
+  )
+  let document = extract_pdf_native_document(source).unwrap()
+  assert_eq(document.pages.length(), 1)
+  assert_true(calls.val > 3)
+  assert_true(
+    pdf_native_line_text(document.pages[0].text_blocks[0].lines[0]).contains(
+      "Hello PDF backend",
+    ),
+  )
+  // Ending the extractor's owned session cannot invalidate a caller Reader.
+  let cursor = @input.open_source_cursor(source).unwrap()
+  defer @input.source_cursor_close(cursor)
+  assert_eq(
+    @input.source_cursor_read_exact_at(cursor, 0L, 5).unwrap(),
+    b"%PDF-",
+  )
+}
+
+///|
+async test "pdf native backend preserves header and xref IO errors without retrying materialization" {
+  let bytes = pdf_wbtest_tiny_pdf_bytes()
+  for failure_call in [1, 2] {
+    let calls = Ref(0)
+    let reader = @input.make_async_input_reader(
+      async fn(offset, length) {
+        calls.val += 1
+        @async.sleep(1)
+        if calls.val == failure_call {
+          return Err("pdf IO sentinel")
+        }
+        let start = offset.to_int()
+        Ok(bytes[start:(start + length).min(bytes.length())].to_owned())
+      },
+      size=bytes.length().to_int64(),
+    )
+    let result = extract_pdf_native_document(
+      @input.input_from_reader_with_format(reader, "failed-once.pdf", Some(Pdf)),
+    )
+    assert_true(result is Err(ReadFailed("pdf IO sentinel")))
+    assert_eq(calls.val, failure_call)
+  }
+}
+
+///|
+async test "pdf native backend repeated extraction stays cache-free and artifact-neutral" {
   let bytes = pdf_wbtest_tiny_pdf_bytes()
   let source = @input.input_from_bytes_with_format(
     bytes,
@@ -535,7 +598,7 @@ test "pdf native backend repeated extraction stays cache-free and artifact-neutr
 }
 
 ///|
-test "pdf native backend extracts exportable image xobjects without empty text failures" {
+async test "pdf native backend extracts exportable image xobjects without empty text failures" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_image_only_pdf_bytes(),
     "image-only.pdf",
@@ -571,7 +634,10 @@ test "pdf image budget rejects oversized decoded dimensions before filters run" 
   let stream : PdfNativeStreamSlice = {
     primary_bytes: Bytes::from_array([(0).to_byte()]),
     endstream_bytes: Bytes::from_array([]),
+    endstream_eol_suffix: 0,
+    endstream_eol_length: 0,
     declared_length: Some(1),
+    decode_context: None,
   }
   let oversized : PdfNativeObject = {
     object_id: 1,
@@ -583,13 +649,13 @@ test "pdf image budget rejects oversized decoded dimensions before filters run" 
     dict_text: "<< /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 >>",
     stream: Some(stream),
   }
-  let object_index : Map[Int, PdfNativeObject] = Map([])
+  let object_index : Map[Int32, PdfNativeObject] = Map([])
   assert_true(pdf_image_decode_budget_exceeded(oversized, object_index, stream))
   assert_false(pdf_image_decode_budget_exceeded(small, object_index, stream))
 }
 
 ///|
-test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
+async test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_rgb_pixels_image_pdf_bytes(),
     "rgb-pixels.pdf",
@@ -618,7 +684,7 @@ test "pdf native backend normalizes decoded RGB pixels as PNG assets" {
 }
 
 ///|
-test "pdf native backend composes a matching soft mask into RGBA PNG" {
+async test "pdf native backend composes a matching soft mask into RGBA PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_smask_image_pdf_bytes(),
     "smask-image.pdf",
@@ -633,7 +699,7 @@ test "pdf native backend composes a matching soft mask into RGBA PNG" {
 }
 
 ///|
-test "pdf native backend composes a color-key mask into RGBA PNG" {
+async test "pdf native backend composes a color-key mask into RGBA PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_color_key_image_pdf_bytes(),
     "color-key-image.pdf",
@@ -646,7 +712,7 @@ test "pdf native backend composes a color-key mask into RGBA PNG" {
 }
 
 ///|
-test "pdf native backend normalizes decoded CMYK pixels into RGB PNG" {
+async test "pdf native backend normalizes decoded CMYK pixels into RGB PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_cmyk_pixels_image_pdf_bytes(),
     "cmyk-pixels.pdf",
@@ -660,7 +726,7 @@ test "pdf native backend normalizes decoded CMYK pixels into RGB PNG" {
 }
 
 ///|
-test "pdf native backend expands indexed palette pixels into RGB PNG" {
+async test "pdf native backend expands indexed palette pixels into RGB PNG" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_indexed_pixels_image_pdf_bytes(),
     "indexed-pixels.pdf",
@@ -674,7 +740,7 @@ test "pdf native backend expands indexed palette pixels into RGB PNG" {
 }
 
 ///|
-test "pdf native backend resolves indirect Indexed ICCBased palette and soft mask" {
+async test "pdf native backend resolves indirect Indexed ICCBased palette and soft mask" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_indirect_indexed_icc_smask_pdf_bytes(),
     "indirect-indexed-icc-smask.pdf",
@@ -707,7 +773,7 @@ test "pdf native backend resolves indirect Indexed ICCBased palette and soft mas
 }
 
 ///|
-test "pdf native backend diagnoses unsupported indirect image colorspaces without bin assets" {
+async test "pdf native backend diagnoses unsupported indirect image colorspaces without bin assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_unsupported_colorspace_image_pdf_bytes(),
     "unsupported-colorspace.pdf",
@@ -737,7 +803,7 @@ test "pdf native backend diagnoses unsupported indirect image colorspaces withou
 ///|
 test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
   for component_count in [1, 3, 4] {
-    let objects : Map[Int, PdfNativeObject] = Map([])
+    let objects : Map[Int32, PdfNativeObject] = Map([])
     objects.set(7, {
       object_id: 7,
       dict_text: "[ /ICCBased 8 0 R ]",
@@ -762,18 +828,18 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
     }
     assert_true(matches)
   }
-  let missing : Map[Int, PdfNativeObject] = Map([])
+  let missing : Map[Int32, PdfNativeObject] = Map([])
   assert_true(
     pdf_resolve_image_color_space_value(Reference(99, 0), missing, 0, [])
     is None,
   )
-  let cycle : Map[Int, PdfNativeObject] = Map([])
+  let cycle : Map[Int32, PdfNativeObject] = Map([])
   cycle.set(7, { object_id: 7, dict_text: "8 0 R", stream: None, })
   cycle.set(8, { object_id: 8, dict_text: "7 0 R", stream: None, })
   assert_true(
     pdf_resolve_image_color_space_value(Reference(7, 0), cycle, 0, []) is None,
   )
-  let deep : Map[Int, PdfNativeObject] = Map([])
+  let deep : Map[Int32, PdfNativeObject] = Map([])
   for object_id in 1..<11 {
     deep.set(object_id, {
       object_id,
@@ -794,7 +860,7 @@ test "pdf image colorspace resolver bounds indirect references and ICC fallbacks
 }
 
 ///|
-test "pdf native backend exports ccitt fax images as tracked tiff assets" {
+async test "pdf native backend exports ccitt fax images as tracked tiff assets" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_ccitt_image_pdf_bytes(),
     "ccitt-image.pdf",
@@ -839,7 +905,7 @@ test "pdf native backend exports ccitt fax images as tracked tiff assets" {
 }
 
 ///|
-test "pdf native backend preserves jpx images after prefix filter decode" {
+async test "pdf native backend preserves jpx images after prefix filter decode" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_jpx_image_pdf_bytes(),
     "jpx-image.pdf",
@@ -873,7 +939,7 @@ test "pdf native backend preserves jpx images after prefix filter decode" {
 }
 
 ///|
-test "pdf native backend preserves jbig2 globals and raw asset metadata" {
+async test "pdf native backend preserves jbig2 globals and raw asset metadata" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_jbig2_image_pdf_bytes(),
     "jbig2-image.pdf",
@@ -956,7 +1022,7 @@ test "pdf native backend keeps vertical fragments in right-to-left top-down orde
 }
 
 ///|
-test "pdf native backend decodes euc-h raw text without tounicode" {
+async test "pdf native backend decodes euc-h raw text without tounicode" {
   let content = "BT /F1 24 Tf 72 160 Td <A4A2A4A4A4A6A4A8A4AA> Tj ET"
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_single_page_text_pdf_bytes(
@@ -982,7 +1048,7 @@ test "pdf native backend decodes euc-h raw text without tounicode" {
 }
 
 ///|
-test "pdf native backend decodes shift-jis raw text without tounicode" {
+async test "pdf native backend decodes shift-jis raw text without tounicode" {
   let content = "BT /F1 24 Tf 72 160 Td <82A082A282A482A682A8> Tj ET"
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_single_page_text_pdf_bytes(
@@ -1008,7 +1074,7 @@ test "pdf native backend decodes shift-jis raw text without tounicode" {
 }
 
 ///|
-test "pdf native backend decodes inline type0 font resources" {
+async test "pdf native backend decodes inline type0 font resources" {
   let content = "BT /F0 24 Tf 72 160 Td <6162632082A082A282A4> Tj ET"
   let source = @input.input_from_bytes_with_format(
     @utf8.encode(
@@ -1053,7 +1119,7 @@ test "pdf native backend decodes inline type0 font resources" {
 }
 
 ///|
-test "pdf native backend decodes raw gb text when chinese font names are hex escaped" {
+async test "pdf native backend decodes raw gb text when chinese font names are hex escaped" {
   let content = "BT /F1 24 Tf 72 160 Td <C4BFC2BC20> Tj ET"
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_single_page_text_pdf_bytes(
@@ -1163,7 +1229,7 @@ test "pdf predefined unicode runs handle boundaries and vertical overrides" {
 }
 
 ///|
-test "pdf native backend resolves tounicode usecmap builtin parents" {
+async test "pdf native backend resolves tounicode usecmap builtin parents" {
   let tounicode = [
     "/CIDInit /ProcSet findresource begin", "12 dict begin", "begincmap", "/Adobe-Japan1-UCS2 usecmap",
     "1 begincodespacerange", "<0000> <FFFF>", "endcodespacerange", "endcmap", "end",
@@ -1219,7 +1285,7 @@ test "pdf tounicode bfrange marks noncharacters invalid" {
 }
 
 ///|
-test "pdf native backend applies simple font encoding differences" {
+async test "pdf native backend applies simple font encoding differences" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_single_page_text_pdf_bytes(
       [
@@ -1248,7 +1314,7 @@ test "pdf native backend applies simple font encoding differences" {
 }
 
 ///|
-test "pdf native backend decodes ETen-B5 CID fonts without tounicode" {
+async test "pdf native backend decodes ETen-B5 CID fonts without tounicode" {
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_single_page_text_pdf_bytes(
       [
@@ -1413,7 +1479,7 @@ test "pdf direct cid family decode recovers identity h japan1 cids" {
     Some(value) => value
     None => fail("expected Adobe-Japan1 cid family cmap")
   }
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   for byte in pdf_wbtest_bytes_from_hex("00350049004A0054").to_array() {
     bytes.push(byte.to_int())
   }
@@ -1430,7 +1496,7 @@ test "pdf direct cid family decode recovers identity v japan1 cids" {
     Some(value) => value
     None => fail("expected vertical Adobe-Japan1 cid family cmap")
   }
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   for byte in pdf_wbtest_bytes_from_hex("034B034D034F03510353").to_array() {
     bytes.push(byte.to_int())
   }
@@ -1447,7 +1513,7 @@ test "pdf predefined cmap keeps single byte prefix on mixed width shift jis" {
     Some(value) => value
     None => fail("expected 90ms-RKSJ-V predefined cmap")
   }
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   for byte in pdf_wbtest_bytes_from_hex("6162632082A082A282A4").to_array() {
     bytes.push(byte.to_int())
   }
@@ -1459,7 +1525,7 @@ test "pdf predefined cmap keeps single byte prefix on mixed width shift jis" {
 }
 
 ///|
-test "pdf native backend reads xref stream documents without scan fallback" {
+async test "pdf native backend reads xref stream documents without scan fallback" {
   let content = "BT /F1 12 Tf 1 0 0 1 50 150 Tm (XRef stream works) Tj ET"
   let source = @input.input_from_bytes_with_format(
     pdf_wbtest_xref_stream_pdf_bytes(
@@ -1503,7 +1569,7 @@ test "pdf native backend reads xref stream documents without scan fallback" {
 }
 
 ///|
-test "pdf cursor fallback and read failures stay controlled" {
+async test "pdf cursor fallback and read failures stay controlled" {
   let bytes = pdf_wbtest_xref_stream_pdf_bytes(
     [
       (1, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
@@ -1566,7 +1632,7 @@ test "pdf cursor fallback and read failures stay controlled" {
 }
 
 ///|
-test "pdf native backend expands object streams referenced from xref streams" {
+async test "pdf native backend expands object streams referenced from xref streams" {
   let content = "BT /F1 12 Tf 1 0 0 1 50 150 Tm (ObjStm works) Tj ET"
   let object_stream = pdf_wbtest_object_stream_body([
     (1, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"),
@@ -1632,7 +1698,7 @@ test "pdf native backend handles unicode terminal punctuation without crashing" 
 }
 
 ///|
-test "pdf native backend malformed input stays fail closed" {
+async test "pdf native backend malformed input stays fail closed" {
   let source = @input.input_from_bytes_with_format(
     @utf8.encode("not-a-pdf"),
     "broken.pdf",
@@ -1645,7 +1711,7 @@ test "pdf native backend malformed input stays fail closed" {
 }
 
 ///|
-test "pdf native backend errors input kinds and ligatures remain diagnostic" {
+async test "pdf native backend errors input kinds and ligatures remain diagnostic" {
   let errors = [
     PdfNativeError::BackendUnavailable("backend unavailable"),
     ReadFailed("read failed"),
@@ -1748,11 +1814,11 @@ test "pdf xref helpers cover modes offsets trailer hints and object headers" {
 
 ///|
 test "pdf stream slicing covers absent malformed newline and length variants" {
-  match pdf_extract_stream_slice(@utf8.encode("<< /Type /Example >>")) {
+  match pdf_extract_stream_slice(@utf8.encode("<< /Type /Example >>"), None) {
     Ok(None) => ()
     _ => fail("non-stream object must stay absent")
   }
-  match pdf_extract_stream_slice(@utf8.encode("<< >> stream\npayload")) {
+  match pdf_extract_stream_slice(@utf8.encode("<< >> stream\npayload"), None) {
     Err(ParseFailed(message)) => assert_true(message.contains("endstream"))
     _ => fail("unterminated stream must fail closed")
   }
@@ -1763,7 +1829,7 @@ test "pdf stream slicing covers absent malformed newline and length variants" {
     "<< /Length 2147483647 >> stream\nabc\nendstream",
   ]
   for body in cases {
-    match pdf_extract_stream_slice(@utf8.encode(body)) {
+    match pdf_extract_stream_slice(@utf8.encode(body), None) {
       Ok(Some((dict_text, stream))) => {
         assert_true(dict_text.contains("<<"))
         assert_eq(stream.primary_bytes.length(), 3)
@@ -1968,17 +2034,17 @@ test "pdf CJK signal and safe ASCII classifiers cover all supported ranges" {
 }
 
 ///|
-fn pdf_wbtest_byte_ints(bytes : Bytes) -> Array[Int] {
+fn pdf_wbtest_byte_ints(bytes : Bytes) -> Array[Int32] {
   bytes.to_array().map(byte => byte.to_int())
 }
 
 ///|
 fn pdf_wbtest_decode_params(
-  predictor? : Int? = None,
-  colors? : Int? = None,
-  bits_per_component? : Int? = None,
-  columns? : Int? = None,
-  early_change? : Int? = None,
+  predictor~ : Int32? = None,
+  colors~ : Int32? = None,
+  bits_per_component~ : Int32? = None,
+  columns~ : Int32? = None,
+  early_change~ : Int32? = None,
 ) -> PdfStreamDecodeParams {
   { predictor, colors, bits_per_component, columns, early_change, }
 }
@@ -2032,19 +2098,19 @@ test "pdf ASCII hex and ASCII85 codecs cover padding whitespace and errors" {
 test "pdf run length and LZW primitives cover literal repeat end and bounds" {
   match
     decode_pdf_run_length_stream(
-      Bytes::from_array([2, 65, 66, 67, 254, 90, 128].map(Int::to_byte)),
+      Bytes::from_array([2, 65, 66, 67, 254, 90, 128].map(Int32::to_byte)),
     ) {
     Ok(value) =>
       assert_true(pdf_wbtest_byte_ints(value) == [65, 66, 67, 90, 90, 90])
     Err(error) => fail(error)
   }
   match
-    decode_pdf_run_length_stream(Bytes::from_array([2, 65].map(Int::to_byte))) {
+    decode_pdf_run_length_stream(Bytes::from_array([2, 65].map(Int32::to_byte))) {
     Err(error) => assert_true(error.contains("literal"))
     Ok(_) => fail("truncated literal run must fail")
   }
   match
-    decode_pdf_run_length_stream(Bytes::from_array([255].map(Int::to_byte))) {
+    decode_pdf_run_length_stream(Bytes::from_array([255].map(Int32::to_byte))) {
     Err(error) => assert_true(error.contains("missing"))
     Ok(_) => fail("truncated repeat run must fail")
   }
@@ -2052,7 +2118,7 @@ test "pdf run length and LZW primitives cover literal repeat end and bounds" {
   assert_eq(dictionary.length(), 256)
   assert_true(dictionary.get(65).unwrap()[0].to_int() == 65)
   assert_true(
-    pdf_lzw_read_code(Bytes::from_array([0x80, 0].map(Int::to_byte)), 0, 9) ==
+    pdf_lzw_read_code(Bytes::from_array([0x80, 0].map(Int32::to_byte)), 0, 9) ==
     Some(256),
   )
   assert_true(pdf_lzw_read_code(Bytes::new(0), 0, 9) is None)
@@ -2060,7 +2126,7 @@ test "pdf run length and LZW primitives cover literal repeat end and bounds" {
   assert_true(
     pdf_wbtest_byte_ints(
       Bytes::from_array(
-        pdf_lzw_entry_with_suffix([65].map(Int::to_byte), (66).to_byte()),
+        pdf_lzw_entry_with_suffix([65].map(Int32::to_byte), (66).to_byte()),
       ),
     ) ==
     [65, 66],
@@ -2093,7 +2159,7 @@ test "pdf predictor codecs cover TIFF PNG filters defaults and invalid params" {
   }
   match
     pdf_apply_tiff_predictor(
-      Bytes::from_array([10, 1, 1, 20, 2, 2].map(Int::to_byte)),
+      Bytes::from_array([10, 1, 1, 20, 2, 2].map(Int32::to_byte)),
       base,
     ) {
     Ok(value) =>
@@ -2101,7 +2167,10 @@ test "pdf predictor codecs cover TIFF PNG filters defaults and invalid params" {
     Err(error) => fail(error)
   }
   match
-    pdf_apply_tiff_predictor(Bytes::from_array([1, 2].map(Int::to_byte)), base) {
+    pdf_apply_tiff_predictor(
+      Bytes::from_array([1, 2].map(Int32::to_byte)),
+      base,
+    ) {
     Err(error) => assert_true(error.contains("row length"))
     Ok(_) => fail("mismatched TIFF row must fail")
   }
@@ -2116,13 +2185,13 @@ test "pdf predictor codecs cover TIFF PNG filters defaults and invalid params" {
     (4, [1, 3, 6]),
   ]
   for row in rows {
-    let out = [1, 2, 3].map(Int::to_byte)
+    let out = [1, 2, 3].map(Int32::to_byte)
     match pdf_apply_png_filter_row(out, 0, 3, 1, None, row.0) {
       Ok(_) => assert_true(out.map(byte => byte.to_int()) == row.1)
       Err(error) => fail(error)
     }
   }
-  match pdf_apply_png_filter_row([0].map(Int::to_byte), 0, 1, 1, None, 9) {
+  match pdf_apply_png_filter_row([0].map(Int32::to_byte), 0, 1, 1, None, 9) {
     Err(error) => assert_true(error.contains("unsupported"))
     Ok(_) => fail("unsupported PNG row filter must fail")
   }
@@ -2137,7 +2206,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
   )
   match
     pdf_apply_png_predictor(
-      Bytes::from_array([1, 2, 3].map(Int::to_byte)),
+      Bytes::from_array([1, 2, 3].map(Int32::to_byte)),
       fixed,
     ) {
     Ok(value) => assert_true(pdf_wbtest_byte_ints(value) == [1, 3, 6])
@@ -2146,7 +2215,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
   let adaptive = { ..fixed, predictor: Some(15), }
   match
     pdf_apply_png_predictor(
-      Bytes::from_array([0, 1, 2, 3, 2, 1, 1, 1].map(Int::to_byte)),
+      Bytes::from_array([0, 1, 2, 3, 2, 1, 1, 1].map(Int32::to_byte)),
       adaptive,
     ) {
     Ok(value) => assert_true(pdf_wbtest_byte_ints(value) == [1, 2, 3, 2, 3, 4])
@@ -2154,7 +2223,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
   }
   match
     pdf_apply_png_predictor(
-      Bytes::from_array([0, 1].map(Int::to_byte)),
+      Bytes::from_array([0, 1].map(Int32::to_byte)),
       adaptive,
     ) {
     Err(error) => assert_true(error.contains("row length"))
@@ -2165,7 +2234,7 @@ test "pdf predictor and filter pipelines cover fixed adaptive and failures" {
     Err(error) => assert_true(error.contains("unsupported"))
     Ok(_) => fail("unsupported predictor must fail")
   }
-  let raw = Bytes::from_array([65, 66].map(Int::to_byte))
+  let raw = Bytes::from_array([65, 66].map(Int32::to_byte))
   match pdf_apply_stream_predictor(raw, None) {
     Ok(value) => assert_true(pdf_wbtest_byte_ints(value) == [65, 66])
     Err(error) => fail(error)
@@ -2311,7 +2380,7 @@ test "pdf font width dictionaries cover simple arrays descriptors and defaults" 
     dict_text: "<< /MissingWidth 600 >>",
     stream: None,
   }
-  let objects : Map[Int, PdfNativeObject] = Map([(7, descriptor)])
+  let objects : Map[Int32, PdfNativeObject] = Map([(7, descriptor)])
   assert_true(
     pdf_collect_font_missing_width("<< /FontDescriptor 7 0 R >>", objects) ==
     Some(600),
@@ -2408,7 +2477,7 @@ test "pdf embedded font byte and sfnt helpers cover bounds and selection ranks" 
 ///|
 test "pdf CFF number index dictionary and lookup helpers cover all encodings" {
   let encoded = Bytes::from_array(
-    [139, 247, 0, 251, 0, 28, 0xFF, 0xFE, 29, 0, 0, 1, 0].map(Int::to_byte),
+    [139, 247, 0, 251, 0, 28, 0xFF, 0xFE, 29, 0, 0, 1, 0].map(Int32::to_byte),
   )
   assert_true(pdf_cff_read_number(encoded, 0) == Some((0, 1)))
   assert_true(pdf_cff_read_number(encoded, 1) == Some((108, 3)))
@@ -2417,16 +2486,16 @@ test "pdf CFF number index dictionary and lookup helpers cover all encodings" {
   assert_true(pdf_cff_read_number(encoded, 8) == Some((256, 13)))
   assert_true(pdf_cff_read_number(encoded, 13) is None)
   assert_true(
-    pdf_cff_read_number(Bytes::from_array([31].map(Int::to_byte)), 0) is None,
+    pdf_cff_read_number(Bytes::from_array([31].map(Int32::to_byte)), 0) is None,
   )
   let dict = pdf_cff_parse_dict_entries(
-    Bytes::from_array([140, 141, 18, 142, 12, 3].map(Int::to_byte)),
+    Bytes::from_array([140, 141, 18, 142, 12, 3].map(Int32::to_byte)),
   )
   assert_true(dict.get(18) == Some([1, 2]))
   assert_true(dict.get(1203) == Some([3]))
   assert_true(pdf_cff_read_index(Bytes::new(0), 0).0.length() == 0)
   assert_true(
-    pdf_cff_read_index(Bytes::from_array([0, 0].map(Int::to_byte)), 0).1 == 2,
+    pdf_cff_read_index(Bytes::from_array([0, 0].map(Int32::to_byte)), 0).1 == 2,
   )
   let index = [@utf8.encode("one"), @utf8.encode("two")]
   assert_true(pdf_cff_strings_from_index(index) == ["one", "two"])

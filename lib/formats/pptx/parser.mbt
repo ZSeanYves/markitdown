@@ -28,7 +28,7 @@ pub fn pptx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical PPTX parser entrypoint.
 pub fn pptx_parser() -> @parser.Parser {
   let capability = pptx_parser_capability()
-  @parser.make_parser("pptx_parser", PackageSinglePass, capability, fn(
+  @parser.make_parser("pptx_parser", PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -47,7 +47,7 @@ priv struct PptxState {
   assets : Array[@core.AssetRef]
   asset_ids : Map[String, String]
   image_ids : Map[String, String]
-  slide_image_counts : Map[String, Int]
+  slide_image_counts : Map[String, Int32]
   chart_fallback_emitted : Ref[Bool]
 }
 
@@ -58,11 +58,11 @@ priv struct PptxListTree {
 }
 
 ///|
-fn parse_pptx_document_result(
+async fn parse_pptx_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @pptxdoc.prepare_pptx_document_from_source(source) {
     Ok(value) => value
     Err(err) => {
@@ -94,12 +94,12 @@ fn parse_pptx_document_result(
 }
 
 ///|
-pub fn pptx_parse_with_prepared_document(
+pub async fn pptx_parse_with_prepared_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
   prepared : @pptxdoc.PreparedPptxDocument,
-  probe_artifact_reused? : Bool = true,
-) -> @parser.ParseResult {
+  probe_artifact_reused~ : Bool = true,
+) -> @parser.ParseResult noraise {
   let capability = pptx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "pptx_parser",

@@ -11,69 +11,68 @@ pub struct SourceTextPayload {
 }
 
 ///|
-pub fn read_source_bytes(
+pub async fn read_source_bytes(
   source : @input.InputSource,
-) -> Result[SourceBytesPayload, String] {
+) -> Result[SourceBytesPayload, String] noraise {
   match @input.read_input_bytes(source) {
     Ok(bytes) =>
       Ok({
         bytes,
-        prepared_source: if @input.input_bytes(source) is Some(_) {
-          source
-        } else {
-          @input.with_bytes_payload(source, bytes)
-        },
+        prepared_source: @input.with_prepared_bytes_payload(source, bytes),
       })
     Err(err) => Err(err)
   }
 }
 
 ///|
-pub fn read_source_text(
+pub async fn read_source_text(
   source : @input.InputSource,
-) -> Result[SourceTextPayload, String] {
-  let text_result = match @input.input_text(source) {
-    Some(text) => Ok(text)
-    None => collect_source_text_chunks(source)
-  }
-  match text_result {
-    Ok(text) =>
-      Ok({
-        text,
-        prepared_source: if @input.input_text(source) is Some(_) {
-          source
-        } else {
-          @input.with_text_payload(source, text)
-        },
-      })
-    Err(err) => Err(err)
-  }
-}
-
-///|
-pub fn read_source_text_with_cp932_fallback(
-  source : @input.InputSource,
-) -> Result[SourceTextPayload, String] {
-  let text_result = match @input.input_text(source) {
-    Some(text) => Ok(text)
+) -> Result[SourceTextPayload, String] noraise {
+  match @input.input_text(source) {
+    Some(text) =>
+      match checked_source_text(source, text) {
+        Ok(text) => Ok({ text, prepared_source: source, })
+        Err(err) => Err(err)
+      }
     None =>
-      match read_source_bytes(source) {
-        Ok(payload) => decode_text_bytes_with_fallback(payload.bytes)
+      match collect_source_text_with_extent(source) {
+        Ok((text, physical_bytes)) =>
+          Ok({
+            text,
+            prepared_source: @input.with_prepared_text_payload(
+              source,
+              text,
+              physical_bytes~,
+            ),
+          })
         Err(err) => Err(err)
       }
   }
-  match text_result {
-    Ok(text) =>
-      Ok({
-        text,
-        prepared_source: if @input.input_text(source) is Some(_) {
-          source
-        } else {
-          @input.with_text_payload(source, text)
-        },
-      })
-    Err(err) => Err(err)
+}
+
+///|
+pub async fn read_source_text_with_cp932_fallback(
+  source : @input.InputSource,
+) -> Result[SourceTextPayload, String] noraise {
+  if @input.input_text(source) is Some(_) {
+    return read_source_text(source)
   }
+  let payload = match read_source_bytes(source) {
+    Ok(payload) => payload
+    Err(err) => return Err(err)
+  }
+  let text = match decode_text_bytes_with_fallback(payload.bytes) {
+    Ok(text) => text
+    Err(err) => return Err(err)
+  }
+  Ok({
+    text,
+    prepared_source: @input.with_prepared_text_payload(
+      payload.prepared_source,
+      text,
+      physical_bytes=payload.bytes.length().to_int64(),
+    ),
+  })
 }
 
 ///|
@@ -93,9 +92,9 @@ fn decode_text_bytes_with_fallback(bytes : Bytes) -> Result[String, String] {
 }
 
 ///|
-pub fn read_source_text_with_utf16_bom(
+pub async fn read_source_text_with_utf16_bom(
   source : @input.InputSource,
-) -> Result[SourceTextPayload, String] {
+) -> Result[SourceTextPayload, String] noraise {
   let prefix = match @input.read_input_prefix(source, 2) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -117,21 +116,24 @@ pub fn read_source_text_with_utf16_bom(
   }
   Ok({
     text,
-    prepared_source: if @input.input_text(bytes_payload.prepared_source)
-      is Some(_) {
-      bytes_payload.prepared_source
-    } else {
-      @input.with_text_payload(bytes_payload.prepared_source, text)
-    },
+    prepared_source: @input.with_prepared_text_payload(
+      bytes_payload.prepared_source,
+      text,
+      physical_bytes=bytes_payload.bytes.length().to_int64(),
+    ),
   })
 }
 
 ///|
-pub fn read_xml_source_text(
+pub async fn read_xml_source_text(
   source : @input.InputSource,
-) -> Result[SourceTextPayload, String] {
+) -> Result[SourceTextPayload, String] noraise {
   match @input.input_text(source) {
-    Some(text) => Ok({ text, prepared_source: source, })
+    Some(text) =>
+      match checked_source_text(source, text) {
+        Ok(text) => Ok({ text, prepared_source: source, })
+        Err(message) => Err(message)
+      }
     None => {
       let prefix = match @input.read_input_prefix(source, 256) {
         Ok(value) => value
@@ -151,13 +153,24 @@ pub fn read_xml_source_text(
       }
       Ok({
         text,
-        prepared_source: @input.with_text_payload(
+        prepared_source: @input.with_prepared_text_payload(
           bytes_payload.prepared_source,
           text,
+          physical_bytes=bytes_payload.bytes.length().to_int64(),
         ),
       })
     }
   }
+}
+
+///|
+// The existing String needs no decoder or collector, but must still respect
+// the same source/session ceiling as byte-backed input.
+async fn checked_source_text(
+  source : @input.InputSource,
+  _text : String,
+) -> Result[String, String] noraise {
+  @input.read_input_text(source)
 }
 
 ///|
@@ -207,7 +220,7 @@ pub fn sniff_xml_declared_encoding(bytes : Bytes) -> String? {
   let chars : Array[Char] = []
   let mut index = 0
   while index < limit {
-    chars.push(Int::unsafe_to_char(bytes[index].to_int()))
+    chars.push(Int32::unsafe_to_char(bytes[index].to_int()))
     index += 1
   }
   let prefix = String::from_array(chars)
@@ -268,7 +281,9 @@ fn decode_iso_8859_1_bytes(bytes : Bytes) -> String {
   let out : Array[Char] = []
   for b in bytes {
     let value = b.to_int()
-    out.push(Int::unsafe_to_char(if value >= 0 { value } else { value + 256 }))
+    out.push(
+      Int32::unsafe_to_char(if value >= 0 { value } else { value + 256 }),
+    )
   }
   String::from_array(out)
 }

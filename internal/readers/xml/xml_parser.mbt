@@ -17,7 +17,7 @@ pub fn parse_xml_structure_tokens(text : String) -> Array[XmlToken] raise {
 }
 
 ///|
-fn count_xml_source_chars(text : String) -> Int {
+fn count_xml_source_chars(text : String) -> Int32 {
   let mut count = 0
   for _ in text {
     count += 1
@@ -66,13 +66,13 @@ pub fn classify_xml_error(err : XmlError) -> XmlErrorInfo {
 ///|
 priv struct XmlParser {
   tokens : Array[XmlToken]
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
 fn XmlParser::parse_document(
   self : XmlParser,
-  source_length : Int,
+  source_length : Int32,
 ) -> XmlDocument raise {
   let nodes : Array[XmlNode] = []
   let mut root : XmlElement? = None

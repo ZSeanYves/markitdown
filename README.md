@@ -1,179 +1,151 @@
 # markitdown
 
-MoonBit-native document-to-Markdown conversion for text extraction, content
-ingestion, and RAG preparation. The 0.8 line uses one execution chain for
-Native and Wasm: Wasm is the portable baseline, while Native can add only
-declared low-level extensions.
+Native document-to-Markdown conversion in MoonBit for text extraction, content
+ingestion, and RAG preparation. The supported product platforms are Linux
+x86_64 and macOS arm64. The CLI and `ZSeanYves/markitdown/lib` share the same
+readers, format semantics, pipeline, and output models.
 
-The product boundary is text-only. It preserves text, structure, metadata,
-source locations, and document image assets. OCR, scanned-page recognition,
-audio transcription, and image recognition are outside this package.
+The product preserves text, structure, metadata, source locations, and document
+image assets. OCR, scanned-page recognition, audio transcription, and image
+recognition remain outside the text-conversion contract.
 
-> **0.8 status:** the package is still unreleased. The MoonX commands below
-> use the final coordinate as a contract and will start working after the
-> matching registry asset is published.
+> The 0.8 candidate is unreleased. Registry installation examples apply only
+> after the matching version is published and its installation is verified.
+> See the [upgrade plan](docs/architecture/native-performance-plan.md) for
+> remaining acceptance gates.
 
 ## Install
 
-After publication, add the stable façade to a MoonBit project:
+Use MoonBit `0.1.20261021` with `moonc v0.10.17+093cb8f9c` and a C compiler.
+Install the Native CLI from a checkout:
+
+```text
+moon install --path .
+markitdown balance input.docx output.md
+```
+
+For a source installation at a fixed Git commit:
+
+```text
+moon install https://github.com/ZSeanYves/markitdown.git . --rev <full-40-character-commit-sha>
+```
+
+After publication, install the exact registry version:
+
+```text
+moon install ZSeanYves/markitdown@0.8.0
+```
+
+`moon install` builds the Native executable. No separate prebuilt download is
+provided. `moonx` may launch repository `.mbtx` validation scripts; product
+installation and execution use the installed Native CLI. See the
+[official Moon manual](https://moonbitlang.github.io/moon/commands.html#moon-install).
+
+## Library quick start
+
+After publication, add the exact dependency to a Native MoonBit module:
 
 ```text
 moon add ZSeanYves/markitdown@0.8.0
 ```
 
-Import `ZSeanYves/markitdown/lib`. Internal readers, parser records, the IR,
-and runtime adapters are implementation details and are not part of the
-consumer API.
-
-## Quick start
-
-Build the CLI from a checkout:
-
-```text
-moon build --target native --release --package ZSeanYves/markitdown
-./_build/native/release/build/markitdown.exe balance input.docx output.md
-```
-
-The stable library entrypoint is asynchronous on both targets:
+Set `preferred_target = "native"` in the consumer's `moon.mod`, and import
+`ZSeanYves/markitdown/lib` in its `moon.pkg`:
 
 ```mbt
-import {
-  "ZSeanYves/markitdown/lib",
-}
-
 async fn convert_example() -> Result[@lib.Output, @lib.ConvertError] {
   let input = @lib.Input::from_path("document.docx")
-  @lib.convert(input, @lib.ConvertOptions::default())
+  @lib.convert(input, options=@lib.ConvertOptions::default())
 }
 ```
 
-The façade accepts paths, text, bytes, and caller-owned readers. It returns
-facade-owned output, diagnostics, provenance, source maps, assets, and RAG
-chunks; community ASTs and FFI handles do not cross the boundary.
-
-## Packages
-
-- `lib`: the stable consumer façade and shared product models.
-- `lib/formats`: format parsers and lowering into the shared document IR.
-- `lib/render`: Markdown, Debug, and RAG output views.
-- `internal/readers`: bounded ZIP, XML, Office, ODF, EPUB, PDF, and text
-  preparation.
-- `internal/parser`, `internal/pipeline`, `internal/runtime`: the registry,
-  semantic passes, resource coordination, and target-isolated host boundary.
-- `tools/regression`: the MoonX `.mbtx` consumer and benchmark entrypoints.
+The asynchronous façade accepts paths, text, bytes, and caller-owned readers.
+Its output, diagnostics, provenance, source maps, assets, and RAG chunks use
+façade-owned types. Reader internals, parser records, community ASTs, IR and FFI
+handles remain implementation details.
 
 ## Capabilities
 
-The shared route is:
+| Input family | Native conversion contract |
+| --- | --- |
+| Plain and structured text | TXT, CSV/TSV, JSON/JSONL, YAML and TOML |
+| Markup | Markdown, HTML, XML, TeX, RST and AsciiDoc |
+| Containers and messages | MIME/EML, ZIP and EPUB |
+| Office and ODF | DOCX, XLSX, PPTX, ODT, ODS and ODP |
+| PDF | Bounded text-layer extraction, geometry, links and supported image assets |
+| Document images | Exported assets when safely recoverable |
 
-```text
-Input → detect → capability check → reader/parser → ParseResult
-      → shared IR/pipeline → Markdown, Debug, RAG, or controlled Sink
-```
-
-| Area | Wasm | Native |
-| --- | --- | --- |
-| Plain and structured text | Shared support | Shared support |
-| Markdown, HTML, XML, TeX, RST, AsciiDoc | Shared support | Shared support |
-| JSON/JSONL, YAML, TOML, CSV/TSV | Shared support | Shared support, with declared encoding extensions where available |
-| MIME, EML, ZIP, EPUB | Shared support | Shared support |
-| DOCX, XLSX, PPTX, ODT, ODS, ODP | Shared support | Shared support |
-| Text-layer PDF | Bounded shared contract | Same contract plus declared Native extensions |
-| Document image assets | Exported when safely recoverable | Exported when safely recoverable |
-| OCR, scanned-page recognition, audio transcription | Unsupported | Unsupported |
-
-The complete format matrix, mode boundaries, resource limits, and failure
-diagnostics are in [Capabilities and limitations](docs/capabilities-and-limitations.md).
-In particular, a PDF without a recoverable text layer reports a diagnostic;
-the converter never silently invokes OCR. `accurate` keeps its Office/ODF
-semantic meaning and selects the bounded text route for PDF. `stream` is
-available only for formats that declare a controlled streaming route.
-
-The main product features are:
-
-- [x] **[portable] Unified asynchronous conversion** — one detector, registry,
-  parser protocol, IR, pipeline, renderer, and output boundary.
-- [x] **[portable] Text and document formats** — structured text, markup,
-  MIME/EML, ZIP/EPUB, Office, ODF, and bounded text-layer PDF.
-- [x] **[portable] Ingestion views** — Markdown, Debug, RAG, provenance,
-  source maps, and bounded document assets.
-- [x] **[native] Declared host extensions** — isolated FFI for capabilities that
-  have no equivalent portable implementation.
-- [x] **[portable] Fail-closed limits** — malformed input, unsafe archives,
-  invalid encodings, missing text layers, and resource exhaustion produce
-  diagnostics instead of an implicit fallback.
-
-## Outputs and modes
+The complete format matrix, mode boundaries, existing resource limits and
+failure diagnostics are in [Capabilities and limitations](docs/capabilities-and-limitations.md).
+A PDF without a recoverable text layer returns an explicit diagnostic.
 
 - `balance` is the default conversion mode.
-- `accurate` enables additional Office/ODF semantic recovery and the declared
-  PDF text policies.
-- `stream` selects a bounded streaming or pull route where the format supports
-  it; it does not change the promised Markdown meaning.
-- Markdown is the default view. `--debug`, `--rag`, provenance, source maps,
-  and materialized assets are available at the output boundary.
+- `accurate` enables additional Office/ODF semantic recovery and declared PDF
+  text policies.
+- `stream` is accepted only by formats with a declared streaming route; it
+  preserves the format's promised meaning.
+- Markdown is the default output. Debug, RAG, provenance, source maps and
+  materialized assets are available at the output boundary.
 
-Unsupported formats and modes fail closed with typed domain errors. Image and
-audio inputs are detected for stable diagnostics and never start an external
-recognizer.
+Unsupported formats and modes return domain errors. No conversion launches an
+external recognizer or downloads a model.
 
-## Examples
+## Native migration
 
-- [CLI usage guide](docs/cli-usage-guide.md) — single-file, batch, output
-  views, modes, and diagnostics.
-- [Core conversion showcase](samples/showcase/README.md) — reviewed examples
-  across the supported input families.
-- [Stable API example](docs/api-v0.8.md) — a checked MoonBit consumer shape for
-  the `lib` façade.
+Consumers upgrading to this candidate must select the Native backend and build
+on Linux x86_64 or macOS arm64. Wasm, Wasm-GC and JavaScript product targets are
+retired. Replace product `moonx` invocations with `moon install` followed by the
+installed CLI. The public asynchronous `lib` façade and existing input
+constructors remain the integration boundary. CP932 decoding uses host iconv;
+missing encoding support produces an error.
 
-## MoonX consumer validation
+## Validation
 
-The repository-owned product validation path runs the published package through
-MoonX. It does not substitute a local binary, a worktree, or an unpinned
-coordinate:
+Run checkout checks in serialized order:
 
 ```text
-moonx tools/regression/moonx_smoke.mbtx ZSeanYves/markitdown@0.8.0 --target wasm
-moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@0.8.0 --target wasm --suite all
-moonx tools/regression/moonx_benchmark.mbtx ZSeanYves/markitdown@0.8.0 --target wasm
+moon check --target native --warn-list +73 --deny-warn
+moon test --target native --no-parallelize
+moon test --target native --release --no-parallelize
+moon build --target native --release .
+moon info
+moon fmt
 ```
 
-The regression runner reads the pinned `markitdown-quality-lab` checkout and
-records per-case logs and summaries under ignored `.tmp/moonx-*` directories.
-See [MoonX regression](tools/regression/README.md) for suite selection and
-failure evidence.
+The Native regression runner tests an actual installed or frozen executable
+against the pinned quality-lab corpus. Each run needs a new evidence directory:
 
-Before publication, a package download failure is an expected missing-registry
-asset. It is not evidence that a local compatibility runner should be added.
+```text
+moon run tools/regression/run_native_regression.mbtx --binary /absolute/path/to/markitdown --lab /absolute/path/to/markitdown-quality-lab --suite all --evidence /absolute/path/to/new-evidence
+```
+
+`tools/regression/native_install.mbtx` checks installation and an independent
+module importing the public library:
+
+```text
+moon run --target native tools/regression/native_install.mbtx --source local --root /absolute/path/to/markitdown --evidence /absolute/path/to/new-install-evidence
+```
+
+See [regression tooling](tools/regression/README.md) for pinned Git and exact
+published-version checks and saved evidence.
+
+These commands produce evidence when executed; source configuration alone is
+not an installation, platform, performance or release acceptance result.
+Repository automation is `.mbtx`; see [Contributing](CONTRIBUTING.md).
 
 ## Repository layout
 
 ```text
 main.mbt       thin executable composition root
 lib/           stable façade and shared product packages
-internal/      CLI, readers, parser registry, pipeline, runtime, and tests
-tools/         MoonX regression and benchmark entrypoints (.mbtx only)
-samples/       deterministic fixtures and reviewed showcase inputs
-docs/          API, capability, architecture, migration, and release docs
+internal/      CLI, readers, registry, pipeline, runtime, and tests
+tools/         regression and benchmark entrypoints (.mbtx only)
+samples/       deterministic fixtures and reviewed examples
+docs/          capabilities, API, architecture, migration, and release docs
 ```
 
-Start with the [documentation index](docs/README.md). Contributors should read
-[CONTRIBUTING.md](CONTRIBUTING.md) before changing parser behavior or fixtures.
-
-## Contributor checks
-
-These commands validate the checkout and build artifacts; package-consumer
-behavior is accepted through the MoonX commands above:
-
-```text
-moon info && moon fmt
-moon check --target all --warn-list +73 --deny-warn
-moon test --target native --no-parallelize
-moon test --target wasm --no-parallelize
-```
-
-All repository automation is MoonBit. There is no Python or shell helper layer,
-runtime installer, model download, or external converter requirement.
+See the [CLI guide](docs/cli-usage-guide.md), [showcase](samples/showcase/README.md),
+[API example](docs/api-v0.8.md), and [documentation index](docs/README.md).
 
 ## License
 

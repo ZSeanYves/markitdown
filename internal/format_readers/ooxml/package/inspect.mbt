@@ -22,13 +22,13 @@ pub struct OoxmlRelationshipInfo {
 
 ///|
 pub struct OoxmlPackageInspectReport {
-  part_count : Int
-  content_type_default_count : Int
-  content_type_override_count : Int
-  relationship_source_count : Int
-  package_relationship_count : Int
-  part_relationship_count : Int
-  media_asset_count : Int
+  part_count : Int32
+  content_type_default_count : Int32
+  content_type_override_count : Int32
+  relationship_source_count : Int32
+  package_relationship_count : Int32
+  part_relationship_count : Int32
+  media_asset_count : Int32
   inventory : @ox.OoxmlPackageInventory
   package_relationships : Array[OoxmlRelationshipInfo]
   part_relationships : Array[OoxmlRelationshipInfo]
@@ -40,6 +40,16 @@ pub struct OoxmlPackageInspectReport {
 ///|
 pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
   match err {
+    BudgetExceeded(_) =>
+      {
+        kind: ResourceLimit,
+        detail: err.to_string(),
+        part_name: None,
+        rels_part_name: None,
+        source_part: None,
+        rel_id: None,
+        target: None,
+      }
     ZipError(msg) =>
       {
         kind: ZipFailure,
@@ -65,6 +75,16 @@ pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
         target: None,
       }
     InvalidXml(msg) => classify_invalid_xml_detail(msg)
+    InvalidEncoding(msg) =>
+      {
+        kind: InvalidXml,
+        detail: msg,
+        part_name: None,
+        rels_part_name: None,
+        source_part: None,
+        rel_id: None,
+        target: None,
+      }
     InvalidPartPath(path) => classify_invalid_part_path_detail(path)
     RelationshipNotFound(source_part, rel_id) =>
       {
@@ -80,9 +100,9 @@ pub fn classify_ooxml_error(err : @ox.OoxmlError) -> OoxmlErrorInfo {
 }
 
 ///|
-pub fn inspect_ooxml_package(
+pub async fn inspect_ooxml_package(
   pkg : @ox.OoxmlPackage,
-) -> OoxmlPackageInspectReport {
+) -> OoxmlPackageInspectReport raise @ox.OoxmlError {
   let inventory = @ox.inspect_ooxml_inventory(pkg)
   let package_relationships = list_relationship_infos(pkg, "") catch { _ => [] }
   let part_relationships : Array[OoxmlRelationshipInfo] = []
@@ -115,10 +135,10 @@ pub fn inspect_ooxml_package(
 }
 
 ///|
-pub fn find_part_info(
+pub async fn find_part_info(
   pkg : @ox.OoxmlPackage,
   part_name : String,
-) -> @ox.OoxmlPartInfo? {
+) -> @ox.OoxmlPartInfo? noraise {
   let normalized = normalize_part_name_soft(part_name)
   for info in @ox.inspect_ooxml_inventory(pkg).parts {
     if info.part_name == normalized {
@@ -129,14 +149,14 @@ pub fn find_part_info(
 }
 
 ///|
-pub fn list_content_type_infos(
+pub async fn list_content_type_infos(
   pkg : @ox.OoxmlPackage,
-) -> Array[@ox.OoxmlContentTypeInfo] {
+) -> Array[@ox.OoxmlContentTypeInfo] noraise {
   @ox.inspect_ooxml_inventory(pkg).content_types
 }
 
 ///|
-pub fn list_relationship_infos(
+pub async fn list_relationship_infos(
   pkg : @ox.OoxmlPackage,
   source_part : String,
 ) -> Array[OoxmlRelationshipInfo] raise @ox.OoxmlError {
@@ -168,7 +188,9 @@ pub fn list_relationship_infos(
 }
 
 ///|
-pub fn dump_ooxml_package(pkg : @ox.OoxmlPackage) -> String {
+pub async fn dump_ooxml_package(
+  pkg : @ox.OoxmlPackage,
+) -> String raise @ox.OoxmlError {
   let out = StringBuilder()
   out.write_string(dump_package_summary(pkg))
   out.write_string("\n")
@@ -181,7 +203,9 @@ pub fn dump_ooxml_package(pkg : @ox.OoxmlPackage) -> String {
 }
 
 ///|
-pub fn dump_package_summary(pkg : @ox.OoxmlPackage) -> String {
+pub async fn dump_package_summary(
+  pkg : @ox.OoxmlPackage,
+) -> String raise @ox.OoxmlError {
   let report = inspect_ooxml_package(pkg)
   let out = StringBuilder()
   out.write_string("[Content_Types]\n")
@@ -198,7 +222,9 @@ pub fn dump_package_summary(pkg : @ox.OoxmlPackage) -> String {
 }
 
 ///|
-pub fn dump_relationships_summary(pkg : @ox.OoxmlPackage) -> String {
+pub async fn dump_relationships_summary(
+  pkg : @ox.OoxmlPackage,
+) -> String raise @ox.OoxmlError {
   let report = inspect_ooxml_package(pkg)
   let out = StringBuilder()
   out.write_string("[relationships]\n")
@@ -222,7 +248,9 @@ pub fn dump_relationships_summary(pkg : @ox.OoxmlPackage) -> String {
 }
 
 ///|
-pub fn dump_media_assets_summary(pkg : @ox.OoxmlPackage) -> String {
+pub async fn dump_media_assets_summary(
+  pkg : @ox.OoxmlPackage,
+) -> String raise @ox.OoxmlError {
   let report = inspect_ooxml_package(pkg)
   let out = StringBuilder()
   out.write_string("[media]\n")
@@ -246,7 +274,9 @@ pub fn dump_media_assets_summary(pkg : @ox.OoxmlPackage) -> String {
 }
 
 ///|
-pub fn dump_properties_summary(pkg : @ox.OoxmlPackage) -> String {
+pub async fn dump_properties_summary(
+  pkg : @ox.OoxmlPackage,
+) -> String raise @ox.OoxmlError {
   let report = inspect_ooxml_package(pkg)
   let out = StringBuilder()
   let core = report.core_properties
@@ -284,7 +314,9 @@ pub fn dump_properties_summary(pkg : @ox.OoxmlPackage) -> String {
 }
 
 ///|
-fn count_default_content_types(infos : Array[@ox.OoxmlContentTypeInfo]) -> Int {
+fn count_default_content_types(
+  infos : Array[@ox.OoxmlContentTypeInfo],
+) -> Int32 {
   let mut count = 0
   for info in infos {
     match info.kind {
@@ -296,7 +328,9 @@ fn count_default_content_types(infos : Array[@ox.OoxmlContentTypeInfo]) -> Int {
 }
 
 ///|
-fn count_override_content_types(infos : Array[@ox.OoxmlContentTypeInfo]) -> Int {
+fn count_override_content_types(
+  infos : Array[@ox.OoxmlContentTypeInfo],
+) -> Int32 {
   let mut count = 0
   for info in infos {
     match info.kind {
@@ -510,7 +544,7 @@ fn parse_relationship_target(detail : String) -> String? {
 }
 
 ///|
-fn find_substring(text : String, needle : String) -> Int {
+fn find_substring(text : String, needle : String) -> Int32 {
   if needle == "" {
     return 0
   }
@@ -537,7 +571,7 @@ fn find_substring(text : String, needle : String) -> Int {
 }
 
 ///|
-fn find_char_from(text : String, needle : Char, start : Int) -> Int {
+fn find_char_from(text : String, needle : Char, start : Int32) -> Int32 {
   let chars = text.to_array()
   let mut i = start
   while i < chars.length() {

@@ -9,7 +9,7 @@ fn lower_docx_blocks(
   fn flush_lists(
     out : Array[@core.CoreBlock],
     list_stack : Array[DocxListTree],
-    min_depth : Int,
+    min_depth : Int32,
   ) -> Unit {
     while list_stack.length() > min_depth {
       let current = list_stack.pop().unwrap()
@@ -270,7 +270,7 @@ fn lower_docx_table_block(
 }
 
 ///|
-fn docx_table_cell_grid_span(cell : @ddocx.DocxTableCell) -> Int {
+fn docx_table_cell_grid_span(cell : @ddocx.DocxTableCell) -> Int32 {
   match cell.grid_span {
     Some(raw) =>
       match docx_parse_nonnegative_int(raw) {
@@ -282,7 +282,7 @@ fn docx_table_cell_grid_span(cell : @ddocx.DocxTableCell) -> Int {
 }
 
 ///|
-fn docx_table_column_count(table : @ddocx.DocxTable) -> Int {
+fn docx_table_column_count(table : @ddocx.DocxTable) -> Int32 {
   let mut width = 0
   for row in table.rows {
     let mut row_width = 0
@@ -297,7 +297,7 @@ fn docx_table_column_count(table : @ddocx.DocxTable) -> Int {
 }
 
 ///|
-fn docx_table_header_rows(table : @ddocx.DocxTable) -> Int {
+fn docx_table_header_rows(table : @ddocx.DocxTable) -> Int32 {
   if table.rows.length() > 0 {
     1
   } else {
@@ -475,7 +475,7 @@ fn normalize_docx_table_text(text : String) -> String {
 ///|
 fn docx_paragraph_list_lowering_in_cell(
   p : @ddocx.DocxParagraph,
-) -> (Bool, Int)? {
+) -> (Bool, Int32)? {
   match p.numbering_ref {
     Some(numbering_ref) =>
       match numbering_ref.ilvl {

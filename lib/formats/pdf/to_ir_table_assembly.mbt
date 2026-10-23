@@ -100,7 +100,7 @@ fn pdf_native_bbox_from_core_json_object(
 fn pdf_native_should_remove_text_block(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
   candidates : Array[PdfNativeHeaderFooterRemovalCandidate],
 ) -> Bool {
   if candidates.length() == 0 {
@@ -156,7 +156,7 @@ fn pdf_native_pdf_bboxes_overlap(left : PdfBBox, right : PdfBBox) -> Bool {
 fn pdf_native_matching_table_region(
   _page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  block_index : Int,
+  block_index : Int32,
   source_ref : @core.SourceRef,
   regions : Array[PdfNativeTableRegionCandidate],
 ) -> PdfNativeTableRegionCandidate? {
@@ -187,8 +187,8 @@ fn pdf_native_matching_table_region(
 ///|
 fn text_block_index_from_source_ref(
   source_ref : @core.SourceRef,
-  fallback : Int,
-) -> Int {
+  fallback : Int32,
+) -> Int32 {
   match source_ref.extra.get("pdf_text_block_index") {
     Some(value) => @string.parse_int(value) catch { _ => fallback }
     None => fallback
@@ -209,7 +209,9 @@ fn pdf_native_table_block_from_region(
   if expected_width < 2 {
     return Skipped("insufficient_columns")
   }
-  let region_blocks : Array[(Int, PdfNativeTextBlock, @core.SourceRef, String)] = []
+  let region_blocks : Array[
+    (Int32, PdfNativeTextBlock, @core.SourceRef, String),
+  ] = []
   for text_block_index in 0..<text_blocks.length() {
     let block_index = text_block_index + 1
     let text_block = text_blocks[text_block_index]
@@ -246,7 +248,7 @@ fn pdf_native_table_block_from_region(
     }
   })
   let row_cells : Array[Array[PdfNativeTableCellLowering]] = []
-  let block_indexes : Array[Int] = []
+  let block_indexes : Array[Int32] = []
   let row_source_refs : Array[@core.SourceRef] = []
   for row_entry in region_blocks {
     let row_text = row_entry.3
@@ -334,7 +336,7 @@ fn pdf_native_table_row_cells_from_block(
   text_block : PdfNativeTextBlock,
   fallback_text : String,
   alignment_xs : Array[Double],
-  expected_width : Int,
+  expected_width : Int32,
   source_ref : @core.SourceRef,
 ) -> Array[PdfNativeTableCellLowering]? {
   let merged = Array::make(expected_width, "")
@@ -407,7 +409,7 @@ fn pdf_native_table_row_cells_from_block(
 fn pdf_native_table_line_cells_from_alignment(
   line : PdfNativeTextLine,
   alignment_xs : Array[Double],
-  expected_width : Int,
+  expected_width : Int32,
 ) -> Array[String]? {
   if alignment_xs.length() == 0 || expected_width <= 0 {
     return None
@@ -483,9 +485,9 @@ fn pdf_native_table_alignment_tolerance(alignment_xs : Array[Double]) -> Double 
 fn pdf_native_table_alignment_index(
   x : Double,
   alignment_xs : Array[Double],
-  expected_width : Int,
+  expected_width : Int32,
   tolerance : Double,
-) -> Int? {
+) -> Int32? {
   let mut best_index = -1
   let mut best_distance = 1_000_000.0
   for index in 0..<alignment_xs.length() {
@@ -542,7 +544,7 @@ fn pdf_native_table_row_cells_from_line(
 ///|
 fn pdf_native_table_non_empty_cell_count(
   cells : Array[PdfNativeTableCellLowering],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for cell in cells {
     if cell.text.trim() != "" {

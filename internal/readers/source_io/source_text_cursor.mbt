@@ -4,10 +4,10 @@ pub struct SourceTextChunk {
   text : String
   byte_start : Int64
   byte_end : Int64
-  line_start : Int
-  line_end : Int
-  utf16_start : Int
-  utf16_end : Int
+  line_start : Int32
+  line_end : Int32
+  utf16_start : Int32
+  utf16_end : Int32
 }
 
 ///|
@@ -17,22 +17,28 @@ pub fn source_text_chunk_text(chunk : SourceTextChunk) -> String {
 }
 
 ///|
-/// Stateful UTF-8 chunk reader. The callback returns `None` after EOF.
+/// Stateful UTF-8 chunk reader. EOF and failure release owned Path resources;
+/// callers stopping early must defer `close`. Borrowed sessions stay open.
 pub struct SourceTextChunkReader {
-  next : () -> Result[SourceTextChunk?, String]
+  next : async () -> Result[SourceTextChunk?, String] noraise
+  input_error : () -> String?
+  close : () -> Unit
 }
 
 ///|
 /// Open a streaming UTF-8 reader over any bounded source cursor.
-pub fn open_source_text_chunk_reader(
+pub async fn open_source_text_chunk_reader(
   source : @input.InputSource,
-  max_bytes? : Int64 = 512L * 1024L * 1024L,
-  chunk_size? : Int = 64 * 1024,
-) -> Result[SourceTextChunkReader, String] {
+  max_bytes? : Int64,
+  chunk_size~ : Int32 = 64 * 1024,
+) -> Result[SourceTextChunkReader, String] noraise {
   if chunk_size <= 0 {
     return Err("text chunk size must be positive")
   }
-  let cursor = match @input.open_source_cursor(source, max_bytes~) {
+  let session = @input.begin_input_session(source, max_bytes?)
+  let handed_off = Ref(false)
+  defer (if !handed_off.val { @input.end_input_session(session) })
+  let cursor = match @input.open_source_cursor(session.source, max_bytes?) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -43,10 +49,22 @@ pub fn open_source_text_chunk_reader(
   let line = Ref(1)
   let utf16 = Ref(0)
   let pending_cr = Ref(false)
-  Ok({
-    next: fn() {
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      @input.end_input_session(session)
+    }
+  }
+  let reader : SourceTextChunkReader = {
+    input_error: fn() { @input.source_cursor_error(cursor) },
+    close,
+    next: async fn() -> Result[SourceTextChunk?, String] noraise {
+      let keep_open = Ref(false)
+      defer (if !keep_open.val { close() })
       while true {
-        if eof.val && carry.val.length() == 0 {
+        if closed.val || (eof.val && carry.val.length() == 0) {
+          close()
           return Ok(None)
         }
         let incoming = if eof.val {
@@ -59,7 +77,10 @@ pub fn open_source_text_chunk_reader(
               length=chunk_size,
             ) {
             Ok(value) => value
-            Err(message) => return Err(message)
+            Err(message) => {
+              close()
+              return Err(message)
+            }
           }
         }
         if incoming.length() == 0 {
@@ -70,13 +91,17 @@ pub fn open_source_text_chunk_reader(
         let combined = carry.val + incoming
         let decoded = match decode_utf8_source_chunk(combined, eof.val) {
           Ok(value) => value
-          Err(message) => return Err(message)
+          Err(message) => {
+            close()
+            return Err(message)
+          }
         }
         carry.val = decoded.1
         if decoded.0 == "" && !eof.val {
           continue
         }
         if decoded.0 == "" && eof.val {
+          close()
           return Ok(None)
         }
         let byte_start = consumed_offset.val
@@ -89,6 +114,7 @@ pub fn open_source_text_chunk_reader(
           line.val += 1
           pending_cr.val = false
         }
+        keep_open.val = true
         return Ok(
           Some({
             text: decoded.0,
@@ -103,31 +129,52 @@ pub fn open_source_text_chunk_reader(
       }
       Ok(None)
     },
-  })
+  }
+  handed_off.val = true
+  Ok(reader)
 }
 
 ///|
-pub fn collect_source_text_chunks(
+pub async fn collect_source_text_chunks(
   source : @input.InputSource,
-  max_bytes? : Int64 = 512L * 1024L * 1024L,
-) -> Result[String, String] {
-  let reader = match open_source_text_chunk_reader(source, max_bytes~) {
+  max_bytes? : Int64,
+) -> Result[String, String] noraise {
+  collect_source_text_with_extent(source, max_bytes?).map(value => value.0)
+}
+
+///|
+// Keep the consumed raw extent from the successful UTF8 traversal. Counting
+// the prepared String later can lose original bytes after text normalization.
+async fn collect_source_text_with_extent(
+  source : @input.InputSource,
+  max_bytes? : Int64,
+) -> Result[(String, Int64), String] noraise {
+  let session = @input.begin_input_session(source, max_bytes?)
+  defer @input.end_input_session(session)
+  let reader = match open_source_text_chunk_reader(session.source, max_bytes?) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
+  defer (reader.close)()
   let out = StringBuilder()
+  let mut physical_bytes = 0L
   while true {
     match (reader.next)() {
-      Ok(Some(chunk)) => out.write_string(chunk.text)
+      Ok(Some(chunk)) => {
+        out.write_string(chunk.text)
+        physical_bytes = chunk.byte_end
+      }
       Ok(None) => break
       Err(message) => return Err(message)
     }
   }
-  Ok(out.to_string())
+  Ok((out.to_string(), physical_bytes))
 }
 
 ///|
-fn decode_utf8_source_chunk(
+/// Decode a complete UTF8 prefix and retain up to three trailing bytes for the
+/// next chunk. At EOF every byte must form a complete, valid UTF8 sequence.
+pub fn decode_utf8_source_chunk(
   bytes : Bytes,
   eof : Bool,
 ) -> Result[(String, Bytes), String] {
@@ -191,8 +238,8 @@ fn utf8_incomplete_prefix(bytes : Bytes) -> Bool {
 ///|
 fn advance_source_text_position(
   text : String,
-  line : Ref[Int],
-  utf16 : Ref[Int],
+  line : Ref[Int32],
+  utf16 : Ref[Int32],
   pending_cr : Ref[Bool],
 ) -> Unit {
   for ch in text {

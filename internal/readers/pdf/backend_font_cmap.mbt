@@ -10,8 +10,11 @@ fn pdf_empty_tounicode_cmap_info() -> PdfToUnicodeCMapInfo {
 }
 
 ///|
-fn pdf_merge_desc_widths(left : Array[Int], right : Array[Int]) -> Array[Int] {
-  let merged : Map[Int, Bool] = Map([])
+fn pdf_merge_desc_widths(
+  left : Array[Int32],
+  right : Array[Int32],
+) -> Array[Int32] {
+  let merged : Map[Int32, Bool] = Map([])
   for width in left {
     if width > 0 {
       merged.set(width, true)
@@ -28,7 +31,7 @@ fn pdf_merge_desc_widths(left : Array[Int], right : Array[Int]) -> Array[Int] {
 ///|
 fn pdf_collect_font_encoding_info(
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfNativeFontEncodingInfo {
   let base_font = pdf_extract_name_after(object.dict_text, "/BaseFont")
   let subtype = pdf_extract_name_after(object.dict_text, "/Subtype")
@@ -50,7 +53,7 @@ fn pdf_collect_font_encoding_info(
 ///|
 fn pdf_font_encoding_info_from_value(
   value : PdfNativeDictValue,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   default_encoding_name : String?,
 ) -> PdfNativeFontEncodingInfo {
   match value {
@@ -136,10 +139,10 @@ fn pdf_font_encoding_info_from_dict(
 
 ///|
 fn pdf_apply_font_encoding_differences(
-  glyph_names : Map[Int, String],
+  glyph_names : Map[Int32, String],
   tokens : Array[PdfNativeContentToken],
 ) -> Unit {
-  let mut current_code : Int? = None
+  let mut current_code : Int32? = None
   for token in tokens {
     match token {
       Number(value) =>
@@ -184,9 +187,9 @@ fn pdf_font_default_encoding_name(
 
 ///|
 fn pdf_find_cmap_object_id_by_name(
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   cmap_name : String,
-) -> Int? {
+) -> Int32? {
   for entry in object_index.to_array() {
     match pdf_extract_name_after(entry.1.dict_text, "/CMapName") {
       Some(name) if name == cmap_name => return Some(entry.0)
@@ -200,10 +203,10 @@ fn pdf_find_cmap_object_id_by_name(
 fn pdf_parent_tounicode_cmap_info(
   cmap_object : PdfNativeObject,
   local_usecmap_name : String?,
-  object_index : Map[Int, PdfNativeObject],
-  visited : Map[Int, Bool],
-  remaining_depth : Int,
-) -> PdfToUnicodeCMapInfo {
+  object_index : Map[Int32, PdfNativeObject],
+  visited : Map[Int32, Bool],
+  remaining_depth : Int32,
+) -> PdfToUnicodeCMapInfo raise PdfHardDecodeFailure {
   if remaining_depth <= 0 {
     return pdf_empty_tounicode_cmap_info()
   }
@@ -268,11 +271,11 @@ fn pdf_parent_tounicode_cmap_info(
 
 ///|
 fn pdf_collect_tounicode_cmap_info(
-  cmap_object_id : Int,
-  object_index : Map[Int, PdfNativeObject],
-  visited : Map[Int, Bool],
-  remaining_depth : Int,
-) -> Result[PdfToUnicodeCMapInfo, String] {
+  cmap_object_id : Int32,
+  object_index : Map[Int32, PdfNativeObject],
+  visited : Map[Int32, Bool],
+  remaining_depth : Int32,
+) -> Result[PdfToUnicodeCMapInfo, String] raise PdfHardDecodeFailure {
   if remaining_depth <= 0 {
     return Ok(pdf_empty_tounicode_cmap_info())
   }
@@ -341,10 +344,10 @@ fn pdf_collect_tounicode_cmap_info(
 
 ///|
 fn pdf_collect_font_infos(
-  object_index : Map[Int, PdfNativeObject],
-) -> Result[PdfFontRegistry, PdfNativeError] {
-  let fonts : Map[Int, PdfNativeFontInfo] = Map([])
-  let inline_ids : Map[String, Int] = Map([])
+  object_index : Map[Int32, PdfNativeObject],
+) -> Result[PdfFontRegistry, PdfNativeError] raise PdfHardDecodeFailure {
+  let fonts : Map[Int32, PdfNativeFontInfo] = Map([])
+  let inline_ids : Map[String, Int32] = Map([])
   let mut next_inline_id = -1
   for entry in object_index.to_array() {
     let object = entry.1
@@ -404,10 +407,10 @@ fn pdf_collect_font_infos(
 
 ///|
 fn pdf_register_font_info(
-  fonts : Map[Int, PdfNativeFontInfo],
+  fonts : Map[Int32, PdfNativeFontInfo],
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
-) -> Result[Unit, PdfNativeError] {
+  object_index : Map[Int32, PdfNativeObject],
+) -> Result[Unit, PdfNativeError] raise PdfHardDecodeFailure {
   if fonts.get(object.object_id) is Some(_) {
     return Ok(())
   }
@@ -426,7 +429,7 @@ fn pdf_register_font_info(
   let mut tounicode_decode_failed = false
   let unicode_info = match to_unicode_ref {
     Some(ref_id) => {
-      let visited : Map[Int, Bool] = Map([])
+      let visited : Map[Int32, Bool] = Map([])
       match pdf_collect_tounicode_cmap_info(ref_id, object_index, visited, 8) {
         Ok(value) => value
         Err(_) => {
@@ -506,7 +509,7 @@ fn pdf_register_font_info(
 ///|
 fn pdf_primary_descendant_font_object(
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfNativeObject? {
   if pdf_extract_name_after(object.dict_text, "/Subtype") != Some("Type0") {
     return None
@@ -546,11 +549,11 @@ fn pdf_font_cid_collection_cmap(
 
 ///|
 fn pdf_font_combined_code_width_hints(
-  encoding_widths : Array[Int],
-  tounicode_widths : Array[Int],
+  encoding_widths : Array[Int32],
+  tounicode_widths : Array[Int32],
   predefined_cmap : PdfResolvedPredefinedCMap?,
-) -> Array[Int] {
-  let widths : Map[Int, Bool] = Map([])
+) -> Array[Int32] {
+  let widths : Map[Int32, Bool] = Map([])
   for width in encoding_widths {
     if width > 0 {
       widths.set(width, true)
@@ -576,12 +579,12 @@ fn pdf_font_combined_code_width_hints(
 ///|
 fn pdf_build_native_pages(
   source : @input.InputSource,
-  page_object_ids : Array[Int],
-  object_index : Map[Int, PdfNativeObject],
-  fonts : Map[Int, PdfNativeFontInfo],
-  inline_font_ids : Map[String, Int],
-  page_numbers : Map[Int, Int],
-) -> Result[Array[PdfNativePage], PdfNativeError] {
+  page_object_ids : Array[Int32],
+  object_index : Map[Int32, PdfNativeObject],
+  fonts : Map[Int32, PdfNativeFontInfo],
+  inline_font_ids : Map[String, Int32],
+  page_numbers : Map[Int32, Int32],
+) -> Result[Array[PdfNativePage], PdfNativeError] raise PdfHardDecodeFailure {
   let pages : Array[PdfNativePage] = []
   for page_object_id in page_object_ids {
     let object = match object_index.get(page_object_id) {

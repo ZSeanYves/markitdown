@@ -28,13 +28,13 @@ pub extend IpynbOutputKind with Eq::{equal, not_equal}
 
 ///|
 pub struct IpynbNotebookSummary {
-  nbformat : Int?
-  nbformat_minor : Int?
+  nbformat : Int32?
+  nbformat_minor : Int32?
   kernelspec_name : String?
   kernelspec_display_name : String?
   language_name : String?
   language_version : String?
-  cell_count : Int
+  cell_count : Int32
 }
 
 ///|
@@ -56,7 +56,7 @@ pub struct IpynbOutput {
   kind : IpynbOutputKind
   output_type : String
   name : String?
-  execution_count : Int?
+  execution_count : Int32?
   text : String?
   mime_entries : Array[IpynbMimeEntry]
   ename : String?
@@ -69,13 +69,13 @@ pub struct IpynbOutput {
 
 ///|
 pub struct IpynbCell {
-  index : Int
+  index : Int32
   kind : IpynbCellKind
   cell_type : String
   cell_id : String?
   metadata : @djson.JsonValue?
   source : String
-  execution_count : Int?
+  execution_count : Int32?
   attachments : Array[IpynbAttachment]
   outputs : Array[IpynbOutput]
   json_pointer : String
@@ -91,22 +91,22 @@ pub struct IpynbNotebook {
 
 ///|
 pub struct IpynbInspectReport {
-  nbformat : Int?
-  nbformat_minor : Int?
-  cell_count : Int
-  markdown_cell_count : Int
-  code_cell_count : Int
-  raw_cell_count : Int
-  output_count : Int
-  stream_output_count : Int
-  display_data_count : Int
-  execute_result_count : Int
-  error_output_count : Int
-  attachment_count : Int
-  mime_entry_count : Int
-  asset_candidate_count : Int
-  max_cell_source_chars : Int
-  max_output_text_chars : Int
+  nbformat : Int32?
+  nbformat_minor : Int32?
+  cell_count : Int32
+  markdown_cell_count : Int32
+  code_cell_count : Int32
+  raw_cell_count : Int32
+  output_count : Int32
+  stream_output_count : Int32
+  display_data_count : Int32
+  execute_result_count : Int32
+  error_output_count : Int32
+  attachment_count : Int32
+  mime_entry_count : Int32
+  asset_candidate_count : Int32
+  max_cell_source_chars : Int32
+  max_output_text_chars : Int32
 }
 
 ///|

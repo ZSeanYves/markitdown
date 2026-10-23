@@ -44,7 +44,7 @@ test "route probe metric vocabulary covers empty and structured signal branches"
 }
 
 ///|
-test "route policy rejects unsupported modes and keeps declared stream routes" {
+async test "route policy rejects unsupported modes and keeps declared stream routes" {
   let toml_source = text_markup_probe_source("title = \"demo\"\n", Toml)
   let accurate_toml = make_convert_options(
     Accurate,
@@ -95,7 +95,7 @@ test "route policy rejects unsupported modes and keeps declared stream routes" {
 }
 
 ///|
-test "text markup preflight probe reuses preparsed tex document artifact" {
+async test "text markup preflight probe reuses preparsed tex document artifact" {
   let source = text_markup_probe_source(
     "\\section{Intro}\n\nHello world.\n",
     Tex,
@@ -126,7 +126,7 @@ test "text markup preflight probe reuses preparsed tex document artifact" {
 }
 
 ///|
-test "text markup preflight probe reuses preparsed rst document artifact" {
+async test "text markup preflight probe reuses preparsed rst document artifact" {
   let source = text_markup_probe_source(
     "Title\n=====\n\nBody paragraph.\n",
     Rst,
@@ -157,7 +157,7 @@ test "text markup preflight probe reuses preparsed rst document artifact" {
 }
 
 ///|
-test "text markup preflight probe reuses preparsed asciidoc document artifact" {
+async test "text markup preflight probe reuses preparsed asciidoc document artifact" {
   let source = text_markup_probe_source(
     "= Title\n\nA short paragraph.\n",
     Asciidoc,
@@ -188,17 +188,34 @@ test "text markup preflight probe reuses preparsed asciidoc document artifact" {
 }
 
 ///|
-test "pdf preflight probe reuses native document artifact on product parse path" {
+async test "pdf preflight probe defers text and reuses conversion session on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/pdf/text_simple.pdf",
     Some(Pdf),
   )
   let options = balanced_markdown_options(Pdf)
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let source = session.source
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
   }
   assert_eq(plan.probe_artifacts.length(), 1)
+  assert_true(plan.probe_summary_parts.contains("text_classification=deferred"))
+  assert_true(
+    !plan.probe_signals.any(signal => {
+      signal.kind == NativeTextPageCount || signal.kind == ScannedPageCount
+    }),
+  )
+  match plan.probe_artifacts[0] {
+    PdfNativeSession(session) => {
+      let facts = @dpdfnative.pdf_structural_facts(session)
+      assert_eq(facts.page_count, Some(1))
+      assert_true(facts.metadata_object_count > 0)
+    }
+    _ => fail("expected structural PDF session")
+  }
   let context = parse_context_from_execution_plan(Pdf, plan)
   let parsed = match
     parse_with_route_probe_artifact(
@@ -220,15 +237,26 @@ test "pdf preflight probe reuses native document artifact on product parse path"
   assert_true(
     parsed.diagnostics.metrics.get("process_cache_hit") == Some("false"),
   )
+  assert_eq(
+    parsed.diagnostics.metrics.get("pdf_text_classification_phase"),
+    Some("completed"),
+  )
+  assert_eq(
+    parsed.diagnostics.metrics.get("pdf_native_text_page_count"),
+    Some("1"),
+  )
 }
 
 ///|
-test "zip preflight probe reuses archive artifact on product parse path" {
+async test "zip preflight probe reuses archive artifact on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/zip/zip_assets_namespace.zip",
     Some(Zip),
   )
   let options = balanced_markdown_options(Zip)
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let source = session.source
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
@@ -257,12 +285,15 @@ test "zip preflight probe reuses archive artifact on product parse path" {
 }
 
 ///|
-test "epub preflight probe reuses package artifact on product parse path" {
+async test "epub preflight probe reuses package artifact on product parse path" {
   let source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/epub/epub_basic_package.epub",
     Some(Epub),
   )
   let options = balanced_markdown_options(Epub)
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let source = session.source
   let plan = match detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value.2
     Err(err) => fail(err.to_string())
@@ -291,7 +322,7 @@ test "epub preflight probe reuses package artifact on product parse path" {
 }
 
 ///|
-test "structured text preflight probes expose signals and controlled failures" {
+async test "structured text preflight probes expose signals and controlled failures" {
   let markdown = markdown_preflight_probe(
     text_markup_probe_source("# Title\n\n- one\n- two\n", Markdown),
     balanced_markdown_options(Markdown),
@@ -337,7 +368,7 @@ test "structured text preflight probes expose signals and controlled failures" {
 }
 
 ///|
-test "notebook XML and HTML preflight probes cover normal and damaged inputs" {
+async test "notebook XML and HTML preflight probes cover normal and damaged inputs" {
   let ipynb_text = "{\"cells\":[{\"cell_type\":\"markdown\",\"metadata\":{},\"source\":[\"hello\"]}],\"metadata\":{},\"nbformat\":4,\"nbformat_minor\":5}"
   let ipynb = ipynb_preflight_probe(
     text_markup_probe_source(ipynb_text, Ipynb),
@@ -378,7 +409,7 @@ test "notebook XML and HTML preflight probes cover normal and damaged inputs" {
 }
 
 ///|
-test "route rejects known input payloads above the configured byte limit" {
+async test "route rejects known input payloads above the configured byte limit" {
   let limits = @product.make_resource_limits(
     2000,
     50,
@@ -399,7 +430,7 @@ test "route rejects known input payloads above the configured byte limit" {
 }
 
 ///|
-test "route rejects path input by size before reading content" {
+async test "route rejects path input by size before reading content" {
   let limits = @product.make_resource_limits(
     2000,
     50,
@@ -423,7 +454,7 @@ test "route rejects path input by size before reading content" {
 }
 
 ///|
-test "asset payload limits clear oversized payloads and remove markdown targets" {
+test "asset payload limits reject oversized payloads without deleting source assets" {
   let first = {
     ..@core.make_asset_ref(Image, "large"),
     path: Some("assets/large.bin"),
@@ -437,18 +468,71 @@ test "asset payload limits clear oversized payloads and remove markdown targets"
     max_asset_bytes=4L,
     max_total_asset_bytes=8L,
   )
-  let limited = apply_asset_payload_limits([first], limits, diagnostics)
-  assert_eq(limited.0.length(), 1)
-  assert_eq(limited.1.length(), 1)
-  assert_true(limited.0[0].payload is None)
   assert_true(
+    apply_asset_payload_limits([first], limits, diagnostics)
+    is Err(
+      ResourceLimitExceeded(kind="single_asset_bytes", observed=5L, limit=4L)
+    ),
+  )
+  assert_true(first.payload is Some(Bytes(_)))
+  assert_false(first.attrs.contains("payload_skipped"))
+  assert_false(
     diagnostics.degraded_features.contains("asset_payload_limit_skip"),
   )
-  assert_eq(
-    remove_skipped_asset_references(
-      "before ![large](assets/large.bin) after",
-      limited.1,
-    ),
-    "before large after",
+}
+
+///|
+test "asset payload limits allow exact byte boundaries and preserve payload order" {
+  let bytes_asset = @core.make_asset_ref(Image, "bytes")
+  bytes_asset.payload = Some(Bytes(b"abc"))
+  let text_asset = @core.make_asset_ref(Attachment, "text")
+  text_asset.payload = Some(Utf8("é"))
+  let external_asset = @core.make_asset_ref(Image, "external")
+  external_asset.payload = Some(SourcePath("image.png"))
+  let diagnostics = @core.empty_diagnostics()
+  let limits = @product.make_resource_limits(
+    2000,
+    50,
+    100000,
+    max_asset_bytes=3L,
+    max_total_asset_bytes=5L,
   )
+  let assets = apply_asset_payload_limits(
+    [bytes_asset, text_asset, external_asset],
+    limits,
+    diagnostics,
+  ).unwrap()
+  assert_eq(assets.map(asset => asset.asset_id), ["bytes", "text", "external"])
+  assert_true(assets[0].payload == Some(Bytes(b"abc")))
+  assert_true(assets[1].payload == Some(Utf8("é")))
+  assert_true(assets[2].payload == Some(SourcePath("image.png")))
+  assert_eq(diagnostics.metrics.get("asset_payload_bytes"), Some("5"))
+  assert_eq(diagnostics.metrics.get("asset_payload_skipped"), Some("0"))
+}
+
+///|
+test "asset payload limits reject collective excess before mutating assets" {
+  let first = @core.make_asset_ref(Image, "first")
+  first.payload = Some(Bytes(b"abc"))
+  let second = @core.make_asset_ref(Image, "second")
+  second.payload = Some(Bytes(b"def"))
+  let limits = @product.make_resource_limits(
+    2000,
+    50,
+    100000,
+    max_asset_bytes=3L,
+    max_total_asset_bytes=5L,
+  )
+  assert_true(
+    apply_asset_payload_limits(
+      [first, second],
+      limits,
+      @core.empty_diagnostics(),
+    )
+    is Err(
+      ResourceLimitExceeded(kind="total_asset_bytes", observed=6L, limit=5L)
+    ),
+  )
+  assert_true(first.payload == Some(Bytes(b"abc")))
+  assert_true(second.payload == Some(Bytes(b"def")))
 }

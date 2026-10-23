@@ -102,7 +102,7 @@ fn html_table_section_by_key(
 fn html_table_header_rows(
   index : HtmlLoweringIndex,
   table : @dhtml.HtmlTableFact,
-) -> Int {
+) -> Int32 {
   let mut header_rows = 0
   for section_key in table.sections {
     match html_table_section_by_key(index, section_key) {
@@ -402,7 +402,7 @@ fn html_top_level_inline_facts_for_block(
 }
 
 ///|
-fn render_list_plain(block : @core.CoreBlock, depth : Int) -> String {
+fn render_list_plain(block : @core.CoreBlock, depth : Int32) -> String {
   let ordered = block.attrs.get("ordered").unwrap_or("false") == "true"
   let lines : Array[String] = []
   for index in 0..<block.children.length() {
@@ -421,9 +421,9 @@ fn render_list_plain(block : @core.CoreBlock, depth : Int) -> String {
 ///|
 fn render_list_item_plain(
   block : @core.CoreBlock,
-  depth : Int,
-  ordered? : Bool = false,
-  index? : Int = 1,
+  depth : Int32,
+  ordered~ : Bool = false,
+  index~ : Int32 = 1,
 ) -> String {
   let marker = if ordered { index.to_string() + ". " } else { "- " }
   let indent = Array::make(depth * 2, " ").join("")
@@ -719,7 +719,7 @@ fn html_image_ext_from_src(src : String) -> String {
 }
 
 ///|
-fn html_two_digit(value : Int) -> String {
+fn html_two_digit(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {

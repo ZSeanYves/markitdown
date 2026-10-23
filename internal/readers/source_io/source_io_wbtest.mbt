@@ -1,5 +1,5 @@
 ///|
-test "source IO preserves prepared byte and text payloads across input kinds" {
+async test "source IO preserves prepared byte and text payloads across input kinds" {
   let text_source = @input.input_from_text("hello", source_name="hello.txt")
   match read_source_text(text_source) {
     Ok(payload) => {
@@ -37,9 +37,9 @@ test "source IO preserves prepared byte and text payloads across input kinds" {
 }
 
 ///|
-test "source IO decodes UTF16 BOM text in little and big endian" {
-  let le = Bytes::from_array([0xFF, 0xFE, 0x41, 0, 0x42, 0].map(Int::to_byte))
-  let be = Bytes::from_array([0xFE, 0xFF, 0, 0x41, 0, 0x42].map(Int::to_byte))
+async test "source IO decodes UTF16 BOM text in little and big endian" {
+  let le = Bytes::from_array([0xFF, 0xFE, 0x41, 0, 0x42, 0].map(Int32::to_byte))
+  let be = Bytes::from_array([0xFE, 0xFF, 0, 0x41, 0, 0x42].map(Int32::to_byte))
   assert_true(decode_utf16_text_bytes(le) == Some("AB"))
   assert_true(decode_utf16_text_bytes(be) == Some("AB"))
   assert_true(decode_utf16_text_bytes(Bytes::new(0)) is None)
@@ -62,13 +62,13 @@ test "source IO decodes UTF16 BOM text in little and big endian" {
 }
 
 ///|
-test "source IO sniffs XML encodings and fails closed on invalid UTF8" {
+async test "source IO sniffs XML encodings and fails closed on invalid UTF8" {
   let latin = Bytes::from_array(
     [
       0x3C, 0x3F, 0x78, 0x6D, 0x6C, 0x20, 0x65, 0x6E, 0x63, 0x6F, 0x64, 0x69, 0x6E,
       0x67, 0x3D, 0x22, 0x49, 0x53, 0x4F, 0x2D, 0x38, 0x38, 0x35, 0x39, 0x2D, 0x31,
       0x22, 0x3F, 0x3E, 0xE9,
-    ].map(Int::to_byte),
+    ].map(Int32::to_byte),
   )
   assert_true(sniff_xml_declared_encoding(latin) == Some("iso-8859-1"))
   match decode_xml_input_bytes(latin) {
@@ -79,7 +79,7 @@ test "source IO sniffs XML encodings and fails closed on invalid UTF8" {
   assert_true(sniff_xml_declared_encoding(utf8_xml) is None)
   assert_true(decode_xml_input_bytes(utf8_xml) is Ok(_))
   assert_true(
-    decode_xml_input_bytes(Bytes::from_array([0xC3, 0x28].map(Int::to_byte)))
+    decode_xml_input_bytes(Bytes::from_array([0xC3, 0x28].map(Int32::to_byte)))
     is Err(_),
   )
   for
@@ -104,9 +104,9 @@ test "source IO sniffs XML encodings and fails closed on invalid UTF8" {
 }
 
 ///|
-test "portable Shift_JIS fallback uses the community decoder and fails closed" {
+async test "CP932 fallback decodes Shift_JIS rows and fails closed" {
   let source = @input.input_from_bytes(
-    Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int::to_byte)),
+    Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int32::to_byte)),
     source_name="sjis.txt",
   )
   match read_source_text_with_cp932_fallback(source) {
@@ -114,44 +114,16 @@ test "portable Shift_JIS fallback uses the community decoder and fails closed" {
     Err(error) => fail(error)
   }
   let malformed = @input.input_from_bytes(
-    Bytes::from_array([0x80].map(Int::to_byte)),
+    Bytes::from_array([0x80].map(Int32::to_byte)),
     source_name="invalid-sjis.txt",
   )
   assert_true(read_source_text_with_cp932_fallback(malformed) is Err(_))
 }
 
 ///|
-#cfg(not(target="native"))
-test "portable Shift_JIS adapter keeps valid rows and rejects CP932 extensions" {
-  // ASCII, half-width katakana and a JIS X 0208 row are all in the
-  // portable package's declared scope.
-  let valid = @input.input_from_bytes(
-    Bytes::from_array([0x41, 0xA6, 0x81, 0x40, 0x82, 0xA0].map(Int::to_byte)),
-    source_name="shift-jis-subset.txt",
-  )
-  match read_source_text_with_cp932_fallback(valid) {
-    Ok(payload) => assert_eq(payload.text, "Aｦ　あ")
-    Err(error) => fail(error)
-  }
-  // FA40 is a valid Microsoft CP932 extension (U+2170), but is outside the
-  // portable package's JIS X 0208 table.  Wasm must report this boundary
-  // instead of emitting U+FFFD or pretending to provide full CP932.
-  let extension = @input.input_from_bytes(
-    Bytes::from_array([0xFA, 0x40].map(Int::to_byte)),
-    source_name="cp932-extension.txt",
-  )
-  assert_true(read_source_text_with_cp932_fallback(extension) is Err(_))
-  let truncated = @input.input_from_bytes(
-    Bytes::from_array([0x82].map(Int::to_byte)),
-    source_name="truncated-shift-jis.txt",
-  )
-  assert_true(read_source_text_with_cp932_fallback(truncated) is Err(_))
-}
-
-///|
 fn chunked_source_io_reader(
   bytes : Bytes,
-  max_chunk : Int,
+  max_chunk : Int32,
 ) -> @input.InputSource {
   let reader = @input.make_input_reader(
     fn(offset, length) {
@@ -165,13 +137,14 @@ fn chunked_source_io_reader(
 }
 
 ///|
-test "streaming UTF8 reader preserves emoji CRLF and provenance offsets" {
+async test "streaming UTF8 reader preserves emoji CRLF and provenance offsets" {
   let text = "A\r\n😀B"
   let bytes = @utf8.encode(text)
   let reader = open_source_text_chunk_reader(
     chunked_source_io_reader(bytes, 1),
     chunk_size=1,
   ).unwrap()
+  defer (reader.close)()
   let collected = StringBuilder()
   let mut last : SourceTextChunk? = None
   while true {
@@ -191,7 +164,7 @@ test "streaming UTF8 reader preserves emoji CRLF and provenance offsets" {
 }
 
 ///|
-test "streaming UTF8 reader preserves markup entities and CSV multiline quotes" {
+async test "streaming UTF8 reader preserves markup entities and CSV multiline quotes" {
   for
     text in [
       "<p title=\"x&amp;y\">😀</p>\r\n", "name,value\r\nalpha,\"line one\r\nline two\"\r\n",
@@ -209,11 +182,12 @@ test "streaming UTF8 reader preserves markup entities and CSV multiline quotes" 
 }
 
 ///|
-test "physical line reader preserves CRLF emoji and trailing records" {
+async test "physical line reader preserves CRLF emoji and trailing records" {
   let source = @input.input_from_text(
     "\u{FEFF}alpha\r\nemoji 😀\rblank\n\nlast",
   )
   let reader = open_source_text_line_reader(source, max_line_chars=64).unwrap()
+  defer (reader.close)()
   let values : Array[SourceTextLine] = []
   while true {
     match (reader.next)().unwrap() {
@@ -231,11 +205,12 @@ test "physical line reader preserves CRLF emoji and trailing records" {
 }
 
 ///|
-test "block reader retains one bounded record and line provenance" {
+async test "block reader retains one bounded record and line provenance" {
   let reader = open_source_text_block_reader(
     @input.input_from_text("one\ntwo\n\nthree\n\nfour\nfive\nsix"),
     max_block_lines=2,
   ).unwrap()
+  defer (reader.close)()
   let first = (reader.next)().unwrap().unwrap()
   assert_eq(first.lines, ["one", "two"])
   assert_eq(first.line_start, 1)
@@ -250,7 +225,7 @@ test "block reader retains one bounded record and line provenance" {
 }
 
 ///|
-test "line readers reject invalid limits and missing sources" {
+async test "line readers reject invalid limits and missing sources" {
   match
     open_source_text_line_reader(
       @input.input_from_text("value"),
@@ -268,9 +243,9 @@ test "line readers reject invalid limits and missing sources" {
 
 ///|
 #cfg(target="native")
-test "source IO CP932 fallback is explicit and preserves reader errors" {
+async test "source IO CP932 fallback is explicit and preserves reader errors" {
   let cp932 = @input.input_from_bytes(
-    Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int::to_byte)),
+    Bytes::from_array([0x96, 0xBC, 0x91, 0x4F].map(Int32::to_byte)),
     source_name="names.csv",
   )
   match read_source_text_with_cp932_fallback(cp932) {
@@ -278,7 +253,7 @@ test "source IO CP932 fallback is explicit and preserves reader errors" {
     Err(error) => fail(error)
   }
   let invalid = @input.input_from_bytes(
-    Bytes::from_array([0x80].map(Int::to_byte)),
+    Bytes::from_array([0x80].map(Int32::to_byte)),
     source_name="bad.csv",
   )
   assert_true(read_source_text_with_cp932_fallback(invalid) is Err(_))
@@ -296,12 +271,12 @@ test "source IO CP932 fallback is explicit and preserves reader errors" {
 
 ///|
 #cfg(target="native")
-test "native CP932 fallback accepts a Microsoft extension row" {
+async test "native CP932 fallback accepts a Microsoft extension row" {
   // CP932 FA40 is U+2170 on the supported iconv implementations.  Keep the
   // assertion on decoded text rather than the FFI buffer to exercise the same
   // source contract as a CSV conversion.
   let extension = @input.input_from_bytes(
-    Bytes::from_array([0xFA, 0x40].map(Int::to_byte)),
+    Bytes::from_array([0xFA, 0x40].map(Int32::to_byte)),
     source_name="cp932-extension.csv",
   )
   match read_source_text_with_cp932_fallback(extension) {

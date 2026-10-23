@@ -69,7 +69,7 @@ fn cli_fail_closed_format_message(
 }
 
 ///|
-async fn exit_cli_error(failure : CliFailure) -> Int {
+async fn exit_cli_error(failure : CliFailure) -> Int32 {
   cli_write_stderr("error: " + failure.message + "\n")
   if failure.kind == UsageFailure {
     cli_write_stderr(cli_usage_text() + "\n")

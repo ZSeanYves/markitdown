@@ -8,13 +8,13 @@ fn wb_bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn wb_append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn wb_append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn wb_append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn wb_append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -22,12 +22,12 @@ fn wb_append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn wb_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn wb_crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -37,18 +37,18 @@ fn wb_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn wb_crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn wb_crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = wb_crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
 fn wb_add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : String,
 ) -> Unit {
@@ -81,7 +81,7 @@ fn wb_add_store_entry(
 ///|
 fn wb_build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -192,7 +192,7 @@ fn wb_minimal_opf(
 }
 
 ///|
-fn wb_open_inline_epub() -> EpubPackage raise {
+async fn wb_open_inline_epub() -> EpubPackage {
   open_epub_package(
     wb_build_store_zip([
       ("mimetype", "application/epub+zip"),
@@ -224,7 +224,7 @@ fn wb_open_inline_epub() -> EpubPackage raise {
 }
 
 ///|
-test "epub package private caches record inventory inspect text and zip reuse" {
+async test "epub package private caches record inventory inspect text and zip reuse" {
   let pkg = wb_open_inline_epub() catch {
     e => fail("open inline epub failed: " + e.to_string())
   }
@@ -256,7 +256,7 @@ test "epub package private caches record inventory inspect text and zip reuse" {
 }
 
 ///|
-test "epub repeated opens keep package-local caches independent" {
+async test "epub repeated opens keep package-local caches independent" {
   let bytes = wb_build_store_zip([
     ("mimetype", "application/epub+zip"),
     (

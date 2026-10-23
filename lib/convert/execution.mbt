@@ -7,30 +7,35 @@ async fn execute_conversion(
   options : ConvertOptions,
   sink : OutputSink?,
 ) -> Result[ConvertExecution, ConvertError] {
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let source = session.source
   let execution_started = @env.now()
-  let source = match
-    normalize_async_reader_source(source, options.limits.max_input_bytes) {
-    Ok(value) => value
-    Err(err) => return Err(err)
-  }
   let detect_started = execution_started
   let (effective_source, detected, execution_plan) = match
     detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value
-    Err(err) => return Err(err)
+    Err(err) =>
+      return Err(
+        input_failure_convert_error(source, detect=true).unwrap_or(err),
+      )
+  }
+  if input_failure_convert_error(source, detect=true) is Some(error) {
+    return Err(error)
   }
   let detect_elapsed_ms = @env.now() - detect_started
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
-  let parse_context = parse_context_from_execution_plan(
-    detected.format,
-    execution_plan,
+  let parse_context = @parser.parse_context_with_input_source(
+    parse_context_from_execution_plan(detected.format, execution_plan),
+    prepared_source,
   )
   let parse_started = @env.now()
   let parsed = {
-    let probe_registry = @parser.unified_registry_sync_projection(
-      @formats.builtin_unified_registry(),
-    )
+    let registry = @formats.builtin_registry()
     match
       parse_prepared_request(
         {
@@ -47,10 +52,18 @@ async fn execute_conversion(
           probe_artifact: None,
         },
         parse_context,
-        probe_registry,
+        registry,
       ) {
       Some(Ok(result)) => result
-      Some(Err(err)) => return Err(ParseFailed(err))
+      Some(Err(err)) =>
+        return Err(
+          // PDF probing previously performed complete extraction. Preserve its
+          // public hard-input error category when interpretation moves later;
+          // typed budgets keep their concrete mapping in either phase.
+          input_failure_convert_error(source, detect=detected.format == Pdf).unwrap_or(
+            ParseFailed(err),
+          ),
+        )
       None if heavy_probe_artifact_required(detected.format) =>
         return Err(
           ParseFailed(
@@ -59,16 +72,17 @@ async fn execute_conversion(
           ),
         )
       None =>
-        match
-          @parser.unified_registry_parse(
-            @formats.builtin_unified_registry(),
-            prepared_source,
-            parse_context,
-          ) {
+        match @parser.registry_parse(registry, prepared_source, parse_context) {
           Ok(result) => result
-          Err(err) => return Err(ParseFailed(err))
+          Err(err) =>
+            return Err(
+              input_failure_convert_error(source).unwrap_or(ParseFailed(err)),
+            )
         }
     }
+  }
+  if input_failure_convert_error(source) is Some(error) {
+    return Err(error)
   }
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
@@ -97,25 +111,108 @@ async fn execute_conversion(
 }
 
 ///|
-/// Materialize only the new async-reader contract before the shared detector
-/// and parser chain. Existing synchronous readers continue to use bounded
-/// random access, while async readers are prevented from falling through to a
-/// blocking callback that cannot preserve their ownership model. This is a
-/// transitional adapter until individual random-access parsers consume
-/// `source_cursor_read_at_async` directly.
-async fn normalize_async_reader_source(
+/// Preserve concrete resource failures across parser helpers whose local
+/// contract still returns String. The session remains the single first-error
+/// owner; no error text is inspected to choose a domain error.
+fn input_failure_convert_error(
   source : @input.InputSource,
-  max_input_bytes : Int64,
-) -> Result[@input.InputSource, ConvertError] {
-  if @input.input_source_is_async_reader(source) {
-    let bounded = @input.input_source_with_reader_limit(source, max_input_bytes)
-    match @input.read_input_bytes_async(bounded) {
-      Ok(bytes) => Ok(@input.with_bytes_payload(source, bytes))
-      Err(message) => Err(DetectFailed("async reader: " + message))
-    }
-  } else {
-    Ok(source)
+  detect~ : Bool = false,
+) -> ConvertError? {
+  match @input.input_source_failure(source) {
+    Some(InputError(message)) =>
+      Some(if detect { DetectFailed(message) } else { ParseFailed(message) })
+    Some(ResourceLimit(failure)) =>
+      Some(
+        ResourceLimitExceeded(
+          kind=match failure.kind {
+            SingleAssetBytes => "single_asset_bytes"
+            TotalAssetBytes => "total_asset_bytes"
+          },
+          observed=failure.observed,
+          limit=failure.limit,
+        ),
+      )
+    Some(BudgetFailure(error)) => Some(budget_convert_error(error))
+    None => None
   }
+}
+
+///|
+fn budget_convert_error(error : @budget.BudgetError) -> ConvertError {
+  match error {
+    LimitExceeded(dimension, used~, requested~, limit~) =>
+      ResourceLimitExceeded(
+        kind=@budget.budget_dimension_name(dimension),
+        observed=used + requested,
+        limit~,
+      )
+    _ => ParseFailed(@budget.budget_error_message(error))
+  }
+}
+
+///|
+/// The first consumers provide a partial measurement profile. Values describe
+/// payload accounting, not process RSS; uninstrumented dimensions are named
+/// rather than reported as complete zero-cost measurements.
+fn record_budget_diagnostics(
+  source : @input.InputSource,
+  diagnostics : @core.Diagnostics,
+  confirmed_output : Int64,
+) -> Unit {
+  guard @input.input_source_budget_context(source) is Some(context) else {
+    return
+  }
+  let snapshot = context.account.snapshot()
+  diagnostics.metrics.set("budget_schema", "partial_v4")
+  diagnostics.metrics.set(
+    "budget_profile",
+    if snapshot.limits.profile == MeasurementOnly {
+      "measurement_only"
+    } else {
+      "explicit_enforced"
+    },
+  )
+  diagnostics.metrics.set(
+    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,output_utf8_admission",
+  )
+  diagnostics.metrics.set(
+    "budget_unmeasured", "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
+  )
+  diagnostics.metrics.set(
+    "budget_resident_policy", "scope_retained_payload_upper_bound",
+  )
+  diagnostics.metrics.set(
+    "budget_read_traffic_bytes",
+    snapshot.cumulative.read_traffic_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_inflate_bytes",
+    snapshot.cumulative.inflate_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_output_admitted_utf8_bytes",
+    snapshot.cumulative.output_utf8_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_output_confirmed_utf8_bytes",
+    confirmed_output.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_cache_payload_peak_bytes",
+    snapshot.resident_peak.cache_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_working_payload_peak_bytes",
+    snapshot.resident_peak.working_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_parse_work",
+    snapshot.cumulative.parse_work.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_source_metadata_bytes",
+    snapshot.cumulative.source_metadata_bytes.to_string(),
+  )
 }
 
 ///|

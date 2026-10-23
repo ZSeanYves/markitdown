@@ -32,7 +32,7 @@ pub struct OfficePart {
   normalized_part_name : String?
   content_type : String?
   relationship_type : String?
-  size : Int?
+  size : Int32?
   source_ref : @core.SourceRef?
   security_findings : Array[OfficeSecurityFinding]
 }
@@ -64,7 +64,7 @@ pub struct OfficeMediaAsset {
   content_type : String?
   relationship_id : String?
   source_part : String?
-  size : Int?
+  size : Int32?
   source_ref : @core.SourceRef?
 }
 
@@ -156,7 +156,7 @@ pub struct PptxMasterModel {
   master_name : String?
   part_name : String?
   theme_part : String?
-  placeholder_count : Int
+  placeholder_count : Int32
   source_ref : @core.SourceRef?
 }
 
@@ -166,7 +166,7 @@ pub struct PptxLayoutModel {
   part_name : String?
   master_part : String?
   theme_part : String?
-  placeholder_count : Int
+  placeholder_count : Int32
   source_ref : @core.SourceRef?
 }
 
@@ -189,9 +189,9 @@ pub struct PptxTextRunModel {
 
 ///|
 pub struct PptxParagraphModel {
-  paragraph_index : Int
+  paragraph_index : Int32
   runs : Array[PptxTextRunModel]
-  level : Int?
+  level : Int32?
   bullet_kind : String?
   source_ref : @core.SourceRef?
 }
@@ -208,18 +208,18 @@ pub struct PptxImageModel {
 
 ///|
 pub struct PptxTableCellModel {
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   text : String
   rich_runs : Array[PptxTextRunModel]
-  row_span : Int?
-  column_span : Int?
+  row_span : Int32?
+  column_span : Int32?
   source_ref : @core.SourceRef?
 }
 
 ///|
 pub struct PptxTableRowModel {
-  row_index : Int
+  row_index : Int32
   cells : Array[PptxTableCellModel]
   source_ref : @core.SourceRef?
 }
@@ -261,8 +261,8 @@ pub struct PptxCommentModel {
 
 ///|
 pub struct PptxReadingOrderItem {
-  reading_order_index : Int
-  slide_index : Int
+  reading_order_index : Int32
+  slide_index : Int32
   shape_id : String?
   strategy : PptxReadingOrderStrategy
   confidence : String?
@@ -271,7 +271,7 @@ pub struct PptxReadingOrderItem {
 
 ///|
 pub struct PptxSlideModel {
-  slide_index : Int
+  slide_index : Int32
   slide_id : String?
   slide_part : String?
   visibility : PptxSlideVisibility
@@ -327,7 +327,7 @@ pub(all) enum XlsxCellType {
 
 ///|
 pub struct XlsxSharedString {
-  string_index : Int
+  string_index : Int32
   value : String
   source_ref : @core.SourceRef?
 }
@@ -353,12 +353,12 @@ pub struct XlsxMergedRange {
 ///|
 pub struct XlsxCellModel {
   cell_ref : String
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   cell_type : XlsxCellType
   raw_value : String?
   display_value : String?
-  shared_string_index : Int?
+  shared_string_index : Int32?
   style_ref : @core.StyleRef?
   formula : XlsxFormula?
   source_ref : @core.SourceRef?
@@ -367,7 +367,7 @@ pub struct XlsxCellModel {
 
 ///|
 pub struct XlsxRowModel {
-  row_index : Int
+  row_index : Int32
   cells : Array[XlsxCellModel]
   source_ref : @core.SourceRef?
 }

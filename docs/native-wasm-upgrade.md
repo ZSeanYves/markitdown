@@ -1,5 +1,10 @@
 # Native/Wasm text runtime upgrade
 
+> Historical record. Current product targets, delivery and acceptance
+> instructions are superseded by the [Native upgrade plan](./architecture/native-performance-plan.md)
+> and [ADR 0008](./adr/0008-native-only-delivery-and-acceptance.md).
+> Original evidence below is preserved and does not certify P2–P6 completion.
+
 Accepted scope: [ADR 0006](./adr/0006-shared-text-runtime.md).
 Candidate research: [RFC 0001](./rfcs/0001-text-extraction-scope-and-community-packages.md).
 The current FFI boundary is listed in [the FFI inventory](./ffi-inventory.md).

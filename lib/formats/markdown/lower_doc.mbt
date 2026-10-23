@@ -69,7 +69,7 @@ fn markdown_lowered_blocks_for_mode(
 ///|
 priv struct MarkdownInlineParseResult {
   rich_inlines : Array[@core.CoreInline]?
-  unsafe_link_count : Int
+  unsafe_link_count : Int32
 }
 
 ///|
@@ -90,10 +90,10 @@ fn markdown_blocks_from_scanned_document(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
-  let image_asset_index : Ref[Int] = { val: 0, }
+  let image_asset_index : Ref[Int32] = { val: 0, }
   let defined_footnotes = if lowering_mode == BlockStreamingLight &&
     !markdown_blocks_may_define_footnotes(scanned.blocks) {
     Map([])
@@ -227,10 +227,10 @@ fn markdown_scanned_group_to_core_blocks_next(
   group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   if group.length() == 0 {
     return []
@@ -404,7 +404,7 @@ fn markdown_lowering_item_group_key(item : MarkdownLoweringItem) -> String {
 fn markdown_frontmatter_block(
   value : MarkdownFrontmatter,
   source : @input.InputSource,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_source_ref_with_path(
     markdown_source_ref_from_lines(
@@ -435,10 +435,10 @@ fn markdown_group_to_core_blocks_next(
   group : Array[MarkdownLoweringItem],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   if group.length() == 0 {
     return []
@@ -530,10 +530,10 @@ fn markdown_footnote_group_to_core_blocks_next(
   group : Array[MarkdownLoweringItem],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> Array[@core.CoreBlock] {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -573,7 +573,7 @@ fn markdown_footnote_definition_block(
   continuation : Array[MarkdownBlock],
   source : @input.InputSource,
   defined_footnotes : Map[String, Bool],
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let (label, body) = match markdown_footnote_definition_head(head) {
     Some(value) => value
@@ -625,10 +625,10 @@ fn markdown_single_block_to_core_block_next(
   block : MarkdownBlock,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_source_ref(block, source, base_source_ref~)
   match block.kind {
@@ -716,7 +716,7 @@ fn markdown_html_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_group_source_ref(
     group,

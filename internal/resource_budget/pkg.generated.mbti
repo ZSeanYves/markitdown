@@ -1,0 +1,132 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/resource_budget"
+
+// Values
+pub fn budget_dimension_name(BudgetDimension) -> String
+
+pub fn budget_error_message(BudgetError) -> String
+
+// Errors
+
+// Types and methods
+pub struct Budget {
+  // private fields
+}
+pub fn Budget::charge(Self, CumulativeKind, Int64) -> Result[Unit, BudgetError]
+pub fn Budget::close(Self) -> Result[Unit, BudgetError]
+pub fn Budget::failure(Self) -> BudgetError?
+pub fn Budget::new(BudgetLimits) -> Self
+pub fn Budget::reserve(Self, ResidentKind, Int64) -> Result[BudgetLease, BudgetError]
+pub fn Budget::snapshot(Self) -> BudgetSnapshot
+
+pub struct BudgetContext {
+  account : Budget
+  retain_resident : (ResidentKind, Int64) -> Result[Unit, BudgetError]
+}
+pub fn BudgetContext::new(Budget, (ResidentKind, Int64) -> Result[Unit, BudgetError]) -> Self
+
+pub(all) enum BudgetDimension {
+  Cumulative(CumulativeKind)
+  Resident(ResidentKind)
+} derive(Eq)
+pub fn BudgetDimension::equal(Self, Self) -> Bool
+pub fn BudgetDimension::not_equal(Self, Self) -> Bool
+
+pub(all) enum BudgetError {
+  InvalidLimit(BudgetDimension, Int64)
+  MissingEnforcedLimit(BudgetDimension)
+  NegativeAmount(BudgetDimension, Int64)
+  ArithmeticOverflow(BudgetDimension, used~ : Int64, requested~ : Int64)
+  LimitExceeded(BudgetDimension, used~ : Int64, requested~ : Int64, limit~ : Int64)
+  LeaseCountOverflow
+  OutstandingLeases(Int64)
+  Closed
+} derive(Eq)
+pub fn BudgetError::equal(Self, Self) -> Bool
+pub fn BudgetError::not_equal(Self, Self) -> Bool
+
+pub struct BudgetLease {
+  // private fields
+}
+pub fn BudgetLease::release(Self) -> Unit
+
+pub struct BudgetLimits {
+  profile : BudgetProfile
+  inflate_bytes : Int64?
+  parse_work : Int64?
+  output_utf8_bytes : Int64?
+  source_metadata_bytes : Int64?
+  rag_metadata_bytes : Int64?
+  read_traffic_bytes : Int64?
+  cache_bytes : Int64?
+  working_bytes : Int64?
+  temporary_bytes : Int64?
+  ir_bytes : Int64?
+} derive(Eq)
+pub fn BudgetLimits::equal(Self, Self) -> Bool
+pub fn BudgetLimits::measurement_only() -> Self
+pub fn BudgetLimits::new(BudgetProfile, inflate_bytes~ : Int64?, parse_work~ : Int64?, output_utf8_bytes~ : Int64?, source_metadata_bytes~ : Int64?, rag_metadata_bytes~ : Int64?, read_traffic_bytes~ : Int64?, cache_bytes~ : Int64?, working_bytes~ : Int64?, temporary_bytes~ : Int64?, ir_bytes~ : Int64?) -> Result[Self, BudgetError]
+pub fn BudgetLimits::not_equal(Self, Self) -> Bool
+
+pub(all) enum BudgetProfile {
+  Enforced
+  MeasurementOnly
+} derive(Eq)
+pub fn BudgetProfile::equal(Self, Self) -> Bool
+pub fn BudgetProfile::not_equal(Self, Self) -> Bool
+
+pub struct BudgetSnapshot {
+  limits : BudgetLimits
+  cumulative : CumulativeUsage
+  resident : ResidentUsage
+  resident_peak : ResidentUsage
+  active_leases : Int64
+  first_error : BudgetError?
+  closed : Bool
+} derive(Eq)
+pub fn BudgetSnapshot::equal(Self, Self) -> Bool
+pub fn BudgetSnapshot::not_equal(Self, Self) -> Bool
+
+pub(all) enum CumulativeKind {
+  InflateBytes
+  ParseWork
+  OutputUtf8Bytes
+  SourceMetadataBytes
+  RagMetadataBytes
+  ReadTrafficBytes
+} derive(Eq)
+pub fn CumulativeKind::equal(Self, Self) -> Bool
+pub fn CumulativeKind::not_equal(Self, Self) -> Bool
+
+pub struct CumulativeUsage {
+  inflate_bytes : Int64
+  parse_work : Int64
+  output_utf8_bytes : Int64
+  source_metadata_bytes : Int64
+  rag_metadata_bytes : Int64
+  read_traffic_bytes : Int64
+} derive(Eq)
+pub fn CumulativeUsage::equal(Self, Self) -> Bool
+pub fn CumulativeUsage::not_equal(Self, Self) -> Bool
+
+pub(all) enum ResidentKind {
+  CacheBytes
+  WorkingBytes
+  TemporaryBytes
+  IrBytes
+} derive(Eq)
+pub fn ResidentKind::equal(Self, Self) -> Bool
+pub fn ResidentKind::not_equal(Self, Self) -> Bool
+
+pub struct ResidentUsage {
+  cache_bytes : Int64
+  working_bytes : Int64
+  temporary_bytes : Int64
+  ir_bytes : Int64
+} derive(Eq)
+pub fn ResidentUsage::equal(Self, Self) -> Bool
+pub fn ResidentUsage::not_equal(Self, Self) -> Bool
+
+// Type aliases
+
+// Traits

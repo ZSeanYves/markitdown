@@ -16,7 +16,9 @@ test "debug JSON event encoder covers every event kind" {
     Scalar,
   ]
   let events = kinds.map(kind => rag_test_event(kind, "value"))
-  let encoded = render_debug_json_events(events, @core.empty_diagnostics())
+  let encoded = collect_json_fragments(
+    debug_event_json_cursor(events, @core.empty_diagnostics()),
+  )
   assert_true(encoded.contains("\"event_count\": 13"))
   for
     name in [
@@ -79,10 +81,8 @@ test "debug JSON block encoder preserves source rich inline and assets" {
     mime_type: Some("image/png"),
   }
   asset.attrs.set("role", "figure")
-  let encoded = render_debug_json_blocks(
-    [block],
-    @core.empty_diagnostics(),
-    make_render_context(false, assets=Some([asset])),
+  let encoded = collect_json_fragments(
+    debug_block_json_cursor([block], [asset], @core.empty_diagnostics()),
   )
   assert_true(encoded.contains("\"block_count\": 1"))
   assert_true(encoded.contains("\"asset_count\": 1"))

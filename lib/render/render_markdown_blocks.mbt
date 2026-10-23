@@ -23,7 +23,7 @@ fn markdown_needs_blank_line_between(
 fn write_markdown_blocks_to(
   out : StringBuilder,
   blocks : Array[@core.CoreBlock],
-  leaf_cache? : Map[String, String] = Map([]),
+  leaf_cache~ : Map[String, String] = Map([]),
 ) -> Bool {
   let mut prev_kind : @core.BlockKind? = None
   let mut wrote_any = false
@@ -66,7 +66,7 @@ fn write_markdown_blocks_to(
 ///|
 fn markdown_leaf_cache_key(
   block : @core.CoreBlock,
-  sibling_count : Int,
+  sibling_count : Int32,
 ) -> String? {
   if sibling_count < 1024 ||
     block.children.length() > 0 ||
@@ -388,7 +388,7 @@ fn render_markdown_list(block : @core.CoreBlock) -> String {
 ///|
 fn render_markdown_list_with_depth(
   block : @core.CoreBlock,
-  depth : Int,
+  depth : Int32,
 ) -> String {
   if block.children.length() == 0 {
     return render_markdown_list_item(block, 1, false, depth)
@@ -406,9 +406,9 @@ fn render_markdown_list_with_depth(
 ///|
 fn render_markdown_list_item(
   block : @core.CoreBlock,
-  index : Int,
+  index : Int32,
   ordered : Bool,
-  depth : Int,
+  depth : Int32,
 ) -> String {
   let is_ordered = ordered ||
     block.attrs.get("ordered").unwrap_or("false") == "true"
@@ -464,7 +464,7 @@ fn render_markdown_list_item(
 fn list_item_ordered_indent_step(
   block : @core.CoreBlock,
   stable_ordered_marker : Bool,
-) -> Int {
+) -> Int32 {
   let default_step = default_ordered_indent_step(stable_ordered_marker)
   match block.attrs.get("ordered_indent_step") {
     Some(raw) => {
@@ -480,7 +480,7 @@ fn list_item_ordered_indent_step(
 }
 
 ///|
-fn default_ordered_indent_step(stable_ordered_marker : Bool) -> Int {
+fn default_ordered_indent_step(stable_ordered_marker : Bool) -> Int32 {
   if stable_ordered_marker {
     2
   } else {
@@ -490,16 +490,16 @@ fn default_ordered_indent_step(stable_ordered_marker : Bool) -> Int {
 
 ///|
 fn list_item_indent_for_marker(
-  depth : Int,
+  depth : Int32,
   ordered : Bool,
-  ordered_indent_step : Int,
+  ordered_indent_step : Int32,
 ) -> String {
   let width = if ordered { depth * ordered_indent_step } else { depth * 2 }
   repeat_char_string(' ', width)
 }
 
 ///|
-fn indent_rendered_block(text : String, depth : Int) -> String {
+fn indent_rendered_block(text : String, depth : Int32) -> String {
   let indent = list_item_indent_for_marker(depth, false, 2)
   let out = StringBuilder()
   let chars = text.to_array()
@@ -609,7 +609,7 @@ fn render_markdown_compact_toml_table(block : @core.CoreBlock) -> String {
 fn write_markdown_compact_cells(
   out : StringBuilder,
   payload : String,
-  width : Int,
+  width : Int32,
 ) -> Unit {
   out.write_string("| ")
   let mut index = 0
@@ -755,7 +755,7 @@ fn markdown_escape_html_attr(text : String) -> String {
 fn table_render_width_from_children(
   block : @core.CoreBlock,
   rows : Array[@core.CoreBlock],
-) -> Int {
+) -> Int32 {
   match block.attrs.get("table_column_count") {
     Some(raw) => {
       let parsed = @string.parse_int(raw.trim()) catch {
@@ -998,7 +998,7 @@ fn render_markdown_inline_text(block : @core.CoreBlock) -> String {
 ///|
 fn annotation_gap_inline(
   inlines : Array[@core.CoreInline],
-  index : Int,
+  index : Int32,
 ) -> Bool {
   if index == 0 || index + 1 >= inlines.length() {
     return false
@@ -1101,7 +1101,7 @@ fn render_markdown_raw(block : @core.CoreBlock) -> String {
 }
 
 ///|
-fn widest_table_row_width_from_children(rows : Array[@core.CoreBlock]) -> Int {
+fn widest_table_row_width_from_children(rows : Array[@core.CoreBlock]) -> Int32 {
   let mut width = 0
   for row in rows {
     let row_width = table_row_width(row)
@@ -1113,7 +1113,7 @@ fn widest_table_row_width_from_children(rows : Array[@core.CoreBlock]) -> Int {
 }
 
 ///|
-fn table_row_width(row : @core.CoreBlock) -> Int {
+fn table_row_width(row : @core.CoreBlock) -> Int32 {
   match row.attrs.get("sparse_cell_columns") {
     Some("true") => return sparse_table_row_width(row)
     _ => ()
@@ -1124,7 +1124,7 @@ fn table_row_width(row : @core.CoreBlock) -> Int {
   if row.text.trim() == "" {
     return 0
   }
-  row.text.split("|").length()
+  row.text.split("|").count()
 }
 
 ///|
@@ -1149,7 +1149,7 @@ fn table_row_cells(row : @core.CoreBlock) -> Array[String] {
 }
 
 ///|
-fn sparse_table_row_width(row : @core.CoreBlock) -> Int {
+fn sparse_table_row_width(row : @core.CoreBlock) -> Int32 {
   if row.children.length() == 0 {
     return sparse_table_declared_width(row)
   }
@@ -1185,7 +1185,7 @@ fn sparse_table_row_cells(row : @core.CoreBlock) -> Array[String] {
 }
 
 ///|
-fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
+fn sparse_table_declared_width(row : @core.CoreBlock) -> Int32 {
   match row.attrs.get("declared_column_count") {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
     None => 0
@@ -1193,7 +1193,7 @@ fn sparse_table_declared_width(row : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int {
+fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int32 {
   match cell.column_index {
     Some(value) => value
     None =>
@@ -1207,7 +1207,7 @@ fn sparse_table_cell_column_index(cell : @core.CoreBlock) -> Int {
 ///|
 fn write_markdown_table_synthetic_header(
   out : StringBuilder,
-  width : Int,
+  width : Int32,
 ) -> Unit {
   out.write_string("| ")
   for index in 0..<width {
@@ -1221,7 +1221,7 @@ fn write_markdown_table_synthetic_header(
 }
 
 ///|
-fn write_markdown_table_separator(out : StringBuilder, width : Int) -> Unit {
+fn write_markdown_table_separator(out : StringBuilder, width : Int32) -> Unit {
   out.write_string("| ")
   for index in 0..<width {
     if index > 0 {
@@ -1236,7 +1236,7 @@ fn write_markdown_table_separator(out : StringBuilder, width : Int) -> Unit {
 fn write_markdown_table_row(
   out : StringBuilder,
   row : Array[String],
-  width : Int,
+  width : Int32,
 ) -> Unit {
   out.write_string("| ")
   for index in 0..<width {

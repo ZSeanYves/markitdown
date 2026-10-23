@@ -1,10 +1,10 @@
 ///|
-fn read_picture_media_ref(
+async fn read_picture_media_ref(
   ctx : PptxSourceParseContext,
   part_name : String,
   pic_xml : Bytes,
   source_key : PptxSourceKey,
-) -> PptxMediaRef? raise {
+) -> PptxMediaRef? {
   let rid = read_attr_value_in_first_tag_bytes(pic_xml, "<a:blip", "r:embed")
   let external_rid = read_attr_value_in_first_tag_bytes(
     pic_xml, "<a:blip", "r:link",
@@ -162,13 +162,13 @@ fn read_picture_media_ref(
 }
 
 ///|
-fn read_media_bytes_with_budget(
+async fn read_media_bytes_with_budget(
   ctx : PptxSourceParseContext,
   part_name : String,
   source_key : PptxSourceKey,
   rel_id : String,
   target_part : String,
-) -> Bytes? {
+) -> Bytes? noraise {
   match @ox.part_declared_size(ctx.pkg, target_part) {
     Some(declared) if declared < 0 ||
       declared > ctx.budget.max_media_bytes_per_asset => {

@@ -9,9 +9,9 @@ import {
 // Values
 pub fn inspect_ods_document(@shared.OdsDocument) -> @shared.OdsInspectReport
 
-pub fn open_ods_document(Bytes) -> @shared.OdsDocument raise
+pub async fn open_ods_document(Bytes) -> @shared.OdsDocument
 
-pub fn prepare_ods_document_from_source(@input.InputSource) -> Result[PreparedOdsDocument, String]
+pub async fn prepare_ods_document_from_source(@input.InputSource) -> Result[PreparedOdsDocument, String] noraise
 
 // Errors
 

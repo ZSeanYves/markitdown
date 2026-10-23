@@ -1,5 +1,5 @@
 ///|
-test "CSV parser covers quoted multiline ragged rows and resource limits" {
+async test "CSV parser covers quoted multiline ragged rows and resource limits" {
   let csv = "name,value,notes\nalpha,1,\"line one\nline two\"\nbeta,2\ngamma,3,ok,extra"
   let source = @input.input_from_text_with_format(csv, "complex.csv", Some(Csv))
   let context = @parser.parse_context_with_limits(
@@ -38,7 +38,7 @@ test "CSV parser covers quoted multiline ragged rows and resource limits" {
 }
 
 ///|
-test "TSV parser emits tab-delimited cells and source cell ranges" {
+async test "TSV parser emits tab-delimited cells and source cell ranges" {
   let source = @input.input_from_text_with_format(
     "name\tvalue\nalpha\t1",
     "table.tsv",
@@ -57,7 +57,7 @@ test "TSV parser emits tab-delimited cells and source cell ranges" {
 }
 
 ///|
-test "CSV malformed quoted input returns raw document fallback" {
+async test "CSV malformed quoted input returns raw document fallback" {
   let source = @input.input_from_text_with_format(
     "name,value\nalpha,\"unterminated",
     "broken.csv",
@@ -87,12 +87,12 @@ test "Delimited parser helpers classify errors and expose streaming capability" 
 }
 
 ///|
-test "Delimited parser decodes UTF16 BOM before legacy byte fallback" {
+async test "Delimited parser decodes UTF16 BOM before legacy byte fallback" {
   let bytes = Bytes::from_array(
     [
       0xFF, 0xFE, 0x6E, 0, 0x61, 0, 0x6D, 0, 0x65, 0, 0x09, 0, 0x76, 0, 0x61, 0,
       0x6C, 0, 0x75, 0, 0x65, 0, 0x0A, 0, 0x41, 0, 0x09, 0, 0x31, 0,
-    ].map(Int::to_byte),
+    ].map(Int32::to_byte),
   )
   let source = @input.input_from_bytes_with_format(
     bytes,

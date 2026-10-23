@@ -83,8 +83,8 @@ pub fn make_parser_contract_spec(
   policies : Array[String],
   foundations : Array[String],
   excluded_legacy_foundations : Array[String],
-  large_route_granularity? : @parser.StreamingGranularity? = None,
-  large_route_ir_input_kind? : String? = None,
+  large_route_granularity~ : @parser.StreamingGranularity? = None,
+  large_route_ir_input_kind~ : String? = None,
 ) -> ParserContractSpec {
   {
     parser_name,
@@ -288,7 +288,7 @@ pub fn record_event_parser_contract_spec(
   required_source_ref_fields : Array[String],
   required_source_ref_extra_keys : Array[String],
   required_metrics : Array[String],
-  policies? : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,
@@ -315,8 +315,8 @@ pub fn dom_ast_parser_contract_spec(
   foundations : Array[String],
   required_metrics : Array[String],
   required_source_ref_fields : Array[String],
-  required_source_ref_extra_keys? : Array[String] = [],
-  policies? : Array[String] = [],
+  required_source_ref_extra_keys~ : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,
@@ -343,8 +343,8 @@ pub fn block_stream_parser_contract_spec(
   foundations : Array[String],
   required_metrics : Array[String],
   required_source_ref_fields : Array[String],
-  required_source_ref_extra_keys? : Array[String] = [],
-  policies? : Array[String] = [],
+  required_source_ref_extra_keys~ : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,
@@ -371,8 +371,8 @@ pub fn package_with_block_large_route_contract_spec(
   foundations : Array[String],
   required_metrics : Array[String],
   required_source_ref_fields : Array[String],
-  required_source_ref_extra_keys? : Array[String] = [],
-  policies? : Array[String] = [],
+  required_source_ref_extra_keys~ : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,
@@ -399,7 +399,7 @@ pub fn container_parser_contract_spec(
   foundations : Array[String],
   required_metrics : Array[String],
   source_ref_extra_keys : Array[String],
-  policies? : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,
@@ -426,7 +426,7 @@ pub fn page_single_pass_parser_contract_spec(
   foundations : Array[String],
   required_metrics : Array[String],
   source_ref_extra_keys : Array[String],
-  policies? : Array[String] = [],
+  policies~ : Array[String] = [],
 ) -> ParserContractSpec {
   profile_base_contract_spec(
     format,

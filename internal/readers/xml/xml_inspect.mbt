@@ -96,18 +96,22 @@ pub fn inspect_xml_document(doc : XmlDocument) -> XmlInspectReport {
 
 ///|
 priv struct XmlInspectStats {
-  mut node_count : Int
-  mut element_count : Int
-  mut attribute_count : Int
-  mut text_node_count : Int
-  mut comment_count : Int
-  mut cdata_count : Int
-  mut processing_instruction_count : Int
-  mut max_depth : Int
+  mut node_count : Int32
+  mut element_count : Int32
+  mut attribute_count : Int32
+  mut text_node_count : Int32
+  mut comment_count : Int32
+  mut cdata_count : Int32
+  mut processing_instruction_count : Int32
+  mut max_depth : Int32
 }
 
 ///|
-fn visit_xml_node(node : XmlNode, stats : XmlInspectStats, depth : Int) -> Unit {
+fn visit_xml_node(
+  node : XmlNode,
+  stats : XmlInspectStats,
+  depth : Int32,
+) -> Unit {
   stats.node_count += 1
   if depth > stats.max_depth {
     stats.max_depth = depth
@@ -129,7 +133,7 @@ fn visit_xml_node(node : XmlNode, stats : XmlInspectStats, depth : Int) -> Unit 
 }
 
 ///|
-fn count_root_elements(nodes : Array[XmlNode]) -> Int {
+fn count_root_elements(nodes : Array[XmlNode]) -> Int32 {
   let mut count = 0
   for node in nodes {
     match node {

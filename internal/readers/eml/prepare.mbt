@@ -8,9 +8,9 @@ pub struct PreparedEmlMessage {
 }
 
 ///|
-pub fn prepare_eml_message_from_source(
+pub async fn prepare_eml_message_from_source(
   source : @input.InputSource,
-) -> Result[PreparedEmlMessage, String] {
+) -> Result[PreparedEmlMessage, String] noraise {
   let bytes_payload = match @sourceio.read_source_bytes(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)
@@ -23,9 +23,14 @@ pub fn prepare_eml_message_from_source(
     is Some(_) {
     bytes_payload.prepared_source
   } else {
-    @input.with_text_payload(bytes_payload.prepared_source, text)
+    @input.with_prepared_text_payload(
+      bytes_payload.prepared_source,
+      text,
+      physical_bytes=bytes_payload.bytes.length().to_int64(),
+    )
   }
   let parsed = try parse_eml_message(text) |> Ok catch {
+    InvalidEncoding(message) => return Err("eml encoding error: " + message)
     e => Err(e.to_string())
   }
   match parsed {

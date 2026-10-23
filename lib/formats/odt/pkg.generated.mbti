@@ -16,19 +16,19 @@ pub fn odt_parser() -> @parser.Parser
 
 pub fn odt_parser_capability() -> @parser.ParserCapability
 
-pub fn odt_route_preflight_summary(@input.InputSource) -> Result[OdtPreflightSummary, String]
+pub async fn odt_route_preflight_summary(@input.InputSource) -> Result[OdtPreflightSummary, String] noraise
 
 // Errors
 
 // Types and methods
 pub struct OdtPreflightSummary {
-  block_count : Int
-  heading_count : Int
-  table_count : Int
-  image_count : Int
-  note_count : Int
-  comment_count : Int
-  max_heading_level : Int
+  block_count : Int32
+  heading_count : Int32
+  table_count : Int32
+  image_count : Int32
+  note_count : Int32
+  comment_count : Int32
+  max_heading_level : Int32
 }
 
 // Type aliases

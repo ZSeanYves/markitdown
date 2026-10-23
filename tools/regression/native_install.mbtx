@@ -1,0 +1,905 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/x@0.5.5/crypto",
+}
+
+///|
+struct Evidence {
+  directory : String
+  commands : Array[Json]
+  phases : Array[String]
+  errors : Array[String]
+  fingerprints : Array[String]
+  mut binary : String
+  mut executable_bytes : Int64
+  mut install_bytes : Int64
+}
+
+///|
+fn usage() -> String {
+  "usage: native_install.mbtx --source local|git|registry --root ABS_ROOT --evidence NEW_ABS_DIR [--git-url URL --rev FULL40SHA] [--coordinate owner/module@EXACTVERSION] [--prepare-only true|false] [--audit-bench true|false]"
+}
+
+///|
+fn field(value : String) -> String {
+  value
+  .replace_all(old="\t", new=" ")
+  .replace_all(old="\n", new=" ")
+  .replace_all(old="\r", new=" ")
+}
+
+///|
+fn full_revision(value : String) -> Bool {
+  value.length() == 40 &&
+  value.iter().all(ch => (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f'))
+}
+
+///|
+fn exact_coordinate(value : String) -> (String, String)? {
+  let parts = value.split("@").to_array()
+  if parts.length() != 2 ||
+    !parts[0].contains("/") ||
+    parts[0].has_prefix("/") ||
+    parts[0].has_suffix("/") ||
+    parts[1] == "" ||
+    parts[1] == "latest" ||
+    parts[1].contains("*") ||
+    parts[1].contains("^") ||
+    parts[1].contains("~") ||
+    !parts[1]
+    .iter()
+    .all(ch => {
+      (ch >= '0' && ch <= '9') ||
+      (ch >= 'A' && ch <= 'Z') ||
+      (ch >= 'a' && ch <= 'z') ||
+      ch == '.' ||
+      ch == '-' ||
+      ch == '+'
+    }) {
+    None
+  } else {
+    Some((parts[0].to_owned(), parts[1].to_owned()))
+  }
+}
+
+///|
+async fn capture(
+  evidence : Evidence,
+  label : String,
+  program : String,
+  args : Array[String],
+  cwd : String,
+  checked~ : Bool = true,
+) -> String {
+  evidence.commands.push({
+    "label": Json(label),
+    "program": Json(program),
+    "args": Json(args),
+    "cwd": Json(cwd),
+  })
+  let result = @shell.Cmd(program, args, cwd~).output()
+  @fs.write_file(
+    evidence.directory + "/logs/" + label + ".stdout",
+    result.stdout(),
+  )
+  @fs.write_file(
+    evidence.directory + "/logs/" + label + ".stderr",
+    result.stderr(),
+  )
+  @fs.write_file(
+    evidence.directory + "/logs/" + label + ".exit",
+    result.exit_code().to_string(),
+  )
+  if checked && result.exit_code() != 0 {
+    evidence.phases.push(label + "\tfail\t" + result.exit_code().to_string())
+    fail(
+      label +
+      " failed with exit " +
+      result.exit_code().to_string() +
+      "; see logs",
+    )
+  }
+  evidence.phases.push(
+    label +
+    "\t" +
+    (if result.exit_code() == 0 { "pass" } else { "recorded_nonzero" }) +
+    "\t" +
+    result.exit_code().to_string(),
+  )
+  result.stdout()
+}
+
+///|
+async fn fingerprint(
+  evidence : Evidence,
+  label : String,
+  path : String,
+) -> Int64 {
+  let bytes = @fs.read_file(path).binary()
+  let size = bytes.length().to_int64()
+  let hash = @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+  evidence.fingerprints.push(
+    label + "\t" + path + "\t" + size.to_string() + "\t" + hash,
+  )
+  size
+}
+
+///|
+async fn inventory(evidence : Evidence, directory : String) -> Int64 {
+  let mut total = 0L
+  for name in @fs.readdir(directory) {
+    let path = directory + "/" + name
+    match @fs.kind(path) {
+      @fs.Directory => total += inventory(evidence, path)
+      @fs.Regular => total += fingerprint(evidence, "install_file", path)
+      _ => fail("unexpected nonregular installed entry: " + path)
+    }
+  }
+  total
+}
+
+///|
+async fn module_identity(root : String) -> (String, String) {
+  if @fs.exists(root + "/moon.mod") {
+    let mut name = ""
+    let mut version = ""
+    for line in @fs.read_file(root + "/moon.mod").text().split("\n") {
+      let parts = line.split("=").to_array()
+      if parts.length() != 2 {
+        continue
+      }
+      let key = parts[0].trim()
+      let raw = parts[1].trim().to_owned()
+      if raw.length() < 2 || !raw.has_prefix("\"") || !raw.has_suffix("\"") {
+        continue
+      }
+      let value = raw[1:raw.length() - 1].to_owned()
+      if key == "name" {
+        name = value
+      }
+      if key == "version" {
+        version = value
+      }
+    }
+    if name == "" || version == "" {
+      fail("cannot read module name/version from " + root + "/moon.mod")
+    }
+    (name, version)
+  } else {
+    let value = @json.parse(
+      @fs.read_file(root + "/moon.mod.json").text(),
+      reject_duplicate_keys=true,
+    )
+    guard value is Object(fields) else { fail("invalid moon.mod.json") }
+    guard fields.get("name") is Some(String(name)) else {
+      fail("missing module name")
+    }
+    guard fields.get("version") is Some(String(version)) else {
+      fail("missing module version")
+    }
+    (name, version)
+  }
+}
+
+///|
+fn consumer_source() -> String {
+  (
+    #|///|
+    #|async fn check_output(input : @markitdown.Input, label : String) -> @markitdown.Output {
+    #|  guard @markitdown.convert(input) is Ok(output) else { fail(label + " conversion failed") }
+    #|  assert_true(output.detected_format == "markdown")
+    #|  assert_true(output.content == "# Native consumer\n\nPublic facade body.")
+    #|  assert_true(output.provenance.selected_route != "")
+    #|  println("PASS " + label)
+    #|  output
+    #|}
+    #|
+    #|///|
+    #|async fn main {
+    #|  let text = "# Native consumer\n\nPublic facade body.\n"
+    #|  let bytes = b"# Native consumer\n\nPublic facade body.\n"
+    #|  ignore(check_output(@markitdown.Input::from_text(text, source_name="fixture.md"), "Text"))
+    #|  ignore(check_output(@markitdown.Input::from_bytes(bytes, source_name="fixture.md"), "Bytes"))
+    #|  ignore(check_output(@markitdown.Input::from_path("fixture.md"), "Path"))
+    #|  ignore(check_output(@markitdown.Input::from_reader(fn(offset, length) {
+    #|    let start = offset.to_int()
+    #|    if start >= bytes.length() { Ok(b"") }
+    #|    else { Ok(bytes[start:Int::min(start + Int::min(length, 7), bytes.length())].to_owned()) }
+    #|  }, size=bytes.length().to_int64(), source_name="fixture.md"), "Reader short reads"))
+    #|  ignore(check_output(@markitdown.Input::from_async_reader(fn(offset, length) {
+    #|    let start = offset.to_int()
+    #|    if start >= bytes.length() { Ok(b"") }
+    #|    else { Ok(bytes[start:Int::min(start + Int::min(length, 5), bytes.length())].to_owned()) }
+    #|  }, size=bytes.length().to_int64(), source_name="fixture.md"), "Async Reader short reads"))
+    #|  let handle : @markitdown.ApiV0_8 = @markitdown.api_v0_8()
+    #|  guard handle.convert(@markitdown.Input::from_text(text, source_name="fixture.md")) is Ok(versioned) else { fail("versioned handle failed") }
+    #|  assert_true(versioned.content == "# Native consumer\n\nPublic facade body.")
+    #|  let migration : @markitdown.ApiV1Migration = handle.v1_migration()
+    #|  assert_true(migration.source_version == "0.8" && migration.target_version == "1.0")
+    #|  assert_true(migration.stable_package == "ZSeanYves/markitdown/lib")
+    #|  println("PASS versioned handle and facade-owned types")
+    #|  let options = @markitdown.ConvertOptions::default().with_format_hint(Some("not-a-format"))
+    #|  guard @markitdown.convert(@markitdown.Input::from_text("x"), options~) is Err(error) else { fail("invalid format must fail") }
+    #|  let code : @markitdown.ErrorCode = error.code()
+    #|  assert_true(code.stable_name() == "MID-0002" && error.exit_code() == 2)
+    #|  assert_true(error.message() != "")
+    #|  println("PASS typed error and exit mapping")
+    #|  let broken = @markitdown.Input::from_reader(fn(_, _) { Err("consumer-read-failure") }, source_name="fixture.md")
+    #|  guard @markitdown.convert(broken) is Err(read_error) else { fail("Reader I/O error must fail") }
+    #|  assert_true(read_error.exit_code() != 0)
+    #|  println("PASS Reader error")
+    #|  let broken_async = @markitdown.Input::from_async_reader(fn(_, _) { Err("consumer-async-read-failure") }, source_name="fixture.md")
+    #|  guard @markitdown.convert(broken_async) is Err(async_error) else { fail("Async Reader I/O error must fail") }
+    #|  assert_true(async_error.exit_code() != 0)
+    #|  println("PASS Async Reader error")
+    #|  let limited = @markitdown.ConvertOptions::default().with_limits(@markitdown.ResourceLimits::default().with_max_input_bytes(2L))
+    #|  guard @markitdown.convert(@markitdown.Input::from_bytes(bytes, source_name="fixture.md"), options=limited) is Err(limit_error) else { fail("input budget must fail") }
+    #|  assert_true(limit_error.code() == @markitdown.ErrorCode::ResourceLimitExceeded)
+    #|  println("PASS public input budget")
+    #|  let fragments : Array[String] = []
+    #|  let writing = Ref(false)
+    #|  let finished = Ref(0)
+    #|  let sink : @markitdown.OutputSink = @markitdown.OutputSink::new(async fn(chunk) {
+    #|    assert_true(!writing.val && finished.val == 0)
+    #|    writing.val = true
+    #|    @async.sleep(1)
+    #|    fragments.push(chunk)
+    #|    writing.val = false
+    #|    Ok(())
+    #|  }, async fn() {
+    #|    assert_true(!writing.val && finished.val == 0)
+    #|    @async.sleep(1)
+    #|    finished.val += 1
+    #|    Ok(())
+    #|  })
+    #|  guard @markitdown.convert_to_sink(@markitdown.Input::from_text(text, source_name="fixture.md"), sink) is Ok(summary) else { fail("async sink failed") }
+    #|  let public_summary : @markitdown.ConversionSummary = summary
+    #|  assert_true(public_summary.detected_format == "markdown")
+    #|  assert_true(public_summary.output_mode == @markitdown.OutputMode::Markdown)
+    #|  assert_true(fragments.join("") == "# Native consumer\n\nPublic facade body.")
+    #|  assert_true(!fragments.is_empty() && finished.val == 1)
+    #|  println("PASS public async Sink callbacks and completion")
+    #|  let failed_finish = Ref(0)
+    #|  let failed_sink = @markitdown.OutputSink::new(async fn(_) { @async.sleep(1); Err("consumer-write-failure") }, fn() { failed_finish.val += 1; Ok(()) })
+    #|  guard @markitdown.convert_to_sink(@markitdown.Input::from_text(text, source_name="fixture.md"), failed_sink) is Err(write_error) else { fail("Sink write error must fail") }
+    #|  assert_true(write_error.code() == @markitdown.ErrorCode::RenderFailed && failed_finish.val == 0)
+    #|  let finish_error_sink = @markitdown.OutputSink::new(fn(_) { Ok(()) }, async fn() { @async.sleep(1); Err("consumer-finish-failure") })
+    #|  guard @markitdown.convert_to_sink(@markitdown.Input::from_text(text, source_name="fixture.md"), finish_error_sink) is Err(finish_error) else { fail("Sink finish error must fail") }
+    #|  assert_true(finish_error.code() == @markitdown.ErrorCode::RenderFailed)
+    #|  println("PASS public Sink write and finish errors")
+    #|  assert_true(@markitdown.capabilities().any(capability => capability.format == "markdown"))
+    #|  println("PASS standalone Native facade consumer")
+    #|}
+  )
+}
+
+///|
+async fn prepare_consumer(
+  evidence : Evidence,
+  source_root : String,
+  module_name : String,
+  version : String,
+  workspace : Bool,
+) -> String {
+  let consumer = evidence.directory + "/consumer"
+  @fs.mkdir(consumer, recursive=true)
+  @fs.write_file(
+    consumer + "/moon.mod",
+    "name = \"markitdown-acceptance/consumer\"\nversion = \"0.0.0\"\nimport {\n  \"" +
+    module_name +
+    "@" +
+    version +
+    "\",\n  \"moonbitlang/async@0.22.4\",\n}\npreferred_target = \"native\"\n",
+  )
+  @fs.write_file(
+    consumer + "/moon.pkg",
+    "import {\n  \"moonbitlang/async\",\n  \"" +
+    module_name +
+    "/lib\" @markitdown,\n}\npkgtype(kind: \"executable\")\nsupported_targets = \"native\"\n",
+  )
+  @fs.write_file(consumer + "/main.mbt", consumer_source())
+  @fs.write_file(
+    consumer + "/fixture.md",
+    "# Native consumer\n\nPublic facade body.\n",
+  )
+  if workspace {
+    ignore(
+      capture(
+        evidence,
+        "consumer-workspace-init",
+        "moon",
+        ["work", "init", ".", source_root],
+        consumer,
+      ),
+    )
+    let manifest = @fs.read_file(consumer + "/moon.work").text()
+    if !manifest.contains(source_root) {
+      fail("workspace does not bind the requested source checkout")
+    }
+  }
+  ignore(fingerprint(evidence, "consumer_source", consumer + "/main.mbt"))
+  consumer
+}
+
+///|
+async fn audit_bench(evidence : Evidence, root : String) -> Unit {
+  let base = root + "/markitdown-quality-lab/external_bench"
+  let manifest = base + "/MANIFEST.tsv"
+  ignore(fingerprint(evidence, "benchmark_manifest", manifest))
+  let lines = @fs.read_file(manifest).text().split("\n").to_array()
+  if lines.length() == 0 ||
+    lines[0].trim() !=
+    "bench_id\tformat\tsize_class\trel_path\tsource_kind\tsource_ref\tbytes\tsha256\tenabled_tier\tbench_layers\ttags\treview_status\tnotes\tcomparison_class\tcomparison_reason\tcomparison_signals" {
+    fail("invalid benchmark manifest header")
+  }
+  let seen : Map[String, Bool] = Map([])
+  let rows : Array[String] = [
+    "id\tstatus\tdeclared_bytes\tactual_bytes\tdeclared_sha256\tactual_sha256",
+  ]
+  let mut accepted = 0
+  let mut missing = 0
+  let mut failed = 0
+  for i = 1; i < lines.length(); i = i + 1 {
+    if i == lines.length() - 1 && lines[i] == "" {
+      continue
+    }
+    let row = lines[i]
+      .split("\t")
+      .map(value => value.trim().to_owned())
+      .to_array()
+    if row.length() != 16 || row[0] == "" || seen.contains(row[0]) {
+      failed += 1
+      rows.push("invalid-row-" + (i + 1).to_string() + "\tfail\t\t\t\t")
+      continue
+    }
+    seen[row[0]] = true
+    if row[3].has_prefix("/") || row[3].contains("..") {
+      failed += 1
+      rows.push(row[0] + "\tunsafe_path\t\t\t\t")
+      continue
+    }
+    let input = base + "/" + row[3]
+    if row[11] == "missing_candidate" {
+      missing += 1
+      if row[8] != "disabled" || @fs.exists(input) {
+        failed += 1
+      }
+      rows.push(
+        row[0] + "\tmissing_candidate\t" + row[6] + "\t0\t" + row[7] + "\t-",
+      )
+      continue
+    }
+    if row[11] != "accepted" || !@fs.exists(input) {
+      failed += 1
+      rows.push(row[0] + "\tmissing_or_unknown_status\t\t\t\t")
+      continue
+    }
+    accepted += 1
+    let bytes = @fs.read_file(input).binary()
+    let actual_hash = @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+    let valid = bytes.length().to_string() == row[6] && actual_hash == row[7]
+    if !valid {
+      failed += 1
+    }
+    rows.push(
+      row[0] +
+      "\t" +
+      (if valid { "verified" } else { "mismatch" }) +
+      "\t" +
+      row[6] +
+      "\t" +
+      bytes.length().to_string() +
+      "\t" +
+      row[7] +
+      "\t" +
+      actual_hash,
+    )
+  }
+  @fs.write_file(evidence.directory + "/benchmarks.tsv", rows.join("\n") + "\n")
+  @fs.write_file(
+    evidence.directory + "/benchmark-summary.tsv",
+    "accepted\tmissing_candidate\tfailed\n" +
+    accepted.to_string() +
+    "\t" +
+    missing.to_string() +
+    "\t" +
+    failed.to_string() +
+    "\n",
+  )
+  if accepted == 0 || failed != 0 {
+    fail("benchmark manifest audit failed")
+  }
+}
+
+///|
+fn json_field(value : Json, name : String) -> Json {
+  if value is Object(fields) {
+    fields.get(name).unwrap_or(Json::null())
+  } else {
+    Json::null()
+  }
+}
+
+///|
+fn dependency_bound(
+  tree : Json,
+  name : String,
+  version : String,
+  local_path : String?,
+) -> Bool {
+  guard json_field(tree, "modules") is Array(modules) else { return false }
+  for item in modules {
+    if json_field(item, "name") != Json(name) {
+      continue
+    }
+    if json_field(item, "version") != Json(version) {
+      return false
+    }
+    let source = json_field(item, "source")
+    return match local_path {
+      Some(path) =>
+        json_field(source, "kind") == Json("local") &&
+        json_field(source, "path") == Json(path) &&
+        json_field(item, "workspace_member") == Json(true)
+      None =>
+        json_field(source, "kind") == Json("registry") &&
+        json_field(item, "workspace_member") == Json(false)
+    }
+  }
+  false
+}
+
+///|
+async fn install_and_validate(
+  evidence : Evidence,
+  root : String,
+  source : String,
+  git_url : String,
+  rev : String,
+  coordinate : String,
+  prepare_only : Bool,
+) -> Unit {
+  let (module_name, version) = if source == "registry" {
+    guard exact_coordinate(coordinate) is Some(identity) else {
+      fail("registry requires an exact coordinate")
+    }
+    identity
+  } else {
+    module_identity(root)
+  }
+  if module_name != "ZSeanYves/markitdown" {
+    fail("expected the markitdown module")
+  }
+  let install_bin = evidence.directory + "/install/bin"
+  let source_root = if source == "git" {
+    evidence.directory + "/source"
+  } else {
+    root
+  }
+  let install_args : Array[String] = [
+    "install",
+    "--bin",
+    install_bin,
+    "--target-dir",
+    evidence.directory + "/install-build",
+  ]
+  if source == "local" {
+    install_args.append(["--path", root])
+  } else if source == "git" {
+    install_args.append([git_url, ".", "--rev", rev])
+  } else {
+    install_args.push(coordinate)
+  }
+  let command_plan : Json = {
+    "source": Json(source),
+    "root": Json(root),
+    "git_url": Json(git_url),
+    "revision": Json(rev),
+    "coordinate": Json(coordinate),
+    "install": { "program": Json("moon"), "args": Json(install_args) },
+    "consumer_product_import": Json(module_name + "/lib"),
+    "consumer_source": Json(
+      if source == "registry" {
+        "exact registry dependency; no workspace override"
+      } else {
+        source_root
+      },
+    ),
+  }
+  @fs.write_file(
+    evidence.directory + "/command-plan.json",
+    command_plan.stringify(indent=2),
+  )
+  if prepare_only {
+    ignore(prepare_consumer(evidence, root, module_name, version, false))
+    return
+  }
+  if source == "git" {
+    ignore(
+      capture(
+        evidence,
+        "git-clone",
+        "git",
+        ["clone", "--no-checkout", git_url, source_root],
+        evidence.directory,
+      ),
+    )
+    ignore(
+      capture(
+        evidence,
+        "git-checkout",
+        "git",
+        ["-C", source_root, "checkout", "--detach", rev],
+        evidence.directory,
+      ),
+    )
+    let actual = capture(
+        evidence,
+        "git-source-head",
+        "git",
+        ["-C", source_root, "rev-parse", "HEAD"],
+        evidence.directory,
+      )
+      .trim()
+      .to_owned()
+    if actual != rev {
+      fail("Git source revision mismatch")
+    }
+    let actual_identity = module_identity(source_root)
+    if actual_identity != (module_name, version) {
+      fail(
+        "Git checkout module identity differs from the requested product root; pass matching --root",
+      )
+    }
+  }
+  @fs.mkdir(install_bin, recursive=true)
+  ignore(capture(evidence, "install", "moon", install_args, root))
+  let names = @fs.readdir(install_bin)
+  if names.length() != 1 {
+    fail("expected exactly one installed CLI executable")
+  }
+  evidence.binary = install_bin + "/" + names[0]
+  evidence.executable_bytes = fingerprint(
+    evidence,
+    "installed_executable",
+    evidence.binary,
+  )
+  evidence.install_bytes = inventory(evidence, evidence.directory + "/install")
+  @fs.write_file(
+    evidence.directory + "/installed-binary.txt",
+    evidence.binary + "\n",
+  )
+  let file_type = capture(
+    evidence,
+    "installed-file-type",
+    "file",
+    [evidence.binary],
+    root,
+  )
+  if !file_type.contains("Mach-O") && !file_type.contains("ELF") {
+    fail("installed artifact is not a Native executable")
+  }
+  let platform = capture(evidence, "platform", "uname", ["-s"], root)
+    .trim()
+    .to_owned()
+  if platform == "Darwin" {
+    ignore(
+      capture(
+        evidence,
+        "runtime-dependencies",
+        "otool",
+        ["-L", evidence.binary],
+        root,
+      ),
+    )
+  } else if platform == "Linux" {
+    ignore(
+      capture(
+        evidence,
+        "runtime-dependencies",
+        "ldd",
+        [evidence.binary],
+        root,
+        checked=false,
+      ),
+    )
+    let code = @fs.read_file(
+      evidence.directory + "/logs/runtime-dependencies.exit",
+    ).text()
+    let dependencies = @fs.read_file(
+        evidence.directory + "/logs/runtime-dependencies.stdout",
+      ).text() +
+      @fs.read_file(evidence.directory + "/logs/runtime-dependencies.stderr").text()
+    if code != "0" &&
+      !dependencies.contains("not a dynamic executable") &&
+      !dependencies.contains("statically linked") {
+      fail("could not inspect Native runtime dependencies")
+    }
+  } else {
+    fail("unsupported acceptance platform: " + platform)
+  }
+  let help = capture(evidence, "cli-help", evidence.binary, ["--help"], root)
+  if !help.contains("markitdown") {
+    fail("installed CLI help does not identify markitdown")
+  }
+  let capabilities = capture(
+    evidence,
+    "cli-capabilities",
+    evidence.binary,
+    ["--capabilities"],
+    root,
+  )
+  guard @json.parse(capabilities, reject_duplicate_keys=true)
+    is Array(capability_rows) else {
+    fail("installed CLI capabilities must be a JSON array")
+  }
+  for required in ["markdown", "pdf"] {
+    if !capability_rows.any(item => json_field(item, "format") == Json(required)) {
+      fail("installed CLI capabilities omit " + required)
+    }
+  }
+  let input = evidence.directory + "/smoke.md"
+  let output = evidence.directory + "/smoke-output.md"
+  @fs.write_file(input, "# Native installed CLI\n\nInstalled body.\n")
+  ignore(
+    capture(
+      evidence,
+      "cli-convert",
+      evidence.binary,
+      ["balance", input, output],
+      root,
+    ),
+  )
+  if @fs.read_file(output).text() !=
+    "# Native installed CLI\n\nInstalled body.\n" {
+    fail("installed CLI smoke output mismatch")
+  }
+  ignore(fingerprint(evidence, "cli_output", output))
+  let consumer = prepare_consumer(
+    evidence,
+    source_root,
+    module_name,
+    version,
+    source != "registry",
+  )
+  let dependencies = capture(
+    evidence,
+    "consumer-dependencies",
+    "moon",
+    ["tree", "--json"],
+    consumer,
+  )
+  if !dependency_bound(
+      @json.parse(dependencies, reject_duplicate_keys=true),
+      module_name,
+      version,
+      if source == "registry" {
+        None
+      } else {
+        Some(source_root)
+      },
+    ) {
+    fail(
+      "consumer resolved a different source/version than the requested acceptance target",
+    )
+  }
+  ignore(
+    capture(
+      evidence,
+      "consumer-check",
+      "moon",
+      [
+        "check",
+        "--target",
+        "native",
+        "--deny-warn",
+        "--target-dir",
+        evidence.directory + "/consumer-build",
+        ".",
+      ],
+      consumer,
+    ),
+  )
+  let consumer_output = capture(
+    evidence,
+    "consumer-run",
+    "moon",
+    [
+      "run",
+      "--target",
+      "native",
+      "--release",
+      "--target-dir",
+      evidence.directory + "/consumer-build",
+      ".",
+    ],
+    consumer,
+  )
+  if !consumer_output.contains("PASS standalone Native facade consumer") {
+    fail("consumer completion marker is missing")
+  }
+  if source != "registry" {
+    let api = @fs.read_file(source_root + "/lib/pkg.generated.mbti").text()
+    if api.contains("/internal/") {
+      fail("public facade interface leaks an internal package")
+    }
+    ignore(
+      fingerprint(
+        evidence,
+        "facade_interface",
+        source_root + "/lib/pkg.generated.mbti",
+      ),
+    )
+  }
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if (args.length() - 1) % 2 != 0 {
+    fail(usage())
+  }
+  let options : Map[String, String] = Map([])
+  for i = 1; i < args.length(); i = i + 2 {
+    let key = args[i]
+    if ![
+        "--source", "--root", "--evidence", "--git-url", "--rev", "--coordinate",
+        "--prepare-only", "--audit-bench",
+      ].contains(key) ||
+      options.contains(key) {
+      fail(usage())
+    }
+    options[key] = args[i + 1]
+  }
+  let root = options.get("--root").unwrap_or(@env.current_dir().unwrap_or("."))
+  let directory = options
+    .get("--evidence")
+    .unwrap_or(root + "/.tmp/native-install/" + @env.now().to_string())
+  if !root.has_prefix("/") || !directory.has_prefix("/") {
+    fail("root/evidence paths must be absolute")
+  }
+  if @fs.exists(directory) {
+    fail("evidence directory must be new: " + directory)
+  }
+  @fs.mkdir(directory + "/logs", recursive=true)
+  let evidence : Evidence = {
+    directory,
+    commands: [],
+    phases: [],
+    errors: [],
+    fingerprints: [],
+    binary: "",
+    executable_bytes: 0L,
+    install_bytes: 0L,
+  }
+  let source = options.get("--source").unwrap_or("local")
+  let git_url = options.get("--git-url").unwrap_or("")
+  let rev = options.get("--rev").unwrap_or("")
+  let coordinate = options.get("--coordinate").unwrap_or("")
+  let prepare_only = options.get("--prepare-only").unwrap_or("false")
+  let audit = options.get("--audit-bench").unwrap_or("false")
+  try {
+    if !["local", "git", "registry"].contains(source) ||
+      !["true", "false"].contains(prepare_only) ||
+      !["true", "false"].contains(audit) {
+      fail(usage())
+    }
+    if source == "git" && (git_url == "" || !full_revision(rev)) {
+      fail(
+        "Git acceptance requires URL and exact lowercase 40-character commit SHA",
+      )
+    }
+    if source != "git" && (git_url != "" || rev != "") {
+      fail("--git-url/--rev require --source git")
+    }
+    if source != "registry" && coordinate != "" {
+      fail("--coordinate requires --source registry")
+    }
+    ignore(capture(evidence, "toolchain", "moon", ["version", "--all"], root))
+    ignore(capture(evidence, "machine", "uname", ["-a"], root))
+    ignore(
+      capture(
+        evidence,
+        "source-head",
+        "git",
+        ["-C", root, "rev-parse", "HEAD"],
+        root,
+      ),
+    )
+    ignore(
+      capture(
+        evidence,
+        "source-status",
+        "git",
+        ["-C", root, "status", "--short"],
+        root,
+      ),
+    )
+    ignore(
+      capture(
+        evidence,
+        "source-patch",
+        "git",
+        ["-C", root, "diff", "--binary"],
+        root,
+      ),
+    )
+    ignore(
+      fingerprint(
+        evidence,
+        "acceptance_harness",
+        root + "/tools/regression/native_install.mbtx",
+      ),
+    )
+    if audit == "true" {
+      audit_bench(evidence, root)
+    }
+    install_and_validate(
+      evidence,
+      root,
+      source,
+      git_url,
+      rev,
+      coordinate,
+      prepare_only == "true",
+    )
+  } catch {
+    error => evidence.errors.push(error.to_string())
+  }
+  let status = if !evidence.errors.is_empty() {
+    "fail"
+  } else if prepare_only == "true" {
+    "prepared_only"
+  } else {
+    "pass"
+  }
+  @fs.write_file(
+    directory + "/commands.json",
+    Json(evidence.commands).stringify(indent=2),
+  )
+  @fs.write_file(
+    directory + "/phases.tsv",
+    "phase\tstatus\texit_code\n" + evidence.phases.join("\n") + "\n",
+  )
+  @fs.write_file(directory + "/errors.txt", evidence.errors.join("\n") + "\n")
+  @fs.write_file(
+    directory + "/fingerprints.tsv",
+    "kind\tpath\tbytes\tsha256\n" + evidence.fingerprints.join("\n") + "\n",
+  )
+  @fs.write_file(
+    directory + "/summary.tsv",
+    "status\tsource\tgit_revision\tcoordinate\tinstalled_binary\texecutable_bytes\tinstall_tree_bytes\terrors\n" +
+    status +
+    "\t" +
+    source +
+    "\t" +
+    rev +
+    "\t" +
+    coordinate +
+    "\t" +
+    field(evidence.binary) +
+    "\t" +
+    evidence.executable_bytes.to_string() +
+    "\t" +
+    evidence.install_bytes.to_string() +
+    "\t" +
+    evidence.errors.length().to_string() +
+    "\n",
+  )
+  println(
+    "Native installation " +
+    status +
+    " source=" +
+    source +
+    "; evidence: " +
+    directory,
+  )
+  if status == "fail" {
+    fail("Native installation acceptance failed; see saved summary and errors")
+  }
+}

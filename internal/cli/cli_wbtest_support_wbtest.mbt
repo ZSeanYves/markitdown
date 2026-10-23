@@ -36,7 +36,7 @@ fn cli_options(
   output : String?,
   explicit_format : @input.DetectedFormat?,
   output_format : @convert.OutputFormat,
-  provenance_output? : String? = None,
+  provenance_output~ : String? = None,
 ) -> CliOptions {
   make_cli_options(
     input,

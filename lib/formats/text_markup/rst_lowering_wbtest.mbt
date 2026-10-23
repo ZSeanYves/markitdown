@@ -1,5 +1,5 @@
 ///|
-test "RST parser lowers headings lists directives notes tables and includes" {
+async test "RST parser lowers headings lists directives notes tables and includes" {
   let text = [
     "Title", "=====", "", "Paragraph with **bold** and `link <https://example.test>`_.",
     "", "- First", "- Second", "", ".. note::", "   Important body", "", ".. include:: chapter.rst",
@@ -17,7 +17,7 @@ test "RST parser lowers headings lists directives notes tables and includes" {
 }
 
 ///|
-test "RST semantic edge cases retain empty directives roles and references" {
+async test "RST semantic edge cases retain empty directives roles and references" {
   let text = [
     ".. warning::", "", ".. include:: local-only.rst", "", "A :code:`role value` and [#]_ reference.",
     "", ".. [#] Footnote body", "", ":Author: Example",
@@ -123,7 +123,7 @@ test "RST image and code directives retain safe references" {
 }
 
 ///|
-test "RST parser exports local image directives as sidecar assets" {
+async test "RST parser exports local image directives as sidecar assets" {
   let result = (rst_parser().parse)(
     @input.input_from_text_with_format(
       ".. image:: local.png\n   :alt: Local image",
@@ -159,7 +159,7 @@ test "RST include remains a reference and does not read files" {
 }
 
 ///|
-test "RST large document uses compact events with complete structure metrics" {
+async test "RST large document uses compact events with complete structure metrics" {
   let out = StringBuilder()
   let paragraph = "Paragraph with `link <https://example.test>`_ and stable repeated payload."
   for i in 0..<6000 {

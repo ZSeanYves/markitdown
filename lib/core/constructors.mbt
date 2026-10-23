@@ -2,7 +2,7 @@
 pub fn make_block(
   kind : BlockKind,
   text : String,
-  source_ref? : SourceRef = empty_source_ref(),
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreBlock {
   {
     block_id: make_block_id(kind, text, source_ref=Some(source_ref)),
@@ -47,7 +47,7 @@ pub fn block_with_block_id(block : CoreBlock, block_id : BlockId) -> CoreBlock {
 ///|
 pub fn block_with_column_index(
   block : CoreBlock,
-  column_index : Int,
+  column_index : Int32,
 ) -> CoreBlock {
   { ..block, column_index: Some(column_index), }
 }
@@ -55,7 +55,7 @@ pub fn block_with_column_index(
 ///|
 pub fn block_with_literal_rendering(
   block : CoreBlock,
-  minimal_inline_escape? : Bool = false,
+  minimal_inline_escape~ : Bool = false,
 ) -> CoreBlock {
   match block.compact_source_ref {
     Some(source_ref) =>
@@ -142,10 +142,10 @@ pub fn block_with_compact_source_ref(
 pub fn make_compact_source_ref(
   file_id : String,
   format : String,
-  line_start : Int,
-  line_end : Int,
-  byte_start : Int,
-  byte_end : Int,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
 ) -> CompactSourceRef {
   {
     file_id,
@@ -215,7 +215,7 @@ pub fn block_with_signals(
 ///|
 pub fn make_inline_text(
   text : String,
-  source_ref? : SourceRef = empty_source_ref(),
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
     kind: Text,
@@ -241,7 +241,7 @@ pub fn make_inline_text_without_source_ref(text : String) -> CoreInline {
 
 ///|
 pub fn make_inline_line_break(
-  source_ref? : SourceRef = empty_source_ref(),
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
     kind: LineBreak,
@@ -269,8 +269,8 @@ pub fn make_inline_line_break_without_source_ref() -> CoreInline {
 pub fn make_inline_link(
   text : String,
   href : String,
-  title? : String? = None,
-  source_ref? : SourceRef = empty_source_ref(),
+  title~ : String? = None,
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
     kind: Link,
@@ -301,8 +301,8 @@ pub fn make_inline_link_without_source_ref(
 pub fn make_inline_image(
   alt : String,
   path : String,
-  title? : String? = None,
-  source_ref? : SourceRef = empty_source_ref(),
+  title~ : String? = None,
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
     kind: Image,
@@ -317,7 +317,7 @@ pub fn make_inline_image(
 ///|
 pub fn make_inline_code(
   text : String,
-  source_ref? : SourceRef = empty_source_ref(),
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> CoreInline {
   {
     kind: Code,
@@ -344,7 +344,7 @@ pub fn inline_with_attr(
 pub fn make_asset_ref(
   asset_kind : AssetKind,
   asset_id : String,
-  source_ref? : SourceRef = empty_source_ref(),
+  source_ref~ : SourceRef = empty_source_ref(),
 ) -> AssetRef {
   {
     asset_kind,
@@ -360,19 +360,19 @@ pub fn make_asset_ref(
 ///|
 pub fn make_signal(
   signal_type : SignalType,
-  confidence : Int,
-  payload? : Map[String, JsonValue] = Map([]),
+  confidence : Int32,
+  payload~ : Map[String, JsonValue] = Map([]),
 ) -> CoreSignal {
   { signal_type, confidence, payload, }
 }
 
 ///|
 pub fn make_source_map_entry(
-  primary_ref? : SourceRef? = None,
-  refs? : Array[SourceRef] = [],
-  merged_from? : Array[SourceRef] = [],
-  confidence? : Int? = None,
-  relation? : String? = None,
+  primary_ref~ : SourceRef? = None,
+  refs~ : Array[SourceRef] = [],
+  merged_from~ : Array[SourceRef] = [],
+  confidence~ : Int32? = None,
+  relation~ : String? = None,
 ) -> SourceMapEntry {
   { primary_ref, refs, merged_from, confidence, relation, }
 }
@@ -409,13 +409,13 @@ pub fn source_map_add_asset_entry(
 pub fn make_block_id(
   kind : BlockKind,
   text : String,
-  source_ref? : SourceRef? = None,
+  source_ref~ : SourceRef? = None,
 ) -> BlockId {
   finish_block_id(make_block_content_crc(kind, text), source_ref)
 }
 
 ///|
-pub fn make_block_content_crc(kind : BlockKind, text : String) -> UInt {
+pub fn make_block_content_crc(kind : BlockKind, text : String) -> UInt32 {
   let mut crc = crc32_init()
   crc = crc32_append_string(crc, block_kind_name(kind))
   crc = crc32_append_separator(crc)
@@ -425,16 +425,19 @@ pub fn make_block_content_crc(kind : BlockKind, text : String) -> UInt {
 }
 
 ///|
-pub fn finish_block_id(content_crc : UInt, source_ref : SourceRef?) -> BlockId {
+pub fn finish_block_id(
+  content_crc : UInt32,
+  source_ref : SourceRef?,
+) -> BlockId {
   let crc = crc32_append_source_ref_signature(content_crc, source_ref)
   "b_" + crc32_finish(crc).to_string()
 }
 
 ///|
 fn crc32_append_source_ref_signature(
-  crc : UInt,
+  crc : UInt32,
   source_ref : SourceRef?,
-) -> UInt {
+) -> UInt32 {
   match source_ref {
     Some(value) => {
       let mut next = crc
@@ -489,7 +492,7 @@ fn crc32_append_source_ref_signature(
 }
 
 ///|
-fn crc32_append_optional_string(crc : UInt, value : String?) -> UInt {
+fn crc32_append_optional_string(crc : UInt32, value : String?) -> UInt32 {
   match value {
     Some(text) => crc32_append_string(crc, text)
     None => crc
@@ -497,7 +500,7 @@ fn crc32_append_optional_string(crc : UInt, value : String?) -> UInt {
 }
 
 ///|
-fn crc32_append_optional_int(crc : UInt, value : Int?) -> UInt {
+fn crc32_append_optional_int(crc : UInt32, value : Int32?) -> UInt32 {
   match value {
     Some(number) => crc32_append_string(crc, number.to_string())
     None => crc
@@ -505,22 +508,22 @@ fn crc32_append_optional_int(crc : UInt, value : Int?) -> UInt {
 }
 
 ///|
-fn crc32_init() -> UInt {
+fn crc32_init() -> UInt32 {
   0xFFFFFFFF
 }
 
 ///|
-fn crc32_finish(crc : UInt) -> UInt {
-  UInt::lxor(crc, 0xFFFFFFFF)
+fn crc32_finish(crc : UInt32) -> UInt32 {
+  UInt32::lxor(crc, 0xFFFFFFFF)
 }
 
 ///|
-fn crc32_append_separator(crc : UInt) -> UInt {
+fn crc32_append_separator(crc : UInt32) -> UInt32 {
   crc32_update_uint(crc, '|'.to_int().reinterpret_as_uint())
 }
 
 ///|
-fn crc32_append_string(crc : UInt, text : String) -> UInt {
+fn crc32_append_string(crc : UInt32, text : String) -> UInt32 {
   let mut next = crc
   for ch in text.to_array() {
     next = crc32_update_uint(next, ch.to_int().reinterpret_as_uint())
@@ -529,12 +532,12 @@ fn crc32_append_string(crc : UInt, text : String) -> UInt {
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }

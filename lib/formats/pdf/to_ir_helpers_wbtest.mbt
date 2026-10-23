@@ -7,9 +7,9 @@ fn pdf_helper_object(
 
 ///|
 fn pdf_helper_destination(
-  target_page? : String? = None,
-  name? : String? = None,
-  raw? : String? = None,
+  target_page~ : String? = None,
+  name~ : String? = None,
+  raw~ : String? = None,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   match target_page {
@@ -28,7 +28,7 @@ fn pdf_helper_destination(
 }
 
 ///|
-fn pdf_helper_source_ref(file_id : String, page : Int) -> @core.SourceRef {
+fn pdf_helper_source_ref(file_id : String, page : Int32) -> @core.SourceRef {
   {
     ..@core.source_ref_with_lines(
       @core.empty_source_ref(),
@@ -365,11 +365,11 @@ test "PDF link and text helpers cover URI overlap anchors substring and line mer
 
 ///|
 fn pdf_helper_table_row(
-  page_no : Int,
+  page_no : Int32,
   text : String,
   y : Double,
   aligned_xs : Array[Double],
-  order? : Int? = None,
+  order~ : Int32? = None,
 ) -> PdfNativeTableRowCandidate {
   {
     page_no,

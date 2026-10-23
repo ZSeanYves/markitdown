@@ -6,24 +6,13 @@ pub fn debug_json_renderer() -> Renderer {
     render: fn(
       document : @core.DocumentIR,
       context : RenderContext,
-    ) -> RenderResult {
-      document.diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
-      document.diagnostics.metrics.set(
-        "applied_render_profile",
-        @product.render_profile_name(context.render_profile),
-      )
-      {
-        content: render_debug_json_document(
-          profiled_document(document, context),
-        ),
-        diagnostics: document.diagnostics,
-        chunks: None,
-      }
+    ) -> RenderResult raise JsonEncodingError {
+      render_debug_json_input(Document(document), context)
     },
     render_input: fn(
       input : RenderInput,
       context : RenderContext,
-    ) -> RenderResult {
+    ) -> RenderResult raise JsonEncodingError {
       render_debug_json_input(input, context)
     },
   }
@@ -35,10 +24,38 @@ pub fn debug_json_renderer() -> Renderer {
 fn render_debug_json_input(
   input : RenderInput,
   context : RenderContext,
-) -> RenderResult {
-  let renderer = debug_json_renderer()
+) -> RenderResult raise JsonEncodingError {
+  let plan = prepare_debug_json_input(input, context)
+  {
+    content: collect_json_fragments(plan.next),
+    diagnostics: plan.diagnostics,
+    chunks: plan.chunks,
+  }
+}
+
+///|
+fn prepare_debug_json_input(
+  input : RenderInput,
+  context : RenderContext,
+) -> JsonRenderPlan {
   match input {
-    Document(document) => (renderer.render)(document, context)
+    Document(document) => {
+      document.diagnostics.metrics.set("renderer_name", "DebugJsonRenderer")
+      document.diagnostics.metrics.set(
+        "applied_render_profile",
+        @product.render_profile_name(context.render_profile),
+      )
+      let profiled = profiled_document(document, context)
+      {
+        next: debug_block_json_cursor(
+          profiled.blocks,
+          profiled.assets,
+          profiled.diagnostics,
+        ),
+        diagnostics: document.diagnostics,
+        chunks: None,
+      }
+    }
     BlockStream(blocks) => {
       let profiled = profiled_blocks(blocks, context)
       let diagnostics = block_stream_input_diagnostics(context, profiled)
@@ -48,7 +65,11 @@ fn render_debug_json_input(
         @product.render_profile_name(context.render_profile),
       )
       {
-        content: render_debug_json_blocks(profiled, diagnostics, context),
+        next: debug_block_json_cursor(
+          profiled,
+          context.assets.unwrap_or([]),
+          diagnostics,
+        ),
         diagnostics,
         chunks: None,
       }
@@ -63,7 +84,7 @@ fn render_debug_json_input(
         @product.render_profile_name(context.render_profile),
       )
       {
-        content: render_debug_json_events(
+        next: debug_event_json_cursor(
           profiled_events(events, context),
           diagnostics,
         ),
@@ -72,26 +93,4 @@ fn render_debug_json_input(
       }
     }
   }
-}
-
-///|
-/// Render a fully-built document as debug JSON.
-fn render_debug_json_document(document : @core.DocumentIR) -> String {
-  let block_items : Array[String] = []
-  for block in document.blocks {
-    block_items.push(render_block_json(block))
-  }
-  let asset_items : Array[String] = []
-  for asset in document.assets {
-    asset_items.push(render_asset_json(asset))
-  }
-  let fields : Array[String] = []
-  fields.push("\"block_count\": " + document.blocks.length().to_string())
-  fields.push("\"blocks\": " + @core.array_json(block_items))
-  fields.push("\"asset_count\": " + document.assets.length().to_string())
-  fields.push("\"assets\": " + @core.array_json(asset_items))
-  fields.push(
-    "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
-  )
-  @core.object_json(fields)
 }

@@ -17,7 +17,7 @@ fn html_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn html_parser() -> @parser.Parser {
-  @parser.make_parser("html_parser", DomAstModel, html_parser_capability(), fn(
+  @parser.make_parser("html_parser", DomAstModel, html_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -236,7 +236,7 @@ pub fn html_document_to_ir(
 pub fn html_lowering_prepare_metric(
   doc : @dhtml.HtmlDocument,
   semantic : @dhtml.HtmlSemanticDocument,
-) -> Int {
+) -> Int32 {
   let dom_index = html_dom_lowering_index(doc)
   let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
   html_lowering_index_item_count(lowering_index)
@@ -248,7 +248,7 @@ pub fn html_lowering_prepare_metric(
 pub fn html_lowering_top_level_block_metric(
   doc : @dhtml.HtmlDocument,
   semantic : @dhtml.HtmlSemanticDocument,
-) -> Int {
+) -> Int32 {
   let dom_index = html_dom_lowering_index(doc)
   let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
   let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
@@ -262,7 +262,7 @@ pub fn html_lowering_block_metric(
   source : @input.InputSource,
   doc : @dhtml.HtmlDocument,
   semantic : @dhtml.HtmlSemanticDocument,
-) -> Int {
+) -> Int32 {
   let dom_index = html_dom_lowering_index(doc)
   let lowering_index = html_lowering_index(semantic, dom_index.nav_spans)
   let top_blocks = html_collect_top_level_blocks(semantic, lowering_index)
@@ -277,7 +277,7 @@ pub fn html_lowering_block_metric(
 }
 
 ///|
-fn parse_html_document_result(
+async fn parse_html_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
@@ -534,7 +534,7 @@ fn html_contains_ascii_case_insensitive(
 ///|
 fn html_lower_ascii_char(ch : Char) -> Char {
   if ch >= 'A' && ch <= 'Z' {
-    Int::unsafe_to_char(ch.to_int() + 32)
+    Int32::unsafe_to_char(ch.to_int() + 32)
   } else {
     ch
   }

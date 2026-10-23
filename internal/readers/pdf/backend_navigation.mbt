@@ -1,8 +1,8 @@
 ///|
 fn pdf_page_index_from_object(
   dict_text : String,
-  page_numbers : Map[Int, Int],
-) -> Int? {
+  page_numbers : Map[Int32, Int32],
+) -> Int32? {
   match pdf_extract_object_reference_after(dict_text, "/P") {
     Some(object_id) => page_numbers.get(object_id)
     None => None
@@ -13,8 +13,8 @@ fn pdf_page_index_from_object(
 fn pdf_extract_outline_items(
   source : @input.InputSource,
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeOutlineItem] {
   let catalog = match pdf_catalog_object(trailer_hints, object_index) {
     Some(value) => value
@@ -42,18 +42,18 @@ fn pdf_extract_outline_items(
 ///|
 fn pdf_walk_outline_siblings(
   source : @input.InputSource,
-  object_index : Map[Int, PdfNativeObject],
-  start_ref : Int,
-  level : Int,
-  order_offset : Int,
-  page_numbers : Map[Int, Int],
-  remaining : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  start_ref : Int32,
+  level : Int32,
+  order_offset : Int32,
+  page_numbers : Map[Int32, Int32],
+  remaining : Int32,
 ) -> Array[PdfNativeOutlineItem] {
   if remaining <= 0 {
     return []
   }
   let out : Array[PdfNativeOutlineItem] = []
-  let visited : Map[Int, Bool] = Map([])
+  let visited : Map[Int32, Bool] = Map([])
   let mut current = Some(start_ref)
   let mut order_index = order_offset
   let mut budget = remaining
@@ -152,8 +152,8 @@ fn pdf_walk_outline_siblings(
 fn pdf_extract_named_destinations(
   source : @input.InputSource,
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeDestination] {
   let catalog = match pdf_catalog_object(trailer_hints, object_index) {
     Some(value) => value
@@ -195,15 +195,15 @@ fn pdf_extract_named_destinations(
 fn pdf_extract_named_destinations_from_names_dict(
   source : @input.InputSource,
   dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeDestination] {
   let dests_dict = match
     pdf_inline_or_referenced_dict_text(dict_text, "/Dests", object_index) {
     Some(value) => value
     None => return []
   }
-  let visited : Map[Int, Bool] = Map([])
+  let visited : Map[Int32, Bool] = Map([])
   pdf_extract_named_destinations_from_name_tree(
     source, dests_dict, object_index, page_numbers, visited, 16,
   )
@@ -213,10 +213,10 @@ fn pdf_extract_named_destinations_from_names_dict(
 fn pdf_extract_named_destinations_from_name_tree(
   source : @input.InputSource,
   dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
-  visited : Map[Int, Bool],
-  remaining_depth : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
+  visited : Map[Int32, Bool],
+  remaining_depth : Int32,
 ) -> Array[PdfNativeDestination] {
   if remaining_depth <= 0 {
     return []
@@ -290,8 +290,8 @@ fn pdf_extract_named_destinations_from_name_tree(
 fn pdf_extract_named_destinations_from_flat_dict(
   source : @input.InputSource,
   dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeDestination] {
   let entries = match pdf_parse_dict_entries(dict_text) {
     Some(value) => value
@@ -329,9 +329,9 @@ fn pdf_extract_named_destinations_from_flat_dict(
 ///|
 fn pdf_destination_from_content_token(
   token : PdfNativeContentToken,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   source : @input.InputSource,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> PdfNativeDestination? {
   ignore(source)
   match token {

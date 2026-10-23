@@ -1,8 +1,8 @@
 ///|
 priv struct PdfNativeHeaderFooterCandidateSummary {
   strategy : String
-  header_count : Int
-  footer_count : Int
+  header_count : Int32
+  footer_count : Int32
   candidates : Array[@core.JsonValue]
   skipped_reason : String?
 }
@@ -12,8 +12,8 @@ priv struct PdfNativeHeaderFooterLineCandidate {
   kind : String
   normalized_text : String
   text : String
-  pages : Array[Int]
-  page_count : Int
+  pages : Array[Int32]
+  page_count : Int32
   representative_bbox : PdfBBox
   representative_source_ref : @core.SourceRef?
   confidence : String
@@ -25,10 +25,10 @@ priv struct PdfNativeHeaderFooterBucket {
   kind : String
   normalized_text : String
   text : String
-  pages : Array[Int]
+  pages : Array[Int32]
   representative_bbox : PdfBBox
   representative_source_ref : @core.SourceRef?
-  match_count : Int
+  match_count : Int32
   min_x : Double
   max_x : Double
 }
@@ -36,34 +36,34 @@ priv struct PdfNativeHeaderFooterBucket {
 ///|
 priv struct PdfNativeTableCandidateSummary {
   strategy : String
-  row_count : Int
+  row_count : Int32
   candidates : Array[@core.JsonValue]
   skipped_reason : String?
 }
 
 ///|
 priv struct PdfNativeTableRowCandidate {
-  page_no : Int
+  page_no : Int32
   text : String
   bbox : PdfBBox
   source_ref : @core.SourceRef?
-  reading_order_index : Int?
-  line_start : Int?
-  line_end : Int?
+  reading_order_index : Int32?
+  line_start : Int32?
+  line_end : Int32?
   aligned_xs : Array[Double]
 }
 
 ///|
 priv struct PdfNativeTableRegionCandidate {
-  page_no : Int
+  page_no : Int32
   bbox : PdfBBox
-  row_count : Int
-  column_alignment_count : Int
+  row_count : Int32
+  column_alignment_count : Int32
   alignment_xs : Array[Double]
   source_refs : Array[@core.SourceRef]
-  reading_order_indices : Array[Int]
-  line_start : Int?
-  line_end : Int?
+  reading_order_indices : Array[Int32]
+  line_start : Int32?
+  line_end : Int32?
   confidence : String
   reason : String
 }
@@ -144,7 +144,7 @@ fn pdf_native_header_footer_candidates(
     if !pdf_native_header_footer_bucket_is_candidate(bucket, doc.pages.length()) {
       continue
     }
-    let sorted_pages : Array[Int] = []
+    let sorted_pages : Array[Int32] = []
     sorted_pages.append(bucket.pages[:])
     sorted_pages.sort()
     candidate_structs.push({
@@ -211,7 +211,7 @@ fn pdf_native_table_candidates(
     return { strategy, row_count: 0, candidates: [], skipped_reason: None, }
   }
   let region_candidates : Array[PdfNativeTableRegionCandidate] = []
-  let page_nos : Array[Int] = []
+  let page_nos : Array[Int32] = []
   for row in table_row_candidates {
     if !page_nos.contains(row.page_no) {
       page_nos.push(row.page_no)
@@ -380,7 +380,7 @@ fn pdf_native_header_footer_normalized_text(text : String) -> String {
 ///|
 fn pdf_native_ascii_lower_char(ch : Char) -> Char {
   if ch >= 'A' && ch <= 'Z' {
-    Int::unsafe_to_char(ch.to_int() + 32)
+    Int32::unsafe_to_char(ch.to_int() + 32)
   } else {
     ch
   }
@@ -389,7 +389,7 @@ fn pdf_native_ascii_lower_char(ch : Char) -> Char {
 ///|
 fn pdf_native_header_footer_bucket_is_candidate(
   bucket : PdfNativeHeaderFooterBucket,
-  total_pages : Int,
+  total_pages : Int32,
 ) -> Bool {
   if bucket.pages.length() < 2 {
     return false
@@ -406,8 +406,8 @@ fn pdf_native_header_footer_bucket_is_candidate(
 
 ///|
 fn pdf_native_header_footer_candidate_confidence(
-  page_count : Int,
-  total_pages : Int,
+  page_count : Int32,
+  total_pages : Int32,
 ) -> String {
   if total_pages > 0 && page_count == total_pages {
     "high"
@@ -461,9 +461,9 @@ fn pdf_native_line_preferred_source_ref(
 fn pdf_native_line_candidate_source_ref(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
   line : PdfNativeTextLine,
-  line_index : Int,
+  line_index : Int32,
   merge_group : String,
 ) -> @core.SourceRef {
   let base = match pdf_native_line_preferred_source_ref(line) {
@@ -539,7 +539,7 @@ fn pdf_native_source_ref_json(source_ref : @core.SourceRef) -> @core.JsonValue {
 }
 
 ///|
-fn pdf_native_int_array_json(values : Array[Int]) -> @core.JsonValue {
+fn pdf_native_int_array_json(values : Array[Int32]) -> @core.JsonValue {
   Array(values.map(value => Number(value.to_string())))
 }
 
@@ -824,7 +824,7 @@ fn pdf_native_table_region_candidate(
   }
   let mut bbox = make_pdf_bbox(0.0, 0.0, 0.0, 0.0)
   let source_refs : Array[@core.SourceRef] = []
-  let reading_order_indices : Array[Int] = []
+  let reading_order_indices : Array[Int32] = []
   for row in rows {
     bbox = if pdf_bbox_is_empty(bbox) {
       row.bbox
@@ -867,7 +867,7 @@ fn pdf_native_table_region_alignment_positions(
   rows : Array[PdfNativeTableRowCandidate],
 ) -> Array[Double] {
   let positions : Array[Double] = []
-  let counts : Array[Int] = []
+  let counts : Array[Int32] = []
   for row in rows {
     for x in row.aligned_xs {
       let mut matched = false
@@ -903,7 +903,7 @@ fn pdf_native_table_region_alignment_positions(
 fn pdf_native_table_alignment_overlap_count(
   left : Array[Double],
   right : Array[Double],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for lhs in left {
     if right.any(fn(rhs) { pdf_abs_double(lhs - rhs) <= 8.0 }) {
@@ -915,8 +915,8 @@ fn pdf_native_table_alignment_overlap_count(
 
 ///|
 fn pdf_native_table_candidate_confidence(
-  row_count : Int,
-  column_alignment_count : Int,
+  row_count : Int32,
+  column_alignment_count : Int32,
 ) -> String {
   if row_count >= 3 && column_alignment_count >= 3 {
     "high"

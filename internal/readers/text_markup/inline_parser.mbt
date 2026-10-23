@@ -185,10 +185,10 @@ fn flush_inline_text_chars(
 ///|
 fn consume_delimited(
   chars : Array[Char],
-  start : Int,
+  start : Int32,
   open : Char,
   close : Char,
-) -> (String, Int)? {
+) -> (String, Int32)? {
   if start >= chars.length() || chars[start] != open {
     return None
   }
@@ -207,8 +207,8 @@ fn consume_delimited(
 ///|
 fn rst_consume_named_link(
   chars : Array[Char],
-  start : Int,
-) -> (String, String, Int)? {
+  start : Int32,
+) -> (String, String, Int32)? {
   if start >= chars.length() || chars[start] != '`' {
     return None
   }
@@ -249,7 +249,7 @@ fn rst_consume_named_link(
 }
 
 ///|
-fn rst_consume_literal(chars : Array[Char], start : Int) -> (String, Int)? {
+fn rst_consume_literal(chars : Array[Char], start : Int32) -> (String, Int32)? {
   if start + 1 >= chars.length() ||
     chars[start] != '`' ||
     chars[start + 1] != '`' {
@@ -270,8 +270,8 @@ fn rst_consume_literal(chars : Array[Char], start : Int) -> (String, Int)? {
 ///|
 fn rst_consume_note_reference(
   chars : Array[Char],
-  start : Int,
-) -> (String, Int)? {
+  start : Int32,
+) -> (String, Int32)? {
   if start >= chars.length() || chars[start] != '[' {
     return None
   }
@@ -290,8 +290,8 @@ fn rst_consume_note_reference(
 ///|
 fn asciidoc_consume_link(
   chars : Array[Char],
-  start : Int,
-) -> (String, String, Int)? {
+  start : Int32,
+) -> (String, String, Int32)? {
   if !chars_match_literal(chars, start, "link:") {
     return None
   }
@@ -319,8 +319,8 @@ fn asciidoc_consume_link(
 ///|
 fn asciidoc_consume_xref(
   chars : Array[Char],
-  start : Int,
-) -> (String, String, Int)? {
+  start : Int32,
+) -> (String, String, Int32)? {
   let prefix = if chars_match_literal(chars, start, "xref:") {
     "xref:"
   } else if chars_match_literal(chars, start, "<<") {
@@ -397,7 +397,10 @@ fn asciidoc_consume_xref(
 }
 
 ///|
-fn tex_consume_link(chars : Array[Char], start : Int) -> (String, String, Int)? {
+fn tex_consume_link(
+  chars : Array[Char],
+  start : Int32,
+) -> (String, String, Int32)? {
   if !chars_match_literal(chars, start, "\\href{") {
     return None
   }
@@ -423,7 +426,10 @@ fn tex_consume_link(chars : Array[Char], start : Int) -> (String, String, Int)? 
 }
 
 ///|
-fn tex_consume_inline_code(chars : Array[Char], start : Int) -> (String, Int)? {
+fn tex_consume_inline_code(
+  chars : Array[Char],
+  start : Int32,
+) -> (String, Int32)? {
   if !chars_match_literal(chars, start, "\\texttt{") {
     return None
   }
@@ -442,8 +448,8 @@ fn tex_consume_inline_code(chars : Array[Char], start : Int) -> (String, Int)? {
 ///|
 fn tex_consume_reference(
   chars : Array[Char],
-  start : Int,
-) -> (String, String, Int)? {
+  start : Int32,
+) -> (String, String, Int32)? {
   for command in ["\\url{", "\\ref{", "\\pageref{", "\\cite{"] {
     match consume_command_argument(chars, start, command, '}') {
       Some((body, next)) => {
@@ -460,10 +466,10 @@ fn tex_consume_reference(
 ///|
 fn consume_command_argument(
   chars : Array[Char],
-  start : Int,
+  start : Int32,
   prefix : String,
   close : Char,
-) -> (String, Int)? {
+) -> (String, Int32)? {
   if !chars_match_literal(chars, start, prefix) {
     return None
   }
@@ -482,7 +488,7 @@ fn consume_command_argument(
 ///|
 fn chars_match_literal(
   chars : Array[Char],
-  start : Int,
+  start : Int32,
   literal : String,
 ) -> Bool {
   let needle = literal.to_array()

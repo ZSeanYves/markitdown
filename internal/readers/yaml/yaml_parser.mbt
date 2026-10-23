@@ -3,8 +3,11 @@
 ///
 /// This parser is intentionally conservative. Unsupported YAML features raise
 /// hard parse errors instead of being converted into product policy.
-pub fn parse_yaml_document(text : String) -> YamlDocument raise {
-  parse_yaml_document_with_profile(text, None, None)
+pub fn parse_yaml_document(
+  text : String,
+  budget_context? : @budget.BudgetContext,
+) -> YamlDocument raise {
+  parse_yaml_document_with_profile(text, None, None, budget_context)
 }
 
 ///|
@@ -12,8 +15,9 @@ pub fn parse_yaml_document(text : String) -> YamlDocument raise {
 /// structure events for next-native streaming lowering.
 pub fn parse_yaml_structure_document(
   text : String,
+  budget_context? : @budget.BudgetContext,
 ) -> YamlStructureDocument raise {
-  let document = parse_yaml_document(text)
+  let document = parse_yaml_document(text, budget_context?)
   let events : Array[YamlStructureEvent] = []
   match document.root {
     Some(root) =>
@@ -35,8 +39,9 @@ pub fn parse_yaml_structure_document(
 /// constructing the source-native document tree.
 pub fn parse_yaml_structure_events(
   text : String,
+  budget_context? : @budget.BudgetContext,
 ) -> Array[YamlStructureEvent] raise {
-  parse_yaml_structure_document(text).events
+  parse_yaml_structure_document(text, budget_context?).events
 }
 
 ///|
@@ -52,6 +57,7 @@ pub fn profile_yaml_document(text : String) -> YamlProfiledDocument raise {
     text,
     Some(report),
     Some(totals),
+    None,
   )
   yaml_parse_profile_finish_totals(Some(report), Some(totals))
   { document, report, }
@@ -92,18 +98,40 @@ pub fn classify_yaml_error(err : YamlError) -> YamlErrorInfo {
 
 ///|
 priv struct YamlLine {
-  indent : Int
+  indent : Int32
   content : String
-  line_no : Int
+  line_no : Int32
   raw_content : String
-  blank_lines_before : Int
+  blank_lines_before : Int32
 }
 
 ///|
 priv struct YamlAliasResolver {
-  anchors : Map[String, YamlValue]
-  mut anchor_count : Int
-  mut alias_count : Int
+  anchors : Map[String, YamlResolvedValue]
+  mut anchor_count : Int32
+  mut alias_count : Int32
+  budget_context : @budget.BudgetContext?
+}
+
+///|
+// Cache the retained value's replay cost, never the discarded work performed
+// while creating it. Only member weights are needed by YAML's shallow merge;
+// there is no second recursively duplicated value tree.
+priv struct YamlResolvedValue {
+  value : YamlValue
+  logical_nodes : Int64
+  member_weights : Array[Int64]?
+  sequence_member_weights : Map[Int32, Array[Int64]]?
+}
+
+///|
+fn yaml_resolved_scalar(value : YamlValue) -> YamlResolvedValue {
+  {
+    value,
+    logical_nodes: 1L,
+    member_weights: None,
+    sequence_member_weights: None,
+  }
 }
 
 ///|
@@ -117,6 +145,7 @@ fn parse_yaml_document_with_profile(
   text : String,
   profile : YamlParseProfileReport?,
   profile_totals : YamlParseProfileTotals?,
+  budget_context : @budget.BudgetContext?,
 ) -> YamlDocument raise {
   let text_flags = yaml_scan_text_flags(text)
   let may_have_references = text_flags.0
@@ -128,7 +157,12 @@ fn parse_yaml_document_with_profile(
     let documents : Array[YamlValue] = []
     for document_text in document_texts {
       match
-        parse_yaml_document_with_profile(document_text, None, profile_totals).root {
+        parse_yaml_document_with_profile(
+          document_text,
+          None,
+          profile_totals,
+          budget_context,
+        ).root {
         Some(root) => documents.push(root)
         None => documents.push(Null)
       }
@@ -178,8 +212,13 @@ fn parse_yaml_document_with_profile(
 
   let build_started = yaml_parse_profile_stage_started(profile)
   let doc = if may_have_references {
-    let resolver = { anchors: Map([]), anchor_count: 0, alias_count: 0, }
-    { root: Some(resolve_yaml_aliases(root, resolver)), }
+    let resolver = {
+      anchors: Map([]),
+      anchor_count: 0,
+      alias_count: 0,
+      budget_context,
+    }
+    { root: Some(resolve_yaml_aliases(root, resolver).value), }
   } else {
     { root: Some(root), }
   }
@@ -233,7 +272,7 @@ fn yaml_scan_text_flags(text : String) -> (Bool, Bool, Bool) {
 ///|
 fn split_yaml_document_texts(
   text : String,
-  may_contain_stream_control? : Bool? = None,
+  may_contain_stream_control~ : Bool? = None,
 ) -> Array[String] raise {
   let has_stream_control = may_contain_stream_control.unwrap_or_else(fn() {
     yaml_may_contain_stream_control(text)
@@ -322,7 +361,7 @@ fn yaml_document_lines_have_content(lines : Array[String]) -> Bool {
 }
 
 ///|
-fn yaml_source_line_count(text : String) -> Int {
+fn yaml_source_line_count(text : String) -> Int32 {
   if text == "" {
     0
   } else {
@@ -339,10 +378,10 @@ fn yaml_source_line_count(text : String) -> Int {
 ///|
 fn parse_block(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   if start >= lines.length() {
     raise ParseError("unexpected end of input")
   }
@@ -387,10 +426,10 @@ fn parse_block(
 ///|
 fn parse_mapping(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   let mapping_started = match profile_totals {
     Some(_) => @env.now()
     None => 0
@@ -410,10 +449,10 @@ fn parse_mapping(
 ///|
 fn consume_mapping_members(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, Array[YamlMember]) raise {
+) -> (Int32, Array[YamlMember]) raise {
   let members : Array[YamlMember] = []
   let mut i = start
 
@@ -484,10 +523,10 @@ fn consume_mapping_members(
 ///|
 fn parse_mapping_child_block(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   if start < lines.length() && is_sequence_item(lines[start].content) {
     parse_sequence_mapping_child(lines, start, indent, profile_totals)
   } else {
@@ -498,10 +537,10 @@ fn parse_mapping_child_block(
 ///|
 fn parse_sequence(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   let sequence_started = match profile_totals {
     Some(_) => @env.now()
     None => 0
@@ -542,10 +581,10 @@ fn parse_sequence(
 ///|
 fn parse_sequence_mapping_child(
   lines : Array[YamlLine],
-  start : Int,
-  indent : Int,
+  start : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   let sequence_started = match profile_totals {
     Some(_) => @env.now()
     None => 0
@@ -584,10 +623,10 @@ fn parse_sequence_mapping_child(
 ///|
 fn parse_sequence_item(
   lines : Array[YamlLine],
-  index : Int,
-  indent : Int,
+  index : Int32,
+  indent : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   let line = lines[index]
   let rest = sequence_item_rest(line.content)
   if rest == "" {
@@ -680,7 +719,7 @@ fn parse_sequence_item(
 }
 
 ///|
-fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
+fn parse_key_text(raw_key : String, line_no : Int32) -> String raise {
   let key = raw_key
   if key == "" {
     raise ParseError("empty key at line " + line_no.to_string())
@@ -709,7 +748,7 @@ fn parse_key_text(raw_key : String, line_no : Int) -> String raise {
 ///|
 fn parse_scalar_trimmed(
   trimmed : String,
-  line_no : Int,
+  line_no : Int32,
   profile_totals : YamlParseProfileTotals?,
 ) -> YamlValue raise {
   let scalar_started = match profile_totals {
@@ -826,7 +865,7 @@ fn yaml_anchor_name_only(text : String) -> String? raise {
 ///|
 fn yaml_reference_name(
   name : String,
-  line_no : Int,
+  line_no : Int32,
   kind : String,
 ) -> String raise {
   if name == "" || name.length() > 128 {
@@ -850,7 +889,7 @@ fn yaml_reference_name(
 }
 
 ///|
-fn yaml_optional_line_suffix(line_no : Int) -> String {
+fn yaml_optional_line_suffix(line_no : Int32) -> String {
   if line_no > 0 {
     " at line " + line_no.to_string()
   } else {
@@ -867,7 +906,19 @@ fn yaml_anchor_wrapper(name : String, value : YamlValue) -> YamlValue {
 fn resolve_yaml_aliases(
   value : YamlValue,
   resolver : YamlAliasResolver,
-) -> YamlValue raise {
+) -> YamlResolvedValue raise {
+  // Anchor/alias marker wrappers are not output nodes. Ordinary values cost
+  // one logical visit, while an alias admits its retained value's footprint.
+  let is_reference = match value {
+    String(text) => text.has_prefix(yaml_alias_marker_prefix)
+    Mapping(members) =>
+      members.length() == 1 &&
+      members[0].key.has_prefix(yaml_anchor_marker_prefix)
+    _ => false
+  }
+  if !is_reference {
+    yaml_charge_logical_work(resolver, 1L)
+  }
   match value {
     String(text) =>
       if text.has_prefix(yaml_alias_marker_prefix) {
@@ -877,18 +928,41 @@ fn resolve_yaml_aliases(
         }
         let name = text[yaml_alias_marker_prefix.length():].to_owned()
         match resolver.anchors.get(name) {
-          Some(target) => target
+          Some(target) => {
+            yaml_charge_logical_work(resolver, target.logical_nodes)
+            target
+          }
           None => raise ParseError("undefined YAML alias *" + name)
         }
       } else {
-        value
+        yaml_resolved_scalar(value)
       }
     Sequence(values) => {
       let resolved : Array[YamlValue] = []
+      let mapping_weights : Map[Int32, Array[Int64]] = Map([])
+      let mut logical_nodes = 1L
       for item in values {
-        resolved.push(resolve_yaml_aliases(item, resolver))
+        let next = resolve_yaml_aliases(item, resolver)
+        logical_nodes = yaml_logical_sum(
+          logical_nodes,
+          next.logical_nodes,
+          resolver,
+        )
+        if next.member_weights is Some(weights) {
+          mapping_weights.set(resolved.length(), weights)
+        }
+        resolved.push(next.value)
       }
-      Sequence(resolved)
+      {
+        value: Sequence(resolved),
+        logical_nodes,
+        member_weights: None,
+        sequence_member_weights: if mapping_weights.is_empty() {
+          None
+        } else {
+          Some(mapping_weights)
+        },
+      }
     }
     Mapping(members) => {
       if members.length() == 1 &&
@@ -907,7 +981,7 @@ fn resolve_yaml_aliases(
       }
       resolve_yaml_mapping_members(members, resolver)
     }
-    Number(_) | Bool(_) | Null => value
+    Number(_) | Bool(_) | Null => yaml_resolved_scalar(value)
   }
 }
 
@@ -915,44 +989,71 @@ fn resolve_yaml_aliases(
 fn resolve_yaml_mapping_members(
   members : Array[YamlMember],
   resolver : YamlAliasResolver,
-) -> YamlValue raise {
-  let merged : Array[YamlMember] = []
-  let explicit : Array[YamlMember] = []
+) -> YamlResolvedValue raise {
+  let merged : Array[(YamlMember, Int64)] = []
+  let explicit : Array[(YamlMember, Int64)] = []
   for entry in members {
     let resolved = resolve_yaml_aliases(entry.value, resolver)
     if entry.key == "<<" {
-      append_yaml_merge_members(merged, resolved)
+      append_yaml_merge_members(merged, resolved, resolver)
     } else {
-      explicit.push({ key: entry.key, value: resolved, })
+      explicit.push(
+        ({ key: entry.key, value: resolved.value, }, resolved.logical_nodes),
+      )
     }
   }
   let explicit_keys : Map[String, Bool] = Map([])
-  for entry in explicit {
+  for (entry, _) in explicit {
     explicit_keys.set(entry.key, true)
   }
   let emitted : Map[String, Bool] = Map([])
   let out : Array[YamlMember] = []
-  for entry in merged {
+  let weights : Array[Int64] = []
+  let mut logical_nodes = 1L
+  for (entry, weight) in merged {
     if explicit_keys.get(entry.key) is None && emitted.get(entry.key) is None {
+      logical_nodes = yaml_logical_sum(logical_nodes, weight, resolver)
       out.push(entry)
+      weights.push(weight)
       emitted.set(entry.key, true)
     }
   }
-  out.append(explicit[:])
-  Mapping(out)
+  for (entry, weight) in explicit {
+    logical_nodes = yaml_logical_sum(logical_nodes, weight, resolver)
+    out.push(entry)
+    weights.push(weight)
+  }
+  {
+    value: Mapping(out),
+    logical_nodes,
+    member_weights: Some(weights),
+    sequence_member_weights: None,
+  }
 }
 
 ///|
 fn append_yaml_merge_members(
-  out : Array[YamlMember],
-  value : YamlValue,
+  out : Array[(YamlMember, Int64)],
+  resolved : YamlResolvedValue,
+  resolver : YamlAliasResolver,
 ) -> Unit raise {
-  match value {
-    Mapping(members) => out.append(members[:])
+  match resolved.value {
+    Mapping(members) =>
+      yaml_append_weighted_merge(
+        out,
+        members,
+        resolved.member_weights,
+        resolver,
+      )
     Sequence(values) =>
-      for item in values {
-        match item {
-          Mapping(members) => out.append(members[:])
+      for index in 0..<values.length() {
+        match values[index] {
+          Mapping(members) => {
+            let weights = resolved.sequence_member_weights.bind(map => {
+              map.get(index)
+            })
+            yaml_append_weighted_merge(out, members, weights, resolver)
+          }
           _ => raise ParseError("YAML merge sequence must contain mappings")
         }
       }
@@ -961,9 +1062,58 @@ fn append_yaml_merge_members(
 }
 
 ///|
+fn yaml_append_weighted_merge(
+  out : Array[(YamlMember, Int64)],
+  members : Array[YamlMember],
+  weights : Array[Int64]?,
+  resolver : YamlAliasResolver,
+) -> Unit raise {
+  let weights = match weights {
+    Some(values) if values.length() == members.length() => values
+    _ => raise ParseError("YAML merge footprint is inconsistent")
+  }
+  // Charge every actual copy, including entries later overridden. That work
+  // belongs to creation; only final retained weights are cached for replay.
+  yaml_charge_logical_work(resolver, members.length().to_int64())
+  for index in 0..<members.length() {
+    out.push((members[index], weights[index]))
+  }
+}
+
+///|
+fn yaml_charge_logical_work(
+  resolver : YamlAliasResolver,
+  amount : Int64,
+) -> Unit raise {
+  match resolver.budget_context {
+    Some(context) =>
+      match context.account.charge(ParseWork, amount) {
+        Ok(_) => ()
+        Err(error) => raise ParseError(@budget.budget_error_message(error))
+      }
+    None => ()
+  }
+}
+
+///|
+fn yaml_logical_sum(
+  left : Int64,
+  right : Int64,
+  resolver : YamlAliasResolver,
+) -> Int64 raise {
+  if right > 9223372036854775807L - left {
+    // A production context has already admitted at least one logical visit,
+    // so this charge latches its typed overflow without resetting the account.
+    yaml_charge_logical_work(resolver, 9223372036854775807L)
+    raise ParseError("YAML logical expansion arithmetic overflow")
+  }
+  left + right
+}
+
+///|
 fn parse_yaml_safe_core_tag(
   trimmed : String,
-  line_no : Int,
+  line_no : Int32,
   _profile_totals : YamlParseProfileTotals?,
 ) -> YamlValue raise {
   let split = match trimmed.find(" ") {
@@ -1046,12 +1196,12 @@ fn yaml_is_integer_scalar(text : String) -> Bool {
 ///|
 fn parse_inline_or_block_scalar(
   lines : Array[YamlLine],
-  line_index : Int,
+  line_index : Int32,
   raw_value : String,
-  parent_indent : Int,
-  line_no : Int,
+  parent_indent : Int32,
+  line_no : Int32,
   profile_totals : YamlParseProfileTotals?,
-) -> (Int, YamlValue) raise {
+) -> (Int32, YamlValue) raise {
   let trimmed = raw_value.trim().to_owned()
   if trimmed.has_prefix("|") || trimmed.has_prefix(">") {
     return parse_block_scalar(

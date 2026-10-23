@@ -62,8 +62,8 @@ fn html_child_text_end_tag_fields(
   state : HtmlChildTextState,
   source : @input.InputSource,
   tag : String,
-  line_end : Int,
-  byte_end : Int,
+  line_end : Int32,
+  byte_end : Int32,
 ) -> Unit {
   if tag == "a" {
     state.link_line_end = line_end
@@ -127,8 +127,8 @@ fn html_child_text_open_link(
 fn html_child_text_open_link_fields(
   state : HtmlChildTextState,
   attributes : Array[@dhtml.HtmlAttribute],
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> Unit {
   if state.link_depth == 0 {
     state.link_text = StringBuilder()
@@ -282,8 +282,8 @@ fn html_child_text_append_line_break(
 fn html_child_text_append_line_break_fields(
   state : HtmlChildTextState,
   source : @input.InputSource,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> Unit {
   match state.current {
     Some(current) => {
@@ -377,8 +377,8 @@ fn html_child_text_append_text(
 fn html_child_text_append_text_value(
   state : HtmlChildTextState,
   raw : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> Unit {
   match state.current {
     Some(current) => {
@@ -562,8 +562,8 @@ fn html_child_text_push_block(
 fn html_child_text_close_list_item(
   state : HtmlChildTextState,
   source : @input.InputSource,
-  end_line : Int,
-  end_byte : Int,
+  end_line : Int32,
+  end_byte : Int32,
 ) -> Unit {
   let frame = match state.list_item_stack.pop() {
     Some(value) => value
@@ -585,8 +585,8 @@ fn html_child_text_list_item_block(
   frame : HtmlChildListItemFrame,
   body_blocks : Array[@core.CoreBlock],
   source : @input.InputSource,
-  end_line : Int,
-  end_byte : Int,
+  end_line : Int32,
+  end_byte : Int32,
 ) -> @core.CoreBlock {
   let (text, rendered_markdown, rich, nested_lists, extras) = html_child_text_list_item_body_parts(
     body_blocks,
@@ -687,8 +687,8 @@ fn html_text_has_leading_space_like(text : String) -> Bool {
 fn html_child_text_close_list(
   state : HtmlChildTextState,
   source : @input.InputSource,
-  end_line : Int,
-  end_byte : Int,
+  end_line : Int32,
+  end_byte : Int32,
 ) -> Unit {
   let frame = match state.list_stack.pop() {
     Some(value) => value
@@ -756,7 +756,7 @@ fn html_child_hr_block(
   state : HtmlChildTextState,
   source : @input.InputSource,
   event : @dhtml.HtmlTokenEvent,
-  block_order : Int,
+  block_order : Int32,
 ) -> @core.CoreBlock {
   let block = html_child_text_make_block(
     state,
@@ -777,11 +777,11 @@ fn html_child_hr_block(
 fn html_child_hr_block_fields(
   state : HtmlChildTextState,
   source : @input.InputSource,
-  line_start : Int,
-  line_end : Int,
-  byte_start : Int,
-  byte_end : Int,
-  block_order : Int,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
+  block_order : Int32,
 ) -> @core.CoreBlock {
   let block = html_child_text_make_block(
     state,
@@ -881,10 +881,10 @@ fn html_child_text_append_image_fields(
   state : HtmlChildTextState,
   source : @input.InputSource,
   attributes : Array[@dhtml.HtmlAttribute],
-  line_start : Int,
-  line_end : Int,
-  byte_start : Int,
-  byte_end : Int,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
 ) -> Unit {
   html_child_text_append_image(
     state,

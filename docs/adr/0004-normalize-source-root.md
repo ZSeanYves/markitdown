@@ -1,5 +1,10 @@
 # ADR 0004: Normalize the MoonBit Source Root
 
+> Historical record. Current product targets, delivery and acceptance
+> instructions are superseded by the [Native upgrade plan](../architecture/native-performance-plan.md)
+> and [ADR 0008](0008-native-only-delivery-and-acceptance.md).
+> Original evidence below is preserved and does not certify P2–P6 completion.
+
 > Historical record. The benchmark runner referenced here was removed in favor
 > of the MoonX benchmark entrypoint under `tools/regression/`.
 

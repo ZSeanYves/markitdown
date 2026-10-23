@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/internal/readers/xml"
 
 import {
+  "ZSeanYves/markitdown/internal/resource_budget",
   "ZSeanYves/markitdown/lib/input",
 }
 
@@ -12,11 +13,13 @@ pub fn collect_xml_validation_issues(XmlDocument) -> Array[XmlValidationIssue]
 
 pub fn inspect_xml_document(XmlDocument) -> XmlInspectReport
 
+pub fn new_xml_cursor(XmlCursorLimits, budget_context? : @resource_budget.BudgetContext) -> Result[XmlCursor, XmlCursorError]
+
 pub fn parse_xml_document(String) -> XmlDocument raise
 
 pub fn parse_xml_structure_tokens(String) -> Array[XmlToken] raise
 
-pub fn prepare_xml_from_source(@input.InputSource) -> Result[PreparedXmlText, String]
+pub async fn prepare_xml_from_source(@input.InputSource) -> Result[PreparedXmlText, String]
 
 pub fn scan_xml_structure(String) -> XmlStructureScan
 
@@ -60,10 +63,112 @@ pub struct XmlComment {
   span : XmlSourceSpan
 }
 
+pub struct XmlCursor {
+  // private fields
+}
+pub fn XmlCursor::close(Self) -> Unit
+pub fn XmlCursor::feed(Self, Bytes, eof~ : Bool) -> Result[Unit, XmlCursorError]
+pub fn XmlCursor::next(Self) -> Result[XmlCursorStep, XmlCursorError]
+pub fn XmlCursor::stats(Self) -> XmlCursorStats
+
+pub struct XmlCursorAttribute {
+  name : XmlCursorName
+  value : String
+  quote : Char
+  span : XmlCursorSpan
+  namespace_declaration : Bool
+}
+
+pub(all) enum XmlCursorError {
+  Syntax(XmlErrorKind, String, XmlCursorSpan)
+  InvalidEncoding(String, XmlCursorPosition)
+  Budget(@resource_budget.BudgetError)
+  Limit(XmlCursorLimit, observed~ : Int64, limit~ : Int64)
+  InvalidState(String)
+}
+
+pub(all) enum XmlCursorLimit {
+  Depth
+  TokenBytes
+  Attributes
+  Tokens
+} derive(Eq)
+pub fn XmlCursorLimit::equal(Self, Self) -> Bool
+pub fn XmlCursorLimit::not_equal(Self, Self) -> Bool
+
+pub struct XmlCursorLimits {
+  profile : @resource_budget.BudgetProfile
+  max_depth : Int64?
+  max_token_bytes : Int64?
+  max_attributes : Int64?
+  max_tokens : Int64?
+  text_fragment_bytes : Int32
+}
+pub fn XmlCursorLimits::new(@resource_budget.BudgetProfile, max_depth~ : Int64?, max_token_bytes~ : Int64?, max_attributes~ : Int64?, max_tokens~ : Int64?, text_fragment_bytes~ : Int32) -> Result[Self, XmlCursorError]
+
+pub struct XmlCursorName {
+  raw : String
+  local_name : String
+  namespace_uri : String?
+} derive(Eq)
+pub fn XmlCursorName::equal(Self, Self) -> Bool
+pub fn XmlCursorName::not_equal(Self, Self) -> Bool
+
+pub struct XmlCursorPosition {
+  utf8_byte : Int64
+  scalar : Int64
+  utf16 : Int64
+  line : Int64
+  column : Int64
+} derive(Eq)
+pub fn XmlCursorPosition::equal(Self, Self) -> Bool
+pub fn XmlCursorPosition::not_equal(Self, Self) -> Bool
+
+pub struct XmlCursorSpan {
+  start : XmlCursorPosition
+  end : XmlCursorPosition
+} derive(Eq)
+pub fn XmlCursorSpan::equal(Self, Self) -> Bool
+pub fn XmlCursorSpan::not_equal(Self, Self) -> Bool
+
+pub struct XmlCursorStats {
+  input_bytes : Int64
+  logical_tokens : Int64
+  max_depth : Int64
+  max_attributes : Int64
+  max_markup_bytes : Int64
+  max_fragment_bytes : Int64
+  max_namespace_bindings : Int64
+}
+
+pub(all) enum XmlCursorStep {
+  NeedInput
+  Token(XmlCursorToken)
+  End
+}
+
+pub struct XmlCursorText {
+  text : String
+  first : Bool
+  last : Bool
+  span : XmlCursorSpan
+}
+
+pub(all) enum XmlCursorToken {
+  StartElement(XmlCursorName, Array[XmlCursorAttribute], Bool, XmlCursorSpan)
+  EndElement(XmlCursorName, XmlCursorSpan)
+  TextFragment(XmlCursorText)
+  CDataFragment(XmlCursorText)
+  Comment(String, XmlCursorSpan)
+  ProcessingInstruction(String, String, XmlCursorSpan)
+  Declaration(String, XmlCursorSpan)
+  Doctype(String, XmlCursorSpan)
+}
+
 pub struct XmlDocument {
   nodes : Array[XmlNode]
   root : XmlElement?
-  source_length : Int
+  source_length : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
 }
@@ -100,19 +205,19 @@ pub fn XmlErrorKind::equal(Self, Self) -> Bool
 pub fn XmlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct XmlInspectReport {
-  node_count : Int
-  element_count : Int
-  attribute_count : Int
-  text_node_count : Int
-  comment_count : Int
-  cdata_count : Int
-  processing_instruction_count : Int
-  max_depth : Int
+  node_count : Int32
+  element_count : Int32
+  attribute_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  cdata_count : Int32
+  processing_instruction_count : Int32
+  max_depth : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   is_empty : Bool
 }
 
@@ -131,26 +236,26 @@ pub struct XmlProcessingInstruction {
 }
 
 pub struct XmlSourceSpan {
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 pub struct XmlStructureScan {
   status : XmlStructureScanStatus
-  node_count : Int
-  element_count : Int
-  attribute_count : Int
-  text_node_count : Int
-  comment_count : Int
-  cdata_count : Int
-  processing_instruction_count : Int
-  max_depth : Int
+  node_count : Int32
+  element_count : Int32
+  attribute_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  cdata_count : Int32
+  processing_instruction_count : Int32
+  max_depth : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
   has_complex_mixed_content : Bool
   has_markdown_fence_text : Bool
   has_default_namespace : Bool
-  error_code : Int
+  error_code : Int32
 }
 
 pub(all) enum XmlStructureScanStatus {
@@ -179,8 +284,8 @@ pub(all) enum XmlToken {
 pub struct XmlValidationIssue {
   kind : XmlValidationIssueKind
   severity : XmlValidationSeverity
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   message : String
 }
 
@@ -193,9 +298,9 @@ pub fn XmlValidationIssueKind::equal(Self, Self) -> Bool
 pub fn XmlValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct XmlValidationReport {
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[XmlValidationIssue]
 }
 

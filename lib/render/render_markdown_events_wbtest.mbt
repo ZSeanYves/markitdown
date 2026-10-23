@@ -6,7 +6,7 @@ fn markdown_generic_ref() -> @core.SourceRef {
 }
 
 ///|
-fn xml_outline_test_ref(encoding : String, depth : Int) -> @core.SourceRef {
+fn xml_outline_test_ref(encoding : String, depth : Int32) -> @core.SourceRef {
   let source_ref = { ..@core.empty_source_ref(), format: Some("xml"), }
   source_ref.extra.set("ir_event_encoding", encoding)
   source_ref.extra.set("xml_outline_depth", depth.to_string())
@@ -15,8 +15,8 @@ fn xml_outline_test_ref(encoding : String, depth : Int) -> @core.SourceRef {
 
 ///|
 fn compact_markup_ref(
-  kind? : String = "leaf",
-  level? : String = "1",
+  kind~ : String = "leaf",
+  level~ : String = "1",
 ) -> @core.SourceRef {
   let source_ref = @core.empty_source_ref()
   source_ref.extra.set("ir_event_encoding", "text_markup_compact_v1")
@@ -199,7 +199,7 @@ test "markdown event renderer reconstructs generic tables and image inlines" {
 }
 
 ///|
-fn render_events_through_sink(events : Array[@core.CoreEvent]) -> String {
+async fn render_events_through_sink(events : Array[@core.CoreEvent]) -> String {
   let chunks : Array[String] = []
   let result = render_markdown_input_to_sink(
     EventStream(events),
@@ -214,7 +214,7 @@ fn render_events_through_sink(events : Array[@core.CoreEvent]) -> String {
 }
 
 ///|
-test "incremental event renderer matches every event encoding" {
+async test "incremental event renderer matches every event encoding" {
   let compact = [
     rag_test_event(
       StartBlock(Heading),
@@ -280,7 +280,7 @@ test "incremental event renderer matches every event encoding" {
 ///|
 fn encoded_event_ref(
   encoding : String,
-  format? : String = "",
+  format~ : String = "",
 ) -> @core.SourceRef {
   let source_ref = {
     ..@core.empty_source_ref(),
@@ -295,7 +295,7 @@ fn encoded_event_ref(
 }
 
 ///|
-test "incremental renderer covers JSON XML subtitle line and generic routes" {
+async test "incremental renderer covers JSON XML subtitle line and generic routes" {
   let json_ref = encoded_event_ref("json_list_v1", format="json")
   let json = [
     rag_test_event(StartBlock(ListItem), "one", source_ref=Some(json_ref)),
@@ -375,7 +375,7 @@ test "incremental renderer covers JSON XML subtitle line and generic routes" {
 }
 
 ///|
-test "incremental renderer propagates block event and finish failures" {
+async test "incremental renderer propagates block event and finish failures" {
   let document = @core.empty_document_ir()
   document.blocks.push(@core.make_block_without_source_ref(Paragraph, "body"))
   match
@@ -443,7 +443,7 @@ test "incremental renderer propagates block event and finish failures" {
 }
 
 ///|
-test "incremental XML outline handles repeated headings invalid depth and noise" {
+async test "incremental XML outline handles repeated headings invalid depth and noise" {
   let root_ref = xml_outline_test_ref("xml_outline_v1", 0)
   let invalid_ref = xml_outline_test_ref("xml_outline_v1", 0)
   invalid_ref.extra.set("xml_outline_depth", "invalid")

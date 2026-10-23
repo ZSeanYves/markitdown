@@ -11,7 +11,7 @@ fn html_lowering_map_push_inline_fact(
 }
 
 ///|
-fn html_lowering_index_item_count(index : HtmlLoweringIndex) -> Int {
+fn html_lowering_index_item_count(index : HtmlLoweringIndex) -> Int32 {
   index.block_by_key.length() +
   index.inline_by_key.length() +
   index.skipped_block_keys.length()
@@ -191,7 +191,7 @@ fn html_heading_blocks(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   block : @dhtml.HtmlBlockFact,
-  level : Int,
+  level : Int32,
   index : HtmlLoweringIndex,
 ) -> Array[@core.CoreBlock] {
   let inlines = html_inlines_for_block(
@@ -422,7 +422,7 @@ fn html_list_item_blocks_from_dom(
   )
   let nested_lists : Array[@core.CoreBlock] = []
   let extras : Array[@core.CoreBlock] = []
-  let mut root_piece_index : Int? = None
+  let mut root_piece_index : Int32? = None
   for index in 0..<pieces.length() {
     let piece = pieces[index]
     if piece.kind == List {
@@ -469,7 +469,7 @@ fn html_list_item_blocks_from_dom(
 ///|
 fn html_list_item_primary_child_index(
   child_blocks : Array[@dhtml.HtmlBlockFact],
-) -> Int? {
+) -> Int32? {
   for child_pos in 0..<child_blocks.length() {
     if child_blocks[child_pos].kind == Paragraph {
       return Some(child_pos)
@@ -627,7 +627,7 @@ fn html_container_child_blocks_from_dom(
   element : @dhtml.HtmlElement,
   dom_blocks : Map[String, @dhtml.HtmlElement],
   index : HtmlLoweringIndex,
-  flatten_blockquotes? : Bool = false,
+  flatten_blockquotes~ : Bool = false,
 ) -> Array[@core.CoreBlock] {
   let child_blocks = html_child_blocks_sorted(index, block.children)
   let top_level_inline_facts = html_top_level_inline_facts_for_block(
@@ -721,10 +721,10 @@ fn html_container_child_blocks_from_dom(
 ///|
 fn html_find_matching_child_block(
   child_blocks : Array[@dhtml.HtmlBlockFact],
-  start : Int,
+  start : Int32,
   element : @dhtml.HtmlElement,
-) -> (Int, @dhtml.HtmlBlockFact)? {
-  let mut fallback : (Int, @dhtml.HtmlBlockFact)? = None
+) -> (Int32, @dhtml.HtmlBlockFact)? {
+  let mut fallback : (Int32, @dhtml.HtmlBlockFact)? = None
   for index in start..<child_blocks.length() {
     let block = child_blocks[index]
     if block.tag_name == element.tag_name &&
@@ -743,10 +743,10 @@ fn html_find_matching_child_block(
 fn html_dom_consume_inline_facts_from_node(
   node : @dhtml.HtmlNode,
   facts : Array[@dhtml.HtmlInlineFact],
-  start : Int,
+  start : Int32,
   out : Array[@dhtml.HtmlInlineFact],
   parent_pre : Bool,
-) -> Int {
+) -> Int32 {
   match node {
     Text(_) =>
       if start < facts.length() && facts[start].kind == Text {

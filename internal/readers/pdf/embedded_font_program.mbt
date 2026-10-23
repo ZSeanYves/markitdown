@@ -1,23 +1,23 @@
 ///|
 priv struct PdfEmbeddedFontProgram {
-  gid_unicode_gids : Array[Int]
+  gid_unicode_gids : Array[Int32]
   gid_unicode_values : Array[String]
-  gid_glyph_name_gids : Array[Int]
+  gid_glyph_name_gids : Array[Int32]
   gid_glyph_name_values : Array[String]
-  gid_advance_pairs : Array[Int]
-  default_advance_width : Int?
+  gid_advance_pairs : Array[Int32]
+  default_advance_width : Int32?
 }
 
 ///|
 priv struct PdfSfntTableRecord {
-  offset : Int
+  offset : Int32
 }
 
 ///|
 fn pdf_extract_embedded_font_program(
   font_dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-) -> PdfEmbeddedFontProgram? {
+  object_index : Map[Int32, PdfNativeObject],
+) -> PdfEmbeddedFontProgram? raise PdfHardDecodeFailure {
   let descriptor_ref = match
     pdf_extract_object_reference_after(font_dict_text, "/FontDescriptor") {
     Some(value) => value
@@ -68,8 +68,8 @@ fn pdf_extract_embedded_font_program(
 ///|
 fn pdf_extract_cid_to_gid_map(
   cid_font_dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-) -> Array[Int]? {
+  object_index : Map[Int32, PdfNativeObject],
+) -> Array[Int32]? raise PdfHardDecodeFailure {
   match pdf_extract_dict_value(cid_font_dict_text, "/CIDToGIDMap") {
     Some(Name("Identity")) => None
     Some(Reference(object_id, generation)) => {
@@ -82,7 +82,7 @@ fn pdf_extract_cid_to_gid_map(
         Ok(value) => value
         Err(_) => return None
       }
-      let mapping : Array[Int] = []
+      let mapping : Array[Int32] = []
       let mut index = 0
       while index + 1 < bytes.length() {
         mapping.push(pdf_decode_big_endian_int(bytes, index, 2))
@@ -96,7 +96,7 @@ fn pdf_extract_cid_to_gid_map(
 
 ///|
 fn pdf_embedded_font_decode_bytes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
 ) -> PdfDecodedFontBytes? {
   let program = match info.embedded_font_program {
@@ -160,7 +160,7 @@ fn pdf_embedded_font_decode_bytes(
 fn pdf_embedded_font_program_width_1000(
   info : PdfNativeFontInfo,
   unit : PdfDecodedFontUnit,
-) -> Int? {
+) -> Int32? {
   let program = match info.embedded_font_program {
     Some(value) => value
     None => return None
@@ -226,7 +226,7 @@ fn pdf_parse_embedded_cff_font_program(
 ///|
 fn pdf_embedded_font_program_unicode(
   program : PdfEmbeddedFontProgram,
-  gid : Int,
+  gid : Int32,
 ) -> String? {
   match
     pdf_lookup_sorted_int_string_pairs(
@@ -251,8 +251,8 @@ fn pdf_embedded_font_program_unicode(
 ///|
 fn pdf_embedded_font_gid_for_charcode(
   info : PdfNativeFontInfo,
-  charcode : Int,
-) -> Int? {
+  charcode : Int32,
+) -> Int32? {
   match info.cid_to_gid_map {
     Some(mapping) =>
       if charcode >= 0 && charcode < mapping.length() {
@@ -276,10 +276,10 @@ fn pdf_embedded_font_gid_for_charcode(
 
 ///|
 fn pdf_embedded_font_charcode_from_bytes(
-  bytes : Array[Int],
-  start : Int,
-  width : Int,
-) -> Int {
+  bytes : Array[Int32],
+  start : Int32,
+  width : Int32,
+) -> Int32 {
   let mut value = 0
   let mut index = start
   while index < start + width && index < bytes.length() {
@@ -313,7 +313,7 @@ fn pdf_parse_sfnt_tables(bytes : Bytes) -> Map[String, PdfSfntTableRecord] {
 fn pdf_sfnt_table_head_units_per_em(
   bytes : Bytes,
   tables : Map[String, PdfSfntTableRecord],
-) -> Int? {
+) -> Int32? {
   let table = match tables.get("head") {
     Some(value) => value
     None => return None
@@ -328,7 +328,7 @@ fn pdf_sfnt_table_head_units_per_em(
 fn pdf_sfnt_table_num_glyphs(
   bytes : Bytes,
   tables : Map[String, PdfSfntTableRecord],
-) -> Int? {
+) -> Int32? {
   let table = match tables.get("maxp") {
     Some(value) => value
     None => return None
@@ -343,7 +343,7 @@ fn pdf_sfnt_table_num_glyphs(
 fn pdf_sfnt_table_num_h_metrics(
   bytes : Bytes,
   tables : Map[String, PdfSfntTableRecord],
-) -> Int? {
+) -> Int32? {
   let table = match tables.get("hhea") {
     Some(value) => value
     None => return None
@@ -358,11 +358,11 @@ fn pdf_sfnt_table_num_h_metrics(
 fn pdf_sfnt_table_hmtx_advances(
   bytes : Bytes,
   tables : Map[String, PdfSfntTableRecord],
-  units_per_em : Int,
-  num_glyphs : Int,
-  num_h_metrics : Int,
-) -> Array[Int] {
-  let pairs : Array[Int] = []
+  units_per_em : Int32,
+  num_glyphs : Int32,
+  num_h_metrics : Int32,
+) -> Array[Int32] {
+  let pairs : Array[Int32] = []
   let table = match tables.get("hmtx") {
     Some(value) => value
     None => return pairs
@@ -398,8 +398,8 @@ fn pdf_sfnt_table_hmtx_advances(
 fn pdf_sfnt_table_unicode_map(
   bytes : Bytes,
   tables : Map[String, PdfSfntTableRecord],
-) -> (Array[Int], Array[String]) {
-  let gids : Array[Int] = []
+) -> (Array[Int32], Array[String]) {
+  let gids : Array[Int32] = []
   let values : Array[String] = []
   let cmap = match tables.get("cmap") {
     Some(value) => value
@@ -409,7 +409,7 @@ fn pdf_sfnt_table_unicode_map(
     return (gids, values)
   }
   let num_tables = pdf_decode_big_endian_int(bytes, cmap.offset + 2, 2)
-  let records : Array[(Int, Int, Int)] = []
+  let records : Array[(Int32, Int32, Int32)] = []
   let mut record_offset = cmap.offset + 4
   for _ in 0..<num_tables {
     if record_offset + 8 > bytes.length() {
@@ -433,10 +433,10 @@ fn pdf_sfnt_table_unicode_map(
 
 ///|
 fn pdf_choose_sfnt_unicode_cmap_offset(
-  records : Array[(Int, Int, Int)],
-) -> Int? {
+  records : Array[(Int32, Int32, Int32)],
+) -> Int32? {
   let mut chosen_rank = 1_000_000
-  let mut chosen_offset : Int? = None
+  let mut chosen_offset : Int32? = None
   for record in records {
     let rank = match record {
       (0, _encoding, _offset) => 0
@@ -456,15 +456,15 @@ fn pdf_choose_sfnt_unicode_cmap_offset(
 ///|
 fn pdf_sfnt_collect_gid_unicode_pairs(
   bytes : Bytes,
-  subtable_offset : Int,
-) -> (Array[Int], Array[String]) {
-  let gids : Array[Int] = []
+  subtable_offset : Int32,
+) -> (Array[Int32], Array[String]) {
+  let gids : Array[Int32] = []
   let values : Array[String] = []
   if subtable_offset + 2 > bytes.length() {
     return (gids, values)
   }
   let format = pdf_decode_big_endian_int(bytes, subtable_offset, 2)
-  let gid_to_text : Map[Int, String] = Map([])
+  let gid_to_text : Map[Int32, String] = Map([])
   match format {
     0 => pdf_sfnt_parse_cmap_format0(bytes, subtable_offset, gid_to_text)
     4 => pdf_sfnt_parse_cmap_format4(bytes, subtable_offset, gid_to_text)
@@ -492,8 +492,8 @@ fn pdf_sfnt_collect_gid_unicode_pairs(
 ///|
 fn pdf_sfnt_parse_cmap_format0(
   bytes : Bytes,
-  offset : Int,
-  gid_to_text : Map[Int, String],
+  offset : Int32,
+  gid_to_text : Map[Int32, String],
 ) -> Unit {
   if offset + 262 > bytes.length() {
     return
@@ -509,8 +509,8 @@ fn pdf_sfnt_parse_cmap_format0(
 ///|
 fn pdf_sfnt_parse_cmap_format6(
   bytes : Bytes,
-  offset : Int,
-  gid_to_text : Map[Int, String],
+  offset : Int32,
+  gid_to_text : Map[Int32, String],
 ) -> Unit {
   if offset + 10 > bytes.length() {
     return
@@ -536,8 +536,8 @@ fn pdf_sfnt_parse_cmap_format6(
 ///|
 fn pdf_sfnt_parse_cmap_format12(
   bytes : Bytes,
-  offset : Int,
-  gid_to_text : Map[Int, String],
+  offset : Int32,
+  gid_to_text : Map[Int32, String],
 ) -> Unit {
   if offset + 16 > bytes.length() {
     return
@@ -566,8 +566,8 @@ fn pdf_sfnt_parse_cmap_format12(
 ///|
 fn pdf_sfnt_parse_cmap_format4(
   bytes : Bytes,
-  offset : Int,
-  gid_to_text : Map[Int, String],
+  offset : Int32,
+  gid_to_text : Map[Int32, String],
 ) -> Unit {
   if offset + 16 > bytes.length() {
     return
@@ -629,17 +629,17 @@ fn pdf_sfnt_parse_cmap_format4(
 }
 
 ///|
-fn pdf_cff_private_default_width(bytes : Bytes) -> Int? {
+fn pdf_cff_private_default_width(bytes : Bytes) -> Int32? {
   pdf_cff_private_dict_value(bytes, 20)
 }
 
 ///|
-fn pdf_cff_private_nominal_width(bytes : Bytes) -> Int? {
+fn pdf_cff_private_nominal_width(bytes : Bytes) -> Int32? {
   pdf_cff_private_dict_value(bytes, 21)
 }
 
 ///|
-fn pdf_cff_private_dict_value(bytes : Bytes, target_op : Int) -> Int? {
+fn pdf_cff_private_dict_value(bytes : Bytes, target_op : Int32) -> Int32? {
   let (top_dict_bytes, top_strings) = match
     pdf_cff_top_dict_and_strings(bytes) {
     Some(value) => value
@@ -682,7 +682,7 @@ fn pdf_cff_top_dict_and_strings(bytes : Bytes) -> (Bytes, Array[String])? {
 }
 
 ///|
-fn pdf_cff_read_index(bytes : Bytes, offset : Int) -> (Array[Bytes], Int) {
+fn pdf_cff_read_index(bytes : Bytes, offset : Int32) -> (Array[Bytes], Int32) {
   if offset + 2 > bytes.length() {
     return ([], bytes.length())
   }
@@ -699,7 +699,7 @@ fn pdf_cff_read_index(bytes : Bytes, offset : Int) -> (Array[Bytes], Int) {
   if data_start > bytes.length() || off_size <= 0 {
     return ([], bytes.length())
   }
-  let offsets : Array[Int] = []
+  let offsets : Array[Int32] = []
   for i in 0..<(count + 1) {
     offsets.push(
       pdf_decode_big_endian_int(bytes, offsets_start + i * off_size, off_size),
@@ -727,9 +727,9 @@ fn pdf_cff_strings_from_index(index : Array[Bytes]) -> Array[String] {
 }
 
 ///|
-fn pdf_cff_parse_dict_entries(dict_bytes : Bytes) -> Map[Int, Array[Int]] {
-  let entries : Map[Int, Array[Int]] = Map([])
-  let operands : Array[Int] = []
+fn pdf_cff_parse_dict_entries(dict_bytes : Bytes) -> Map[Int32, Array[Int32]] {
+  let entries : Map[Int32, Array[Int32]] = Map([])
+  let operands : Array[Int32] = []
   let mut index = 0
   while index < dict_bytes.length() {
     let byte = pdf_byte_at(dict_bytes, index)
@@ -740,7 +740,7 @@ fn pdf_cff_parse_dict_entries(dict_bytes : Bytes) -> Map[Int, Array[Int]] {
       } else {
         byte
       }
-      let values : Array[Int] = []
+      let values : Array[Int32] = []
       values.append(operands[:])
       entries.set(op, values)
       operands.clear()
@@ -759,7 +759,7 @@ fn pdf_cff_parse_dict_entries(dict_bytes : Bytes) -> Map[Int, Array[Int]] {
 }
 
 ///|
-fn pdf_cff_read_number(bytes : Bytes, index : Int) -> (Int, Int)? {
+fn pdf_cff_read_number(bytes : Bytes, index : Int32) -> (Int32, Int32)? {
   if index >= bytes.length() {
     return None
   }
@@ -791,9 +791,9 @@ fn pdf_cff_read_number(bytes : Bytes, index : Int) -> (Int, Int)? {
 
 ///|
 fn pdf_lookup_sorted_int_string_pairs(
-  keys : Array[Int],
+  keys : Array[Int32],
   values : Array[String],
-  key : Int,
+  key : Int32,
 ) -> String? {
   if keys.length() == 0 || keys.length() != values.length() {
     return None
@@ -817,7 +817,7 @@ fn pdf_lookup_sorted_int_string_pairs(
 }
 
 ///|
-fn pdf_scale_font_units_to_1000(value : Int, units_per_em : Int) -> Int {
+fn pdf_scale_font_units_to_1000(value : Int32, units_per_em : Int32) -> Int32 {
   if units_per_em <= 0 {
     value
   } else {

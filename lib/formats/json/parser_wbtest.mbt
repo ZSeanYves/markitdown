@@ -1,5 +1,5 @@
 ///|
-test "JSON parser lowers complex document and streaming structure routes" {
+async test "JSON parser lowers complex document and streaming structure routes" {
   let json = "{\"title\":\"Report\",\"rows\":[{\"name\":\"alpha\",\"value\":1},{\"name\":\"beta\",\"value\":2}],\"nested\":{\"enabled\":true,\"none\":null}}"
   let source = @input.input_from_text_with_format(
     json,
@@ -29,7 +29,7 @@ test "JSON parser lowers complex document and streaming structure routes" {
 }
 
 ///|
-test "JSON malformed document produces explicit raw fallback diagnostics" {
+async test "JSON malformed document produces explicit raw fallback diagnostics" {
   let source = @input.input_from_text_with_format(
     "{\"broken\": [1,}",
     "broken.json",
@@ -46,7 +46,7 @@ test "JSON malformed document produces explicit raw fallback diagnostics" {
 }
 
 ///|
-test "JSONL parser emits valid records and fails closed on a malformed line" {
+async test "JSONL parser emits valid records and fails closed on a malformed line" {
   let text = "{\"id\":1}\n\n[1,2,3]\n{\"id\":2,\"text\":\"ok\"}"
   let source = @input.input_from_text_with_format(
     text,
@@ -80,7 +80,7 @@ test "JSONL parser emits valid records and fails closed on a malformed line" {
 }
 
 ///|
-test "NDJSON parser handles empty input and capability distinctions" {
+async test "NDJSON parser handles empty input and capability distinctions" {
   let source = @input.input_from_text_with_format(
     "",
     "empty.ndjson",
@@ -98,7 +98,7 @@ test "NDJSON parser handles empty input and capability distinctions" {
 }
 
 ///|
-test "JSON lowering covers every root and array product shape" {
+async test "JSON lowering covers every root and array product shape" {
   let cases = [
     ("\"text root\"", @core.BlockKind::Paragraph),
     ("42", Paragraph),
@@ -127,7 +127,7 @@ test "JSON lowering covers every root and array product shape" {
 }
 
 ///|
-test "JSON streaming and line-delimited lowering cover heterogeneous bounded records" {
+async test "JSON streaming and line-delimited lowering cover heterogeneous bounded records" {
   let stream_context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Json),
     Some(StreamingEvent),

@@ -1,10 +1,10 @@
 ///|
-fn parse_text_body(
+async fn parse_text_body(
   ctx : PptxSourceParseContext,
   part_name : String,
   xml : Bytes,
   parent_key : String,
-) -> PptxTextBody? raise {
+) -> PptxTextBody? {
   match find_element_inner(xml, "<p:txBody", "</p:txBody>") {
     Some(body) => {
       let source_key = pptx_source_key(part_name, parent_key + "/text")
@@ -25,12 +25,12 @@ fn parse_text_body(
 }
 
 ///|
-fn parse_paragraphs(
+async fn parse_paragraphs(
   ctx : PptxSourceParseContext,
   part_name : String,
   body_xml : Bytes,
   parent_key : String,
-) -> Array[PptxParagraph] raise {
+) -> Array[PptxParagraph] {
   let out : Array[PptxParagraph] = []
   let mut pos = 0
   let mut idx = 0
@@ -61,12 +61,12 @@ fn parse_paragraphs(
 }
 
 ///|
-fn parse_runs(
+async fn parse_runs(
   ctx : PptxSourceParseContext,
   part_name : String,
   paragraph_xml : Bytes,
   parent_key : String,
-) -> Array[PptxRun] raise {
+) -> Array[PptxRun] {
   let out : Array[PptxRun] = []
   let mut pos = 0
   let mut idx = 0
@@ -201,12 +201,12 @@ fn read_list_hint(paragraph_xml : Bytes) -> PptxListHint? raise {
 }
 
 ///|
-fn resolve_run_hyperlink(
+async fn resolve_run_hyperlink(
   ctx : PptxSourceParseContext,
   part_name : String,
   run_xml : Bytes,
   key : String,
-) -> PptxHyperlink? raise {
+) -> PptxHyperlink? {
   let rid = read_attr_value_in_first_tag_bytes(run_xml, "<a:hlinkClick", "r:id")
   let anchor = read_attr_value_in_first_tag_bytes(
     run_xml, "<a:hlinkClick", "anchor",
@@ -262,12 +262,12 @@ fn resolve_run_hyperlink(
 }
 
 ///|
-fn collect_shape_hyperlinks(
+async fn collect_shape_hyperlinks(
   ctx : PptxSourceParseContext,
   part_name : String,
   shape_xml : Bytes,
   source_key : PptxSourceKey,
-) -> Array[PptxHyperlink] raise {
+) -> Array[PptxHyperlink] {
   let out : Array[PptxHyperlink] = []
   let mut pos = 0
   let mut idx = 0

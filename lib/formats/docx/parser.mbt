@@ -28,7 +28,7 @@ pub fn docx_parser_capability() -> @parser.ParserCapability {
 /// Construct the canonical DOCX parser entrypoint.
 pub fn docx_parser() -> @parser.Parser {
   let capability = docx_parser_capability()
-  @parser.make_parser("docx_parser", PackageSinglePass, capability, fn(
+  @parser.make_parser("docx_parser", PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -37,11 +37,11 @@ pub fn docx_parser() -> @parser.Parser {
 }
 
 ///|
-fn parse_docx_document_result(
+async fn parse_docx_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @ddocx.prepare_docx_document_from_source(source) {
     Ok(value) => value
     Err(err) => {
@@ -101,12 +101,12 @@ fn parse_docx_document_result(
 }
 
 ///|
-pub fn docx_parse_with_prepared_document(
+pub async fn docx_parse_with_prepared_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
   prepared : @ddocx.PreparedDocxDocument,
-  probe_artifact_reused? : Bool = true,
-) -> @parser.ParseResult {
+  probe_artifact_reused~ : Bool = true,
+) -> @parser.ParseResult noraise {
   let capability = docx_parser_capability()
   let diagnostics = @fshared.empty_parser_diagnostics(
     "docx_parser",

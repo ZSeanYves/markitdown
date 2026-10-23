@@ -16,7 +16,7 @@ pub fn markdown_blocks_from_scanned_document_light(@input.InputSource, MarkdownD
 
 pub fn markdown_blocks_from_scanned_document_light_with_source_ref(@input.InputSource, MarkdownDocument, @core.SourceRef?) -> Array[@core.CoreBlock]
 
-pub fn markdown_parse_large_literal(@input.InputSource, @parser.ParseContext, String, Int) -> @parser.ParseResult
+pub fn markdown_parse_large_literal(@input.InputSource, @parser.ParseContext, String, Int32) -> @parser.ParseResult
 
 pub fn markdown_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, PreparedMarkdownDocument) -> @parser.ParseResult
 
@@ -24,7 +24,7 @@ pub fn markdown_parse_with_scanned_document(@input.InputSource, @parser.ParseCon
 
 pub fn markdown_parser() -> @parser.Parser
 
-pub fn prepare_markdown_document_from_source(@input.InputSource) -> Result[PreparedMarkdownDocument, String]
+pub async fn prepare_markdown_document_from_source(@input.InputSource) -> Result[PreparedMarkdownDocument, String]
 
 pub fn prepare_markdown_document_from_text(@input.InputSource, String) -> PreparedMarkdownDocument
 
@@ -39,8 +39,8 @@ pub fn validate_markdown_document(MarkdownDocument) -> MarkdownValidationReport
 // Types and methods
 pub struct MarkdownBlock {
   kind : MarkdownBlockKind
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   raw_text : String
   fenced_code : MarkdownFencedCodeInfo?
 }
@@ -62,8 +62,8 @@ pub fn MarkdownBlockKind::equal(Self, Self) -> Bool
 pub fn MarkdownBlockKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownDocument {
-  source_length : Int
-  line_count : Int
+  source_length : Int32
+  line_count : Int32
   blocks : Array[MarkdownBlock]
   frontmatter : MarkdownFrontmatter?
   issues : Array[MarkdownValidationIssue]
@@ -71,15 +71,15 @@ pub struct MarkdownDocument {
 
 pub struct MarkdownFencedCodeInfo {
   fence_char : Char
-  fence_length : Int
+  fence_length : Int32
   info_string : String?
   closed : Bool
 }
 
 pub struct MarkdownFrontmatter {
   kind : MarkdownFrontmatterKind
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   content : String
   closed : Bool
 }
@@ -93,22 +93,22 @@ pub fn MarkdownFrontmatterKind::equal(Self, Self) -> Bool
 pub fn MarkdownFrontmatterKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownInspectReport {
-  line_count : Int
-  block_count : Int
-  blank_line_count : Int
-  heading_count : Int
-  fenced_code_count : Int
-  unclosed_fence_count : Int
-  list_item_count : Int
-  blockquote_count : Int
-  table_like_row_count : Int
-  thematic_break_count : Int
-  html_block_candidate_count : Int
-  frontmatter_count : Int
+  line_count : Int32
+  block_count : Int32
+  blank_line_count : Int32
+  heading_count : Int32
+  fenced_code_count : Int32
+  unclosed_fence_count : Int32
+  list_item_count : Int32
+  blockquote_count : Int32
+  table_like_row_count : Int32
+  thematic_break_count : Int32
+  html_block_candidate_count : Int32
+  frontmatter_count : Int32
   has_frontmatter : Bool
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   is_empty : Bool
 }
 
@@ -130,8 +130,8 @@ pub struct MarkdownProfiledDocument {
 pub struct MarkdownValidationIssue {
   kind : MarkdownValidationIssueKind
   severity : MarkdownValidationSeverity
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   message : String
 }
 
@@ -145,9 +145,9 @@ pub fn MarkdownValidationIssueKind::equal(Self, Self) -> Bool
 pub fn MarkdownValidationIssueKind::not_equal(Self, Self) -> Bool
 
 pub struct MarkdownValidationReport {
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[MarkdownValidationIssue]
 }
 

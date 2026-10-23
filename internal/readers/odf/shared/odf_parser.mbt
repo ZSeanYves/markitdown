@@ -8,19 +8,22 @@ const ODF_MIMETYPE_ODS : String = "application/vnd.oasis.opendocument.spreadshee
 const ODF_MIMETYPE_ODP : String = "application/vnd.oasis.opendocument.presentation"
 
 ///|
-pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
+pub async fn open_odt_document(bytes : Bytes) -> OdtDocument {
   open_odt_archive(@dzip.open_zip(bytes))
 }
 
 ///|
-pub fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument raise {
+pub async fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument {
+  ensure_odf_archive_integrity(archive)
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != Odt {
     raise ParseError("package is not an ODT document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
   let metadata = read_odf_metadata(archive, package_info)
+  ensure_odf_archive_integrity(archive)
   let styles = odf_collect_text_styles(archive, package_info, content)
+  ensure_odf_archive_integrity(archive)
   let state : OdtLowerState = {
     blocks: [],
     assets: [],
@@ -32,22 +35,25 @@ pub fn open_odt_archive(archive : @dzip.ZipArchive) -> OdtDocument raise {
     Some(root) => odf_visit_document_root(root, archive, state)
     None => raise ParseError("odt content.xml missing root element")
   }
+  ensure_odf_archive_integrity(archive)
   { package_info, metadata, blocks: state.blocks, assets: state.assets, }
 }
 
 ///|
-pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
+pub async fn open_ods_document(bytes : Bytes) -> OdsDocument {
   open_ods_archive(@dzip.open_zip(bytes))
 }
 
 ///|
-pub fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument raise {
+pub async fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument {
+  ensure_odf_archive_integrity(archive)
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != Ods {
     raise ParseError("package is not an ODS document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
   let metadata = read_odf_metadata(archive, package_info)
+  ensure_odf_archive_integrity(archive)
   let sheets = match content.root {
     Some(root) => odf_extract_spreadsheet_sheets(root, archive)
     None => raise ParseError("ods content.xml missing root element")
@@ -56,27 +62,31 @@ pub fn open_ods_archive(archive : @dzip.ZipArchive) -> OdsDocument raise {
   for sheet in sheets {
     assets.append(sheet.images[:])
   }
+  ensure_odf_archive_integrity(archive)
   { package_info, metadata, sheets, assets, }
 }
 
 ///|
-pub fn open_odp_document(bytes : Bytes) -> OdpDocument raise {
+pub async fn open_odp_document(bytes : Bytes) -> OdpDocument {
   open_odp_archive(@dzip.open_zip(bytes))
 }
 
 ///|
-pub fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument raise {
+pub async fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument {
+  ensure_odf_archive_integrity(archive)
   let package_info = read_odf_package_info(archive)
   if package_info.document_kind != Odp {
     raise ParseError("package is not an ODP document")
   }
   let content = parse_odf_content_document(archive, package_info.content_path)
   let metadata = read_odf_metadata(archive, package_info)
+  ensure_odf_archive_integrity(archive)
   let extracted = match content.root {
     Some(root) =>
       odf_extract_presentation_slides(root, archive, package_info.content_path)
     None => raise ParseError("odp content.xml missing root element")
   }
+  ensure_odf_archive_integrity(archive)
   {
     package_info,
     metadata,
@@ -86,7 +96,18 @@ pub fn open_odp_archive(archive : @dzip.ZipArchive) -> OdpDocument raise {
 }
 
 ///|
-pub fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo raise {
+// Only the archive's sticky hard-failure channel decides whether recovery
+// may continue. Missing optional parts and XML syntax recovery do not set it.
+fn ensure_odf_archive_integrity(
+  archive : @dzip.ZipArchive,
+) -> Unit raise OdfError {
+  if @dzip.archive_hard_failure(archive) is Some(message) {
+    raise ParseError(message)
+  }
+}
+
+///|
+pub async fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo {
   let archive = @dzip.open_zip(bytes)
   read_odf_package_info(archive)
 }
@@ -96,7 +117,7 @@ priv struct OdtLowerState {
   blocks : Array[OdtBlock]
   assets : Array[OdtImageRef]
   content_path : String
-  mut list_depth : Int
+  mut list_depth : Int32
   styles : Map[String, OdfTextStyle]
 }
 
@@ -113,7 +134,7 @@ priv struct OdpExtractState {
 }
 
 ///|
-fn read_odf_package_info(archive : @dzip.ZipArchive) -> OdfPackageInfo raise {
+async fn read_odf_package_info(archive : @dzip.ZipArchive) -> OdfPackageInfo {
   if !@dzip.has_entry(archive, "META-INF/manifest.xml") ||
     !@dzip.has_entry(archive, "content.xml") {
     raise ParseError("odf package missing manifest.xml or content.xml")
@@ -147,10 +168,13 @@ fn read_odf_package_info(archive : @dzip.ZipArchive) -> OdfPackageInfo raise {
 }
 
 ///|
-fn read_odf_metadata(
+async fn read_odf_metadata(
   archive : @dzip.ZipArchive,
   package_info : OdfPackageInfo,
-) -> OdfMetadataSummary {
+) -> OdfMetadataSummary noraise {
+  if @dzip.archive_hard_failure(archive) is Some(_) {
+    return { title: None, subject: None, description: None, language: None, }
+  }
   match package_info.meta_path {
     Some(path) => {
       let meta_text = try odf_read_entry_text(archive, path) |> Ok catch {
@@ -176,31 +200,36 @@ fn read_odf_metadata(
 }
 
 ///|
-fn parse_odf_content_document(
+async fn parse_odf_content_document(
   archive : @dzip.ZipArchive,
   content_path : String,
-) -> @dxml.XmlDocument raise {
+) -> @dxml.XmlDocument {
   let content_text = odf_read_entry_text(archive, content_path)
   @dxml.parse_xml_document(content_text)
 }
 
 ///|
-fn odf_read_entry_text(
+async fn odf_read_entry_text(
   archive : @dzip.ZipArchive,
   path : String,
-) -> String raise {
+) -> String {
+  ensure_odf_archive_integrity(archive)
   let bytes = @dzip.read_entry(archive, path)
   @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => raise ParseError("failed to decode utf-8 entry: " + path)
+    _ => {
+      let error = InvalidEncoding("failed to decode utf-8 entry: " + path)
+      @dzip.record_hard_failure(archive, error.to_string())
+      raise error
+    }
   }
 }
 
 ///|
-fn odf_visit_document_root(
+async fn odf_visit_document_root(
   root : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in root.children {
     match child {
       Element(element) =>
@@ -213,11 +242,11 @@ fn odf_visit_document_root(
 }
 
 ///|
-fn odf_visit_office_body(
+async fn odf_visit_office_body(
   body : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in body.children {
     match child {
       Element(element) =>
@@ -230,11 +259,11 @@ fn odf_visit_office_body(
 }
 
 ///|
-fn odf_visit_text_body(
+async fn odf_visit_text_body(
   node : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in node.children {
     match child {
       Element(element) => odf_visit_text_element(element, archive, state)
@@ -244,11 +273,11 @@ fn odf_visit_text_body(
 }
 
 ///|
-fn odf_visit_text_element(
+async fn odf_visit_text_element(
   element : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   match element.name {
     "text:h" =>
       state.blocks.push(odf_heading_block(element, state.content_path))
@@ -302,11 +331,11 @@ fn odf_visit_text_element(
 }
 
 ///|
-fn odf_visit_paragraph_frame_images(
+async fn odf_visit_paragraph_frame_images(
   element : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in element.children {
     match child {
       Element(node) =>
@@ -321,11 +350,11 @@ fn odf_visit_paragraph_frame_images(
 }
 
 ///|
-fn odf_visit_paragraph_frame_images_in_span(
+async fn odf_visit_paragraph_frame_images_in_span(
   element : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in element.children {
     match child {
       Element(node) =>
@@ -523,11 +552,11 @@ fn odf_table_block(
 }
 
 ///|
-fn odf_visit_frame(
+async fn odf_visit_frame(
   element : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   state : OdtLowerState,
-) -> Unit {
+) -> Unit noraise {
   for child in element.children {
     match child {
       Element(image) =>
@@ -566,10 +595,10 @@ fn odf_visit_frame(
 }
 
 ///|
-fn odf_extract_spreadsheet_sheets(
+async fn odf_extract_spreadsheet_sheets(
   root : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
-) -> Array[OdsSheet] raise {
+) -> Array[OdsSheet] {
   let sheets : Array[OdsSheet] = []
   for child in root.children {
     match child {
@@ -600,10 +629,10 @@ fn odf_extract_spreadsheet_sheets(
 }
 
 ///|
-fn odf_extract_sheet(
+async fn odf_extract_sheet(
   sheet : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
-) -> OdsSheet raise {
+) -> OdsSheet {
   let name = odf_attr(sheet, "table:name").unwrap_or("Sheet")
   let visible = match odf_attr(sheet, "table:display") {
     Some(value) => value.trim().to_lower() != "false"
@@ -629,11 +658,11 @@ fn odf_extract_sheet(
 }
 
 ///|
-fn odf_collect_sheet_images(
+async fn odf_collect_sheet_images(
   element : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   images : Array[OdtImageRef],
-) -> Unit {
+) -> Unit noraise {
   if element.name == "draw:image" {
     match odf_attr(element, "xlink:href") {
       Some(href) =>
@@ -657,7 +686,7 @@ fn odf_collect_sheet_images(
 ///|
 fn odf_extract_sheet_row(
   row : @dxml.XmlElement,
-  row_index : Int,
+  row_index : Int32,
 ) -> OdsRow raise {
   let cells : Array[OdsCell] = []
   let hidden = match odf_attr(row, "table:visibility") {

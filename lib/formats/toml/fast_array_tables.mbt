@@ -3,9 +3,9 @@ pub struct TomlFastArrayTable {
   base_path : String
   keys : Array[String]
   rows : Array[Array[String]]
-  line_start : Int
-  line_end : Int
-  table_count : Int
+  line_start : Int32
+  line_end : Int32
+  table_count : Int32
 }
 
 ///|
@@ -136,7 +136,7 @@ fn fast_array_header(line : String) -> String? {
 }
 
 ///|
-fn fast_scalar_cell(token : String, line : Int) -> String? {
+fn fast_scalar_cell(token : String, line : Int32) -> String? {
   if token.length() >= 2 && token.has_prefix("\"") && token.has_suffix("\"") {
     let body = token[1:token.length() - 1].to_owned()
     if body.contains("\\") {

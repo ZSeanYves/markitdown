@@ -1,9 +1,9 @@
 ///|
 priv struct PdfDecodedFontUnit {
-  byte_width : Int
-  charcode : Int
-  cid : Int?
-  gid : Int?
+  byte_width : Int32
+  charcode : Int32
+  cid : Int32?
+  gid : Int32?
   text : String
 }
 
@@ -14,8 +14,8 @@ priv struct PdfDecodedFontBytes {
 }
 
 ///|
-fn pdf_collect_simple_font_widths(font_dict_text : String) -> Map[Int, Int] {
-  let widths : Map[Int, Int] = Map([])
+fn pdf_collect_simple_font_widths(font_dict_text : String) -> Map[Int32, Int32] {
+  let widths : Map[Int32, Int32] = Map([])
   let first_char = match pdf_extract_int_after(font_dict_text, "/FirstChar") {
     Some(value) => value
     None => return widths
@@ -40,8 +40,8 @@ fn pdf_collect_simple_font_widths(font_dict_text : String) -> Map[Int, Int] {
 ///|
 fn pdf_collect_font_missing_width(
   font_dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-) -> Int? {
+  object_index : Map[Int32, PdfNativeObject],
+) -> Int32? {
   let descriptor_ref = match
     pdf_extract_object_reference_after(font_dict_text, "/FontDescriptor") {
     Some(value) => value
@@ -55,8 +55,10 @@ fn pdf_collect_font_missing_width(
 }
 
 ///|
-fn pdf_collect_cid_font_width_pairs(cid_font_dict_text : String) -> Array[Int] {
-  let pairs : Array[Int] = []
+fn pdf_collect_cid_font_width_pairs(
+  cid_font_dict_text : String,
+) -> Array[Int32] {
+  let pairs : Array[Int32] = []
   let tokens = match pdf_extract_dict_value(cid_font_dict_text, "/W") {
     Some(Array(items)) => items
     _ => return pairs
@@ -119,15 +121,15 @@ fn pdf_collect_cid_font_width_pairs(cid_font_dict_text : String) -> Array[Int] {
 }
 
 ///|
-fn pdf_collect_cid_default_width(cid_font_dict_text : String) -> Int? {
+fn pdf_collect_cid_default_width(cid_font_dict_text : String) -> Int32? {
   pdf_extract_int_after(cid_font_dict_text, "/DW")
 }
 
 ///|
 fn pdf_collect_cid_vertical_width_pairs(
   cid_font_dict_text : String,
-) -> Array[Int] {
-  let pairs : Array[Int] = []
+) -> Array[Int32] {
+  let pairs : Array[Int32] = []
   let tokens = match pdf_extract_dict_value(cid_font_dict_text, "/W2") {
     Some(Array(items)) => items
     _ => return pairs
@@ -199,7 +201,9 @@ fn pdf_collect_cid_vertical_width_pairs(
 }
 
 ///|
-fn pdf_collect_cid_default_vertical_width(cid_font_dict_text : String) -> Int? {
+fn pdf_collect_cid_default_vertical_width(
+  cid_font_dict_text : String,
+) -> Int32? {
   match pdf_extract_dict_value(cid_font_dict_text, "/DW2") {
     Some(Array(values)) if values.length() > 0 =>
       match pdf_token_number(values[0]) {
@@ -212,7 +216,7 @@ fn pdf_collect_cid_default_vertical_width(cid_font_dict_text : String) -> Int? {
 }
 
 ///|
-fn pdf_lookup_flat_int_pairs(pairs : Array[Int], key : Int) -> Int? {
+fn pdf_lookup_flat_int_pairs(pairs : Array[Int32], key : Int32) -> Int32? {
   if pairs.length() < 2 {
     return None
   }
@@ -239,7 +243,7 @@ fn pdf_lookup_flat_int_pairs(pairs : Array[Int], key : Int) -> Int? {
 fn pdf_font_unit_explicit_width_1000(
   info : PdfNativeFontInfo,
   unit : PdfDecodedFontUnit,
-) -> Int? {
+) -> Int32? {
   if pdf_font_uses_vertical_writing(info) {
     let cid = match unit.cid {
       Some(value) => value
@@ -283,7 +287,7 @@ fn pdf_font_unit_explicit_width_1000(
 fn pdf_font_unit_advance_1000(
   info : PdfNativeFontInfo,
   unit : PdfDecodedFontUnit,
-) -> (Int, String) {
+) -> (Int32, String) {
   match pdf_font_unit_explicit_width_1000(info, unit) {
     Some(width) => (width, "pdf_dict")
     None =>
@@ -405,7 +409,7 @@ fn pdf_metric_labels_contain(labels : Array[String], expected : String) -> Bool 
 }
 
 ///|
-fn pdf_abs_int(value : Int) -> Int {
+fn pdf_abs_int(value : Int32) -> Int32 {
   if value < 0 {
     0 - value
   } else {

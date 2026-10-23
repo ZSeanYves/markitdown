@@ -121,11 +121,11 @@ fn xlsx_sheet_table_region_source_ref(
   source_name : String,
   sheet : XlsxSheet,
   range_ref : String,
-  relationship_id? : String? = None,
-  table_part_name? : String? = None,
-  table_name? : String? = None,
-  display_name? : String? = None,
-  column_names? : Array[String] = [],
+  relationship_id~ : String? = None,
+  table_part_name~ : String? = None,
+  table_name~ : String? = None,
+  display_name~ : String? = None,
+  column_names~ : Array[String] = [],
 ) -> @core.SourceRef {
   let mut source_ref = @core.source_ref_with_extra(
     xlsx_sheet_table_source_ref(source_name, sheet),
@@ -172,8 +172,8 @@ fn xlsx_sheet_table_region_source_ref(
 fn xlsx_collect_residual_sheet_ranges(
   sheet : XlsxSheet,
   covered : Map[String, Bool],
-) -> Array[(Int, Int, Int, Int)] {
-  let buckets : Array[(Int, Int)] = []
+) -> Array[(Int32, Int32, Int32, Int32)] {
+  let buckets : Array[(Int32, Int32)] = []
   let mut row = sheet.min_row
   while row <= sheet.max_row {
     if xlsx_should_skip_hidden_row(
@@ -210,9 +210,9 @@ fn xlsx_collect_residual_sheet_ranges(
 
 ///|
 fn xlsx_push_residual_range_bucket(
-  buckets : Array[(Int, Int)],
-  start_col : Int,
-  end_col : Int,
+  buckets : Array[(Int32, Int32)],
+  start_col : Int32,
+  end_col : Int32,
 ) -> Unit {
   for bucket in buckets {
     if bucket.0 == start_col && bucket.1 == end_col {
@@ -226,9 +226,9 @@ fn xlsx_push_residual_range_bucket(
 fn xlsx_residual_bucket_map_to_ranges(
   sheet : XlsxSheet,
   covered : Map[String, Bool],
-  buckets : Array[(Int, Int)],
-) -> Array[(Int, Int, Int, Int)] {
-  let keyed : Array[(Int, Int)] = []
+  buckets : Array[(Int32, Int32)],
+) -> Array[(Int32, Int32, Int32, Int32)] {
+  let keyed : Array[(Int32, Int32)] = []
   keyed.append(buckets[:])
   keyed.sort_by(fn(a, b) {
     let primary = a.0.compare(b.0)
@@ -238,7 +238,7 @@ fn xlsx_residual_bucket_map_to_ranges(
       a.1.compare(b.1)
     }
   })
-  let ranges : Array[(Int, Int, Int, Int)] = []
+  let ranges : Array[(Int32, Int32, Int32, Int32)] = []
   let mut i = 0
   while i < keyed.length() {
     let start_col = keyed[i].0
@@ -277,8 +277,8 @@ fn xlsx_residual_bucket_map_to_ranges(
 fn xlsx_residual_cell_exists(
   sheet : XlsxSheet,
   covered : Map[String, Bool],
-  row : Int,
-  col : Int,
+  row : Int32,
+  col : Int32,
 ) -> Bool {
   let key = xlsx_lookup_key(row, col)
   if covered.get(key) == Some(true) {
@@ -295,9 +295,9 @@ fn xlsx_residual_cell_exists(
 fn xlsx_residual_range_row_has_content(
   sheet : XlsxSheet,
   covered : Map[String, Bool],
-  row : Int,
-  start_col : Int,
-  end_col : Int,
+  row : Int32,
+  start_col : Int32,
+  end_col : Int32,
 ) -> Bool {
   let mut col = start_col
   while col <= end_col {
@@ -312,8 +312,8 @@ fn xlsx_residual_range_row_has_content(
 ///|
 fn xlsx_residual_region_display_name(
   sheet : XlsxSheet,
-  residual_index : Int,
-  residual_count : Int,
+  residual_index : Int32,
+  residual_count : Int32,
 ) -> String {
   if residual_count <= 1 {
     sheet.sheet_name
@@ -324,10 +324,10 @@ fn xlsx_residual_region_display_name(
 
 ///|
 fn xlsx_range_ref_from_bounds(
-  min_row : Int,
-  min_col : Int,
-  max_row : Int,
-  max_col : Int,
+  min_row : Int32,
+  min_col : Int32,
+  max_row : Int32,
+  max_col : Int32,
 ) -> String {
   xlsx_rc_to_cell_ref(min_row, min_col) +
   ":" +
@@ -337,8 +337,8 @@ fn xlsx_range_ref_from_bounds(
 ///|
 fn xlsx_should_skip_hidden_row(
   include_hidden_rows : Bool,
-  hidden_rows : Map[Int, Bool],
-  row_index : Int,
+  hidden_rows : Map[Int32, Bool],
+  row_index : Int32,
 ) -> Bool {
   !include_hidden_rows && xlsx_row_is_hidden(hidden_rows, row_index)
 }
@@ -346,8 +346,8 @@ fn xlsx_should_skip_hidden_row(
 ///|
 fn xlsx_should_skip_merged_placeholder_cell(
   merge_range : String?,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
 ) -> Bool {
   match merge_range {
     Some(range_ref) =>
@@ -363,8 +363,8 @@ fn xlsx_should_skip_merged_placeholder_cell(
 fn xlsx_apply_merge_attrs(
   cell_block : @core.CoreBlock,
   merge_range : String?,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
 ) -> Unit {
   match merge_range {
     Some(range_ref) =>

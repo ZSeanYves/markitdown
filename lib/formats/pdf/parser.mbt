@@ -8,7 +8,7 @@ const PDF_NATIVE_FAIL_CLOSED_MESSAGE : String = "PDF native text restore is disa
 type PdfNativeError = @dpdfnative.PdfNativeError
 
 ///|
-fn extract_pdf_native_document(
+async fn extract_pdf_native_document(
   source : @input.InputSource,
 ) -> Result[@dpdfnative.PdfNativeDocument, PdfNativeError] {
   @dpdfnative.extract_pdf_native_document(source)

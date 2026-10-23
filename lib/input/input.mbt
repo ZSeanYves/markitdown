@@ -15,49 +15,31 @@ pub extend InputKind with Eq::{equal, not_equal}
 ///
 /// `read_at` returns at most `length` bytes starting at `offset`. Returning an
 /// empty payload marks end-of-input. Callers remain responsible for the
-/// lifetime of resources captured by the callbacks. `read_at_async` is the
-/// canonical callback for the asynchronous product boundary; the synchronous
-/// callback remains available for pure parser helpers and compatibility.
+/// lifetime of resources captured by the callback. Every consumer uses the
+/// same asynchronous protocol; synchronous callbacks are adapted at creation.
 pub struct InputReader {
   size : Int64?
-  read_at : (Int64, Int) -> Result[Bytes, String]
-  read_at_async : async (Int64, Int) -> Result[Bytes, String]
-  async_only : Bool
+  read_at : async (Int64, Int32) -> Result[Bytes, String]
 }
 
 ///|
 /// Construct a caller-owned random-access reader contract.
 pub fn make_input_reader(
-  read_at : (Int64, Int) -> Result[Bytes, String],
+  read_at : (Int64, Int32) -> Result[Bytes, String],
   size? : Int64,
 ) -> InputReader {
-  {
-    size,
-    read_at,
-    read_at_async: fn(offset, length) { read_at(offset, length) },
-    async_only: false,
-  }
+  { size, read_at: fn(offset, length) { read_at(offset, length) }, }
 }
 
 ///|
 /// Construct a caller-owned asynchronous random-access reader contract.
 ///
-/// The callback is invoked by the asynchronous input helpers without
-/// materialising a second reader. The synchronous projection intentionally
-/// fails, so a parser that has not migrated to the async source boundary
-/// cannot silently perform blocking I/O against this reader.
+/// No synchronous projection or full-input bridge is created.
 pub fn make_async_input_reader(
-  read_at : async (Int64, Int) -> Result[Bytes, String],
+  read_at : async (Int64, Int32) -> Result[Bytes, String],
   size? : Int64,
 ) -> InputReader {
-  {
-    size,
-    read_at: fn(_offset, _length) {
-      Err("asynchronous reader requires async source access")
-    },
-    read_at_async: read_at,
-    async_only: true,
-  }
+  { size, read_at, }
 }
 
 ///|
@@ -66,87 +48,9 @@ pub fn input_source_with_reader_limit(
   source : InputSource,
   max_bytes : Int64,
 ) -> InputSource {
-  match source.payload {
-    Reader(reader) => {
-      let bounded_read_at = fn(offset, length) {
-        if offset < 0L || length < 0 {
-          return Err("reader offset and length must be non-negative")
-        }
-        if offset > max_bytes {
-          return Err(
-            "input byte limit exceeded: observed=" +
-            offset.to_string() +
-            "; limit=" +
-            max_bytes.to_string(),
-          )
-        }
-        let bytes = match (reader.read_at)(offset, length) {
-          Ok(value) => value
-          Err(message) => return Err(message)
-        }
-        if bytes.length() > length {
-          return Err("reader returned more bytes than requested")
-        }
-        let remaining = max_bytes - offset
-        if bytes.length().to_int64() > remaining {
-          return Err(
-            "input byte limit exceeded: observed=" +
-            (offset + bytes.length().to_int64()).to_string() +
-            "; limit=" +
-            max_bytes.to_string(),
-          )
-        }
-        Ok(bytes)
-      }
-      let bounded_read_at_async = async fn(offset, length) {
-        if offset < 0L || length < 0 {
-          return Err("reader offset and length must be non-negative")
-        }
-        if offset > max_bytes {
-          return Err(
-            "input byte limit exceeded: observed=" +
-            offset.to_string() +
-            "; limit=" +
-            max_bytes.to_string(),
-          )
-        }
-        let bytes = match (reader.read_at_async)(offset, length) {
-          Ok(value) => value
-          Err(message) => return Err(message)
-        }
-        if bytes.length() > length {
-          return Err("reader returned more bytes than requested")
-        }
-        let remaining = max_bytes - offset
-        if bytes.length().to_int64() > remaining {
-          return Err(
-            "input byte limit exceeded: observed=" +
-            (offset + bytes.length().to_int64()).to_string() +
-            "; limit=" +
-            max_bytes.to_string(),
-          )
-        }
-        Ok(bytes)
-      }
-      let bounded = match reader.size {
-        Some(size) =>
-          {
-            size: Some(size),
-            read_at: bounded_read_at,
-            read_at_async: bounded_read_at_async,
-            async_only: reader.async_only,
-          }
-        None =>
-          {
-            size: None,
-            read_at: bounded_read_at,
-            read_at_async: bounded_read_at_async,
-            async_only: reader.async_only,
-          }
-      }
-      { ..source, payload: Reader(bounded), }
-    }
-    _ => source
+  {
+    ..source,
+    byte_limit: Some(source.byte_limit.unwrap_or(max_bytes).min(max_bytes)),
   }
 }
 
@@ -246,6 +150,14 @@ pub struct InputSource {
   origin_path : String?
   mime_type : String?
   explicit_format : DetectedFormat?
+  priv session : InputSessionState?
+  priv byte_limit : Int64?
+  // Only trusted materialization/decoding helpers set this proof. Offsets in
+  // the prepared payload still refer to that representation, not raw bytes.
+  priv physical_bytes : Int64?
+  // Trusted container factories assign the entry's independent access cap.
+  // The shared session's max_bytes still describes the original root input.
+  priv derived_entry_limit : Int64?
 }
 
 ///|
@@ -265,7 +177,7 @@ pub struct FormatDetectionResult {
 ///|
 /// Thin wrapper around the canonical format-detection function.
 pub struct FormatDetector {
-  detect : (InputSource) -> FormatDetectionResult
+  detect : async (InputSource) -> FormatDetectionResult
 }
 
 ///|
@@ -286,6 +198,10 @@ pub fn input_from_path_with_format(
     origin_path: Some(path),
     mime_type: None,
     explicit_format,
+    session: None,
+    byte_limit: None,
+    physical_bytes: None,
+    derived_entry_limit: None,
   }
 }
 
@@ -293,7 +209,7 @@ pub fn input_from_path_with_format(
 /// Construct an in-memory text input with the default `<memory>` source name.
 pub fn input_from_text(
   text : String,
-  source_name? : String = "<memory>",
+  source_name~ : String = "<memory>",
 ) -> InputSource {
   input_from_text_with_format(text, source_name, None)
 }
@@ -311,6 +227,10 @@ pub fn input_from_text_with_format(
     origin_path: None,
     mime_type: None,
     explicit_format,
+    session: None,
+    byte_limit: None,
+    physical_bytes: None,
+    derived_entry_limit: None,
   }
 }
 
@@ -318,7 +238,7 @@ pub fn input_from_text_with_format(
 /// Construct an in-memory byte input with the default `<bytes>` source name.
 pub fn input_from_bytes(
   bytes : Bytes,
-  source_name? : String = "<bytes>",
+  source_name~ : String = "<bytes>",
 ) -> InputSource {
   input_from_bytes_with_format(bytes, source_name, None)
 }
@@ -336,14 +256,54 @@ pub fn input_from_bytes_with_format(
     origin_path: None,
     mime_type: None,
     explicit_format,
+    session: None,
+    byte_limit: None,
+    physical_bytes: None,
+    derived_entry_limit: None,
   }
+}
+
+///|
+/// A container entry is a distinct byte representation with a declared local
+/// access cap, while borrowing its parent's conversion account and failures.
+pub fn input_from_container_entry_bytes(
+  parent : InputSource,
+  bytes : Bytes,
+  source_name : String,
+  entry_limit~ : Int64,
+  explicit_format~ : DetectedFormat? = None,
+) -> InputSource {
+  let child = {
+    ..input_from_bytes_with_format(bytes, source_name, explicit_format),
+    session: parent.session,
+    byte_limit: Some(entry_limit),
+    derived_entry_limit: Some(entry_limit),
+  }
+  if parent.session is Some(state) && state.closed.val {
+    record_input_failure(child, "input session is closed")
+  }
+  if entry_limit < 0L || bytes.length().to_int64() > entry_limit {
+    record_input_failure(
+      child,
+      input_limit_message(bytes.length().to_int64(), entry_limit),
+    )
+  }
+  child
+}
+
+///|
+/// Only trusted container factories establish this independent local cap.
+pub fn input_source_entry_limit(source : InputSource) -> Int64? {
+  source.derived_entry_limit.map(fn(limit) {
+    limit.min(source.byte_limit.unwrap_or(limit))
+  })
 }
 
 ///|
 /// Construct a random-access reader input with the default `<reader>` name.
 pub fn input_from_reader(
   reader : InputReader,
-  source_name? : String = "<reader>",
+  source_name~ : String = "<reader>",
 ) -> InputSource {
   input_from_reader_with_format(reader, source_name, None)
 }
@@ -361,6 +321,10 @@ pub fn input_from_reader_with_format(
     origin_path: None,
     mime_type: None,
     explicit_format,
+    session: None,
+    byte_limit: None,
+    physical_bytes: None,
+    derived_entry_limit: None,
   }
 }
 
@@ -416,18 +380,14 @@ pub fn input_bytes(source : InputSource) -> Bytes? {
 pub fn input_size(source : InputSource) -> Int64? {
   match source.payload {
     Path(_) => None
-    Text(text) => Some(@utf8.encode(text).length().to_int64())
-    Bytes(bytes) => Some(bytes.length().to_int64())
+    Text(text) =>
+      match validated_text_utf8_size(text) {
+        Ok(size) => Some(source.physical_bytes.unwrap_or(size))
+        Err(_) => None
+      }
+    Bytes(bytes) =>
+      Some(source.physical_bytes.unwrap_or(bytes.length().to_int64()))
     Reader(reader) => reader.size
-  }
-}
-
-///|
-/// Return whether a reader requires the asynchronous source boundary.
-pub fn input_source_is_async_reader(source : InputSource) -> Bool {
-  match source.payload {
-    Reader(reader) => reader.async_only
-    _ => false
   }
 }
 
@@ -449,20 +409,81 @@ pub fn with_mime_type(source : InputSource, mime_type : String?) -> InputSource 
 ///|
 /// Return a copy of `source` with an in-memory text payload attached.
 pub fn with_text_payload(source : InputSource, text : String) -> InputSource {
-  { ..source, payload: Text(text), }
+  { ..source, payload: Text(text), physical_bytes: None, }
 }
 
 ///|
 /// Return a copy of `source` with an in-memory byte payload attached.
 pub fn with_bytes_payload(source : InputSource, bytes : Bytes) -> InputSource {
-  { ..source, payload: Bytes(bytes), }
+  { ..source, payload: Bytes(bytes), physical_bytes: None, }
+}
+
+///|
+/// Internal trusted adapter after a complete successful read and decode.
+/// Raw input extent and prepared UTF8 representation size are different units.
+pub fn with_prepared_text_payload(
+  source : InputSource,
+  text : String,
+  physical_bytes? : Int64,
+) -> InputSource {
+  let physical_bytes = match source.physical_bytes {
+    Some(size) => Some(size)
+    None =>
+      match physical_bytes {
+        Some(size) => Some(size)
+        None =>
+          match input_size(source) {
+            Some(size) => Some(size)
+            None =>
+              match validated_text_utf8_size(text) {
+                Ok(size) => Some(size)
+                Err(_) => None
+              }
+          }
+      }
+  }
+  { ..source, payload: Text(text), physical_bytes, }
+}
+
+///|
+pub fn with_prepared_bytes_payload(
+  source : InputSource,
+  bytes : Bytes,
+) -> InputSource {
+  {
+    ..source,
+    payload: Bytes(bytes),
+    physical_bytes: Some(
+      source.physical_bytes.unwrap_or(bytes.length().to_int64()),
+    ),
+  }
+}
+
+///|
+/// Restore the caller's session after a short-lived decoding session while
+/// retaining the validated raw extent and the most restrictive byte ceiling.
+pub fn rebind_prepared_source(
+  source : InputSource,
+  prepared : InputSource,
+) -> InputSource {
+  let byte_limit = match (source.byte_limit, prepared.byte_limit) {
+    (Some(left), Some(right)) => Some(left.min(right))
+    (Some(limit), _) | (_, Some(limit)) => Some(limit)
+    _ => None
+  }
+  {
+    ..source,
+    payload: prepared.payload,
+    physical_bytes: prepared.physical_bytes,
+    byte_limit,
+  }
 }
 
 ///|
 /// Return the default product format detector.
 pub fn default_format_detector() -> FormatDetector {
   {
-    detect: fn(source : InputSource) -> FormatDetectionResult {
+    detect: async fn(source : InputSource) -> FormatDetectionResult {
       detect_format(source)
     },
   }
@@ -474,7 +495,7 @@ pub fn default_format_detector() -> FormatDetector {
 ///
 /// This function is intentionally format-identification only; it does not make
 /// routing, fidelity, or parser-mode decisions.
-pub fn detect_format(source : InputSource) -> FormatDetectionResult {
+pub async fn detect_format(source : InputSource) -> FormatDetectionResult {
   match source.explicit_format {
     Some(format) =>
       return {
@@ -724,16 +745,115 @@ pub fn detected_format_is_image_candidate(format : DetectedFormat) -> Bool {
 ///
 /// The function prefers already attached in-memory payloads before falling
 /// back to filesystem reads.
-pub fn read_input_text(source : InputSource) -> Result[String, String] {
-  match source.payload {
-    Text(text) => Ok(text)
-    Bytes(bytes) => decode_input_utf8(bytes)
-    Path(path) =>
-      try @fs.read_file_to_string(path, encoding="utf8") |> Ok catch {
-        e => Err("read text failed: " + (e : Error).to_string())
+pub async fn read_input_text(
+  source : InputSource,
+) -> Result[String, String] noraise {
+  if source.payload is Text(text) {
+    match validate_memory_input(source) {
+      Ok(_) => {
+        let bytes = match validated_text_utf8_size(text) {
+          Ok(bytes) => bytes
+          Err(message) => return record_input_result(source, Err(message))
+        }
+        return charge_source_read_traffic(source, bytes).map(fn(_) { text })
       }
-    Reader(reader) =>
-      read_reader_bytes(reader) |> Result::bind(decode_input_utf8)
+      Err(message) => return Err(message)
+    }
+  }
+  read_input_bytes(source) |> Result::bind(decode_input_utf8)
+}
+
+///|
+// Count original Text bytes without allocating an encoded copy. Native's UTF8
+// encoder aborts on an invalid surrogate; validation must precede every encode.
+pub fn validated_text_utf8_size(text : String) -> Result[Int64, String] {
+  let mut index = 0
+  let mut bytes = 0L
+  while index < text.length() {
+    let unit = text[index].to_int()
+    if unit >= 0xD800 && unit <= 0xDBFF {
+      if index + 1 >= text.length() {
+        return Err("invalid UTF16 surrogate in Text input")
+      }
+      let next = text[index + 1].to_int()
+      if next < 0xDC00 || next > 0xDFFF {
+        return Err("invalid UTF16 surrogate in Text input")
+      }
+      bytes += 4L
+      index += 2
+    } else if unit >= 0xDC00 && unit <= 0xDFFF {
+      return Err("invalid UTF16 surrogate in Text input")
+    } else {
+      bytes += if unit <= 0x7F { 1L } else if unit <= 0x7FF { 2L } else { 3L }
+      index += 1
+    }
+  }
+  Ok(bytes)
+}
+
+///|
+fn validate_memory_input(
+  source : InputSource,
+  max_bytes? : Int64,
+) -> Result[Unit, String] {
+  if source.session is Some(state) && state.closed.val {
+    return Err("input session is closed")
+  }
+  if input_source_error(source) is Some(message) {
+    return Err(message)
+  }
+  let representation_size = match source.payload {
+    Text(text) =>
+      match validated_text_utf8_size(text) {
+        Ok(value) => value
+        Err(message) => return record_input_result(source, Err(message))
+      }
+    Bytes(bytes) => bytes.length().to_int64()
+    _ => return Ok(())
+  }
+  let size = source.physical_bytes.unwrap_or(representation_size)
+  if size < 0L {
+    return record_input_result(
+      source,
+      Err("prepared input declared a negative physical size"),
+    )
+  }
+  let limit = effective_input_byte_limit(source, max_bytes)
+  if limit < 0L || size > limit {
+    record_input_result(source, Err(input_limit_message(size, limit)))
+  } else {
+    Ok(())
+  }
+}
+
+///|
+// Defaults apply only when no request/session ceiling has been supplied.
+// Root/prepared-root input inherits its physical source ceiling. A trusted
+// derived entry uses its own explicit cap; every smaller request still wins.
+fn effective_input_byte_limit(
+  source : InputSource,
+  requested : Int64?,
+) -> Int64 {
+  let inherited = match source.byte_limit {
+    Some(limit) => limit
+    None =>
+      match source.session {
+        Some(state) => state.max_bytes
+        None => 512L * 1024L * 1024L
+      }
+  }
+  let limit = requested.unwrap_or(inherited)
+  let limit = match source.byte_limit {
+    Some(bound) => limit.min(bound)
+    None => limit
+  }
+  match source.derived_entry_limit {
+    Some(entry_limit) => limit.min(entry_limit)
+    None =>
+      match source.session {
+        Some(state) => limit.min(state.max_bytes)
+        None => limit
+      }
   }
 }
 
@@ -743,60 +863,63 @@ pub fn read_input_text(source : InputSource) -> Result[String, String] {
 ///
 /// The function mirrors `read_input_text` so downstream code can consume a
 /// uniform API regardless of where the input came from.
-pub fn read_input_bytes(source : InputSource) -> Result[Bytes, String] {
-  match source.payload {
-    Bytes(bytes) => Ok(bytes)
-    Text(text) => Ok(@utf8.encode(text))
-    Path(path) =>
-      try @fs.read_file_to_bytes(path) |> Ok catch {
-        e => Err("read bytes failed: " + (e : Error).to_string())
-      }
-    Reader(reader) => read_reader_bytes(reader)
-  }
-}
-
-///|
-/// Read raw bytes through the asynchronous source boundary.
-///
-/// Path, text, and byte inputs complete synchronously. Reader inputs use the
-/// caller's async callback and retain the same size, short-read, and budget
-/// checks as `read_input_bytes`.
-pub async fn read_input_bytes_async(
+pub async fn read_input_bytes(
   source : InputSource,
-) -> Result[Bytes, String] {
-  match source.payload {
-    Bytes(bytes) => Ok(bytes)
-    Text(text) => Ok(@utf8.encode(text))
-    Path(path) =>
-      try @fs.read_file_to_bytes(path) |> Ok catch {
-        e => Err("read bytes failed: " + (e : Error).to_string())
-      }
-    Reader(reader) => read_reader_bytes_async(reader)
+) -> Result[Bytes, String] noraise {
+  // Even an in-memory payload must pass through the same effective ceiling.
+  let cursor = match open_source_cursor(source) {
+    Ok(value) => value
+    Err(message) => return Err(message)
   }
-}
-
-///|
-/// Decode text through the asynchronous source boundary.
-pub async fn read_input_text_async(
-  source : InputSource,
-) -> Result[String, String] {
-  match read_input_bytes_async(source) {
-    Ok(bytes) => decode_input_utf8(bytes)
-    Err(message) => Err(message)
+  defer close_cursor_if_unowned(source, cursor)
+  match source.payload {
+    Bytes(bytes) =>
+      charge_source_read_traffic(source, bytes.length().to_int64()).map(fn(_) {
+        bytes
+      })
+    Text(text) => {
+      let bytes = match validated_text_utf8_size(text) {
+        Ok(bytes) => bytes
+        Err(message) => return record_input_result(source, Err(message))
+      }
+      charge_source_read_traffic(source, bytes).map(fn(_) { @utf8.encode(text) })
+    }
+    _ => read_cursor_bytes(cursor)
   }
 }
 
 ///|
 /// Read at most `limit` bytes for format detection.
-pub fn read_input_prefix(
+pub async fn read_input_prefix(
   source : InputSource,
-  limit : Int,
-) -> Result[Bytes, String] {
+  limit : Int32,
+) -> Result[Bytes, String] noraise {
   if limit <= 0 {
     return Ok(Bytes::new(0))
   }
   match open_source_cursor(source) {
-    Ok(cursor) => source_cursor_read_at(cursor, 0L, length=limit)
+    Ok(cursor) => {
+      defer close_cursor_if_unowned(source, cursor)
+      let out = @buffer.Buffer(size_hint=limit.min(64 * 1024))
+      let mut offset = 0
+      while offset < limit {
+        let bytes = match
+          source_cursor_read_at(
+            cursor,
+            offset.to_int64(),
+            length=(limit - offset).min(64 * 1024),
+          ) {
+          Ok(value) => value
+          Err(message) => return Err(message)
+        }
+        if bytes.is_empty() {
+          break
+        }
+        out.write_bytes(bytes[:])
+        offset += bytes.length()
+      }
+      Ok(out.to_bytes())
+    }
     Err(message) => Err(message)
   }
 }
@@ -809,77 +932,23 @@ fn decode_input_utf8(bytes : Bytes) -> Result[String, String] {
 }
 
 ///|
-fn read_reader_bytes(reader : InputReader) -> Result[Bytes, String] {
-  let chunk_size = 64 * 1024
-  let out : Array[Byte] = []
+async fn read_cursor_bytes(
+  cursor : SourceCursor,
+) -> Result[Bytes, String] noraise {
+  let out = @buffer.Buffer(size_hint=64 * 1024)
   let mut offset = 0L
   while true {
-    match reader.size {
-      Some(size) if offset >= size => break
-      _ => ()
+    let chunk = match source_cursor_read_at(cursor, offset) {
+      Ok(value) => value
+      Err(message) => return Err(message)
     }
-    let chunk = match (reader.read_at)(offset, chunk_size) {
-      Ok(chunk) => chunk
-      Err(message) => return Err("reader read failed: " + message)
+    if chunk.is_empty() {
+      break
     }
-    if chunk.length() > chunk_size {
-      return Err("reader returned more bytes than requested")
-    }
-    if chunk.length() == 0 {
-      match reader.size {
-        Some(size) if offset < size =>
-          return Err("reader ended before declared size")
-        _ => break
-      }
-    }
-    for byte in chunk {
-      out.push(byte)
-    }
-    offset = offset + chunk.length().to_int64()
-    match reader.size {
-      Some(size) if offset > size =>
-        return Err("reader returned bytes beyond declared size")
-      _ => ()
-    }
+    out.write_bytes(chunk[:])
+    offset += chunk.length().to_int64()
   }
-  Ok(Bytes::from_array(out))
-}
-
-///|
-async fn read_reader_bytes_async(reader : InputReader) -> Result[Bytes, String] {
-  let chunk_size = 64 * 1024
-  let out : Array[Byte] = []
-  let mut offset = 0L
-  while true {
-    match reader.size {
-      Some(size) if offset >= size => break
-      _ => ()
-    }
-    let chunk = match (reader.read_at_async)(offset, chunk_size) {
-      Ok(chunk) => chunk
-      Err(message) => return Err("reader read failed: " + message)
-    }
-    if chunk.length() > chunk_size {
-      return Err("reader returned more bytes than requested")
-    }
-    if chunk.length() == 0 {
-      match reader.size {
-        Some(size) if offset < size =>
-          return Err("reader ended before declared size")
-        _ => break
-      }
-    }
-    for byte in chunk {
-      out.push(byte)
-    }
-    offset = offset + chunk.length().to_int64()
-    match reader.size {
-      Some(size) if offset > size =>
-        return Err("reader returned bytes beyond declared size")
-      _ => ()
-    }
-  }
-  Ok(Bytes::from_array(out))
+  Ok(out.to_bytes())
 }
 
 ///|
@@ -892,7 +961,7 @@ fn input_source_name_from_path(path : String) -> String {
 fn format_from_extension(path : String) -> DetectedFormat {
   let trimmed = path.trim().to_lower()
   let chars = trimmed.to_array()
-  let mut last_dot : Int? = None
+  let mut last_dot : Int32? = None
   for i in 0..<chars.length() {
     if chars[i] == '.' {
       last_dot = Some(i)

@@ -3,30 +3,63 @@
 /// so native CLI writers, memory buffers, and cancellation-aware callers can
 /// share the same conversion entry point without exposing renderer internals.
 pub struct OutputSink {
-  write : (String) -> Result[Unit, String]
-  finish : () -> Result[Unit, String]
+  write : async (String) -> Result[Unit, String]
+  finish : async () -> Result[Unit, String]
 }
 
 ///|
-const OUTPUT_SINK_CHUNK_CHARS : Int = 64 * 1024
+const OUTPUT_SINK_CHUNK_CHARS : Int32 = 64 * 1024
+
+///|
+fn output_sink_chunk_end(chunk : String, offset : Int32) -> Int32 {
+  let end = (offset + OUTPUT_SINK_CHUNK_CHARS).min(chunk.length())
+  if end < chunk.length() && chunk.at(end - 1).is_leading_surrogate() {
+    end - 1
+  } else {
+    end
+  }
+}
 
 ///|
 /// Deliver one renderer fragment without allowing a large block to bypass
 /// the sink's backpressure boundary.
-fn write_output_sink_bounded(
+async fn write_output_sink_bounded(
   sink : OutputSink,
   chunk : String,
+  source? : @input.InputSource,
+  confirmed_bytes? : Ref[Int64],
 ) -> Result[Unit, String] {
   let mut offset = 0
   while offset < chunk.length() {
-    let end = if offset + OUTPUT_SINK_CHUNK_CHARS < chunk.length() {
-      offset + OUTPUT_SINK_CHUNK_CHARS
+    let end = output_sink_chunk_end(chunk, offset)
+    let part = chunk[offset:end].to_owned()
+    let bytes = if source is Some(_) || confirmed_bytes is Some(_) {
+      match @input.validated_text_utf8_size(part) {
+        Ok(value) => value
+        Err(message) => return Err("invalid output encoding: " + message)
+      }
     } else {
-      chunk.length()
+      0L
     }
-    match (sink.write)(chunk[offset:end].to_owned()) {
+    match source.bind(@input.input_source_budget_context) {
+      Some(context) =>
+        match context.account.charge(OutputUtf8Bytes, bytes) {
+          Ok(_) => ()
+          Err(error) => {
+            if source is Some(source) {
+              @input.record_input_budget_failure(source, error)
+            }
+            return Err(@budget.budget_error_message(error))
+          }
+        }
+      None => ()
+    }
+    match (sink.write)(part) {
       Ok(_) => ()
       Err(message) => return Err(message)
+    }
+    if confirmed_bytes is Some(confirmed) {
+      confirmed.val += bytes
     }
     offset = end
   }
@@ -36,8 +69,8 @@ fn write_output_sink_bounded(
 ///|
 /// Build an output sink from write and finish callbacks.
 pub fn make_output_sink(
-  write : (String) -> Result[Unit, String],
-  finish : () -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
+  finish : async () -> Result[Unit, String],
 ) -> OutputSink {
   { write, finish, }
 }
@@ -45,8 +78,8 @@ pub fn make_output_sink(
 ///|
 /// Convert and deliver the rendered Markdown/JSON through `sink`.
 ///
-/// Renderers may still produce a buffered result, but delivery is bounded so
-/// sinks can apply backpressure and cancellation between writes.
+/// Rendering advances one fragment at a time and waits for each sink write.
+/// This collecting variant additionally retains the delivered body.
 pub async fn convert_input_to_sink(
   source : @input.InputSource,
   options : ConvertOptions,
@@ -75,6 +108,12 @@ async fn convert_input_to_sink_with_collection(
   sink : OutputSink,
   collect_content : Bool,
 ) -> Result[ConvertResult, ConvertError] {
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let source = session.source
   if parser_pull_sink_candidate(source, options) {
     match
       try_convert_event_stream_to_sink(source, options, sink, collect_content) {
@@ -85,7 +124,7 @@ async fn convert_input_to_sink_with_collection(
   }
   let collected = Ref(StringBuilder())
   let streaming_sink = make_output_sink(
-    fn(chunk) {
+    async fn(chunk) {
       if collect_content {
         collected.val.write_string(chunk)
       }
@@ -155,11 +194,23 @@ async fn try_convert_event_stream_to_sink(
   if options.output_mode != Markdown {
     return Ok(None)
   }
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let source = session.source
   let execution_started = @env.now()
   let (effective_source, detected, execution_plan) = match
     detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value
-    Err(err) => return Err(err)
+    Err(err) =>
+      return Err(
+        input_failure_convert_error(source, detect=true).unwrap_or(err),
+      )
+  }
+  if input_failure_convert_error(source, detect=true) is Some(error) {
+    return Err(error)
   }
   let stream_kind = match detected.format {
     Txt => "line"
@@ -167,40 +218,40 @@ async fn try_convert_event_stream_to_sink(
     Csv | Tsv | Jsonl | Ndjson => "table"
     _ => return Ok(None)
   }
-  let context = parse_context_from_execution_plan(
-    detected.format,
-    execution_plan,
+  let context = @parser.parse_context_with_input_source(
+    parse_context_from_execution_plan(detected.format, execution_plan),
+    effective_source,
   )
   let stream = match
-    @parser.unified_registry_open_event_stream(
-      @formats.builtin_unified_registry(),
+    @parser.registry_open_event_stream(
+      @formats.builtin_registry(),
       effective_source,
       context,
     ) {
     Ok(Some(value)) => value
     Ok(None) => return Ok(None)
-    Err(message) => return Err(ParseFailed(message))
+    Err(message) =>
+      return Err(
+        input_failure_convert_error(source).unwrap_or(ParseFailed(message)),
+      )
   }
   let content = Ref(StringBuilder())
-  let write_bounded = fn(chunk : String) -> Result[Unit, String] {
-    let mut offset = 0
-    while offset < chunk.length() {
-      let end = if offset + OUTPUT_SINK_CHUNK_CHARS < chunk.length() {
-        offset + OUTPUT_SINK_CHUNK_CHARS
-      } else {
-        chunk.length()
+  let confirmed_bytes = Ref(0L)
+  let collecting_sink = make_output_sink(
+    async fn(part) {
+      match (sink.write)(part) {
+        Err(message) => return Err(message)
+        Ok(_) => ()
       }
-      let part = chunk[offset:end].to_owned()
       if collect_content {
         content.val.write_string(part)
       }
-      match (sink.write)(part) {
-        Ok(_) => ()
-        Err(message) => return Err(message)
-      }
-      offset = end
-    }
-    Ok(())
+      Ok(())
+    },
+    fn() { Ok(()) },
+  )
+  let write_bounded = async fn(chunk : String) -> Result[Unit, String] {
+    write_output_sink_bounded(collecting_sink, chunk, source~, confirmed_bytes~)
   }
   let renderer = match stream_kind {
     "subtitle" => @render.open_markdown_subtitle_event_sink(write_bounded)
@@ -208,24 +259,47 @@ async fn try_convert_event_stream_to_sink(
     _ => @render.open_markdown_line_event_sink(write_bounded)
   }
   while true {
-    match (stream.next_async)() {
-      Ok(Some(event)) =>
+    match (stream.next)() {
+      Ok(Some(event)) => {
+        if input_failure_convert_error(source) is Some(error) {
+          return Err(error)
+        }
         match (renderer.push)(event) {
           Ok(_) => ()
           Err(message) =>
-            return Err(RenderFailed("sink write failed: " + message))
+            return Err(
+              input_failure_convert_error(source).unwrap_or(
+                RenderFailed("sink write failed: " + message),
+              ),
+            )
         }
+      }
       Ok(None) => break
-      Err(message) => return Err(ParseFailed(message))
+      Err(message) =>
+        return Err(
+          input_failure_convert_error(source).unwrap_or(ParseFailed(message)),
+        )
     }
+  }
+  if input_failure_convert_error(source) is Some(error) {
+    return Err(error)
   }
   match (renderer.finish)() {
     Ok(_) => ()
-    Err(message) => return Err(RenderFailed(message))
+    Err(message) =>
+      return Err(
+        input_failure_convert_error(source).unwrap_or(RenderFailed(message)),
+      )
   }
   let summary = match (stream.finish)() {
     Ok(value) => value
-    Err(message) => return Err(ParseFailed(message))
+    Err(message) =>
+      return Err(
+        input_failure_convert_error(source).unwrap_or(ParseFailed(message)),
+      )
+  }
+  if input_failure_convert_error(source) is Some(error) {
+    return Err(error)
   }
   let diagnostics = inject_preparse_diagnostics(
     summary.diagnostics,
@@ -236,6 +310,7 @@ async fn try_convert_event_stream_to_sink(
   diagnostics.metrics.set("sink_mode", "parser_to_renderer_event_stream")
   diagnostics.metrics.set("sink_buffered_fallback", "false")
   diagnostics.metrics.set("parser_to_renderer_stream", "true")
+  record_budget_diagnostics(source, diagnostics, confirmed_bytes.val)
   diagnostics.metrics.set(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),

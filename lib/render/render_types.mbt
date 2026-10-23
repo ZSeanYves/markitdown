@@ -41,31 +41,39 @@ pub struct RenderResult {
 }
 
 ///|
-/// Renderer interface used by the high-level convert path.
+/// JSON cannot represent a non-finite source coordinate.
+pub suberror JsonEncodingError {
+  NonFiniteSourceBBox(String)
+}
+
+///|
+/// Renderer interface used by the high-level convert path. Collecting
+/// renderers preserve typed JSON failures; public conversion maps them at
+/// its existing Result boundary.
 ///
 /// `render` consumes a full `DocumentIR`; `render_input` accepts the broader
 /// public input union and is responsible for any necessary normalization.
 pub struct Renderer {
   name : String
-  render : (@core.DocumentIR, RenderContext) -> RenderResult
-  render_input : (RenderInput, RenderContext) -> RenderResult
+  render : (@core.DocumentIR, RenderContext) -> RenderResult raise JsonEncodingError
+  render_input : (RenderInput, RenderContext) -> RenderResult raise JsonEncodingError
 }
 
 ///|
 /// Construct a render context with safe product defaults.
 pub fn make_render_context(
   debug : Bool,
-  fidelity_mode? : @product.FidelityMode = Balanced,
-  output_mode? : @product.OutputMode = Markdown,
-  execution_profile? : @product.ExecutionProfile = Standard,
-  render_profile? : @product.RenderProfile = DefaultMarkdown,
-  accurate_features? : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
-  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
-  base_diagnostics? : @core.Diagnostics? = None,
-  metadata? : @core.DocumentMetadata? = None,
-  source_map? : @core.SourceMap? = None,
-  assets? : Array[@core.AssetRef]? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  fidelity_mode~ : @product.FidelityMode = Balanced,
+  output_mode~ : @product.OutputMode = Markdown,
+  execution_profile~ : @product.ExecutionProfile = Standard,
+  render_profile~ : @product.RenderProfile = DefaultMarkdown,
+  accurate_features~ : @product.AccurateFeatureProfile = @product.empty_accurate_feature_profile(),
+  rag_options~ : @rag.RagOptions = @rag.default_rag_options(),
+  base_diagnostics~ : @core.Diagnostics? = None,
+  metadata~ : @core.DocumentMetadata? = None,
+  source_map~ : @core.SourceMap? = None,
+  assets~ : Array[@core.AssetRef]? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> RenderContext {
   {
     debug,

@@ -110,7 +110,7 @@ fn pdf_line_block(
   text : String,
   group : String,
   index : String,
-  line : Int,
+  line : Int32,
   bbox : @core.BBox?,
 ) -> @core.CoreBlock {
   let source_ref = {

@@ -2,19 +2,19 @@
 const EML_PARSER_NAME : String = "eml_parser"
 
 ///|
-const EML_MAX_RECURSIVE_CHILDREN : Int = 64
+const EML_MAX_RECURSIVE_CHILDREN : Int32 = 64
 
 ///|
-const EML_MAX_MATERIALIZED_ASSETS : Int = 64
+const EML_MAX_MATERIALIZED_ASSETS : Int32 = 64
 
 ///|
-const EML_MAX_INLINE_BINARY_BYTES : Int = 32768
+const EML_MAX_INLINE_BINARY_BYTES : Int32 = 32768
 
 ///|
-const EML_MAX_INLINE_BASE64_RAW_CHARS_UPPER_BOUND : Int = 44864
+const EML_MAX_INLINE_BASE64_RAW_CHARS_UPPER_BOUND : Int32 = 44864
 
 ///|
-const EML_MAX_INLINE_BASE64_RAW_CHARS_LOWER_BOUND : Int = 43776
+const EML_MAX_INLINE_BASE64_RAW_CHARS_LOWER_BOUND : Int32 = 43776
 
 ///|
 pub fn eml_parser() -> @parser.Parser {
@@ -29,7 +29,7 @@ pub fn eml_parser_with_registry(
     EML_PARSER_NAME,
     BlockStreaming,
     eml_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -61,7 +61,7 @@ priv struct EmlAssetRewrite {
 }
 
 ///|
-fn parse_eml_result(
+async fn parse_eml_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry_provider : () -> @parser.ParserRegistry,
@@ -84,7 +84,11 @@ fn parse_eml_result(
         context,
         registry_provider(),
         diagnostics,
-      )
+      ) catch {
+        @deml.InvalidEncoding(message) =>
+          return Err("eml encoding error: " + message)
+        error => raise error
+      }
       eml_fill_metrics(diagnostics, inspect, text, lowered)
       diagnostics.pass_trace.push("parse:" + EML_PARSER_NAME)
       Ok(
@@ -200,7 +204,7 @@ fn eml_fill_metrics(
 }
 
 ///|
-fn lower_eml_message(
+async fn lower_eml_message(
   message : @deml.EmlMessage,
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -229,7 +233,7 @@ fn lower_eml_message(
 }
 
 ///|
-fn lower_eml_part(
+async fn lower_eml_part(
   part : @deml.EmlPart,
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -237,7 +241,7 @@ fn lower_eml_part(
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
   rewrites : Array[EmlAssetRewrite],
-  child_count : Int,
+  child_count : Int32,
 ) -> Array[@core.CoreBlock] {
   let blocks : Array[@core.CoreBlock] = []
   if child_count >= EML_MAX_RECURSIVE_CHILDREN {
@@ -303,6 +307,15 @@ fn lower_eml_part(
       blocks
     }
     None => {
+      // Plain/HTML MIME parts retain their established body lowering, including
+      // attachment presentation. Validate declared text before that path can
+      // consume raw transfer text without materializing the attachment.
+      if part.summary.mime_type == "text/plain" ||
+        part.summary.mime_type == "text/html" {
+        for attachment in part.attachments {
+          ignore(eml_materialize_attachment_payload(attachment, true, false))
+        }
+      }
       if part.summary.mime_type == "text/plain" {
         blocks.append(lower_eml_text_plain_part(part, source)[:])
       } else if part.summary.mime_type == "text/html" {
@@ -356,7 +369,7 @@ fn lower_eml_text_plain_part(
 }
 
 ///|
-fn lower_eml_html_part(
+async fn lower_eml_html_part(
   part : @deml.EmlPart,
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -426,7 +439,7 @@ fn eml_html_inline_boundary_spacing(
 }
 
 ///|
-fn lower_eml_non_html_part(
+async fn lower_eml_non_html_part(
   part : @deml.EmlPart,
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -504,7 +517,7 @@ fn lower_eml_non_html_part(
 }
 
 ///|
-fn eml_lower_typed_text_payload(
+async fn eml_lower_typed_text_payload(
   payload : String,
   format : @input.DetectedFormat,
   part : @deml.EmlPart,
@@ -534,7 +547,7 @@ fn eml_lower_typed_text_payload(
 }
 
 ///|
-fn lower_eml_attachment(
+async fn lower_eml_attachment(
   attachment : @deml.EmlAttachment,
   part : @deml.EmlPart,
   source : @input.InputSource,
@@ -706,12 +719,12 @@ fn eml_should_materialize_attachment_asset(
 }
 
 ///|
-fn eml_max_inline_binary_base64_chars() -> Int {
+fn eml_max_inline_binary_base64_chars() -> Int32 {
   (EML_MAX_INLINE_BINARY_BYTES + 2) / 3 * 4
 }
 
 ///|
-fn eml_base64_body_within_inline_limit(raw : String, max_chars : Int) -> Bool {
+fn eml_base64_body_within_inline_limit(raw : String, max_chars : Int32) -> Bool {
   let mut compact_len = 0
   for ch in raw {
     if ch != '\n' && ch != '\r' && ch != ' ' && ch != '\t' {

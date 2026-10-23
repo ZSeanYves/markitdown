@@ -1,17 +1,24 @@
 ///|
 priv struct LineJsonPullScan {
   header_keys : Array[String]?
-  record_count : Int
-  object_count : Int
-  array_count : Int
-  scalar_count : Int
-  max_depth : Int
-  blank_line_count : Int
-  mismatch_count : Int
+  record_count : Int32
+  object_count : Int32
+  array_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
+  blank_line_count : Int32
+  mismatch_count : Int32
 }
 
 ///|
-fn open_line_json_event_stream(
+priv enum LineJsonPullScanError {
+  InputFailure(String)
+  RecordLimit(String)
+  RecoverableSyntax
+}
+
+///|
+async fn open_line_json_event_stream(
   parser_name : String,
   format_name : String,
   source : @input.InputSource,
@@ -20,11 +27,12 @@ fn open_line_json_event_stream(
 ) -> Result[@parser.ParseEventStream?, String] {
   let scan = match scan_line_json_source(format_name, source, context) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(RecoverableSyntax) => return Ok(None)
+    Err(InputFailure(message) | RecordLimit(message)) => return Err(message)
   }
   let table_reader = match open_line_json_reader(source, context) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(message) => return Err(message)
   }
   let code_reader : Ref[@sourceio.SourceTextLineReader?] = { val: None, }
   let phase = Ref(if scan.header_keys is Some(_) { 0 } else { 1 })
@@ -43,7 +51,7 @@ fn open_line_json_event_stream(
   Ok(
     Some(
       @parser.make_parse_event_stream(
-        fn() {
+        async fn() {
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -89,10 +97,14 @@ fn open_line_json_event_stream(
                   }
                 }
                 Ok(None) => {
+                  (table_reader.close)()
                   phase.val = 1
                   continue
                 }
-                Err(message) => return Err(message)
+                Err(message) => {
+                  (table_reader.close)()
+                  return Err(message)
+                }
               }
             } else {
               let reader = match code_reader.val {
@@ -140,14 +152,24 @@ fn open_line_json_event_stream(
                     })
                   }
                 }
-                Ok(None) => return Ok(None)
-                Err(message) => return Err(message)
+                Ok(None) => {
+                  (reader.close)()
+                  return Ok(None)
+                }
+                Err(message) => {
+                  (reader.close)()
+                  return Err(message)
+                }
               }
             }
           }
           Ok(None)
         },
         fn() {
+          (table_reader.close)()
+          if code_reader.val is Some(reader) {
+            (reader.close)()
+          }
           @fshared.init_parser_route_metrics_with_granularity(
             diagnostics,
             source,
@@ -217,7 +239,7 @@ fn open_line_json_event_stream(
 }
 
 ///|
-fn open_line_json_reader(
+async fn open_line_json_reader(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@sourceio.SourceTextLineReader, String] {
@@ -229,11 +251,11 @@ fn open_line_json_reader(
 }
 
 ///|
-fn next_line_json_record(
+async fn next_line_json_record(
   reader : @sourceio.SourceTextLineReader,
   format_name : String,
   context : @parser.ParseContext,
-  count : Ref[Int],
+  count : Ref[Int32],
 ) -> Result[(@sourceio.SourceTextLine, JsonDocument)?, String] {
   let max_rows = context.max_rows.unwrap_or(200)
   while count.val < max_rows {
@@ -267,15 +289,16 @@ fn next_line_json_record(
 }
 
 ///|
-fn scan_line_json_source(
+async fn scan_line_json_source(
   format_name : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
-) -> Result[LineJsonPullScan, String] {
+) -> Result[LineJsonPullScan, LineJsonPullScanError] {
   let reader = match open_line_json_reader(source, context) {
     Ok(value) => value
-    Err(message) => return Err(message)
+    Err(message) => return Err(InputFailure(message))
   }
+  defer (reader.close)()
   let count = Ref(0)
   let mut header_keys : Array[String]? = None
   let mut object_count = 0
@@ -288,7 +311,12 @@ fn scan_line_json_source(
     let line = match (reader.next)() {
       Ok(Some(value)) => value
       Ok(None) => break
-      Err(message) => return Err(message)
+      Err(message) =>
+        if (reader.input_error)() is Some(_) {
+          return Err(InputFailure(message))
+        } else {
+          return Err(RecoverableSyntax)
+        }
     }
     let raw = normalize_line_delimited_json_record(line.text).trim().to_owned()
     if raw == "" {
@@ -296,18 +324,10 @@ fn scan_line_json_source(
       continue
     }
     if line.truncated {
-      return Err(format_name + " record exceeds max_line_chars")
+      return Err(RecordLimit(format_name + " record exceeds max_line_chars"))
     }
     let document = parse_json_document(raw) catch {
-      error =>
-        return Err(
-          "invalid " +
-          format_name +
-          " record at line " +
-          line.line_no.to_string() +
-          ": " +
-          error.to_string(),
-        )
+      _ => return Err(RecoverableSyntax)
     }
     let inspect = inspect_json_document(document)
     object_count += inspect.object_count
@@ -351,7 +371,7 @@ fn append_line_json_row_events(
   values : Array[String],
   source : @input.InputSource,
   format_name : String,
-  line_no : Int,
+  line_no : Int32,
 ) -> Unit {
   let source_ref = @core.source_ref_with_lines(
     @core.empty_source_ref(),

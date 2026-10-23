@@ -14,8 +14,8 @@ pub fn tokenize_xml_document(text : String) -> Array[XmlToken] raise {
 ///|
 priv struct XmlTokenizer {
   chars : Array[Char]
-  mut pos : Int
-  mut line : Int
+  mut pos : Int32
+  mut line : Int32
   stack : Array[String]
 }
 
@@ -294,7 +294,7 @@ fn XmlTokenizer::read_start_like_tag(
 ///|
 fn XmlTokenizer::read_attribute_value(
   self : XmlTokenizer,
-) -> (String, Char, Int) raise {
+) -> (String, Char, Int32) raise {
   if self.pos >= self.chars.length() {
     raise ParseError("missing attribute value")
   }
@@ -379,7 +379,7 @@ fn decode_numeric_xml_entity(name : String) -> String? {
 }
 
 ///|
-fn parse_xml_dec_int(text : String) -> Int? {
+fn parse_xml_dec_int(text : String) -> Int32? {
   if text == "" {
     return None
   }
@@ -391,7 +391,11 @@ fn parse_xml_dec_int(text : String) -> Int? {
     if ch < '0' || ch > '9' {
       return None
     }
-    value = value * 10 + (ch.to_int() - '0'.to_int())
+    let digit = ch.to_int() - '0'.to_int()
+    if value > (0x10FFFF - digit) / 10 {
+      return None
+    }
+    value = value * 10 + digit
     i += 1
   }
   if xml_is_valid_codepoint(value) {
@@ -402,7 +406,7 @@ fn parse_xml_dec_int(text : String) -> Int? {
 }
 
 ///|
-fn parse_xml_hex_int(text : String) -> Int? {
+fn parse_xml_hex_int(text : String) -> Int32? {
   if text == "" {
     return None
   }
@@ -412,7 +416,10 @@ fn parse_xml_hex_int(text : String) -> Int? {
   while i < chars.length() {
     match xml_hex_value(chars[i]) {
       Some(digit) => {
-        value = (value << 4) + digit
+        if value > (0x10FFFF - digit) / 16 {
+          return None
+        }
+        value = value * 16 + digit
         i += 1
       }
       None => return None
@@ -426,7 +433,7 @@ fn parse_xml_hex_int(text : String) -> Int? {
 }
 
 ///|
-fn xml_hex_value(ch : Char) -> Int? {
+fn xml_hex_value(ch : Char) -> Int32? {
   if ch >= '0' && ch <= '9' {
     Some(ch.to_int() - '0'.to_int())
   } else if ch >= 'a' && ch <= 'f' {
@@ -439,13 +446,13 @@ fn xml_hex_value(ch : Char) -> Int? {
 }
 
 ///|
-fn xml_is_valid_codepoint(value : Int) -> Bool {
+fn xml_is_valid_codepoint(value : Int32) -> Bool {
   value >= 0 && value <= 0x10FFFF && !(value >= 0xD800 && value <= 0xDFFF)
 }
 
 ///|
-fn xml_codepoint_to_string(value : Int) -> String {
-  String::from_array([Int::unsafe_to_char(value)])
+fn xml_codepoint_to_string(value : Int32) -> String {
+  String::from_array([Int32::unsafe_to_char(value)])
 }
 
 ///|
@@ -497,7 +504,7 @@ fn XmlTokenizer::skip_spaces(self : XmlTokenizer) -> Unit {
 }
 
 ///|
-fn XmlTokenizer::advance_chars(self : XmlTokenizer, count : Int) -> Unit {
+fn XmlTokenizer::advance_chars(self : XmlTokenizer, count : Int32) -> Unit {
   for _ in 0..<count {
     if self.pos >= self.chars.length() {
       return

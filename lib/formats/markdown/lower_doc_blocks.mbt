@@ -4,7 +4,7 @@ fn markdown_table_group_to_block_next(
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   let source_ref = markdown_group_source_ref(
     group,
@@ -144,7 +144,7 @@ fn markdown_paragraph_block(
   block : MarkdownBlock,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
   lowering_mode : MarkdownLoweringMode,
 ) -> @core.CoreBlock {
@@ -272,7 +272,7 @@ fn markdown_requires_literal_paragraph(text : String) -> Bool {
 fn markdown_image_block_or_inline(
   text : String,
   source_ref : @core.SourceRef,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
 ) -> @core.CoreBlock? {
   match parse_markdown_image(text) {
     Some((alt, path)) =>
@@ -290,7 +290,7 @@ fn markdown_image_block_from_parts(
   alt : String,
   path : String,
   source_ref : @core.SourceRef,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
 ) -> @core.CoreBlock {
   let image = @core.make_block(Image, "", source_ref~)
   image.attrs.set("alt", alt)
@@ -312,9 +312,9 @@ fn markdown_list_group_to_block_next(
   group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)
@@ -339,7 +339,7 @@ fn markdown_list_group_to_block_next(
     "ordered",
     @fshared.bool_string(markdown_list_is_ordered(group[0].raw_text)),
   )
-  let stack : Array[(Int, @core.CoreBlock, @core.CoreBlock)] = []
+  let stack : Array[(Int32, @core.CoreBlock, @core.CoreBlock)] = []
   for block in group {
     let indent = markdown_list_indent(block.raw_text)
     let item = @core.make_block(
@@ -384,7 +384,7 @@ fn markdown_group_source_ref(
   group : Array[MarkdownBlock],
   source : @input.InputSource,
   path : String,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.SourceRef {
   markdown_source_ref_with_path(
     markdown_source_ref_from_lines(
@@ -398,7 +398,7 @@ fn markdown_group_source_ref(
 }
 
 ///|
-fn markdown_list_indent(text : String) -> Int {
+fn markdown_list_indent(text : String) -> Int32 {
   let chars = text.to_array()
   let mut indent = 0
   while indent < chars.length() && chars[indent] == ' ' {
@@ -412,9 +412,9 @@ fn markdown_blockquote_group_to_block_next(
   group : Array[MarkdownBlock],
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   lowering_mode : MarkdownLoweringMode,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreBlock {
   ignore(diagnostics)
   ignore(image_asset_index)

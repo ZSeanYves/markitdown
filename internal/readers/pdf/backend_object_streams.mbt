@@ -7,13 +7,13 @@ priv enum PdfNativeDictValue {
   HexString(String)
   Array(Array[PdfNativeContentToken])
   Dict(String)
-  Reference(Int, Int)
+  Reference(Int32, Int32)
 }
 
 ///|
 fn pdf_expand_object_streams(
   objects : Array[PdfNativeObject],
-) -> Result[Array[PdfNativeObject], PdfNativeError] {
+) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
   let expanded : Array[PdfNativeObject] = []
   for object in objects {
     match pdf_extract_name_after(object.dict_text, "/Type") {
@@ -33,11 +33,19 @@ fn pdf_expand_object_streams(
 ///|
 fn pdf_parse_object_stream_entries(
   object : PdfNativeObject,
-) -> Result[Array[PdfNativeObject], PdfNativeError] {
+) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
   let stream_text = match pdf_decode_stream_text(object, "object stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
+  pdf_parse_object_stream_entries_from_text(object, stream_text)
+}
+
+///|
+fn pdf_parse_object_stream_entries_from_text(
+  object : PdfNativeObject,
+  stream_text : String,
+) -> Result[Array[PdfNativeObject], PdfNativeError] {
   let first = match pdf_extract_int_after(object.dict_text, "/First") {
     Some(value) if value >= 0 && value <= stream_text.length() => value
     _ =>
@@ -70,7 +78,7 @@ fn pdf_parse_object_stream_entries(
       ),
     )
   }
-  let entries : Array[(Int, Int)] = []
+  let entries : Array[(Int32, Int32)] = []
   let mut index = 0
   while index + 1 < count * 2 {
     match
@@ -109,7 +117,11 @@ fn pdf_parse_object_stream_entries(
     }
     let embedded_body = body_text[offset:next_offset].trim().to_owned()
     let embedded_bytes = pdf_ascii_bytes(embedded_body)
-    let stream_slice = match pdf_extract_stream_slice(embedded_bytes) {
+    let stream_slice = match
+      pdf_extract_stream_slice(
+        embedded_bytes,
+        object.stream.bind(stream => stream.decode_context),
+      ) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
@@ -253,8 +265,8 @@ fn pdf_stream_decode_params_from_dict(
 ///|
 fn pdf_collect_reference_ids_from_tokens(
   tokens : Array[PdfNativeContentToken],
-) -> Array[Int] {
-  let refs : Array[Int] = []
+) -> Array[Int32] {
+  let refs : Array[Int32] = []
   let mut index = 0
   while index + 2 < tokens.length() {
     match (tokens[index], tokens[index + 1], tokens[index + 2]) {
@@ -321,8 +333,8 @@ fn pdf_parse_dict_entries(
 ///|
 fn pdf_dict_value_from_tokens(
   tokens : Array[PdfNativeContentToken],
-  start : Int,
-) -> (PdfNativeDictValue, Int) {
+  start : Int32,
+) -> (PdfNativeDictValue, Int32) {
   if start >= tokens.length() {
     return (Word(""), start)
   }

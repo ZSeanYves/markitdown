@@ -8,8 +8,6 @@ import {
 // Values
 pub fn builtin_registry() -> @parser.ParserRegistry
 
-pub fn builtin_unified_registry() -> @parser.UnifiedParserRegistry
-
 pub fn register_builtin_parsers(@parser.ParserRegistry) -> Unit
 
 // Errors

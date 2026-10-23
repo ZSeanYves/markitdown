@@ -7,8 +7,15 @@ import {
 }
 
 import {
+  "moonbitlang/async",
   "moonbitlang/x/fs",
 } for "test"
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

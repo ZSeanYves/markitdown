@@ -10,7 +10,7 @@ pub struct PreparedYamlDocument {
 }
 
 ///|
-pub fn prepare_yaml_document_from_source(
+pub async fn prepare_yaml_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedYamlDocument, String] {
   let text_payload = match @sourceio.read_source_text(source) {
@@ -30,10 +30,14 @@ pub fn prepare_yaml_document_from_source(
       })
     None => ()
   }
+  let budget_context = @input.input_source_budget_context(source)
   let structured = try
-    parse_yaml_structure_document(text_payload.text) |> Ok
+    parse_yaml_structure_document(text_payload.text, budget_context?) |> Ok
   catch {
     e => Err(e.to_string())
+  }
+  if @input.input_source_error(source) is Some(message) {
+    return Err(message)
   }
   match structured {
     Ok(doc) =>

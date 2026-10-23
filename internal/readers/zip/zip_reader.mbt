@@ -3,37 +3,40 @@
 ///
 /// This layer only guarantees container integrity + entry byte access.
 /// It intentionally does NOT perform document semantics recovery.
-const EOCD_SIG : Int = 0x06054b50
+const EOCD_SIG : Int32 = 0x06054b50
 
 ///|
-const CD_FILE_HEADER_SIG : Int = 0x02014b50
+const CD_FILE_HEADER_SIG : Int32 = 0x02014b50
 
 ///|
-const LOCAL_FILE_HEADER_SIG : Int = 0x04034b50
+const LOCAL_FILE_HEADER_SIG : Int32 = 0x04034b50
 
 ///|
-const ZIP64_U16_SENTINEL : Int = 0xFFFF
+const ZIP64_U16_SENTINEL : Int32 = 0xFFFF
 
 ///|
-const ZIP64_U32_SENTINEL : Int = 0xFFFFFFFF
+const ZIP64_U32_SENTINEL : Int32 = 0xFFFFFFFF
 
 ///|
-const ZIP64_U32_SENTINEL_SIGNED : Int = -1
+const ZIP64_U32_SENTINEL_SIGNED : Int32 = -1
 
 ///|
-const GP_FLAG_ENCRYPTED : Int = 0x0001
+const GP_FLAG_ENCRYPTED : Int32 = 0x0001
 
 ///|
-const GP_FLAG_DATA_DESCRIPTOR : Int = 0x0008
+const GP_FLAG_DATA_DESCRIPTOR : Int32 = 0x0008
 
 ///|
-const MAX_NORMALIZED_ENTRY_PATH_LENGTH : Int = 240
+const MAX_NORMALIZED_ENTRY_PATH_LENGTH : Int32 = 240
 
 ///|
-const MAX_NORMALIZED_DIRECTORY_DEPTH : Int = 16
+const MAX_NORMALIZED_DIRECTORY_DEPTH : Int32 = 16
 
 ///|
-fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
+fn open_zip_impl(
+  bytes : Bytes,
+  budget_context : @budget.BudgetContext?,
+) -> ZipArchive raise ZipError {
   let eocd_offset = find_eocd(bytes)
   let (cd_offset, cd_size, entry_count) = parse_eocd(bytes, eocd_offset)
   let entries = parse_cd_entries(bytes, cd_offset, cd_size, entry_count)
@@ -47,17 +50,19 @@ fn open_zip_impl(bytes : Bytes) -> ZipArchive raise ZipError {
       Ok(bytes[offset:(offset + length).min(bytes.length())].to_owned())
     },
     entries,
+    budget_context,
   )
 }
 
 ///|
 fn build_zip_archive(
   bytes : Bytes,
-  source_size : Int,
-  source_read_at : (Int, Int) -> Result[Bytes, String],
+  source_size : Int32,
+  source_read_at : async (Int32, Int32) -> Result[Bytes, String],
   entries : Array[ZipEntryMeta],
+  budget_context : @budget.BudgetContext?,
 ) -> ZipArchive raise ZipError {
-  let index : Map[String, Int] = Map([])
+  let index : Map[String, Int32] = Map([])
 
   let mut i = 0
   while i < entries.length() {
@@ -83,20 +88,61 @@ fn build_zip_archive(
     inspect_miss_count: { val: 0, },
     read_hit_count: { val: 0, },
     read_miss_count: { val: 0, },
+    hard_failure: Ref(None),
+    hard_failure_reporter: Ref(fn(_) { () }),
+    budget_context,
   }
 }
 
 ///|
-pub fn open_zip(bytes : Bytes) -> ZipArchive raise ZipError {
-  open_zip_impl(bytes)
+/// Attach the owning conversion's first-error recorder. Standalone archive
+/// users can also inspect the sticky integrity failure without an Input
+/// dependency in this low-level package.
+pub fn set_hard_failure_reporter(
+  archive : ZipArchive,
+  report : (String) -> Unit,
+) -> Unit {
+  archive.hard_failure_reporter.val = report
+  if archive.hard_failure.val is Some(message) {
+    report(message)
+  }
+}
+
+///|
+pub fn record_hard_failure(archive : ZipArchive, message : String) -> Unit {
+  if archive.hard_failure.val is None {
+    archive.hard_failure.val = Some(message)
+    (archive.hard_failure_reporter.val)(message)
+  }
+}
+
+///|
+pub fn archive_hard_failure(archive : ZipArchive) -> String? {
+  archive.hard_failure.val
+}
+
+///|
+/// Borrow the existing conversion account; consumers must not replace it or
+/// create a nested account. Escaping payload leases belong to its scope owner.
+pub fn archive_budget_context(archive : ZipArchive) -> @budget.BudgetContext? {
+  archive.budget_context
+}
+
+///|
+pub fn open_zip(
+  bytes : Bytes,
+  budget_context? : @budget.BudgetContext,
+) -> ZipArchive raise ZipError {
+  open_zip_impl(bytes, budget_context)
 }
 
 ///|
 /// Open a seekable ZIP source by reading only its EOCD tail and central
 /// directory. The callback must return at most `length` bytes from `offset`.
-pub fn open_zip_reader(
-  size : Int,
-  read_at : (Int, Int) -> Result[Bytes, String],
+pub async fn open_zip_reader(
+  size : Int32,
+  read_at : async (Int32, Int32) -> Result[Bytes, String],
+  budget_context? : @budget.BudgetContext,
 ) -> ZipArchive raise ZipError {
   if size < 22 {
     raise UnexpectedEOF("zip smaller than minimum EOCD size")
@@ -114,7 +160,7 @@ pub fn open_zip_reader(
     read_at, cd_offset, cd_size, "central directory",
   )
   let entries = parse_cd_entries(central, 0, cd_size, entry_count)
-  build_zip_archive(b"", size, read_at, entries)
+  build_zip_archive(b"", size, read_at, entries, budget_context)
 }
 
 ///|
@@ -195,57 +241,49 @@ pub fn inspect_zip(bytes : Bytes) -> Array[ZipEntryMeta] raise ZipError {
 }
 
 ///|
-pub fn read_entry(
+pub async fn read_entry(
   archive : ZipArchive,
   path : String,
-  max_output_size? : Int = 128 * 1024 * 1024,
+  max_output_size~ : Int32 = 128 * 1024 * 1024,
 ) -> Bytes raise ZipError {
+  read_entry_impl(archive, path, max_output_size~) catch {
+    EntryNotFound(path) => raise EntryNotFound(path)
+    error => {
+      record_hard_failure(archive, error.to_string())
+      raise error
+    }
+  }
+}
+
+///|
+async fn read_entry_impl(
+  archive : ZipArchive,
+  path : String,
+  max_output_size~ : Int32 = 128 * 1024 * 1024,
+) -> Bytes raise ZipError {
+  zip_check_archive_ready(archive)
   match archive.read_entry_cache.get(path) {
     Some(cached) => {
+      if cached.length() > max_output_size {
+        raise InvalidStructure(
+          "decoded entry exceeds max_output_size: max=" +
+          max_output_size.to_string() +
+          ", actual=" +
+          cached.length().to_string(),
+        )
+      }
       archive.read_hit_count.val += 1
       return cached
     }
     None => ()
   }
   let slice = read_entry_data_slice(archive, path)
-  let entry = slice.entry
-  let compressed = read_zip_archive_range(
+  let decoded = collect_zip_entry_chunks(
     archive,
-    slice.data_start,
-    slice.data_end,
-    "entry data",
+    slice,
+    max_output_size,
+    @budget.CacheBytes,
   )
-
-  let decoded = decompress(
-    entry.compression_method,
-    compressed,
-    max_output_size~,
-  ) catch {
-    UnsupportedCompressionMethod(code) =>
-      raise UnsupportedCompressionMethod(code)
-    DecodeFailed(msg) =>
-      raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
-    OutputTooLarge(max, actual) =>
-      raise InvalidStructure(
-        "decoded entry exceeds max_output_size: max=" +
-        max.to_string() +
-        ", actual=" +
-        actual.to_string(),
-      )
-  }
-
-  if decoded.length() != entry.uncompressed_size {
-    raise InvalidStructure(
-      "decoded size mismatch for entry: " +
-      entry.name +
-      " expected=" +
-      entry.uncompressed_size.to_string() +
-      " actual=" +
-      decoded.length().to_string(),
-    )
-  }
-
-  validate_crc32(decoded, entry)
   archive.read_miss_count.val += 1
   archive.read_entry_cache.set(path, decoded)
   decoded
@@ -255,55 +293,44 @@ pub fn read_entry(
 /// Read and validate an entry without retaining the decoded payload in the
 /// archive cache. Use this for one-shot large parts whose callers keep a
 /// parsed representation instead.
-pub fn read_entry_transient(
+pub async fn read_entry_transient(
   archive : ZipArchive,
   path : String,
-  max_output_size? : Int = 128 * 1024 * 1024,
+  max_output_size~ : Int32 = 128 * 1024 * 1024,
 ) -> Bytes raise ZipError {
-  let slice = read_entry_data_slice(archive, path)
-  let entry = slice.entry
-  let compressed = read_zip_archive_range(
-    archive,
-    slice.data_start,
-    slice.data_end,
-    "entry data",
-  )
-  let decoded = decompress(
-    entry.compression_method,
-    compressed,
-    max_output_size~,
-  ) catch {
-    UnsupportedCompressionMethod(code) =>
-      raise UnsupportedCompressionMethod(code)
-    DecodeFailed(msg) =>
-      raise DecodeFailed("decode failed for `" + entry.name + "`: " + msg)
-    OutputTooLarge(max, actual) =>
-      raise InvalidStructure(
-        "decoded entry exceeds max_output_size: max=" +
-        max.to_string() +
-        ", actual=" +
-        actual.to_string(),
-      )
+  read_entry_transient_impl(archive, path, max_output_size~) catch {
+    EntryNotFound(path) => raise EntryNotFound(path)
+    error => {
+      record_hard_failure(archive, error.to_string())
+      raise error
+    }
   }
-  if decoded.length() != entry.uncompressed_size {
-    raise InvalidStructure(
-      "decoded size mismatch for entry: " +
-      entry.name +
-      " expected=" +
-      entry.uncompressed_size.to_string() +
-      " actual=" +
-      decoded.length().to_string(),
-    )
-  }
-  validate_crc32(decoded, entry)
-  decoded
 }
 
 ///|
-pub fn read_entry_data_slice(
+async fn read_entry_transient_impl(
+  archive : ZipArchive,
+  path : String,
+  max_output_size~ : Int32 = 128 * 1024 * 1024,
+) -> Bytes raise ZipError {
+  zip_check_archive_ready(archive)
+  let slice = read_entry_data_slice(archive, path)
+  collect_zip_entry_chunks(
+    archive,
+    slice,
+    max_output_size,
+    @budget.WorkingBytes,
+  )
+}
+
+///|
+pub async fn read_entry_data_slice(
   archive : ZipArchive,
   path : String,
 ) -> ZipEntryDataSlice raise ZipError {
+  if archive.hard_failure.val is Some(message) {
+    raise DecodeFailed(message)
+  }
   let entry = match archive.entry_index.get(path) {
     Some(idx) => archive.entries[idx]
     None => raise EntryNotFound(path)
@@ -312,7 +339,7 @@ pub fn read_entry_data_slice(
 }
 
 ///|
-fn read_entry_data_slice_from_meta(
+async fn read_entry_data_slice_from_meta(
   archive : ZipArchive,
   entry : ZipEntryMeta,
 ) -> ZipEntryDataSlice raise ZipError {
@@ -378,9 +405,9 @@ fn read_entry_data_slice_from_meta(
 
   if !entry.has_data_descriptor {
     if local_crc32 != entry.crc32 {
-      raise InvalidStructure(
-        "central/local crc32 mismatch for entry: " + entry.name,
-      )
+      let error = ChecksumMismatch(entry.name, entry.crc32, local_crc32)
+      record_hard_failure(archive, error.to_string())
+      raise error
     }
     if local_compressed_size != entry.compressed_size {
       raise InvalidStructure(
@@ -403,167 +430,78 @@ fn read_entry_data_slice_from_meta(
 }
 
 ///|
-pub fn visit_inflated_entry_chunks(
+/// An omitted output cap preserves the visitor's declared-size/CRC contract.
+/// Explicit caps and the shared cumulative inflate budget remain enforced.
+pub async fn visit_inflated_entry_chunks(
   archive : ZipArchive,
   path : String,
-  chunk_size? : Int = 64 * 1024,
-  on_chunk : (Bytes) -> Result[Unit, String],
-) -> Result[Unit, String] {
-  let slice = read_entry_data_slice(archive, path) catch {
-    err => return Err(err.to_string())
+  chunk_size~ : Int32 = 64 * 1024,
+  max_output_size? : Int32,
+  on_chunk : async (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] noraise {
+  zip_check_archive_ready(archive) catch {
+    error => {
+      record_hard_failure(archive, error.to_string())
+      return Err(error.to_string())
+    }
   }
-  visit_inflated_entry_chunks_from_reader(
-    archive.source_read_at,
-    slice,
-    chunk_size~,
-    on_chunk,
-  )
+  let slice = read_entry_data_slice(archive, path) catch {
+    EntryNotFound(path) => return Err(EntryNotFound(path).to_string())
+    err => {
+      record_hard_failure(archive, err.to_string())
+      return Err(err.to_string())
+    }
+  }
+  match
+    emit_zip_entry_chunks(
+      archive.source_read_at,
+      slice,
+      chunk_size,
+      max_output_size.unwrap_or(slice.entry.uncompressed_size),
+      archive.budget_context,
+      true,
+      on_chunk,
+    ) {
+    Ok(_) => Ok(())
+    Err(EntryFailure(error)) => {
+      record_hard_failure(archive, error.to_string())
+      Err(error.to_string())
+    }
+    Err(ConsumerFailure(message)) => Err(message)
+  }
 }
 
 ///|
-pub fn visit_inflated_entry_chunks_from_slice(
+/// Uses the same omitted-cap semantics as the archive-backed visitor.
+pub async fn visit_inflated_entry_chunks_from_slice(
   archive_bytes : Bytes,
   slice : ZipEntryDataSlice,
-  chunk_size? : Int = 64 * 1024,
-  on_chunk : (Bytes) -> Result[Unit, String],
-) -> Result[Unit, String] {
-  visit_inflated_entry_chunks_from_reader(
-    fn(offset, length) {
-      if offset < 0 || length < 0 || offset > archive_bytes.length() {
-        return Err("zip source read is outside the payload")
-      }
-      Ok(
-        archive_bytes[offset:(offset + length).min(archive_bytes.length())].to_owned(),
-      )
-    },
-    slice,
-    chunk_size~,
-    on_chunk,
-  )
-}
-
-///|
-fn visit_inflated_entry_chunks_from_reader(
-  read_at : (Int, Int) -> Result[Bytes, String],
-  slice : ZipEntryDataSlice,
-  chunk_size? : Int = 64 * 1024,
-  on_chunk : (Bytes) -> Result[Unit, String],
-) -> Result[Unit, String] {
-  let chunk_size = if chunk_size <= 0 { 64 * 1024 } else { chunk_size }
-  let entry = slice.entry
-  let mut emitted_bytes = 0
-  let crc = @checksum.Crc32()
-  match entry.compression_method {
-    Store => {
-      let mut pos = slice.data_start
-      while pos < slice.data_end {
-        let end_ = (pos + chunk_size).min(slice.data_end)
-        let chunk = match read_zip_source_fully(read_at, pos, end_ - pos) {
-          Ok(value) => value
-          Err(err) => return Err(err)
+  chunk_size~ : Int32 = 64 * 1024,
+  max_output_size? : Int32,
+  budget_context? : @budget.BudgetContext,
+  on_chunk : async (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] noraise {
+  match
+    emit_zip_entry_chunks(
+      fn(offset, length) {
+        if offset < 0 || length < 0 || offset > archive_bytes.length() {
+          return Err("zip source read is outside the payload")
         }
-        emitted_bytes += chunk.length()
-        crc.update(chunk[:])
-        match on_chunk(chunk) {
-          Ok(_) => ()
-          Err(err) => return Err(err)
-        }
-        pos = end_
-      }
-    }
-    DeflateRaw => {
-      let inflater = @flate.Inflater()
-      let output = FixedArray::make(chunk_size.min(64 * 1024), b'\x00')
-      let mut pos = slice.data_start
-      let mut done = false
-      while !done {
-        let feed_end = (pos + chunk_size).min(slice.data_end)
-        let compressed = match
-          read_zip_source_fully(read_at, pos, feed_end - pos) {
-          Ok(value) => value
-          Err(err) => return Err(err)
-        }
-        pos = feed_end
-        let mut consumed = 0
-        let mut needs_more_input = false
-        while !done && !needs_more_input {
-          let status = inflater.step(
-            compressed[consumed:],
-            output.mut_view(),
-            end=pos == slice.data_end,
-          ) catch {
-            InflateError(_, message) =>
-              return Err("decode failed for `" + entry.name + "`: " + message)
-          }
-          consumed += inflater.last_consumed()
-          let produced = inflater.last_produced()
-          if produced > entry.uncompressed_size - emitted_bytes {
-            return Err(
-              "invalid zip structure: decoded size overflow for entry: " +
-              entry.name +
-              " expected=" +
-              entry.uncompressed_size.to_string() +
-              " actual=" +
-              (emitted_bytes + produced).to_string(),
-            )
-          }
-          if produced > 0 {
-            let chunk = Bytes::makei(produced, i => output[i])
-            emitted_bytes += produced
-            crc.update(chunk[:])
-            match on_chunk(chunk) {
-              Ok(_) => ()
-              Err(err) => return Err(err)
-            }
-          }
-          match status {
-            NeedMoreInput =>
-              if pos >= slice.data_end {
-                return Err(
-                  "zip decode failed for `" + entry.name + "`: unexpected EOF",
-                )
-              } else {
-                needs_more_input = true
-              }
-            NeedMoreOutput => ()
-            Done => {
-              if consumed != compressed.length() || pos != slice.data_end {
-                return Err(
-                  "invalid zip structure: decoded entry left trailing compressed bytes: " +
-                  entry.name,
-                )
-              }
-              done = true
-            }
-          }
-        }
-      }
-    }
-    Unsupported(code) =>
-      return Err("unsupported compression method: " + code.to_string())
+        Ok(
+          archive_bytes[offset:(offset + length).min(archive_bytes.length())].to_owned(),
+        )
+      },
+      slice,
+      chunk_size,
+      max_output_size.unwrap_or(slice.entry.uncompressed_size),
+      budget_context,
+      true,
+      on_chunk,
+    ) {
+    Ok(_) => Ok(())
+    Err(EntryFailure(error)) => Err(error.to_string())
+    Err(ConsumerFailure(message)) => Err(message)
   }
-  if emitted_bytes != entry.uncompressed_size {
-    return Err(
-      "invalid zip structure: decoded size mismatch for entry: " +
-      entry.name +
-      " expected=" +
-      entry.uncompressed_size.to_string() +
-      " actual=" +
-      emitted_bytes.to_string(),
-    )
-  }
-  let actual_crc = crc.finish().reinterpret_as_int()
-  if actual_crc != entry.crc32 {
-    return Err(
-      "invalid zip structure: crc32 mismatch for entry: " +
-      entry.name +
-      " expected=" +
-      entry.crc32.to_string() +
-      " actual=" +
-      actual_crc.to_string(),
-    )
-  }
-  Ok(())
 }
 
 ///|
@@ -590,6 +528,20 @@ pub fn classify_zip_error(err : ZipError) -> ZipErrorInfo {
         entry_name: extract_backtick_wrapped_name(detail),
         detail: err.to_string(),
       }
+    ChecksumMismatch(path, _, _) =>
+      {
+        kind: ReadEntryFailed,
+        mapping: DirectVariant,
+        entry_name: Some(path),
+        detail: err.to_string(),
+      }
+    BudgetExceeded(_) =>
+      {
+        kind: ReadEntryFailed,
+        mapping: DirectVariant,
+        entry_name: None,
+        detail: err.to_string(),
+      }
     UnexpectedEOF(_) | InvalidSignature(_, _, _) =>
       {
         kind: MalformedArchive,
@@ -603,50 +555,10 @@ pub fn classify_zip_error(err : ZipError) -> ZipErrorInfo {
 
 ///|
 fn validate_entry_supported_flags(
-  flags : Int,
+  flags : Int32,
   entry_name : String,
 ) -> Unit raise ZipError {
   if (flags & GP_FLAG_ENCRYPTED) != 0 {
     raise InvalidStructure("encrypted zip is not supported: " + entry_name)
   }
-}
-
-///|
-fn validate_crc32(decoded : Bytes, entry : ZipEntryMeta) -> Unit raise ZipError {
-  let actual = crc32_of_bytes(decoded)
-  if actual != entry.crc32 {
-    raise InvalidStructure(
-      "crc32 mismatch for entry: " +
-      entry.name +
-      " expected=" +
-      entry.crc32.to_string() +
-      " actual=" +
-      actual.to_string(),
-    )
-  }
-}
-
-///|
-fn crc32_of_bytes(bytes : Bytes) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
-  for b in bytes {
-    let value = b.to_uint()
-    crc = crc32_update_byte(crc, value)
-  }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
-}
-
-///|
-fn crc32_update_byte(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
-  let mut i = 0
-  while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
-    } else {
-      acc = acc >> 1
-    }
-    i = i + 1
-  }
-  acc
 }

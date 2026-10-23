@@ -7,8 +7,11 @@ import {
 }
 
 import {
+  "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
 } for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

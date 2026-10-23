@@ -1,8 +1,8 @@
 ///|
-fn parse_source_presentation(
+async fn parse_source_presentation(
   ctx : PptxSourceParseContext,
   part_graph : PptxPartGraph,
-) -> PptxSourcePresentation raise {
+) -> PptxSourcePresentation {
   let part_name = part_graph.root_presentation_part.unwrap_or(
     "ppt/presentation.xml",
   )
@@ -17,11 +17,11 @@ fn parse_source_presentation(
 }
 
 ///|
-fn parse_presentation_slide_entries(
+async fn parse_presentation_slide_entries(
   ctx : PptxSourceParseContext,
   part_name : String,
   xml_text : String,
-) -> Array[PptxSlideRef] raise {
+) -> Array[PptxSlideRef] {
   let bs = @utf8.encode(xml_text)
   let raw : Array[(String, String?, Bool, String)] = []
   let open_pat = pat("<p:sldId")

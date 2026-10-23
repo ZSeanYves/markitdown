@@ -1,5 +1,5 @@
 ///|
-test "input detection honors explicit mime extension and heuristic priority" {
+async test "input detection honors explicit mime extension and heuristic priority" {
   let explicit = input_from_text_with_format(
       "plain",
       "fixture.pdf",
@@ -30,7 +30,7 @@ test "input detection honors explicit mime extension and heuristic priority" {
 }
 
 ///|
-test "input detection covers binary magic signatures" {
+async test "input detection covers binary magic signatures" {
   let fixtures : Array[(Array[Byte], DetectedFormat)] = [
     ([0x25, 0x50, 0x44, 0x46], Pdf),
     ([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x41, 0x56, 0x45], Audio(Wav)),
@@ -55,7 +55,7 @@ test "input detection covers binary magic signatures" {
 }
 
 ///|
-test "input detection covers structured text signatures" {
+async test "input detection covers structured text signatures" {
   let fixtures : Array[(String, DetectedFormat)] = [
     ("WEBVTT\n\n00:00.000 --> 00:01.000", Vtt),
     ("From: alice@example.test\nSubject: Hi\n\nBody", Eml),
@@ -102,7 +102,7 @@ test "input format labels include aliases media and unknown" {
 }
 
 ///|
-test "input readers prefer attached payloads and report controlled failures" {
+async test "input readers prefer attached payloads and report controlled failures" {
   let source = input_from_path("/definitely/missing/markitdown-input")
     |> with_text_payload("attached")
     |> with_bytes_payload(Bytes::from_array([65, 66]))
@@ -114,17 +114,13 @@ test "input readers prefer attached payloads and report controlled failures" {
   assert_true(read_input_text(invalid) == Err("utf8 decode failed"))
   let failed = input_from_reader({
     size: None,
-    read_at: fn(_offset, _length) { Err("unavailable") },
-    read_at_async: async fn(_offset, _length) {
+    read_at: async fn(_offset, _length) {
       @async.sleep(0)
       Err("unavailable")
     },
-    async_only: false,
   })
-  assert_true(read_input_text(failed) == Err("reader read failed: unavailable"))
-  assert_true(
-    read_input_bytes(failed) == Err("reader read failed: unavailable"),
-  )
+  assert_true(read_input_text(failed) == Err("unavailable"))
+  assert_true(read_input_bytes(failed) == Err("unavailable"))
 }
 
 ///|
@@ -143,13 +139,12 @@ async test "async reader uses the async callback and keeps byte limits" {
   )
   let source = input_from_reader(reader, source_name="async.txt")
   @async.sleep(0)
-  assert_true(read_input_bytes_async(source) == Ok(payload))
+  assert_true(read_input_bytes(source) == Ok(payload))
   assert_true(calls.val > 0)
-  assert_true(input_source_is_async_reader(source))
 }
 
 ///|
-test "reader payload supports bounded detection and complete materialization" {
+async test "reader payload supports bounded detection and complete materialization" {
   let payload = @utf8.encode("reader payload")
   let reader = make_input_reader(
     fn(offset, length) {
@@ -168,13 +163,17 @@ test "reader payload supports bounded detection and complete materialization" {
 }
 
 ///|
-test "input payload branches enforce reader size and request contracts" {
+async test "input payload branches enforce reader size and request contracts" {
   let raw_path : InputSource = {
     source_name: "raw.txt",
     payload: Path("/tmp/raw.txt"),
     origin_path: None,
     mime_type: None,
     explicit_format: None,
+    session: None,
+    byte_limit: None,
+    physical_bytes: None,
+    derived_entry_limit: None,
   }
   assert_true(input_kind(raw_path) == Path)
   assert_true(input_path(raw_path) == Some("/tmp/raw.txt"))
@@ -209,7 +208,7 @@ test "input payload branches enforce reader size and request contracts" {
 }
 
 ///|
-test "input detection identifies real ZIP package families without extensions" {
+async test "input detection identifies real ZIP package families without extensions" {
   let fixtures : Array[(String, DetectedFormat)] = [
     ("samples/fixtures/contracts/docx/golden.docx", Docx),
     ("samples/fixtures/contracts/pptx/pptx_simple.pptx", Pptx),
@@ -231,7 +230,7 @@ test "input detection identifies real ZIP package families without extensions" {
 }
 
 ///|
-test "source cursor borrows memory views and bounds random access" {
+async test "source cursor borrows memory views and bounds random access" {
   let bytes = @utf8.encode("0123456789")
   let cursor = open_source_cursor(input_from_bytes(bytes), max_bytes=10L).unwrap()
   assert_true(cursor.size == Some(10L))
@@ -252,39 +251,38 @@ test "source cursor borrows memory views and bounds random access" {
 }
 
 ///|
-test "reader limit wrapper rejects invalid requests and preserves callback failures" {
+async test "reader limits reject invalid requests and preserve callback failures" {
   let bounded = input_source_with_reader_limit(
     input_from_reader(
       make_input_reader(fn(_offset, _length) { Err("callback unavailable") }),
     ),
     4L,
   )
-  match bounded.payload {
-    Reader(reader) => {
-      assert_true(
-        (reader.read_at)(-1L, 1) ==
-        Err("reader offset and length must be non-negative"),
-      )
-      assert_true(
-        (reader.read_at)(5L, 1) ==
-        Err("input byte limit exceeded: observed=5; limit=4"),
-      )
-      assert_true((reader.read_at)(0L, 1) == Err("callback unavailable"))
-    }
-    _ => fail("reader limit wrapper must preserve a reader payload")
-  }
+  let cursor = open_source_cursor(bounded).unwrap()
+  assert_true(source_cursor_read_at(cursor, -1L, length=1) is Err(_))
+  assert_true(
+    source_cursor_read_at(open_source_cursor(bounded).unwrap(), 5L, length=1) ==
+    Err("input byte limit exceeded: observed=5; limit=4"),
+  )
+  assert_true(
+    source_cursor_read_at(open_source_cursor(bounded).unwrap(), 0L, length=1) ==
+    Err("callback unavailable"),
+  )
 }
 
 ///|
-test "source cursor rejects callback over-read contracts" {
+async test "source cursor rejects callback over-read contracts" {
   let over_requested : SourceCursor = {
     size: None,
-    read_at: fn(_offset, length) { Ok(Bytes::new(length + 1)) },
-    read_at_async: async fn(_offset, length) {
+    read_at: async fn(_offset, length) {
       @async.sleep(0)
       Ok(Bytes::new(length + 1))
     },
     view_at: fn(_offset, _length) { None },
+    close_file: fn() {  },
+    is_closed: fn() { false },
+    failure: Ref(None),
+    max_bytes: 512L * 1024L * 1024L,
   }
   assert_true(
     source_cursor_read_at(over_requested, 0L, length=1) ==
@@ -292,12 +290,15 @@ test "source cursor rejects callback over-read contracts" {
   )
   let beyond_declared : SourceCursor = {
     size: Some(1L),
-    read_at: fn(_offset, _length) { Ok(Bytes::new(2)) },
-    read_at_async: async fn(_offset, _length) {
+    read_at: async fn(_offset, _length) {
       @async.sleep(0)
       Ok(Bytes::new(2))
     },
     view_at: fn(_offset, _length) { None },
+    close_file: fn() {  },
+    is_closed: fn() { false },
+    failure: Ref(None),
+    max_bytes: 512L * 1024L * 1024L,
   }
   assert_true(
     source_cursor_read_at(beyond_declared, 0L, length=2) ==
@@ -306,7 +307,7 @@ test "source cursor rejects callback over-read contracts" {
 }
 
 ///|
-test "input MIME registry covers every supported format family" {
+async test "input MIME registry covers every supported format family" {
   let fixtures : Array[(String, DetectedFormat)] = [
     ("text/plain", Txt),
     ("text/x-markdown", Markdown),
@@ -411,7 +412,7 @@ test "input canonical labels round trip all detected formats" {
 }
 
 ///|
-test "input text signature helpers reject malformed lookalikes" {
+async test "input text signature helpers reject malformed lookalikes" {
   assert_true(!detect_eml_text_signature("From: a\nBody"))
   assert_true(!detect_rst_text_signature("Title\n==x"))
   assert_true(!detect_asciidoc_text_signature("ordinary text"))

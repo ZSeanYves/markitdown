@@ -6,6 +6,12 @@ import {
   "ZSeanYves/markitdown/lib/input",
 }
 
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

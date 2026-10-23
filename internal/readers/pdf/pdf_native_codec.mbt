@@ -1,18 +1,18 @@
 ///|
 #warnings("-unnecessary_annotation")
 pub fn inflate_pdf_stream(compressed : Bytes) -> Result[Bytes, String] {
-  try @zlib.zlib_decompress(compressed) |> Ok catch {
-    @zlib.ZlibError(_, message) => Err(message)
+  try pdf_inflate_zlib_bounded(compressed, None) |> Ok catch {
+    PdfHardDecodeFailure(error) => Err(error.to_string())
   }
 }
 
 ///|
-fn pdf_ascii_is_whitespace(byte : Int) -> Bool {
+fn pdf_ascii_is_whitespace(byte : Int32) -> Bool {
   byte == 0 || byte == 9 || byte == 10 || byte == 12 || byte == 13 || byte == 32
 }
 
 ///|
-fn pdf_hex_nibble(byte : Int) -> Int? {
+fn pdf_hex_nibble(byte : Int32) -> Int32? {
   if byte >= '0'.to_int() && byte <= '9'.to_int() {
     Some(byte - '0'.to_int())
   } else if byte >= 'A'.to_int() && byte <= 'F'.to_int() {
@@ -27,7 +27,7 @@ fn pdf_hex_nibble(byte : Int) -> Int? {
 ///|
 pub fn decode_pdf_ascii_hex_stream(encoded : Bytes) -> Result[Bytes, String] {
   let out : Array[Byte] = []
-  let mut high : Int? = None
+  let mut high : Int32? = None
   for byte in encoded {
     let value = byte.to_int()
     if pdf_ascii_is_whitespace(value) {
@@ -56,7 +56,7 @@ pub fn decode_pdf_ascii_hex_stream(encoded : Bytes) -> Result[Bytes, String] {
 }
 
 ///|
-fn ascii85_value(byte : Int) -> Int? {
+fn ascii85_value(byte : Int32) -> Int32? {
   if byte >= '!'.to_int() && byte <= 'u'.to_int() {
     Some(byte - '!'.to_int())
   } else {
@@ -67,7 +67,7 @@ fn ascii85_value(byte : Int) -> Int? {
 ///|
 pub fn decode_pdf_ascii85_stream(encoded : Bytes) -> Result[Bytes, String] {
   let out : Array[Byte] = []
-  let digits : Array[Int] = []
+  let digits : Array[Int32] = []
   let mut index = 0
   while index < encoded.length() {
     let byte = encoded[index].to_int()
@@ -95,7 +95,7 @@ pub fn decode_pdf_ascii85_stream(encoded : Bytes) -> Result[Bytes, String] {
     }
     digits.push(value)
     if digits.length() == 5 {
-      let mut acc : Int = 0
+      let mut acc : Int32 = 0
       for digit in digits {
         acc = acc * 85 + digit
       }
@@ -111,7 +111,7 @@ pub fn decode_pdf_ascii85_stream(encoded : Bytes) -> Result[Bytes, String] {
     while digits.length() < 5 {
       digits.push(84)
     }
-    let mut acc : Int = 0
+    let mut acc : Int32 = 0
     for digit in digits {
       acc = acc * 85 + digit
     }
@@ -162,16 +162,16 @@ pub fn decode_pdf_run_length_stream(encoded : Bytes) -> Result[Bytes, String] {
 
 ///|
 priv struct PdfStreamDecodeParams {
-  predictor : Int?
-  colors : Int?
-  bits_per_component : Int?
-  columns : Int?
-  early_change : Int?
+  predictor : Int32?
+  colors : Int32?
+  bits_per_component : Int32?
+  columns : Int32?
+  early_change : Int32?
 }
 
 ///|
-fn pdf_lzw_initial_dictionary() -> Map[Int, Array[Byte]] {
-  let dictionary : Map[Int, Array[Byte]] = Map([])
+fn pdf_lzw_initial_dictionary() -> Map[Int32, Array[Byte]] {
+  let dictionary : Map[Int32, Array[Byte]] = Map([])
   for value in 0..<256 {
     dictionary.set(value, [value.to_byte()])
   }
@@ -179,7 +179,11 @@ fn pdf_lzw_initial_dictionary() -> Map[Int, Array[Byte]] {
 }
 
 ///|
-fn pdf_lzw_read_code(encoded : Bytes, bit_offset : Int, width : Int) -> Int? {
+fn pdf_lzw_read_code(
+  encoded : Bytes,
+  bit_offset : Int32,
+  width : Int32,
+) -> Int32? {
   if width <= 0 {
     return None
   }
@@ -212,7 +216,7 @@ fn pdf_lzw_entry_with_suffix(
 ///|
 fn decode_pdf_lzw_stream(
   encoded : Bytes,
-  early_change? : Int = 1,
+  early_change~ : Int32 = 1,
 ) -> Result[Bytes, String] {
   let clear_code = 256
   let end_code = 257
@@ -265,7 +269,7 @@ fn decode_pdf_lzw_stream(
 }
 
 ///|
-fn pdf_decode_param_or_default(value : Int?, fallback : Int) -> Int {
+fn pdf_decode_param_or_default(value : Int32?, fallback : Int32) -> Int32 {
   match value {
     Some(v) => v
     None => fallback
@@ -275,7 +279,7 @@ fn pdf_decode_param_or_default(value : Int?, fallback : Int) -> Int {
 ///|
 fn pdf_predictor_row_bytes(
   params : PdfStreamDecodeParams,
-) -> Result[(Int, Int), String] {
+) -> Result[(Int32, Int32), String] {
   let colors = pdf_decode_param_or_default(params.colors, 1)
   let bits_per_component = pdf_decode_param_or_default(
     params.bits_per_component,
@@ -327,7 +331,7 @@ fn pdf_apply_tiff_predictor(
 }
 
 ///|
-fn pdf_png_paeth_predictor(left : Int, up : Int, up_left : Int) -> Int {
+fn pdf_png_paeth_predictor(left : Int32, up : Int32, up_left : Int32) -> Int32 {
   let p = left + up - up_left
   let pa = (p - left).abs()
   let pb = (p - up).abs()
@@ -344,11 +348,11 @@ fn pdf_png_paeth_predictor(left : Int, up : Int, up_left : Int) -> Int {
 ///|
 fn pdf_apply_png_filter_row(
   out : Array[Byte],
-  row_start : Int,
-  row_bytes : Int,
-  bytes_per_pixel : Int,
-  previous_row_start : Int?,
-  filter_type : Int,
+  row_start : Int32,
+  row_bytes : Int32,
+  bytes_per_pixel : Int32,
+  previous_row_start : Int32?,
+  filter_type : Int32,
 ) -> Result[Unit, String] {
   for index in 0..<row_bytes {
     let raw = out[row_start + index].to_int()
@@ -402,7 +406,7 @@ fn pdf_apply_png_predictor(
     }
     let source = decoded.to_array()
     let out : Array[Byte] = Array(capacity=decoded.length())
-    let mut previous_row_start : Int? = None
+    let mut previous_row_start : Int32? = None
     let mut source_row_start = 0
     while source_row_start < source.length() {
       let filter_type = source[source_row_start].to_int()
@@ -429,7 +433,7 @@ fn pdf_apply_png_predictor(
     return Err("PNG predictor row length mismatch")
   }
   let out = decoded.to_array()
-  let mut previous_row_start : Int? = None
+  let mut previous_row_start : Int32? = None
   let mut row_start = 0
   while row_start < out.length() {
     match
@@ -474,10 +478,15 @@ fn pdf_apply_stream_predictor(
 fn apply_pdf_stream_filter(
   payload : Bytes,
   filter_name : String,
-  params? : PdfStreamDecodeParams? = None,
-) -> Result[Bytes, String] {
+  params~ : PdfStreamDecodeParams? = None,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  stream_framing~ : PdfNativeStreamSlice? = None,
+) -> Result[Bytes, String] raise PdfHardDecodeFailure {
   let decoded = match filter_name {
-    "FlateDecode" => inflate_pdf_stream(payload)
+    "FlateDecode" =>
+      Ok(
+        pdf_decode_flate_stream_framing(payload, decode_context, stream_framing),
+      )
     "ASCIIHexDecode" => decode_pdf_ascii_hex_stream(payload)
     "ASCII85Decode" => decode_pdf_ascii85_stream(payload)
     "RunLengthDecode" => decode_pdf_run_length_stream(payload)
@@ -505,11 +514,20 @@ fn decode_pdf_stream_filters_with_params(
   payload : Bytes,
   filters : Array[String],
   params : Array[PdfStreamDecodeParams?],
-) -> Result[Bytes, String] {
+  decode_context~ : PdfStreamDecodeContext? = None,
+  stream_framing~ : PdfNativeStreamSlice? = None,
+) -> Result[Bytes, String] raise PdfHardDecodeFailure {
   let mut decoded = payload
   for i in 0..<filters.length() {
     let param = if i < params.length() { params[i] } else { None }
-    decoded = match apply_pdf_stream_filter(decoded, filters[i], params=param) {
+    decoded = match
+      apply_pdf_stream_filter(
+        decoded,
+        filters[i],
+        params=param,
+        decode_context~,
+        stream_framing=if i == 0 { stream_framing } else { None },
+      ) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
@@ -526,5 +544,7 @@ pub fn decode_pdf_stream_filters(
   for _ in filters {
     params.push(None)
   }
-  decode_pdf_stream_filters_with_params(payload, filters, params)
+  decode_pdf_stream_filters_with_params(payload, filters, params) catch {
+    PdfHardDecodeFailure(error) => Err(error.to_string())
+  }
 }

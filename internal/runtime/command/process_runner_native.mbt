@@ -5,12 +5,12 @@ priv type NativeCommandResult
 #borrow(argv_blob)
 extern "c" fn native_run_command(
   argv_blob : Bytes,
-  argv_blob_len : Int,
-  argv_count : Int,
-  timeout_ms : Int,
-  max_stdout_bytes : Int,
-  max_stderr_bytes : Int,
-  termination_grace_ms : Int,
+  argv_blob_len : Int32,
+  argv_count : Int32,
+  timeout_ms : Int32,
+  max_stdout_bytes : Int32,
+  max_stderr_bytes : Int32,
+  termination_grace_ms : Int32,
 ) -> NativeCommandResult = "markitdown_command_run"
 
 ///|
@@ -23,23 +23,25 @@ extern "c" fn native_command_result_is_null(
 #borrow(result)
 extern "c" fn native_command_result_spawn_error(
   result : NativeCommandResult,
-) -> Int = "markitdown_command_result_spawn_error"
+) -> Int32 = "markitdown_command_result_spawn_error"
 
 ///|
 #borrow(result)
 extern "c" fn native_command_result_wait_error(
   result : NativeCommandResult,
-) -> Int = "markitdown_command_result_wait_error"
+) -> Int32 = "markitdown_command_result_wait_error"
 
 ///|
 #borrow(result)
 extern "c" fn native_command_result_exit_code(
   result : NativeCommandResult,
-) -> Int = "markitdown_command_result_exit_code"
+) -> Int32 = "markitdown_command_result_exit_code"
 
 ///|
 #borrow(result)
-extern "c" fn native_command_result_signal(result : NativeCommandResult) -> Int = "markitdown_command_result_signal"
+extern "c" fn native_command_result_signal(
+  result : NativeCommandResult,
+) -> Int32 = "markitdown_command_result_signal"
 
 ///|
 #borrow(result)
@@ -75,7 +77,7 @@ extern "c" fn native_command_result_stderr(
 pub fn run_resolved_command(
   command : ResolvedCommand,
   args : Array[String],
-  limits? : CommandLimits = default_command_limits(),
+  limits~ : CommandLimits = default_command_limits(),
 ) -> Result[CommandOutput, String] {
   if limits.timeout_ms <= 0 ||
     limits.max_stdout_bytes < 0 ||
@@ -140,7 +142,7 @@ pub fn run_resolved_command(
 pub async fn run_resolved_command_async(
   command : ResolvedCommand,
   args : Array[String],
-  limits? : CommandLimits = default_command_limits(),
+  limits~ : CommandLimits = default_command_limits(),
 ) -> Result[CommandOutput, String] {
   if limits.timeout_ms <= 0 ||
     limits.max_stdout_bytes < 0 ||
@@ -221,7 +223,7 @@ pub async fn run_resolved_command_async(
 ///|
 async fn[R : @aio.Reader] read_bounded_process_output(
   reader : R,
-  limit : Int,
+  limit : Int32,
   process : @process.Process,
 ) -> (Bytes, Bool) {
   let output = Buffer(size_hint=limit.min(64 * 1024))

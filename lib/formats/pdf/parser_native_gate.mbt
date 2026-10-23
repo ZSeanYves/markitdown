@@ -1,5 +1,5 @@
 ///|
-fn pdf_native_parser_enabled_result(
+async fn pdf_native_parser_enabled_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
@@ -292,6 +292,9 @@ fn pdf_native_error_taxonomy(error : PdfNativeError) -> (String, String) {
     EmptyTextLayer(_) => ("empty_text_layer", "pdf_native_empty_text_layer")
     UnsupportedFeature(_) =>
       ("unsupported_feature", "pdf_native_unsupported_feature")
+    BudgetExceeded(_) => ("resource_budget", "pdf_native_resource_budget")
+    StreamIntegrityFailed(_, _) =>
+      ("stream_integrity", "pdf_native_stream_integrity")
   }
 }
 

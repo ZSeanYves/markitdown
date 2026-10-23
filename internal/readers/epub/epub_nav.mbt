@@ -55,7 +55,7 @@ fn parse_ncx_nav_points(
 fn parse_ncx_nav_points_from_elements(
   elements : Array[String],
   source_path : String,
-  depth : Int,
+  depth : Int32,
 ) -> Array[EpubNavPoint] {
   let out : Array[EpubNavPoint] = []
   for nav_point_xml in elements {

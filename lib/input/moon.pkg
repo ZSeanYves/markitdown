@@ -1,18 +1,24 @@
 import {
+  "moonbitlang/core/buffer",
   "moonbitlang/core/encoding/utf8",
-  "moonbitlang/x/fs",
   "ZSeanYves/markitdown/internal/readers/zip",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
+  "moonbitlang/async",
+  "moonbitlang/async/fs" @async_fs,
 }
 
 import {
   "moonbitlang/async",
+  "moonbitlang/x/fs",
 } for "wbtest"
+
+import {
+  "moonbitlang/x/fs",
+} for "test"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",
   "native-stub": [ "source_cursor_native_stub.c" ],
-  targets: {
-    "source_cursor_native.mbt": [ "native" ],
-    "source_cursor_portable.mbt": [ "wasm", "wasm-gc", "js" ],
-  },
 )

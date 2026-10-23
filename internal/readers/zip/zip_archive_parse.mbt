@@ -1,5 +1,5 @@
 ///|
-fn find_eocd(bytes : Bytes) -> Int raise ZipError {
+fn find_eocd(bytes : Bytes) -> Int32 raise ZipError {
   let len = bytes.length()
   if len < 22 {
     raise UnexpectedEOF("zip smaller than minimum EOCD size")
@@ -23,18 +23,18 @@ fn find_eocd(bytes : Bytes) -> Int raise ZipError {
 ///|
 fn parse_eocd(
   bytes : Bytes,
-  eocd_offset : Int,
-) -> (Int, Int, Int) raise ZipError {
+  eocd_offset : Int32,
+) -> (Int32, Int32, Int32) raise ZipError {
   parse_eocd_window(bytes, eocd_offset, bytes.length(), 0)
 }
 
 ///|
 fn parse_eocd_window(
   bytes : Bytes,
-  eocd_offset : Int,
-  archive_size : Int,
-  window_start : Int,
-) -> (Int, Int, Int) raise ZipError {
+  eocd_offset : Int32,
+  archive_size : Int32,
+  window_start : Int32,
+) -> (Int32, Int32, Int32) raise ZipError {
   let sig = read_u32_le(bytes, eocd_offset, "EOCD signature")
   if sig != EOCD_SIG {
     raise InvalidSignature("EOCD", EOCD_SIG, sig)
@@ -77,9 +77,9 @@ fn parse_eocd_window(
 ///|
 fn parse_cd_entries(
   bytes : Bytes,
-  cd_offset : Int,
-  cd_size : Int,
-  entry_count : Int,
+  cd_offset : Int32,
+  cd_size : Int32,
+  entry_count : Int32,
 ) -> Array[ZipEntryMeta] raise ZipError {
   let entries : Array[ZipEntryMeta] = []
   let mut cursor = cd_offset
@@ -185,7 +185,7 @@ fn parse_cd_entries(
 }
 
 ///|
-fn compression_method_from_code(code : Int) -> CompressionMethod {
+fn compression_method_from_code(code : Int32) -> CompressionMethod {
   if code == 0 {
     Store
   } else if code == 8 {
@@ -196,24 +196,24 @@ fn compression_method_from_code(code : Int) -> CompressionMethod {
 }
 
 ///|
-fn is_encrypted_flag(flags : Int) -> Bool {
+fn is_encrypted_flag(flags : Int32) -> Bool {
   (flags & GP_FLAG_ENCRYPTED) != 0
 }
 
 ///|
-fn has_data_descriptor_flag(flags : Int) -> Bool {
+fn has_data_descriptor_flag(flags : Int32) -> Bool {
   (flags & GP_FLAG_DATA_DESCRIPTOR) != 0
 }
 
 ///|
-fn is_zip64_u32_sentinel(value : Int) -> Bool {
+fn is_zip64_u32_sentinel(value : Int32) -> Bool {
   value == ZIP64_U32_SENTINEL || value == ZIP64_U32_SENTINEL_SIGNED
 }
 
 ///|
 fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let infos0 : Array[ZipEntryInfo] = []
-  let normalized_counts : Map[String, Int] = Map([])
+  let normalized_counts : Map[String, Int32] = Map([])
 
   for meta in archive.entries {
     let info = build_zip_entry_info(meta)
@@ -233,7 +233,7 @@ fn build_zip_archive_report(archive : ZipArchive) -> ZipArchiveInspectReport {
   let issues = collect_zip_validation_issues_from_infos(
     infos0, normalized_counts,
   )
-  let issue_counts : Map[String, Int] = Map([])
+  let issue_counts : Map[String, Int32] = Map([])
   let mut warning_count = 0
   let mut error_count = 0
   for issue in issues {
@@ -381,7 +381,7 @@ fn build_zip_entry_info(meta : ZipEntryMeta) -> ZipEntryInfo {
 ///|
 fn collect_zip_validation_issues_from_infos(
   infos : Array[ZipEntryInfo],
-  normalized_counts : Map[String, Int],
+  normalized_counts : Map[String, Int32],
 ) -> Array[ZipValidationIssue] {
   let issues : Array[ZipValidationIssue] = []
 
@@ -572,7 +572,7 @@ fn normalize_entry_path_impl(
 }
 
 ///|
-fn compare_zip_entry_info(a : ZipEntryInfo, b : ZipEntryInfo) -> Int {
+fn compare_zip_entry_info(a : ZipEntryInfo, b : ZipEntryInfo) -> Int32 {
   let a_key = zip_entry_sort_key(a)
   let b_key = zip_entry_sort_key(b)
   let primary = a_key[:].lexical_compare(b_key[:])
@@ -672,12 +672,12 @@ fn file_ext_lower(path : String) -> String {
 }
 
 ///|
-fn zip_entry_directory_depth(path : String) -> Int {
+fn zip_entry_directory_depth(path : String) -> Int32 {
   let trimmed = path.trim()
   if trimmed == "" {
     return 0
   }
-  trimmed.split("/").length()
+  trimmed.split("/").count()
 }
 
 ///|
@@ -735,9 +735,9 @@ fn extract_backtick_wrapped_name(src : String) -> String? {
 ///|
 fn read_u16_le(
   bytes : Bytes,
-  offset : Int,
+  offset : Int32,
   context : String,
-) -> Int raise ZipError {
+) -> Int32 raise ZipError {
   let tail = offset + 2
   if offset < 0 || tail > bytes.length() {
     raise UnexpectedEOF(context)
@@ -749,9 +749,9 @@ fn read_u16_le(
 ///|
 fn read_u32_le(
   bytes : Bytes,
-  offset : Int,
+  offset : Int32,
   context : String,
-) -> Int raise ZipError {
+) -> Int32 raise ZipError {
   let tail = offset + 4
   if offset < 0 || tail > bytes.length() {
     raise UnexpectedEOF(context)
@@ -766,8 +766,8 @@ fn read_u32_le(
 ///|
 fn subview(
   bytes : Bytes,
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
   context : String,
 ) -> Bytes raise ZipError {
   if start < 0 || end_ < start || end_ > bytes.length() {
@@ -777,10 +777,10 @@ fn subview(
 }
 
 ///|
-fn read_zip_source_exact(
-  read_at : (Int, Int) -> Result[Bytes, String],
-  offset : Int,
-  length : Int,
+async fn read_zip_source_exact(
+  read_at : async (Int32, Int32) -> Result[Bytes, String],
+  offset : Int32,
+  length : Int32,
   context : String,
 ) -> Bytes raise ZipError {
   if offset < 0 || length < 0 {
@@ -794,11 +794,11 @@ fn read_zip_source_exact(
 }
 
 ///|
-fn read_zip_source_fully(
-  read_at : (Int, Int) -> Result[Bytes, String],
-  offset : Int,
-  length : Int,
-) -> Result[Bytes, String] {
+async fn read_zip_source_fully(
+  read_at : async (Int32, Int32) -> Result[Bytes, String],
+  offset : Int32,
+  length : Int32,
+) -> Result[Bytes, String] noraise {
   if offset < 0 || length < 0 {
     return Err("zip source range must be non-negative")
   }
@@ -809,7 +809,10 @@ fn read_zip_source_fully(
   let mut consumed = 0
   while consumed < length {
     let remaining = length - consumed
-    let chunk = match read_at(offset + consumed, remaining) {
+    let read = read_at(offset + consumed, remaining) catch {
+      error => return Err("zip source reader failed: " + error.to_string())
+    }
+    let chunk = match read {
       Ok(value) => value
       Err(message) => return Err("zip source read failed: " + message)
     }
@@ -826,10 +829,10 @@ fn read_zip_source_fully(
 }
 
 ///|
-fn read_zip_archive_range(
+async fn read_zip_archive_range(
   archive : ZipArchive,
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
   context : String,
 ) -> Bytes raise ZipError {
   if start < 0 || end_ < start || end_ > archive.source_size {
@@ -842,13 +845,13 @@ fn read_zip_archive_range(
 fn bytes_to_string(bytes : Bytes) -> String {
   let chars : Array[Char] = []
   for b in bytes {
-    chars.push(Int::unsafe_to_char(byte_to_int(b)))
+    chars.push(Int32::unsafe_to_char(byte_to_int(b)))
   }
   String::from_array(chars)
 }
 
 ///|
-fn byte_to_int(b : Byte) -> Int {
+fn byte_to_int(b : Byte) -> Int32 {
   let v = b.to_int()
   if v >= 0 {
     v

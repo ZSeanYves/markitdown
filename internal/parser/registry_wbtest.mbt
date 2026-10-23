@@ -13,143 +13,242 @@ fn registry_fixture_parser(name : String, mode : ParserMode) -> Parser {
 }
 
 ///|
-test "parser registry preserves default and selects newest mode override" {
+async test "parser registry preserves default and selects newest mode override" {
   let registry = empty_registry()
-  let default = registry_fixture_parser("default", DomAstModel)
-  let first_stream = registry_fixture_parser("stream-old", BlockStreaming)
-  let newest_stream = registry_fixture_parser("stream-new", BlockStreaming)
-  registry_register(registry, Txt, default)
-  registry_register(registry, Txt, first_stream)
-  registry_register(registry, Txt, newest_stream)
-  assert_true(registry_lookup(registry, Txt).unwrap().name == "default")
+  registry_register(
+    registry,
+    Txt,
+    registry_fixture_parser("default", DomAstModel),
+  )
+  registry_register(
+    registry,
+    Txt,
+    registry_fixture_parser("stream-old", BlockStreaming),
+  )
+  registry_register(
+    registry,
+    Txt,
+    registry_fixture_parser("stream-new", BlockStreaming),
+  )
+  assert_eq(registry_lookup(registry, Txt).unwrap().name, "default")
   assert_true(registry_lookup(registry, Pdf) is None)
-
   let source = @input.input_from_text("fixture")
-  let default_result = registry_parse(registry, source, new_parse_context(Txt))
-  assert_true(default_result.unwrap().parser_name == "default")
-  let stream_context = {
+  assert_eq(
+    registry_parse(registry, source, new_parse_context(Txt)).unwrap().parser_name,
+    "default",
+  )
+  let context = {
     ..new_parse_context(Txt),
     requested_mode: Some(BlockStreaming),
   }
-  let stream_result = registry_parse(registry, source, stream_context)
-  assert_true(stream_result.unwrap().parser_name == "stream-new")
-  let unmatched_context = {
-    ..stream_context,
-    requested_mode: Some(StreamingEvent),
-  }
-  assert_true(
-    registry_parse(registry, source, unmatched_context).unwrap().parser_name ==
+  assert_eq(
+    registry_parse(registry, source, context).unwrap().parser_name,
+    "stream-new",
+  )
+  assert_eq(
+    registry_parse(registry, source, {
+      ..context,
+      requested_mode: Some(StreamingEvent),
+    }).unwrap().parser_name,
     "default",
   )
 }
 
 ///|
-test "parser registry returns controlled missing-format errors" {
-  let result = registry_parse(
-    empty_registry(),
-    @input.input_from_text("fixture"),
-    new_parse_context(Json),
+async test "parser registry reports missing formats and absent pull contracts" {
+  let registry = empty_registry()
+  let source = @input.input_from_text("fixture")
+  let context = new_parse_context(Json)
+  assert_true(
+    registry_parse(registry, source, context)
+    is Err("no parser registered for format: json"),
   )
-  let missing_error = match result {
-    Err(message) => message == "no parser registered for format: json"
-    Ok(_) => false
-  }
-  assert_true(missing_error)
-  assert_eq(registry_key(Markdown), "markdown")
-  let sync_registry = empty_registry()
+  assert_true(
+    registry_open_event_stream(registry, source, context)
+    is Err("no parser registered for format: json"),
+  )
   registry_register(
-    sync_registry,
-    Txt,
-    registry_fixture_parser("sync", DomAstModel),
+    registry,
+    Json,
+    registry_fixture_parser("buffered", DomAstModel),
   )
-  let registry = async_registry_from_sync(sync_registry)
-  assert_true(async_registry_lookup(registry, Txt).unwrap().name == "sync")
-  assert_true(async_registry_lookup(registry, Pdf) is None)
+  assert_true(
+    registry_open_event_stream(registry, source, context).unwrap() is None,
+  )
+  assert_eq(registry_key(Markdown), "markdown")
+}
 
-  let async_registry = empty_async_registry()
-  let first = make_async_parser(
-    "first",
-    DomAstModel,
-    default_parser_capability(),
-    fn(_, _) {
+///|
+async test "parser dispatch waits for an asynchronous implementation" {
+  let sequence : Array[String] = []
+  let registry = empty_registry()
+  registry_register(
+    registry,
+    Txt,
+    make_parser("suspending", DomAstModel, default_parser_capability(), async fn(
+      _,
+      _,
+    ) {
+      sequence.push("start")
+      @async.sleep(1)
+      sequence.push("complete")
       Ok(
         parse_result_with_document(
-          "first",
+          "suspending",
           DomAstModel,
           @core.empty_document_ir(),
           @core.empty_diagnostics(),
         ),
       )
-    },
+    }),
   )
-  let stream = make_async_parser(
-    "stream",
-    BlockStreaming,
-    parser_capability(false, true, true),
-    fn(_, _) {
-      Ok(
-        parse_result_with_blocks(
-          "stream",
-          BlockStreaming,
-          [],
-          @core.empty_diagnostics(),
-        ),
-      )
-    },
-  )
-  async_registry_register(async_registry, Txt, first)
-  async_registry_register(async_registry, Txt, stream)
-  assert_true(
-    async_registry_lookup_for_context(async_registry, {
-      ..new_parse_context(Txt),
-      requested_mode: Some(BlockStreaming),
-    }).unwrap().name ==
-    "stream",
-  )
-  assert_true(
-    async_registry_lookup_for_context(async_registry, new_parse_context(Txt)).unwrap().name ==
-    "first",
-  )
-  assert_true(
-    !parser_matches_requested_mode(
-      registry_fixture_parser("default", DomAstModel),
-      None,
-    ),
-  )
+  let result = registry_parse(
+    registry,
+    @input.input_from_text("fixture"),
+    new_parse_context(Txt),
+  ).unwrap()
+  assert_eq(result.parser_name, "suspending")
+  assert_eq(sequence, ["start", "complete"])
 }
 
 ///|
-test "parser stable names cover disabled policies and all granularities" {
-  assert_eq(
-    pdf_native_runtime_policy_name(DisableTextRestore),
-    "disable_text_restore",
+async test "parser pull open next and finish share the async protocol" {
+  let sequence : Array[String] = []
+  let registry = empty_registry()
+  let remaining = Ref(true)
+  registry_register(
+    registry,
+    Txt,
+    make_parser(
+      "pull",
+      StreamingEvent,
+      default_parser_capability(),
+      fn(_, _) { Err("buffered parse must not run") },
+      open_stream=Some(async fn(_, _) {
+        @async.sleep(1)
+        sequence.push("open")
+        Ok(
+          Some(
+            make_parse_event_stream(
+              async fn() {
+                @async.sleep(1)
+                if remaining.val {
+                  remaining.val = false
+                  sequence.push("event")
+                  Ok(
+                    Some({
+                      kind: @core.EventKind::TextLine,
+                      text: "body",
+                      source_ref: None,
+                    }),
+                  )
+                } else {
+                  sequence.push("eof")
+                  Ok(None)
+                }
+              },
+              async fn() {
+                @async.sleep(1)
+                sequence.push("finish")
+                Ok(
+                  parse_stream_summary(
+                    "pull",
+                    StreamingEvent,
+                    default_parser_capability(),
+                    @core.empty_diagnostics(),
+                  ),
+                )
+              },
+            ),
+          ),
+        )
+      }),
+    ),
   )
-  let granularities : Array[StreamingGranularity] = [
-    Byte,
-    Line,
-    Record,
-    Row,
-    JsonStructure,
-    NotebookCellOutputGroup,
-    XmlStructure,
-    YamlStructure,
-    HtmlTokenStructure,
-    MarkdownBlock,
-    DocxBlock,
-    PptxSlide,
-    XlsxSheet,
-    XlsxRow,
-    ArchiveEntry,
-    EpubSpineItem,
-    Block,
-    Page,
-    Slide,
-    Sheet,
-    Chapter,
-    Message,
-    None,
-  ]
-  for granularity in granularities {
-    assert_true(streaming_granularity_name(granularity) != "")
-  }
+  let stream = registry_open_event_stream(
+      registry,
+      @input.input_from_text("fixture"),
+      new_parse_context(Txt),
+    )
+    .unwrap()
+    .unwrap()
+  assert_eq(sequence, ["open"])
+  assert_eq((stream.next)().unwrap().unwrap().text, "body")
+  assert_true((stream.next)().unwrap() is None)
+  assert_eq((stream.finish)().unwrap().parser_name, "pull")
+  assert_eq(sequence, ["open", "event", "eof", "finish"])
+}
+
+///|
+async test "registry preserves asynchronous parse and stream errors" {
+  let registry = empty_registry()
+  registry_register(
+    registry,
+    Txt,
+    make_parser(
+      "failure",
+      StreamingEvent,
+      default_parser_capability(),
+      async fn(_, _) {
+        @async.sleep(1)
+        Err("parse failure")
+      },
+      open_stream=Some(async fn(_, _) {
+        @async.sleep(1)
+        Err("open failure")
+      }),
+    ),
+  )
+  let source = @input.input_from_text("fixture")
+  let context = new_parse_context(Txt)
+  assert_true(registry_parse(registry, source, context) is Err("parse failure"))
+  assert_true(
+    registry_open_event_stream(registry, source, context) is Err("open failure"),
+  )
+  let stream = make_parse_event_stream(
+    async fn() {
+      @async.sleep(1)
+      Err("next failure")
+    },
+    async fn() {
+      @async.sleep(1)
+      Err("finish failure")
+    },
+  )
+  assert_true((stream.next)() is Err("next failure"))
+  assert_true((stream.finish)() is Err("finish failure"))
+}
+
+///|
+async test "registry cancellation crosses the single async parser boundary" {
+  let completed = Ref(false)
+  let registry = empty_registry()
+  registry_register(
+    registry,
+    Txt,
+    make_parser("cancel", DomAstModel, default_parser_capability(), async fn(
+      _,
+      _,
+    ) {
+      @async.sleep(1000)
+      completed.val = true
+      Ok(
+        parse_result_with_document(
+          "cancel",
+          DomAstModel,
+          @core.empty_document_ir(),
+          @core.empty_diagnostics(),
+        ),
+      )
+    }),
+  )
+  let outcome = @async.with_timeout_opt(5, async fn() {
+    registry_parse(
+      registry,
+      @input.input_from_text("fixture"),
+      new_parse_context(Txt),
+    )
+  })
+  assert_true(outcome is None)
+  assert_true(!completed.val)
 }

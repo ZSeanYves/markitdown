@@ -5,6 +5,8 @@ import {
   "ZSeanYves/markitdown/lib/input",
 }
 
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

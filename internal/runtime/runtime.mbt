@@ -3,22 +3,32 @@
 ///
 /// This helper enforces the product contract that exactly one of document,
 /// block stream, or event stream should be populated.
-pub fn parse_result_to_ir_input(result : @parser.ParseResult) -> @core.IRInput {
-  match result.document {
-    Some(document) => Document(document)
-    None =>
-      match result.block_stream {
-        Some(blocks) => BlockStream(blocks)
-        None =>
-          match result.event_stream {
-            Some(events) => EventStream(events)
-            None =>
-              abort(
-                "parse result must expose exactly one public ir shape: " +
-                result.parser_name,
-              )
-          }
-      }
+pub fn parse_result_to_ir_input(
+  result : @parser.ParseResult,
+) -> Result[@core.IRInput, String] {
+  ir_input_from_parse_shapes(
+    result.parser_name,
+    result.document,
+    result.block_stream,
+    result.event_stream,
+  )
+}
+
+///|
+fn ir_input_from_parse_shapes(
+  parser_name : String,
+  document : @core.DocumentIR?,
+  blocks : Array[@core.CoreBlock]?,
+  events : Array[@core.CoreEvent]?,
+) -> Result[@core.IRInput, String] {
+  match (document, blocks, events) {
+    (Some(document), None, None) => Ok(Document(document))
+    (None, Some(blocks), None) => Ok(BlockStream(blocks))
+    (None, None, Some(events)) => Ok(EventStream(events))
+    _ =>
+      Err(
+        "parse result must expose exactly one public ir shape: " + parser_name,
+      )
   }
 }
 
@@ -68,7 +78,7 @@ priv struct ChildParsePlan {
 /// The function reuses the root parser registry and, when necessary, the
 /// default pipeline so nested content follows the same product rules as a
 /// top-level document.
-pub fn parse_child_to_block_product(
+pub async fn parse_child_to_block_product(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -81,8 +91,12 @@ pub fn parse_child_to_block_product(
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  match parsed.document {
-    Some(document) => {
+  let input = match parse_result_to_ir_input(parsed) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  match input {
+    Document(document) => {
       let diagnostics = merge_diagnostics_append(
         parsed.diagnostics,
         document.diagnostics,
@@ -90,42 +104,43 @@ pub fn parse_child_to_block_product(
       record_child_parse_preference_metrics(diagnostics, child_plan, true)
       Ok({ blocks: document.blocks, assets: document.assets, diagnostics, })
     }
-    None =>
-      match parsed.block_stream {
-        Some(blocks) => {
-          let diagnostics = parsed.diagnostics
-          record_child_parse_preference_metrics(diagnostics, child_plan, true)
-          Ok({ blocks, assets: parsed.assets, diagnostics, })
-        }
-        None => {
-          let built = @pipeline.build_document_with_default_pipeline(
-            parse_result_to_ir_input(parsed),
-            child_pass_context(
-              product_options,
-              context,
-              parsed.diagnostics,
-              parsed.assets,
-              parsed.metadata,
-              parsed.source_map,
-              parsed.assembly,
-            ),
-            trace_builder=false,
-            trace_passes=false,
-          )
-          let diagnostics = merge_diagnostics_append(
+    BlockStream(blocks) => {
+      let diagnostics = parsed.diagnostics
+      record_child_parse_preference_metrics(diagnostics, child_plan, true)
+      Ok({ blocks, assets: parsed.assets, diagnostics, })
+    }
+    EventStream(_) => {
+      let built = match
+        @pipeline.build_document_with_default_pipeline(
+          input,
+          child_pass_context(
+            product_options,
+            context,
             parsed.diagnostics,
-            built.diagnostics,
-          )
-          record_child_parse_preference_metrics(diagnostics, child_plan, false)
-          Ok({ blocks: built.blocks, assets: built.assets, diagnostics, })
-        }
+            parsed.assets,
+            parsed.metadata,
+            parsed.source_map,
+            parsed.assembly,
+          ),
+          trace_builder=false,
+          trace_passes=false,
+        ) {
+        Ok(document) => document
+        Err(err) => return Err(err.message)
       }
+      let diagnostics = merge_diagnostics_append(
+        parsed.diagnostics,
+        built.diagnostics,
+      )
+      record_child_parse_preference_metrics(diagnostics, child_plan, false)
+      Ok({ blocks: built.blocks, assets: built.assets, diagnostics, })
+    }
   }
 }
 
 ///|
 /// Parse a nested/child source and normalize it all the way to `DocumentIR`.
-pub fn parse_child_to_document(
+pub async fn parse_child_to_document(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -136,7 +151,7 @@ pub fn parse_child_to_document(
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  Ok(child_document_from_parse_result(parsed, context))
+  child_document_from_parse_result(parsed, context)
 }
 
 ///|
@@ -147,7 +162,9 @@ fn child_parse_plan(
 ) -> ChildParsePlan {
   let requested_mode = resolved_child_requested_mode(format, source, context)
   {
-    context: child_parse_context_from_mode(format, context, requested_mode),
+    context: child_parse_context_from_mode(
+      format, source, context, requested_mode,
+    ),
     preference: child_parse_preference_name(format, source, requested_mode),
     preferred_format: @input.detected_format_name(format),
     predecoded_text_used: @input.input_text(source) is Some(_),
@@ -162,6 +179,7 @@ fn child_parse_context(
 ) -> @parser.ParseContext {
   child_parse_context_from_mode(
     format,
+    source,
     context,
     resolved_child_requested_mode(format, source, context),
   )
@@ -170,10 +188,11 @@ fn child_parse_context(
 ///|
 fn child_parse_context_from_mode(
   format : @input.DetectedFormat,
+  source : @input.InputSource,
   context : @parser.ParseContext,
   requested_mode : @parser.ParserMode?,
 ) -> @parser.ParseContext {
-  @parser.parse_context_with_limits(
+  let child = @parser.parse_context_with_limits(
     @parser.parse_context_with_pdf_table_reconstruction_policy(
       @parser.parse_context_with_pdf_header_footer_filter_policy(
         @parser.parse_context_with_pdf_native_runtime_policy(
@@ -200,6 +219,11 @@ fn child_parse_context_from_mode(
     context.max_cells,
     context.max_line_chars,
     context.debug,
+    limits=context.limits,
+  )
+  @parser.parse_context_with_input_access_limit(
+    @parser.parse_context_inherit_session(child, context),
+    @input.input_source_entry_limit(source),
   )
 }
 
@@ -419,25 +443,33 @@ fn merge_string_items(
 fn child_document_from_parse_result(
   parsed : @parser.ParseResult,
   context : @parser.ParseContext,
-) -> @core.DocumentIR {
-  let mut document = match parsed.document {
-    Some(existing) => existing
-    None => {
+) -> Result[@core.DocumentIR, String] {
+  let input = match parse_result_to_ir_input(parsed) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let mut document = match input {
+    Document(existing) => existing
+    _ => {
       let product_options = child_product_options(context)
-      let built = @pipeline.build_document_with_default_pipeline(
-        parse_result_to_ir_input(parsed),
-        child_pass_context(
-          product_options,
-          context,
-          parsed.diagnostics,
-          parsed.assets,
-          parsed.metadata,
-          parsed.source_map,
-          parsed.assembly,
-        ),
-        trace_builder=false,
-        trace_passes=false,
-      )
+      let built = match
+        @pipeline.build_document_with_default_pipeline(
+          input,
+          child_pass_context(
+            product_options,
+            context,
+            parsed.diagnostics,
+            parsed.assets,
+            parsed.metadata,
+            parsed.source_map,
+            parsed.assembly,
+          ),
+          trace_builder=false,
+          trace_passes=false,
+        ) {
+        Ok(document) => document
+        Err(err) => return Err(err.message)
+      }
       {
         ..built,
         metadata: parsed.metadata,
@@ -452,5 +484,5 @@ fn child_document_from_parse_result(
     document.diagnostics,
   )
   document = @core.document_with_diagnostics(document, merged_diagnostics)
-  document
+  Ok(document)
 }

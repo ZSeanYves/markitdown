@@ -116,7 +116,7 @@ test "native JSON bridge preserves nested escapes unicode and number text" {
 }
 
 ///|
-test "JSON preparation does not retain a DOM above the streaming limit" {
+async test "JSON preparation does not retain a DOM above the streaming limit" {
   let text = "[" + "{\"value\":1},".repeat(25_000) + "null]"
   let prepared = prepare_json_document_from_source(
     @input.input_from_text_with_format(text, "large.json", Some(Json)),

@@ -43,11 +43,11 @@ pub fn inspect_odt_document(document : OdtDocument) -> OdtInspectReport {
 }
 
 ///|
-pub fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo raise {
+pub async fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo {
   @shared.inspect_odt_package(bytes)
 }
 
 ///|
-pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
+pub async fn open_odt_document(bytes : Bytes) -> OdtDocument {
   @shared.open_odt_document(bytes)
 }

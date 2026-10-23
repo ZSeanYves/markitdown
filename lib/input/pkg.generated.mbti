@@ -1,16 +1,26 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "ZSeanYves/markitdown/lib/input"
 
+import {
+  "ZSeanYves/markitdown/internal/resource_budget",
+}
+
 // Values
 pub fn audio_format_name(AudioFormat) -> String
 
+pub fn begin_input_session(InputSource, max_bytes? : Int64, budget? : @resource_budget.Budget) -> InputSession
+
 pub fn default_format_detector() -> FormatDetector
 
-pub fn detect_format(InputSource) -> FormatDetectionResult
+pub async fn detect_format(InputSource) -> FormatDetectionResult
 
 pub fn detected_format_is_image_candidate(DetectedFormat) -> Bool
 
 pub fn detected_format_name(DetectedFormat) -> String
+
+pub async fn discover_source_size(SourceCursor) -> Result[Int64, String] noraise
+
+pub fn end_input_session(InputSession) -> Unit
 
 pub fn image_format_name(ImageFormat) -> String
 
@@ -21,6 +31,8 @@ pub fn input_error_is_fatal_reader_error(String) -> Bool
 pub fn input_from_bytes(Bytes, source_name? : String) -> InputSource
 
 pub fn input_from_bytes_with_format(Bytes, String, DetectedFormat?) -> InputSource
+
+pub fn input_from_container_entry_bytes(InputSource, Bytes, String, entry_limit~ : Int64, explicit_format? : DetectedFormat?) -> InputSource
 
 pub fn input_from_path(String) -> InputSource
 
@@ -38,45 +50,71 @@ pub fn input_kind(InputSource) -> InputKind
 
 pub fn input_path(InputSource) -> String?
 
+pub fn input_session_error(InputSession) -> String?
+
 pub fn input_size(InputSource) -> Int64?
 
-pub fn input_source_is_async_reader(InputSource) -> Bool
+pub fn input_source_budget_context(InputSource) -> @resource_budget.BudgetContext?
 
-pub fn input_source_size(InputSource) -> Result[Int64?, String]
+pub fn input_source_entry_limit(InputSource) -> Int64?
+
+pub fn input_source_error(InputSource) -> String?
+
+pub fn input_source_failure(InputSource) -> InputFailure?
+
+pub fn input_source_inherit_session(InputSource, InputSource) -> InputSource
+
+pub async fn input_source_size(InputSource) -> Result[Int64?, String] noraise
 
 pub fn input_source_with_reader_limit(InputSource, Int64) -> InputSource
 
 pub fn input_text(InputSource) -> String?
 
-pub fn make_async_input_reader(async (Int64, Int) -> Result[Bytes, String], size? : Int64) -> InputReader
+pub fn make_async_input_reader(async (Int64, Int32) -> Result[Bytes, String], size? : Int64) -> InputReader
 
-pub fn make_input_reader((Int64, Int) -> Result[Bytes, String], size? : Int64) -> InputReader
+pub fn make_input_reader((Int64, Int32) -> Result[Bytes, String], size? : Int64) -> InputReader
 
-pub fn open_source_cursor(InputSource, max_bytes? : Int64) -> Result[SourceCursor, String]
+pub fn make_resource_limit_failure(ResourceLimitKind, Int64, Int64) -> ResourceLimitFailure
+
+pub async fn open_source_cursor(InputSource, max_bytes? : Int64) -> Result[SourceCursor, String] noraise
 
 pub fn parse_detected_format(String) -> DetectedFormat
 
-pub fn read_input_bytes(InputSource) -> Result[Bytes, String]
+pub async fn read_input_bytes(InputSource) -> Result[Bytes, String] noraise
 
-pub async fn read_input_bytes_async(InputSource) -> Result[Bytes, String]
+pub async fn read_input_prefix(InputSource, Int32) -> Result[Bytes, String] noraise
 
-pub fn read_input_prefix(InputSource, Int) -> Result[Bytes, String]
+pub async fn read_input_text(InputSource) -> Result[String, String] noraise
 
-pub fn read_input_text(InputSource) -> Result[String, String]
+pub fn rebind_prepared_source(InputSource, InputSource) -> InputSource
 
-pub async fn read_input_text_async(InputSource) -> Result[String, String]
+pub fn record_input_budget_failure(InputSource, @resource_budget.BudgetError) -> Unit
 
-pub fn source_cursor_read_at(SourceCursor, Int64, length? : Int) -> Result[Bytes, String]
+pub fn record_input_failure(InputSource, String) -> Unit
 
-pub async fn source_cursor_read_at_async(SourceCursor, Int64, length? : Int) -> Result[Bytes, String]
+pub fn record_input_resource_failure(InputSource, ResourceLimitFailure) -> Unit
 
-pub fn source_cursor_view_at(SourceCursor, Int, Int) -> BytesView?
+pub fn source_cursor_close(SourceCursor) -> Unit
+
+pub fn source_cursor_error(SourceCursor) -> String?
+
+pub async fn source_cursor_read_at(SourceCursor, Int64, length? : Int32) -> Result[Bytes, String] noraise
+
+pub async fn source_cursor_read_exact_at(SourceCursor, Int64, Int32) -> Result[Bytes, String] noraise
+
+pub fn source_cursor_view_at(SourceCursor, Int32, Int32) -> BytesView?
+
+pub fn validated_text_utf8_size(String) -> Result[Int64, String]
 
 pub fn with_bytes_payload(InputSource, Bytes) -> InputSource
 
 pub fn with_explicit_format(InputSource, DetectedFormat?) -> InputSource
 
 pub fn with_mime_type(InputSource, String?) -> InputSource
+
+pub fn with_prepared_bytes_payload(InputSource, Bytes) -> InputSource
+
+pub fn with_prepared_text_payload(InputSource, String, physical_bytes? : Int64) -> InputSource
 
 pub fn with_text_payload(InputSource, String) -> InputSource
 
@@ -136,7 +174,7 @@ pub struct FormatDetectionResult {
 }
 
 pub struct FormatDetector {
-  detect : (InputSource) -> FormatDetectionResult
+  detect : async (InputSource) -> FormatDetectionResult
 }
 
 pub(all) enum ImageFormat {
@@ -150,6 +188,12 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 pub fn ImageFormat::equal(Self, Self) -> Bool
 pub fn ImageFormat::not_equal(Self, Self) -> Bool
+
+pub(all) enum InputFailure {
+  InputError(String)
+  ResourceLimit(ResourceLimitFailure)
+  BudgetFailure(@resource_budget.BudgetError)
+}
 
 pub(all) enum InputKind {
   Path
@@ -169,9 +213,12 @@ pub(all) enum InputPayload {
 
 pub struct InputReader {
   size : Int64?
-  read_at : (Int64, Int) -> Result[Bytes, String]
-  read_at_async : async (Int64, Int) -> Result[Bytes, String]
-  async_only : Bool
+  read_at : async (Int64, Int32) -> Result[Bytes, String]
+}
+
+pub struct InputSession {
+  source : InputSource
+  // private fields
 }
 
 pub struct InputSource {
@@ -180,13 +227,27 @@ pub struct InputSource {
   origin_path : String?
   mime_type : String?
   explicit_format : DetectedFormat?
+  // private fields
 }
+
+pub struct ResourceLimitFailure {
+  kind : ResourceLimitKind
+  observed : Int64
+  limit : Int64
+}
+
+pub(all) enum ResourceLimitKind {
+  SingleAssetBytes
+  TotalAssetBytes
+} derive(Eq)
+pub fn ResourceLimitKind::equal(Self, Self) -> Bool
+pub fn ResourceLimitKind::not_equal(Self, Self) -> Bool
 
 pub struct SourceCursor {
   size : Int64?
-  read_at : (Int64, Int) -> Result[Bytes, String]
-  read_at_async : async (Int64, Int) -> Result[Bytes, String]
-  view_at : (Int, Int) -> BytesView?
+  read_at : async (Int64, Int32) -> Result[Bytes, String]
+  view_at : (Int32, Int32) -> BytesView?
+  // private fields
 }
 
 // Type aliases

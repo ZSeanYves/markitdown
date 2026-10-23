@@ -138,7 +138,7 @@ fn list_item_group_to_blocks(
     return [items[0]]
   }
   let root : Array[@core.CoreBlock] = []
-  let stack : Array[(Int, @core.CoreBlock, @core.CoreBlock)] = []
+  let stack : Array[(Int32, @core.CoreBlock, @core.CoreBlock)] = []
   for item in items {
     let level = list_item_level(item)
     let ordered = list_item_ordered(item)
@@ -244,7 +244,7 @@ fn list_item_candidate(block : @core.CoreBlock) -> Bool {
 }
 
 ///|
-fn list_item_level(block : @core.CoreBlock) -> Int {
+fn list_item_level(block : @core.CoreBlock) -> Int32 {
   let raw = block.attrs.get("level").unwrap_or("0")
   let parsed = @string.parse_int(raw.trim()) catch { _ => 0 }
   if parsed < 0 {
@@ -281,7 +281,7 @@ fn copy_block_attrs(
 }
 
 ///|
-fn heading_block_count(blocks : Array[@core.CoreBlock]) -> Int {
+fn heading_block_count(blocks : Array[@core.CoreBlock]) -> Int32 {
   let mut total = 0
   for block in blocks {
     if block.kind == Heading {
@@ -293,7 +293,7 @@ fn heading_block_count(blocks : Array[@core.CoreBlock]) -> Int {
 }
 
 ///|
-fn list_block_count(blocks : Array[@core.CoreBlock]) -> Int {
+fn list_block_count(blocks : Array[@core.CoreBlock]) -> Int32 {
   let mut total = 0
   for block in blocks {
     if block.kind == List {
@@ -305,7 +305,7 @@ fn list_block_count(blocks : Array[@core.CoreBlock]) -> Int {
 }
 
 ///|
-fn clamp_heading_level(raw : String) -> Int {
+fn clamp_heading_level(raw : String) -> Int32 {
   let parsed = @string.parse_int(raw.trim()) catch { _ => 1 }
   if parsed < 1 {
     1

@@ -1,5 +1,5 @@
 ///|
-test "TXT parser emits line events metrics and blank lines" {
+async test "TXT parser emits line events metrics and blank lines" {
   let text = "first\n\nthird\n"
   let source = @input.input_from_text_with_format(text, "lines.txt", Some(Txt))
   let result = (txt_parser().parse)(source, @parser.new_parse_context(Txt)).unwrap()
@@ -17,7 +17,7 @@ test "TXT parser emits line events metrics and blank lines" {
 }
 
 ///|
-test "TXT parser truncates long lines under explicit resource limits" {
+async test "TXT parser truncates long lines under explicit resource limits" {
   let source = @input.input_from_text_with_format(
     "abcdefghij\nshort",
     "long.txt",
@@ -44,23 +44,30 @@ test "TXT parser truncates long lines under explicit resource limits" {
 }
 
 ///|
-test "TXT parser invalid UTF8 fails closed with explicit placeholder diagnostics" {
+async test "TXT parser rejects invalid UTF8 without emitting placeholder events" {
   let source = @input.input_from_bytes_with_format(
-    Bytes::from_array([0xC3, 0x28].map(Int::to_byte)),
+    Bytes::from_array([0xC3, 0x28].map(Int32::to_byte)),
     "invalid.txt",
     Some(Txt),
   )
-  let result = (txt_parser().parse)(source, @parser.new_parse_context(Txt)).unwrap()
-  let events = result.event_stream.unwrap()
-  assert_eq(events.length(), 1)
-  assert_eq(events[0].text, "[invalid utf8 text input]")
-  assert_true(
-    result.diagnostics.metrics.get("invalid_utf8_fallback") == Some("true"),
-  )
-  assert_true(
-    result.diagnostics.degraded_features.contains("invalid_utf8_text_fallback"),
-  )
-  assert_true(result.diagnostics.fallback_trace.length() == 1)
+  match (txt_parser().parse)(source, @parser.new_parse_context(Txt)) {
+    Err(message) => assert_eq(message, "utf8 decode failed")
+    Ok(_) =>
+      fail("invalid encoding must be rejected, not rendered as a placeholder")
+  }
+}
+
+///|
+async test "TXT parser preserves a legal UTF16 surrogate pair and UTF8 text" {
+  for bytes in [b"\xff\xfe\x3d\xd8\x00\xdeA\x00", @utf8.encode("😀A")] {
+    let source = @input.input_from_bytes_with_format(
+      bytes,
+      "valid-unicode.txt",
+      Some(Txt),
+    )
+    let result = (txt_parser().parse)(source, @parser.new_parse_context(Txt)).unwrap()
+    assert_eq(result.event_stream.unwrap()[0].text, "😀A")
+  }
 }
 
 ///|
@@ -85,7 +92,7 @@ test "TXT newline and truncation helpers cover all styles and boundaries" {
 }
 
 ///|
-test "TXT pull stream preserves reader chunk boundaries and CRLF" {
+async test "TXT pull stream preserves reader chunk boundaries and CRLF" {
   let bytes = @utf8.encode("alpha\r\nemoji 😀\r\n\r\nomega")
   let largest_read = Ref(0)
   let reader = @input.make_input_reader(
@@ -125,21 +132,23 @@ test "TXT pull stream preserves reader chunk boundaries and CRLF" {
 }
 
 ///|
-test "TXT parser reports a missing source through fail-closed events" {
+async test "TXT parser propagates a missing source as a hard input error" {
   let result = (txt_parser().parse)(
     @input.input_from_path("/definitely/missing/txt-parser.txt"),
     @parser.new_parse_context(Txt),
-  ).unwrap()
-  assert_true(result.event_stream is Some(_))
-  assert_true(
-    result.diagnostics.degraded_features.contains("invalid_utf8_text_fallback"),
   )
+  // The upgrade plan permits decoding/syntax recovery, but a failed open
+  // must not become an invalid-UTF8 placeholder or successful empty events.
+  match result {
+    Err(message) => assert_true(message.contains("open input path failed"))
+    Ok(_) => fail("missing source must fail before producing parser events")
+  }
 }
 
 ///|
-test "TXT pull stream covers UTF16 fallback BOM bare CR and reader errors" {
+async test "TXT pull stream covers UTF16 fallback BOM bare CR and reader errors" {
   let utf16 = @input.input_from_bytes_with_format(
-    Bytes::from_array([0xFF, 0xFE, 0x41, 0x00].map(Int::to_byte)),
+    Bytes::from_array([0xFF, 0xFE, 0x41, 0x00].map(Int32::to_byte)),
     "utf16.txt",
     Some(Txt),
   )

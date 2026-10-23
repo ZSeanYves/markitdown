@@ -447,7 +447,7 @@ fn pdf_native_lower_page_images(
   page : PdfNativePage,
   assets : Array[@core.AssetRef],
   asset_paths : Map[String, String],
-) -> (Array[@core.CoreBlock], Int) {
+) -> (Array[@core.CoreBlock], Int32) {
   let blocks : Array[@core.CoreBlock] = []
   let mut lowered_count = 0
   for image_index in 0..<page.image_candidates.length() {
@@ -473,7 +473,7 @@ fn pdf_native_lower_page_images(
 fn pdf_native_lower_image_candidate(
   page : PdfNativePage,
   candidate : @dpdfnative.PdfNativeImageCandidate,
-  image_index : Int,
+  image_index : Int32,
   assets : Array[@core.AssetRef],
   asset_paths : Map[String, String],
 ) -> @core.CoreBlock? {
@@ -545,8 +545,8 @@ fn pdf_native_materialize_image_asset(
 
 ///|
 fn pdf_native_image_alt_text(
-  page_no : Int,
-  image_index : Int,
+  page_no : Int32,
+  image_index : Int32,
   asset : @core.AssetRef,
 ) -> String {
   match asset.attrs.get("alt") {
@@ -574,7 +574,7 @@ fn pdf_native_asset_ext(asset : @core.AssetRef) -> String {
 }
 
 ///|
-fn pdf_native_two_digits(value : Int) -> String {
+fn pdf_native_two_digits(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {

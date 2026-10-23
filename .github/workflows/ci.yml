@@ -1,4 +1,4 @@
-name: CI
+name: Native CI
 
 on:
   push:
@@ -13,38 +13,67 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  MOONBIT_VERSION: "0.1.20260920"
-  MOONBIT_EXPECTED_MOONC: "v0.10.14+7d59c7ec9"
-  MOONBIT_NEW_NATIVE: "0"
+  MOONBIT_ASYNC_CHECK_FD_LEAK: "1"
+  MOONBIT_VERSION: "0.1.20261021"
+  MOONBIT_EXPECTED_MOONC: "v0.10.17+093cb8f9c"
 
 jobs:
   core:
     name: MoonBit core (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-15]
+        include:
+          - os: ubuntu-24.04
+            platform: linux-x86_64
+            arch: X64
+          - os: macos-15
+            platform: macos-arm64
+            arch: ARM64
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-      - name: Install MoonBit
-        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s latest
+      - name: Verify runner architecture
+        run: test "$RUNNER_ARCH" = "${{ matrix.arch }}"
+      - name: Install pinned MoonBit
+        run: curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- "$MOONBIT_VERSION"
       - name: Add MoonBit to PATH
         run: echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
-      - run: moon update
-      - name: Format and interfaces
-        run: moon fmt --check && moon info && git diff --exit-code
-      - name: Check without warnings
-        run: moon check --target all --warn-list +73 --deny-warn
-      - name: Check MoonX consumer tools
+      - name: Record toolchain
+        run: moon version --all
+      - name: Verify Moon version
+        run: moon version --all | grep -F "moon $MOONBIT_VERSION ("
+      - name: Verify compiler version
+        run: moon version --all | grep -F "moonc $MOONBIT_EXPECTED_MOONC ("
+      - name: Resolve exact dependencies
+        run: moon update
+      - name: Check Native without warnings
+        run: moon check --target native --warn-list +73 --deny-warn
+      - name: Generate Native interfaces
+        run: moon info
+      - name: Verify formatting
+        run: moon fmt --check
+      - name: Verify generated files
+        run: git diff --exit-code
+      - name: Check Native acceptance scripts
         run: |
-          moon check tools/regression/moonx_smoke.mbtx
-          moon check tools/regression/run_moonx_regression.mbtx
-          moon check tools/regression/moonx_benchmark.mbtx
-      - name: Native tests
+          moon check --target native tools/regression/run_native_regression.mbtx
+          moon check --target native tools/regression/native_install.mbtx
+      - name: Native debug tests
         run: moon test --target native --no-parallelize
-      - name: Wasm tests
-        run: moon test --target wasm --no-parallelize
-      - name: Build release artifacts
-        run: moon build --target native --release --package ZSeanYves/markitdown && moon build --target wasm --release --package ZSeanYves/markitdown
+      - name: Native release tests
+        run: moon test --target native --release --no-parallelize
+      - name: Native debug build
+        run: moon build --target native .
+      - name: Native release build
+        run: moon build --target native --release .
+      - name: Install local CLI and run independent library consumer
+        run: moon run --target native tools/regression/native_install.mbtx -- --source local --root "$GITHUB_WORKSPACE" --evidence "$RUNNER_TEMP/native-install"
+      - name: Upload installation and consumer evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-install-${{ matrix.platform }}
+          path: ${{ runner.temp }}/native-install
+          if-no-files-found: error

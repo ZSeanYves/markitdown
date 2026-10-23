@@ -2,7 +2,7 @@
 fn chunks_from_document(
   document : @core.DocumentIR,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
     return batched_chunks_from_blocks(
@@ -27,7 +27,7 @@ fn chunks_from_blocks(
   source_map : @core.SourceMap?,
   assembly : @core.DocumentAssembly?,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
     return batched_chunks_from_blocks(
@@ -55,10 +55,28 @@ fn chunks_from_events(
   source_map : @core.SourceMap?,
   assembly : @core.DocumentAssembly?,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if events.length() == 0 {
     return []
+  }
+  if markdown_xml_outline_event_stream(events) {
+    return rag_xml_outline_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching~,
+    )
+  }
+  if markdown_json_list_event_stream(events) {
+    return rag_json_list_chunks_from_events(
+      events,
+      metadata,
+      diagnostics,
+      options,
+      record_batching~,
+    )
   }
   if subtitle_record_event_stream(diagnostics) {
     return rag_subtitle_chunks_from_events(
@@ -123,6 +141,7 @@ fn rag_subtitle_chunks_from_events(
   options : @rag.RagOptions,
 ) -> Array[@rag.RagChunk] {
   let refs : Array[@core.SourceRef] = []
+  let seen_refs : Map[String, Bool] = Map([])
   let parts : Array[String] = []
   let mut has_raw = false
   for event in events {
@@ -130,6 +149,7 @@ fn rag_subtitle_chunks_from_events(
       refs,
       event.source_ref,
       options.preserve_source_ref,
+      seen=seen_refs,
     )
     match event.kind {
       StartBlock(Raw) => {
@@ -230,7 +250,7 @@ fn rag_text_chunks_from_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
     return batched_text_chunks_from_events(
@@ -238,12 +258,16 @@ fn rag_text_chunks_from_events(
     )
   }
   let refs : Array[@core.SourceRef] = []
+  // Preserve first-seen order/equality while avoiding rescanning every earlier
+  // line reference when one text chunk spans a large document.
+  let seen_refs : Map[String, Bool] = Map([])
   let parts : Array[String] = []
   let current_lines : Array[String] = []
   let current_refs : Array[@core.SourceRef] = []
   fn flush_paragraph(
     parts : Array[String],
     refs : Array[@core.SourceRef],
+    seen_refs : Map[String, Bool],
     current_lines : Array[String],
     current_refs : Array[@core.SourceRef],
     preserve_source_ref : Bool,
@@ -257,7 +281,7 @@ fn rag_text_chunks_from_events(
     parts.push(current_lines.join(" "))
     if preserve_source_ref {
       for source_ref in current_refs {
-        append_unique_source_ref(refs, Some(source_ref), true)
+        append_unique_source_ref(refs, Some(source_ref), true, seen=seen_refs)
       }
     }
     current_lines.clear()
@@ -276,6 +300,7 @@ fn rag_text_chunks_from_events(
         flush_paragraph(
           parts,
           refs,
+          seen_refs,
           current_lines,
           current_refs,
           options.preserve_source_ref,
@@ -286,6 +311,7 @@ fn rag_text_chunks_from_events(
   flush_paragraph(
     parts,
     refs,
+    seen_refs,
     current_lines,
     current_refs,
     options.preserve_source_ref,
@@ -303,7 +329,7 @@ fn rag_table_chunks_from_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
     return batched_table_chunks_from_events(
@@ -312,6 +338,7 @@ fn rag_table_chunks_from_events(
   }
   let rows : Array[Array[String]] = []
   let refs : Array[@core.SourceRef] = []
+  let seen_refs : Map[String, Bool] = Map([])
   let current_row : Array[String] = []
   for event in events {
     match event.kind {
@@ -321,6 +348,7 @@ fn rag_table_chunks_from_events(
           refs,
           event.source_ref,
           options.preserve_source_ref,
+          seen=seen_refs,
         )
       }
       RowBreak =>
@@ -330,6 +358,7 @@ fn rag_table_chunks_from_events(
             refs,
             event.source_ref,
             options.preserve_source_ref,
+            seen=seen_refs,
           )
           current_row.clear()
         }
@@ -370,7 +399,7 @@ fn rag_text_chunks_from_generic_events(
   metadata : @core.DocumentMetadata,
   diagnostics : @core.Diagnostics,
   options : @rag.RagOptions,
-  record_batching? : Bool = false,
+  record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
     return batched_generic_chunks_from_events(
@@ -378,6 +407,7 @@ fn rag_text_chunks_from_generic_events(
     )
   }
   let refs : Array[@core.SourceRef] = []
+  let seen_refs : Map[String, Bool] = Map([])
   let texts : Array[String] = []
   let mut chunk_kind = @rag.ChunkKind::Raw
   for event in events {
@@ -385,6 +415,7 @@ fn rag_text_chunks_from_generic_events(
       refs,
       event.source_ref,
       options.preserve_source_ref,
+      seen=seen_refs,
     )
     match event.kind {
       StartBlock(Code) => {
@@ -481,6 +512,7 @@ fn batched_text_chunks_from_events(
   let mut ordinal = 0
   for batch in batches {
     let refs : Array[@core.SourceRef] = []
+    let seen_refs : Map[String, Bool] = Map([])
     let parts : Array[String] = []
     let current_lines : Array[String] = []
     fn flush_paragraph(
@@ -513,6 +545,7 @@ fn batched_text_chunks_from_events(
         refs,
         event.source_ref,
         options.preserve_source_ref,
+        seen=seen_refs,
       )
     }
     out.push(
@@ -544,6 +577,7 @@ fn batched_table_chunks_from_events(
   let rows : Array[(Array[String], Array[@core.SourceRef])] = []
   let current_row : Array[String] = []
   let current_refs : Array[@core.SourceRef] = []
+  let current_seen_refs : Map[String, Bool] = Map([])
   for event in events {
     match event.kind {
       Cell => {
@@ -552,6 +586,7 @@ fn batched_table_chunks_from_events(
           current_refs,
           event.source_ref,
           options.preserve_source_ref,
+          seen=current_seen_refs,
         )
       }
       RowBreak =>
@@ -559,6 +594,7 @@ fn batched_table_chunks_from_events(
           rows.push((current_row.copy(), current_refs.copy()))
           current_row.clear()
           current_refs.clear()
+          current_seen_refs.clear()
         }
       _ => ()
     }
@@ -591,6 +627,7 @@ fn batched_table_chunks_from_events(
   for batch in batches {
     let buffer = StringBuilder()
     let refs : Array[@core.SourceRef] = []
+    let seen_refs : Map[String, Bool] = Map([])
     for index in 0..<batch.length() {
       if index > 0 {
         buffer.write_char('\n')
@@ -602,7 +639,7 @@ fn batched_table_chunks_from_events(
       } else {
         write_markdown_table_row_from_values(buffer, batch[index].0, width)
       }
-      append_unique_source_refs(refs, batch[index].1)
+      append_unique_source_refs(refs, batch[index].1, seen_refs)
     }
     out.push(
       rag_chunk_with_batch_metadata(
@@ -634,6 +671,7 @@ fn batched_generic_chunks_from_events(
   let mut ordinal = 0
   for batch in generic_event_batches(events) {
     let refs : Array[@core.SourceRef] = []
+    let seen_refs : Map[String, Bool] = Map([])
     let texts : Array[String] = []
     let mut chunk_kind = @rag.ChunkKind::Raw
     for event in batch {
@@ -641,6 +679,7 @@ fn batched_generic_chunks_from_events(
         refs,
         event.source_ref,
         options.preserve_source_ref,
+        seen=seen_refs,
       )
       match event.kind {
         StartBlock(Code) => {
@@ -804,18 +843,17 @@ fn generic_event_batches(
 fn append_unique_source_refs(
   target : Array[@core.SourceRef],
   refs : Array[@core.SourceRef],
+  seen : Map[String, Bool],
 ) -> Unit {
   for source_ref in refs {
-    if !target.any(existing => source_ref_eq(existing, source_ref)) {
-      target.push(source_ref)
-    }
+    append_unique_source_ref(target, Some(source_ref), true, seen~)
   }
 }
 
 ///|
 fn rag_chunk_with_batch_metadata(
   chunk : @rag.RagChunk,
-  batch_ordinal : Int,
+  batch_ordinal : Int32,
 ) -> @rag.RagChunk {
   let metadata = chunk.metadata
   metadata.set("batch_ordinal", Number(batch_ordinal.to_string()))
@@ -834,7 +872,7 @@ fn rag_chunk_with_batch_metadata(
 ///|
 fn rag_chunk_with_ordinal(
   chunk : @rag.RagChunk,
-  ordinal : Int,
+  ordinal : Int32,
 ) -> @rag.RagChunk {
   let metadata = chunk.metadata
   metadata.set("ordinal", Number(ordinal.to_string()))
@@ -850,7 +888,7 @@ fn rag_chunk_with_ordinal(
 }
 
 ///|
-fn rag_chunk_id_with_ordinal(id : String, ordinal : Int) -> String {
+fn rag_chunk_id_with_ordinal(id : String, ordinal : Int32) -> String {
   match id.split_once("-") {
     Some((prefix, suffix)) =>
       match suffix.split_once("-") {
@@ -932,7 +970,7 @@ fn generic_event_block_heading_paths(
 ///|
 fn make_event_rag_chunk(
   kind : @rag.ChunkKind,
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   refs : Array[@core.SourceRef],
   asset_refs : Array[String],
@@ -1087,7 +1125,7 @@ fn structural_segment_label(segment : String) -> String {
 ///|
 fn event_chunk_id(
   kind : @rag.ChunkKind,
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   refs : Array[@core.SourceRef],
@@ -1119,7 +1157,7 @@ fn short_text_hash(text : String) -> String {
 }
 
 ///|
-fn rag_chunk_text_total_chars(chunks : Array[@rag.RagChunk]) -> Int {
+fn rag_chunk_text_total_chars(chunks : Array[@rag.RagChunk]) -> Int32 {
   let mut total = 0
   for chunk in chunks {
     total += unicode_char_count(chunk.text)
@@ -1132,13 +1170,20 @@ fn append_unique_source_ref(
   refs : Array[@core.SourceRef],
   source_ref : @core.SourceRef?,
   enabled : Bool,
+  seen? : Map[String, Bool],
 ) -> Unit {
   if !enabled {
     return
   }
   match source_ref {
     Some(value) =>
-      if !refs.any(existing => source_ref_eq(existing, value)) {
+      if seen is Some(seen) {
+        let signature = source_ref_signature(value)
+        if !seen.contains(signature) {
+          seen.set(signature, true)
+          refs.push(value)
+        }
+      } else if !refs.any(existing => source_ref_eq(existing, value)) {
         refs.push(value)
       }
     None => ()
@@ -1203,7 +1248,7 @@ fn input_chunk_location_metadata(
 
 ///|
 fn input_chunk_metadata(
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   document_format : String,
@@ -1263,7 +1308,7 @@ fn json_value_string(value : @core.JsonValue?) -> String? {
 }
 
 ///|
-fn unicode_char_count(text : String) -> Int {
+fn unicode_char_count(text : String) -> Int32 {
   text.to_array().length()
 }
 

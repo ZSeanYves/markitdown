@@ -17,7 +17,7 @@ fn ipynb_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn ipynb_parser() -> @parser.Parser {
-  @parser.make_parser("ipynb_parser", DomAstModel, ipynb_parser_capability(), fn(
+  @parser.make_parser("ipynb_parser", DomAstModel, ipynb_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -51,7 +51,7 @@ pub fn ipynb_parser() -> @parser.Parser {
 }
 
 ///|
-pub fn ipynb_parse_with_preparsed_notebook(
+pub async fn ipynb_parse_with_preparsed_notebook(
   source : @input.InputSource,
   context : @parser.ParseContext,
   text : String,
@@ -99,7 +99,7 @@ pub fn ipynb_parse_with_preparsed_notebook(
 }
 
 ///|
-pub fn ipynb_parse_with_prepared_notebook(
+pub async fn ipynb_parse_with_prepared_notebook(
   source : @input.InputSource,
   context : @parser.ParseContext,
   prepared : @dipynb.PreparedIpynbNotebook,

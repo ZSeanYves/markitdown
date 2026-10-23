@@ -1,15 +1,15 @@
 ///|
-pub fn indexed_table_row_path(base_path : String, row_index : Int) -> String {
+pub fn indexed_table_row_path(base_path : String, row_index : Int32) -> String {
   base_path + "/row[" + row_index.to_string() + "]"
 }
 
 ///|
-pub fn indexed_table_cell_path(row_path : String, col_index : Int) -> String {
+pub fn indexed_table_cell_path(row_path : String, col_index : Int32) -> String {
   row_path + "/col[" + col_index.to_string() + "]"
 }
 
 ///|
-pub fn indexed_table_row_span(row_number : Int, col_count : Int) -> String {
+pub fn indexed_table_row_span(row_number : Int32, col_count : Int32) -> String {
   "R" +
   row_number.to_string() +
   "C1:R" +
@@ -19,13 +19,16 @@ pub fn indexed_table_row_span(row_number : Int, col_count : Int) -> String {
 }
 
 ///|
-pub fn indexed_table_cell_span(row_number : Int, col_number : Int) -> String {
+pub fn indexed_table_cell_span(
+  row_number : Int32,
+  col_number : Int32,
+) -> String {
   "R" + row_number.to_string() + "C" + col_number.to_string()
 }
 
 ///|
-pub fn key_position_index(keys : Array[String]) -> Map[String, Int] {
-  let index : Map[String, Int] = Map([])
+pub fn key_position_index(keys : Array[String]) -> Map[String, Int32] {
+  let index : Map[String, Int32] = Map([])
   for i in 0..<keys.length() {
     index.set(keys[i], i)
   }
@@ -35,7 +38,7 @@ pub fn key_position_index(keys : Array[String]) -> Map[String, Int] {
 ///|
 pub fn keys_match_position_index(
   schema_keys : Array[String],
-  schema_index : Map[String, Int],
+  schema_index : Map[String, Int32],
   keys : Array[String],
 ) -> Bool {
   if schema_keys.length() != keys.length() {
@@ -52,8 +55,8 @@ pub fn keys_match_position_index(
 ///|
 pub fn projected_row_from_key_index(
   schema_keys : Array[String],
-  value_index : Map[String, Int],
-  value_at : (Int) -> String,
+  value_index : Map[String, Int32],
+  value_at : (Int32) -> String,
 ) -> Array[String] {
   let row : Array[String] = []
   for key in schema_keys {
@@ -69,8 +72,8 @@ pub fn projected_row_from_key_index(
 pub fn make_indexed_table_block(
   rows : Array[Array[String]],
   table_ref : @core.SourceRef,
-  row_ref : (Int, Array[String]) -> @core.SourceRef,
-  cell_ref : (Int, Int) -> @core.SourceRef,
+  row_ref : (Int32, Array[String]) -> @core.SourceRef,
+  cell_ref : (Int32, Int32) -> @core.SourceRef,
 ) -> @core.CoreBlock {
   let table = @core.block_with_children(
     @core.make_block(Table, "table", source_ref=table_ref),

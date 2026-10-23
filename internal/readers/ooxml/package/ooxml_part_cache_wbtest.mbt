@@ -8,13 +8,13 @@ fn cache_test_bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn cache_test_append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn cache_test_append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn cache_test_append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn cache_test_append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -22,12 +22,12 @@ fn cache_test_append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn cache_test_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn cache_test_crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -37,7 +37,7 @@ fn cache_test_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn cache_test_byte_to_int(b : Byte) -> Int {
+fn cache_test_byte_to_int(b : Byte) -> Int32 {
   let v = b.to_int()
   if v >= 0 {
     v
@@ -47,21 +47,21 @@ fn cache_test_byte_to_int(b : Byte) -> Int {
 }
 
 ///|
-fn cache_test_crc32_of_bytes(bytes : Bytes) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn cache_test_crc32_of_bytes(bytes : Bytes) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for b in bytes {
     crc = cache_test_crc32_update_uint(
       crc,
       cache_test_byte_to_int(b).reinterpret_as_uint(),
     )
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
 fn cache_test_add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : Bytes,
 ) -> Unit {
@@ -94,7 +94,7 @@ fn cache_test_add_store_entry(
 ///|
 fn cache_test_build_store_zip(entries : Array[(String, Bytes)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -159,7 +159,7 @@ fn cache_test_minimal_rels_xml(inner : String) -> String {
 }
 
 ///|
-fn cache_test_open_package() -> OoxmlPackage raise {
+async fn cache_test_open_package() -> OoxmlPackage {
   let document_xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<w:document xmlns:w=\"urn:test\"><w:body><w:p><w:r><w:t>Cäsar</w:t></w:r></w:p></w:body></w:document>"
   open_ooxml_package(
@@ -175,7 +175,7 @@ fn cache_test_open_package() -> OoxmlPackage raise {
 }
 
 ///|
-fn cache_test_open_relationship_package() -> OoxmlPackage raise {
+async fn cache_test_open_relationship_package() -> OoxmlPackage {
   open_ooxml_package(
     cache_test_build_store_zip([
       (
@@ -206,7 +206,9 @@ fn cache_test_open_relationship_package() -> OoxmlPackage raise {
 }
 
 ///|
-fn cache_test_part_stats(pkg : OoxmlPackage) -> (Int, Int, Int, Int, Int, Int) {
+fn cache_test_part_stats(
+  pkg : OoxmlPackage,
+) -> (Int32, Int32, Int32, Int32, Int32, Int32) {
   (
     pkg.part_cache.bytes_hit_count.val,
     pkg.part_cache.bytes_miss_count.val,
@@ -220,7 +222,7 @@ fn cache_test_part_stats(pkg : OoxmlPackage) -> (Int, Int, Int, Int, Int, Int) {
 ///|
 fn cache_test_relationship_stats(
   pkg : OoxmlPackage,
-) -> (Int, Int, Int, Int, Int, Int) {
+) -> (Int32, Int32, Int32, Int32, Int32, Int32) {
   (
     pkg.relationship_cache.relationships_hit_count.val,
     pkg.relationship_cache.relationships_miss_count.val,
@@ -232,7 +234,7 @@ fn cache_test_relationship_stats(
 }
 
 ///|
-test "ooxml part cache reuses bytes by normalized package path" {
+async test "ooxml part cache reuses bytes by normalized package path" {
   let pkg = cache_test_open_package()
   let first = read_part_bytes(pkg, "word/document.xml") catch {
     e => fail("first read_part_bytes failed: " + e.to_string())
@@ -251,7 +253,7 @@ test "ooxml part cache reuses bytes by normalized package path" {
 }
 
 ///|
-test "ooxml exposes normalized declared part size without reading payload" {
+async test "ooxml exposes normalized declared part size without reading payload" {
   let pkg = cache_test_open_package()
   let expected = part_declared_size(pkg, "word/document.xml").unwrap()
   assert_true(expected > 0)
@@ -265,7 +267,7 @@ test "ooxml exposes normalized declared part size without reading payload" {
 }
 
 ///|
-test "ooxml part cache reuses decoded text and feeds byte cache" {
+async test "ooxml part cache reuses decoded text and feeds byte cache" {
   let pkg = cache_test_open_package()
   let first = read_part_text(pkg, "word/document.xml") catch {
     e => fail("first read_part_text failed: " + e.to_string())
@@ -296,7 +298,7 @@ test "ooxml part cache reuses decoded text and feeds byte cache" {
 }
 
 ///|
-test "ooxml xml part payload reuses decoded text and exposes structure scan" {
+async test "ooxml xml part payload reuses decoded text and exposes structure scan" {
   let pkg = cache_test_open_package()
   let first = read_xml_part_payload(pkg, "word/document.xml") catch {
     e => fail("first read_xml_part_payload failed: " + e.to_string())
@@ -325,7 +327,7 @@ test "ooxml xml part payload reuses decoded text and exposes structure scan" {
 }
 
 ///|
-test "ooxml part cache preserves missing part behavior" {
+async test "ooxml part cache preserves missing part behavior" {
   let pkg = cache_test_open_package()
   let first = try read_part_bytes(pkg, "word/missing.xml") |> Ok catch {
     e => Err(e)
@@ -365,7 +367,7 @@ test "ooxml part cache preserves missing part behavior" {
 }
 
 ///|
-test "ooxml relationship cache reuses parsed rels and indexed lookups" {
+async test "ooxml relationship cache reuses parsed rels and indexed lookups" {
   let pkg = cache_test_open_relationship_package()
   let first = read_part_relationships(pkg, "word/document.xml") catch {
     e => fail("first read_part_relationships failed: " + e.to_string())
@@ -417,7 +419,7 @@ test "ooxml relationship cache reuses parsed rels and indexed lookups" {
 }
 
 ///|
-test "ooxml relationship cache preserves missing rid behavior" {
+async test "ooxml relationship cache preserves missing rid behavior" {
   let pkg = cache_test_open_relationship_package()
   let result = try
     resolve_relationship(pkg, "word/document.xml", "rId404") |> Ok
@@ -443,7 +445,7 @@ test "ooxml relationship cache preserves missing rid behavior" {
 }
 
 ///|
-test "ooxml transient chunk visitor preserves bytes without populating cache" {
+async test "ooxml transient chunk visitor preserves bytes without populating cache" {
   let pkg = cache_test_open_package()
   let collected = Buffer()
   let result = visit_part_inflated_chunks(

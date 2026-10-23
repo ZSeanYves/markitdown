@@ -1,8 +1,13 @@
 import {
   "ZSeanYves/markitdown/lib/input",
-  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
   "ZSeanYves/markitdown/internal/readers/zip" @dzip,
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

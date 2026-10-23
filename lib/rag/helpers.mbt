@@ -61,7 +61,7 @@ fn rag_location_metadata(
 
 ///|
 fn rag_metadata_fields(
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   document_format : String,
@@ -160,7 +160,7 @@ fn json_value_string(value : @core.JsonValue?) -> String? {
 }
 
 ///|
-fn unicode_char_count(text : String) -> Int {
+fn unicode_char_count(text : String) -> Int32 {
   let bytes = @utf16.encode(text, bom=false, endianness=Little)
   bytes.length() / 2
 }
@@ -168,7 +168,7 @@ fn unicode_char_count(text : String) -> Int {
 ///|
 fn make_chunk_id(
   kind : ChunkKind,
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   source_refs : Array[@core.SourceRef],

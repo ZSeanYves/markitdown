@@ -13,14 +13,24 @@ pub async fn convert_input(
 
 ///|
 /// Resolve routing without fully executing conversion.
-pub fn plan_input(
+pub async fn plan_input(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> Result[RoutePlan, ConvertError] {
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let source = session.source
   match detect_and_resolve_execution_plan(source, options) {
     Ok((_effective_source, _detected, execution_plan)) =>
-      Ok(route_plan_from_execution_plan(execution_plan))
-    Err(err) => Err(err)
+      match input_failure_convert_error(source, detect=true) {
+        Some(error) => Err(error)
+        None => Ok(route_plan_from_execution_plan(execution_plan))
+      }
+    Err(err) =>
+      Err(input_failure_convert_error(source, detect=true).unwrap_or(err))
   }
 }
 

@@ -34,7 +34,7 @@ fn pptx_warning(
 }
 
 ///|
-fn find_bytes(hay : Bytes, needle : Bytes, start : Int) -> Int? {
+fn find_bytes(hay : Bytes, needle : Bytes, start : Int32) -> Int32? {
   let n = hay.length()
   let m = needle.length()
   if m == 0 {
@@ -72,7 +72,11 @@ fn contains_bytes(hay : Bytes, needle : Bytes) -> Bool {
 }
 
 ///|
-fn bytes_slice_to_string(bs : Bytes, start : Int, end_ : Int) -> String raise {
+fn bytes_slice_to_string(
+  bs : Bytes,
+  start : Int32,
+  end_ : Int32,
+) -> String raise {
   let len = end_ - start
   if len <= 0 {
     return ""
@@ -146,7 +150,7 @@ fn read_attr_value_in_first_tag_bytes(
 }
 
 ///|
-fn read_open_tag_name(xml : Bytes, start : Int) -> String? raise {
+fn read_open_tag_name(xml : Bytes, start : Int32) -> String? raise {
   if start < 0 || start >= xml.length() || xml[start] != '<'.to_int().to_byte() {
     return None
   }
@@ -169,9 +173,9 @@ fn read_open_tag_name(xml : Bytes, start : Int) -> String? raise {
 ///|
 fn find_matching_named_element_close(
   xml : Bytes,
-  open_start : Int,
+  open_start : Int32,
   tag_name : String,
-) -> Int? raise {
+) -> Int32? raise {
   let gt = find_bytes(xml, pat(">"), open_start)
   match gt {
     None => None
@@ -227,9 +231,9 @@ fn find_matching_named_element_close(
 ///|
 fn slice_full_element(
   xml : Bytes,
-  start : Int,
+  start : Int32,
   tag_name : String,
-) -> (Bytes, Int)? raise {
+) -> (Bytes, Int32)? raise {
   let gt = find_bytes(xml, pat(">"), start)
   match gt {
     None => None
@@ -281,7 +285,7 @@ fn find_element_inner(
 }
 
 ///|
-fn parse_int_or_zero(s : String?) -> Int {
+fn parse_int_or_zero(s : String?) -> Int32 {
   let raw = s.unwrap_or("0").trim().to_owned()
   if raw == "" {
     return 0

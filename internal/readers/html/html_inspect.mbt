@@ -86,30 +86,30 @@ pub fn inspect_html_document(doc : HtmlDocument) -> HtmlInspectReport {
 
 ///|
 priv struct HtmlInspectStats {
-  mut node_count : Int
-  mut element_count : Int
-  mut text_node_count : Int
-  mut comment_count : Int
-  mut doctype_count : Int
-  mut attribute_count : Int
-  mut link_element_count : Int
-  mut image_element_count : Int
-  mut heading_element_count : Int
-  mut table_element_count : Int
-  mut list_element_count : Int
-  mut form_element_count : Int
-  mut script_element_count : Int
-  mut style_element_count : Int
-  mut pre_element_count : Int
-  mut code_element_count : Int
-  mut max_depth : Int
+  mut node_count : Int32
+  mut element_count : Int32
+  mut text_node_count : Int32
+  mut comment_count : Int32
+  mut doctype_count : Int32
+  mut attribute_count : Int32
+  mut link_element_count : Int32
+  mut image_element_count : Int32
+  mut heading_element_count : Int32
+  mut table_element_count : Int32
+  mut list_element_count : Int32
+  mut form_element_count : Int32
+  mut script_element_count : Int32
+  mut style_element_count : Int32
+  mut pre_element_count : Int32
+  mut code_element_count : Int32
+  mut max_depth : Int32
 }
 
 ///|
 fn visit_html_node(
   node : HtmlNode,
   stats : HtmlInspectStats,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   stats.node_count += 1
   if depth > stats.max_depth {

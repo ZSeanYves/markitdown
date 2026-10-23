@@ -7,7 +7,7 @@ pub struct PreparedMarkdownDocument {
 }
 
 ///|
-pub fn prepare_markdown_document_from_source(
+pub async fn prepare_markdown_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedMarkdownDocument, String] {
   let text_payload = match @sourceio.read_source_text(source) {

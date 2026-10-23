@@ -251,15 +251,15 @@ fn scan_markdown_document_with_profile(
 }
 
 ///|
-fn count_markdown_source_chars(text : String) -> Int {
+fn count_markdown_source_chars(text : String) -> Int32 {
   text.length()
 }
 
 ///|
 priv struct MarkdownLineView {
   raw : String
-  left_trim_index : Int
-  trimmed_end_index : Int
+  left_trim_index : Int32
+  trimmed_end_index : Int32
 }
 
 ///|
@@ -273,7 +273,7 @@ fn build_markdown_line_views(lines : Array[String]) -> Array[MarkdownLineView] {
 }
 
 ///|
-fn markdown_trim_bounds(line : String) -> (Int, Int) {
+fn markdown_trim_bounds(line : String) -> (Int32, Int32) {
   let chars = line.to_array()
   let mut start = 0
   let mut end = chars.length()
@@ -366,7 +366,7 @@ fn split_markdown_lines(text : String) -> Array[String] {
 ///|
 fn consume_markdown_frontmatter(
   lines : Array[MarkdownLineView],
-) -> (MarkdownFrontmatter, Int, Array[MarkdownValidationIssue])? {
+) -> (MarkdownFrontmatter, Int32, Array[MarkdownValidationIssue])? {
   if lines.length() == 0 {
     return None
   }
@@ -468,7 +468,7 @@ fn parse_markdown_fence_open(
 fn is_markdown_fence_close(
   line : MarkdownLineView,
   fence_char : Char,
-  fence_length : Int,
+  fence_length : Int32,
 ) -> Bool {
   let chars = line.raw.to_array()
   let start = line.left_trim_index
@@ -488,7 +488,7 @@ fn is_markdown_fence_close(
 ///|
 fn can_start_setext_heading(
   lines : Array[MarkdownLineView],
-  index : Int,
+  index : Int32,
 ) -> Bool {
   if index + 1 >= lines.length() {
     return false
@@ -544,7 +544,7 @@ fn classify_markdown_line_kind(line : MarkdownLineView) -> MarkdownBlockKind {
 ///|
 fn should_end_markdown_paragraph(
   lines : Array[MarkdownLineView],
-  index : Int,
+  index : Int32,
 ) -> Bool {
   let line = lines[index]
   if markdown_line_is_blank(line) {
@@ -654,7 +654,11 @@ fn is_markdown_html_block_candidate(line : MarkdownLineView) -> Bool {
 }
 
 ///|
-fn markdown_trimmed_substring(text : String, start : Int, end : Int) -> String {
+fn markdown_trimmed_substring(
+  text : String,
+  start : Int32,
+  end : Int32,
+) -> String {
   if start >= end {
     return ""
   }

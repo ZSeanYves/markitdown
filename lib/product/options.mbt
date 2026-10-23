@@ -227,10 +227,10 @@ pub fn accurate_features_for_detected_format(
 /// These are deliberately product-wide rather than format-local so route
 /// planning and parser execution make decisions from the same limits.
 pub struct ResourceLimits {
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  max_line_chars : Int
+  max_rows : Int32
+  max_cols : Int32
+  max_cells : Int32
+  max_line_chars : Int32
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
@@ -269,13 +269,13 @@ pub fn default_resource_limits() -> ResourceLimits {
 ///|
 /// Build explicit product resource ceilings.
 pub fn make_resource_limits(
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-  max_line_chars? : Int = 4000,
-  max_input_bytes? : Int64 = 512L * 1024L * 1024L,
-  max_asset_bytes? : Int64 = 32L * 1024L * 1024L,
-  max_total_asset_bytes? : Int64 = 128L * 1024L * 1024L,
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
+  max_line_chars~ : Int32 = 4000,
+  max_input_bytes~ : Int64 = 512L * 1024L * 1024L,
+  max_asset_bytes~ : Int64 = 32L * 1024L * 1024L,
+  max_total_asset_bytes~ : Int64 = 128L * 1024L * 1024L,
 ) -> ResourceLimits {
   {
     max_rows,
@@ -307,10 +307,10 @@ pub fn default_product_options() -> ProductOptions {
 pub fn make_product_options(
   mode : ConvertMode,
   limits : ResourceLimits,
-  fidelity_mode? : FidelityMode = fidelity_mode_for_convert_mode(mode),
-  output_mode? : OutputMode = Markdown,
-  stream_requested? : Bool = mode == Stream,
-  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
+  fidelity_mode~ : FidelityMode = fidelity_mode_for_convert_mode(mode),
+  output_mode~ : OutputMode = Markdown,
+  stream_requested~ : Bool = mode == Stream,
+  rag_options~ : @rag.RagOptions = @rag.default_rag_options(),
 ) -> ProductOptions {
   { mode, fidelity_mode, output_mode, stream_requested, limits, rag_options, }
 }

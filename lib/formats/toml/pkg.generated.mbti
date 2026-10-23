@@ -13,7 +13,7 @@ pub fn inspect_toml_document(TomlDocument) -> TomlInspectReport
 
 pub fn parse_toml_document(String) -> TomlDocument raise
 
-pub fn prepare_toml_document_from_source(@input.InputSource) -> Result[PreparedTomlDocument, String]
+pub async fn prepare_toml_document_from_source(@input.InputSource) -> Result[PreparedTomlDocument, String]
 
 pub fn toml_parse_with_prepared_document(@input.InputSource, @parser.ParseContext, PreparedTomlDocument) -> @parser.ParseResult
 
@@ -69,18 +69,18 @@ pub struct TomlFastArrayTable {
   base_path : String
   keys : Array[String]
   rows : Array[Array[String]]
-  line_start : Int
-  line_end : Int
-  table_count : Int
+  line_start : Int32
+  line_end : Int32
+  table_count : Int32
 }
 
 pub struct TomlInspectReport {
-  node_count : Int
-  scalar_count : Int
-  array_count : Int
-  table_like_count : Int
-  table_count : Int
-  max_depth : Int
+  node_count : Int32
+  scalar_count : Int32
+  array_count : Int32
+  table_like_count : Int32
+  table_count : Int32
+  max_depth : Int32
   root_kind : String
 }
 
@@ -89,16 +89,16 @@ pub struct TomlMember {
   segments : Array[String]
   path : String
   value : TomlValue
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 pub struct TomlTable {
   path : String
   segments : Array[String]
   members : Array[TomlMember]
-  line_start : Int
-  mut line_end : Int
+  line_start : Int32
+  mut line_end : Int32
   is_array_item : Bool
 }
 

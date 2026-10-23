@@ -3,11 +3,11 @@ fn markdown_parse_rich_inlines(
   text : String,
   source_ref : @core.SourceRef,
   diagnostics : @core.Diagnostics,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
   defined_footnotes : Map[String, Bool],
 ) -> MarkdownInlineParseResult {
   let out : Array[@core.CoreInline] = []
-  let unsafe_link_count : Ref[Int] = { val: 0, }
+  let unsafe_link_count : Ref[Int32] = { val: 0, }
   let chars = text.to_array()
   let mut i = 0
   let mut cursor = 0
@@ -211,8 +211,8 @@ fn markdown_parse_footnote_definition_line(line : String) -> (String, String)? {
 ///|
 fn markdown_next_non_blank_block_index(
   blocks : Array[MarkdownBlock],
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   let mut i = start
   while i < blocks.length() {
     if blocks[i].kind != BlankLine {
@@ -326,8 +326,8 @@ fn markdown_may_have_rich_inline_markup(text : String) -> Bool {
 ///|
 fn markdown_find_footnote_reference(
   chars : Array[Char],
-  start : Int,
-) -> (Int, String)? {
+  start : Int32,
+) -> (Int32, String)? {
   if start + 3 >= chars.length() ||
     chars[start] != '[' ||
     chars[start + 1] != '^' {
@@ -354,10 +354,10 @@ fn markdown_find_footnote_reference(
 ///|
 fn markdown_find_inline_link(
   chars : Array[Char],
-  start : Int,
-) -> (Int, Int, Int)? {
-  let mut label_end : Int? = None
-  let mut path_start : Int? = None
+  start : Int32,
+) -> (Int32, Int32, Int32)? {
+  let mut label_end : Int32? = None
+  let mut path_start : Int32? = None
   let mut i = start
   while i < chars.length() {
     if chars[i] == ']' {
@@ -392,7 +392,7 @@ fn markdown_find_inline_link(
 }
 
 ///|
-fn markdown_find_inline_code_end(chars : Array[Char], start : Int) -> Int? {
+fn markdown_find_inline_code_end(chars : Array[Char], start : Int32) -> Int32? {
   let mut i = start + 1
   while i < chars.length() {
     if chars[i] == '`' {
@@ -426,7 +426,7 @@ fn markdown_remote_href(href : String) -> Bool {
 ///|
 fn markdown_image_output_path(
   path : String,
-  image_asset_index : Ref[Int],
+  image_asset_index : Ref[Int32],
 ) -> (String, String, String?) {
   let trimmed = path.trim().to_owned()
   if markdown_remote_href(trimmed) || !markdown_safe_local_image_src(trimmed) {
@@ -492,7 +492,7 @@ fn markdown_image_ext_from_src(src : String) -> String {
 }
 
 ///|
-fn markdown_two_digit(value : Int) -> String {
+fn markdown_two_digit(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {
@@ -522,9 +522,9 @@ fn markdown_source_ref_with_path(
 ///|
 fn markdown_source_ref_from_lines(
   source : @input.InputSource,
-  line_start : Int,
-  line_end : Int,
-  base_source_ref? : @core.SourceRef? = None,
+  line_start : Int32,
+  line_end : Int32,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.SourceRef {
   match base_source_ref {
     Some(base) =>
@@ -550,13 +550,13 @@ fn markdown_source_ref_from_lines(
 fn markdown_annotate_paths_and_report(
   blocks : Array[@core.CoreBlock],
 ) -> (Array[@core.CoreBlock], MarkdownBlockReport) {
-  let heading_index : Ref[Int] = { val: 0, }
-  let paragraph_index : Ref[Int] = { val: 0, }
-  let list_index : Ref[Int] = { val: 0, }
-  let table_index : Ref[Int] = { val: 0, }
-  let code_index : Ref[Int] = { val: 0, }
-  let quote_index : Ref[Int] = { val: 0, }
-  let raw_index : Ref[Int] = { val: 0, }
+  let heading_index : Ref[Int32] = { val: 0, }
+  let paragraph_index : Ref[Int32] = { val: 0, }
+  let list_index : Ref[Int32] = { val: 0, }
+  let table_index : Ref[Int32] = { val: 0, }
+  let code_index : Ref[Int32] = { val: 0, }
+  let quote_index : Ref[Int32] = { val: 0, }
+  let raw_index : Ref[Int32] = { val: 0, }
   let report = markdown_new_block_report_accumulator()
   (
     blocks.map(block => {
@@ -572,16 +572,16 @@ fn markdown_annotate_paths_and_report(
 ///|
 fn markdown_annotate_single_block_path(
   block : @core.CoreBlock,
-  heading_index : Ref[Int],
-  paragraph_index : Ref[Int],
-  list_index : Ref[Int],
-  table_index : Ref[Int],
-  code_index : Ref[Int],
-  quote_index : Ref[Int],
-  raw_index : Ref[Int],
+  heading_index : Ref[Int32],
+  paragraph_index : Ref[Int32],
+  list_index : Ref[Int32],
+  table_index : Ref[Int32],
+  code_index : Ref[Int32],
+  quote_index : Ref[Int32],
+  raw_index : Ref[Int32],
   prefix : String,
   report : MarkdownBlockReportAccumulator,
-  list_depth : Int,
+  list_depth : Int32,
 ) -> @core.CoreBlock {
   let source_ref = block.source_ref.unwrap_or(@core.empty_source_ref())
   let path = if source_ref.markdown_path is Some(_) {
@@ -641,13 +641,13 @@ fn markdown_annotate_single_block_path(
 ///|
 fn markdown_generated_path_for_block(
   block : @core.CoreBlock,
-  heading_index : Ref[Int],
-  paragraph_index : Ref[Int],
-  list_index : Ref[Int],
-  table_index : Ref[Int],
-  code_index : Ref[Int],
-  quote_index : Ref[Int],
-  raw_index : Ref[Int],
+  heading_index : Ref[Int32],
+  paragraph_index : Ref[Int32],
+  list_index : Ref[Int32],
+  table_index : Ref[Int32],
+  code_index : Ref[Int32],
+  quote_index : Ref[Int32],
+  raw_index : Ref[Int32],
   prefix : String,
 ) -> String {
   match block.kind {
@@ -700,7 +700,7 @@ fn markdown_generated_path_for_block(
 fn markdown_source_ref(
   block : MarkdownBlock,
   source : @input.InputSource,
-  base_source_ref? : @core.SourceRef? = None,
+  base_source_ref~ : @core.SourceRef? = None,
 ) -> @core.SourceRef {
   markdown_source_ref_from_lines(
     source,
@@ -711,7 +711,7 @@ fn markdown_source_ref(
 }
 
 ///|
-fn markdown_heading_level(text : String) -> Int {
+fn markdown_heading_level(text : String) -> Int32 {
   let trimmed = text.trim().to_owned()
   let chars = trimmed.to_array()
   let mut level = 0
@@ -722,7 +722,7 @@ fn markdown_heading_level(text : String) -> Int {
 }
 
 ///|
-fn markdown_setext_heading_level(text : String) -> Int {
+fn markdown_setext_heading_level(text : String) -> Int32 {
   let lines = text.split("\n").to_array()
   if lines.length() < 2 {
     return 1
@@ -760,8 +760,8 @@ fn parse_markdown_image(text : String) -> (String, String)? {
     return None
   }
   let chars = trimmed.to_array()
-  let mut alt_end : Int? = None
-  let mut path_start : Int? = None
+  let mut alt_end : Int32? = None
+  let mut path_start : Int32? = None
   for i in 0..<chars.length() {
     if chars[i] == ']' && alt_end is None {
       alt_end = Some(i)

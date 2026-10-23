@@ -1,5 +1,5 @@
 ///|
-fn read_required_xml_part(
+async fn read_required_xml_part(
   archive : @zip.ZipArchive,
   entry_index : Map[String, String],
   path : String,
@@ -8,7 +8,7 @@ fn read_required_xml_part(
 }
 
 ///|
-fn read_required_xml_part_payload(
+async fn read_required_xml_part_payload(
   archive : @zip.ZipArchive,
   entry_index : Map[String, String],
   path : String,
@@ -16,14 +16,14 @@ fn read_required_xml_part_payload(
   let data = read_required_part_bytes(archive, entry_index, path)
   {
     path,
-    text: bytes_to_xml_text(data, path),
+    text: bytes_to_xml_text(archive, data, path),
     structure_scan: @xml.scan_xml_structure_bytes(data),
     bytes: data,
   }
 }
 
 ///|
-fn read_required_part_bytes(
+async fn read_required_part_bytes(
   archive : @zip.ZipArchive,
   entry_index : Map[String, String],
   path : String,
@@ -36,11 +36,11 @@ fn read_required_part_bytes(
 }
 
 ///|
-fn read_optional_text_part(
+async fn read_optional_text_part(
   archive : @zip.ZipArchive,
   entry_index : Map[String, String],
   path : String,
-) -> String? {
+) -> String? raise EpubError {
   let raw_path = match entry_index.get(path) {
     Some(v) => v
     None => return None
@@ -48,9 +48,14 @@ fn read_optional_text_part(
 
   let data = match read_archive_entry_bytes_optional(archive, raw_path) {
     Some(bytes) => bytes
-    None => return None
+    None => {
+      if @zip.archive_hard_failure(archive) is Some(message) {
+        raise ZipError(message)
+      }
+      return None
+    }
   }
-  let text = @utf8.decode(data, ignore_bom=false) catch { _ => return None }
+  let text = bytes_to_xml_text(archive, data, path)
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     None
@@ -60,7 +65,7 @@ fn read_optional_text_part(
 }
 
 ///|
-fn read_archive_entry_bytes(
+async fn read_archive_entry_bytes(
   archive : @zip.ZipArchive,
   raw_path : String,
   logical_path : String,
@@ -72,10 +77,10 @@ fn read_archive_entry_bytes(
 }
 
 ///|
-fn read_archive_entry_bytes_optional(
+async fn read_archive_entry_bytes_optional(
   archive : @zip.ZipArchive,
   raw_path : String,
-) -> Bytes? {
+) -> Bytes? noraise {
   let data = @zip.read_entry(archive, raw_path) catch { _ => return None }
   Some(data)
 }
@@ -189,7 +194,7 @@ fn append_archive_entry_plan(
   entry_index : Map[String, String],
   raw_name : String,
   is_directory : Bool,
-  uncompressed_size : Int,
+  uncompressed_size : Int32,
 ) -> Unit raise EpubError {
   if raw_name.has_suffix("/") || raw_name.has_suffix("\\") {
     return

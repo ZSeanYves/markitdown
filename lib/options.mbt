@@ -17,7 +17,7 @@ pub fn ResourceLimits::default() -> ResourceLimits {
 /// Return a copy with a new maximum row count.
 pub fn ResourceLimits::with_max_rows(
   self : ResourceLimits,
-  max_rows : Int,
+  max_rows : Int32,
 ) -> ResourceLimits {
   { ..self, max_rows, }
 }
@@ -26,7 +26,7 @@ pub fn ResourceLimits::with_max_rows(
 /// Return a copy with a new maximum column count.
 pub fn ResourceLimits::with_max_cols(
   self : ResourceLimits,
-  max_cols : Int,
+  max_cols : Int32,
 ) -> ResourceLimits {
   { ..self, max_cols, }
 }
@@ -35,7 +35,7 @@ pub fn ResourceLimits::with_max_cols(
 /// Return a copy with a new maximum cell count.
 pub fn ResourceLimits::with_max_cells(
   self : ResourceLimits,
-  max_cells : Int,
+  max_cells : Int32,
 ) -> ResourceLimits {
   { ..self, max_cells, }
 }
@@ -44,7 +44,7 @@ pub fn ResourceLimits::with_max_cells(
 /// Return a copy with a new maximum rendered line length.
 pub fn ResourceLimits::with_max_line_chars(
   self : ResourceLimits,
-  max_line_chars : Int,
+  max_line_chars : Int32,
 ) -> ResourceLimits {
   { ..self, max_line_chars, }
 }
@@ -94,7 +94,7 @@ pub fn RagOptions::default() -> RagOptions {
 /// Return a copy with a new target chunk size.
 pub fn RagOptions::with_chunk_size(
   self : RagOptions,
-  chunk_size : Int,
+  chunk_size : Int32,
 ) -> RagOptions {
   { ..self, chunk_size, }
 }
@@ -103,7 +103,7 @@ pub fn RagOptions::with_chunk_size(
 /// Return a copy with a new chunk overlap.
 pub fn RagOptions::with_chunk_overlap(
   self : RagOptions,
-  chunk_overlap : Int,
+  chunk_overlap : Int32,
 ) -> RagOptions {
   { ..self, chunk_overlap, }
 }

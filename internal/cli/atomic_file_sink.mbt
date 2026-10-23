@@ -5,24 +5,24 @@ priv type AtomicFileWriter
 #borrow(path)
 extern "C" fn atomic_writer_open_ffi(
   path : Bytes,
-  path_length : Int,
+  path_length : Int32,
 ) -> AtomicFileWriter = "markitdown_atomic_writer_open"
 
 ///|
 #borrow(writer)
-extern "C" fn atomic_writer_status_ffi(writer : AtomicFileWriter) -> Int = "markitdown_atomic_writer_status"
+extern "C" fn atomic_writer_status_ffi(writer : AtomicFileWriter) -> Int32 = "markitdown_atomic_writer_status"
 
 ///|
 #borrow(writer, payload)
 extern "C" fn atomic_writer_write_ffi(
   writer : AtomicFileWriter,
   payload : Bytes,
-  payload_length : Int,
-) -> Int = "markitdown_atomic_writer_write"
+  payload_length : Int32,
+) -> Int32 = "markitdown_atomic_writer_write"
 
 ///|
 #borrow(writer)
-extern "C" fn atomic_writer_commit_ffi(writer : AtomicFileWriter) -> Int = "markitdown_atomic_writer_commit"
+extern "C" fn atomic_writer_commit_ffi(writer : AtomicFileWriter) -> Int32 = "markitdown_atomic_writer_commit"
 
 ///|
 #borrow(writer)

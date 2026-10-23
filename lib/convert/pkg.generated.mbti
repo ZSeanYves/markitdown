@@ -34,7 +34,7 @@ pub fn fidelity_mode_name(@product.FidelityMode) -> String
 
 pub fn make_convert_options(@product.ConvertMode, @product.OutputMode, @input.DetectedFormat?, @product.ResourceLimits, rag_options? : @rag.RagOptions) -> ConvertOptions
 
-pub fn make_output_sink((String) -> Result[Unit, String], () -> Result[Unit, String]) -> OutputSink
+pub fn make_output_sink(async (String) -> Result[Unit, String], async () -> Result[Unit, String]) -> OutputSink
 
 pub fn output_mode_for_convert_mode(@product.ConvertMode) -> @product.OutputMode
 
@@ -42,7 +42,7 @@ pub fn output_mode_for_output_format(@product.OutputMode) -> @product.OutputMode
 
 pub fn output_mode_name(@product.OutputMode) -> String
 
-pub fn plan_input(@input.InputSource, ConvertOptions) -> Result[RoutePlan, ConvertError]
+pub async fn plan_input(@input.InputSource, ConvertOptions) -> Result[RoutePlan, ConvertError]
 
 pub fn route_plan_to_json(RoutePlan) -> Json
 
@@ -110,8 +110,8 @@ pub struct ConvertResult {
 }
 
 pub struct OutputSink {
-  write : (String) -> Result[Unit, String]
-  finish : () -> Result[Unit, String]
+  write : async (String) -> Result[Unit, String]
+  finish : async () -> Result[Unit, String]
 }
 
 pub struct RoutePlan {

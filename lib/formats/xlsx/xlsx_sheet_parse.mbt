@@ -1,19 +1,26 @@
 ///|
 priv struct XlsxParsedSheetXml {
   dimension_ref : String?
-  hidden_rows : Map[Int, Bool]
+  hidden_rows : Map[Int32, Bool]
   merged_ranges : Array[String]
   cells : Array[XlsxCell]
 }
 
 ///|
+priv enum XlsxSheetStreamError {
+  UnsupportedShape(String)
+  ReadFailed(String)
+  InvalidEncoding(String)
+}
+
+///|
 /// Keep the worksheet header, the budgeted leading rows, and metadata after
 /// `sheetData` while still consuming the complete validated ZIP stream.
-fn xlsx_compact_sheet_xml_stream(
+async fn xlsx_compact_sheet_xml_stream(
   pkg : @ox.OoxmlPackage,
   part_name : String,
-  max_rows : Int,
-) -> Result[Bytes, String] {
+  max_rows : Int32,
+) -> Result[Bytes, XlsxSheetStreamError] noraise {
   let output = Buffer()
   let pending = Buffer()
   let sheet_data_open = b"<sheetData"
@@ -24,8 +31,24 @@ fn xlsx_compact_sheet_xml_stream(
   let mut state = 0
   let mut kept_rows = 0
   let row_limit = max_rows.max(1)
+  let utf8_carry = Ref(b"")
+  let encoding_error : Ref[String?] = Ref(None)
 
   let result = @ox.visit_part_inflated_chunks(pkg, part_name, fn(chunk) {
+    // Validate the original stream before row/shape handling can discard it.
+    // Carry is shared with the source text reader rather than a second UTF8
+    // validator, and never grows beyond one incomplete scalar.
+    let decoded = match
+      @sourceio.decode_utf8_source_chunk(utf8_carry.val + chunk, false) {
+      Ok(value) => value
+      Err(message) => {
+        let message = part_name + ": " + message
+        encoding_error.val = Some(message)
+        @dzip.record_hard_failure(pkg.archive, message)
+        return Err(message)
+      }
+    }
+    utf8_carry.val = decoded.1
     if state == 2 {
       output.write_bytes(chunk)
       return Ok(())
@@ -125,13 +148,26 @@ fn xlsx_compact_sheet_xml_stream(
     Ok(())
   })
   match result {
-    Err(err) => Err(err)
-    Ok(_) =>
+    Err(err) =>
+      match encoding_error.val {
+        Some(message) => Err(InvalidEncoding(message))
+        None => Err(ReadFailed(err))
+      }
+    Ok(_) => {
+      match @sourceio.decode_utf8_source_chunk(utf8_carry.val, true) {
+        Ok(_) => ()
+        Err(message) => {
+          let message = part_name + ": " + message
+          @dzip.record_hard_failure(pkg.archive, message)
+          return Err(InvalidEncoding(message))
+        }
+      }
       if state == 2 {
         Ok(output.to_bytes())
       } else {
-        Err("worksheet stream ended before </sheetData>")
+        Err(UnsupportedShape("worksheet stream ended before </sheetData>"))
       }
+    }
   }
 }
 
@@ -167,9 +203,9 @@ fn xlsx_parse_sheet_xml_bytes(
   styles : XlsxStyles,
   uses_date_1904 : Bool,
   relationships : Array[@ox.OoxmlRelationship],
-  build_cell_source_refs? : Bool = true,
-  cell_window_bounds? : (Int, Int, Int, Int)? = None,
-) -> XlsxParsedSheetXml {
+  build_cell_source_refs~ : Bool = true,
+  cell_window_bounds~ : (Int32, Int32, Int32, Int32)? = None,
+) -> XlsxParsedSheetXml raise @ox.OoxmlError {
   xlsx_parse_sheet_xml_reference(
     sheet_info,
     xlsx_decode_sheet_xml(sheet_xml_bytes),
@@ -183,18 +219,11 @@ fn xlsx_parse_sheet_xml_bytes(
 }
 
 ///|
-fn xlsx_decode_sheet_xml(sheet_xml_bytes : Bytes) -> String {
+fn xlsx_decode_sheet_xml(
+  sheet_xml_bytes : Bytes,
+) -> String raise @ox.OoxmlError {
   @utf8.decode(sheet_xml_bytes, ignore_bom=false) catch {
-    _ => {
-      let chars : Array[Char] = []
-      for b in sheet_xml_bytes {
-        let value = b.to_int()
-        chars.push(
-          Int::unsafe_to_char(if value >= 0 { value } else { value + 256 }),
-        )
-      }
-      String::from_array(chars)
-    }
+    _ => raise @ox.OoxmlError::InvalidEncoding("utf8 decode failed")
   }
 }
 
@@ -206,10 +235,10 @@ fn xlsx_parse_sheet_xml_reference(
   styles : XlsxStyles,
   uses_date_1904 : Bool,
   relationships : Array[@ox.OoxmlRelationship],
-  build_cell_source_refs? : Bool = true,
-  cell_window_bounds? : (Int, Int, Int, Int)? = None,
+  build_cell_source_refs~ : Bool = true,
+  cell_window_bounds~ : (Int32, Int32, Int32, Int32)? = None,
 ) -> XlsxParsedSheetXml {
-  let hidden_rows : Map[Int, Bool] = Map([])
+  let hidden_rows : Map[Int32, Bool] = Map([])
   let merged_ranges : Array[String] = []
   let hyperlinks = xlsx_parse_sheet_hyperlinks(sheet_xml, relationships)
   let cells : Array[XlsxCell] = []
@@ -468,8 +497,8 @@ fn xlsx_find_relationship_target(
 ///|
 fn xlsx_lookup_sheet_hyperlink(
   hyperlinks : Array[XlsxSheetHyperlink],
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
 ) -> (String?, String?) {
   for hyperlink in hyperlinks {
     if row_index >= hyperlink.row_start &&
@@ -484,9 +513,9 @@ fn xlsx_lookup_sheet_hyperlink(
 
 ///|
 fn xlsx_cell_outside_window(
-  row_index : Int,
-  column_index : Int,
-  bounds : (Int, Int, Int, Int)?,
+  row_index : Int32,
+  column_index : Int32,
+  bounds : (Int32, Int32, Int32, Int32)?,
 ) -> Bool {
   match bounds {
     Some((min_row, min_col, max_row, max_col)) =>
@@ -500,8 +529,8 @@ fn xlsx_cell_outside_window(
 
 ///|
 fn xlsx_row_exceeds_window(
-  row_index : Int,
-  bounds : (Int, Int, Int, Int)?,
+  row_index : Int32,
+  bounds : (Int32, Int32, Int32, Int32)?,
 ) -> Bool {
   match bounds {
     Some((_, _, max_row, _)) => row_index > max_row
@@ -510,7 +539,7 @@ fn xlsx_row_exceeds_window(
 }
 
 ///|
-fn xlsx_sheet_char_at(text : String, index : Int) -> Char {
+fn xlsx_sheet_char_at(text : String, index : Int32) -> Char {
   text.unsafe_get(index).unsafe_to_char()
 }
 
@@ -520,7 +549,7 @@ fn xlsx_is_xml_name_boundary(ch : Char) -> Bool {
 }
 
 ///|
-fn xlsx_is_dimension_tag(text : String, start : Int, n : Int) -> Bool {
+fn xlsx_is_dimension_tag(text : String, start : Int32, n : Int32) -> Bool {
   start + 10 < n &&
   xlsx_sheet_char_at(text, start) == '<' &&
   xlsx_sheet_char_at(text, start + 1) == 'd' &&
@@ -536,7 +565,7 @@ fn xlsx_is_dimension_tag(text : String, start : Int, n : Int) -> Bool {
 }
 
 ///|
-fn xlsx_is_row_tag(text : String, start : Int, n : Int) -> Bool {
+fn xlsx_is_row_tag(text : String, start : Int32, n : Int32) -> Bool {
   start + 4 < n &&
   xlsx_sheet_char_at(text, start) == '<' &&
   xlsx_sheet_char_at(text, start + 1) == 'r' &&
@@ -546,7 +575,7 @@ fn xlsx_is_row_tag(text : String, start : Int, n : Int) -> Bool {
 }
 
 ///|
-fn xlsx_is_merge_cell_tag(text : String, start : Int, n : Int) -> Bool {
+fn xlsx_is_merge_cell_tag(text : String, start : Int32, n : Int32) -> Bool {
   start + 10 < n &&
   xlsx_sheet_char_at(text, start) == '<' &&
   xlsx_sheet_char_at(text, start + 1) == 'm' &&
@@ -562,7 +591,7 @@ fn xlsx_is_merge_cell_tag(text : String, start : Int, n : Int) -> Bool {
 }
 
 ///|
-fn xlsx_is_cell_tag(text : String, start : Int, n : Int) -> Bool {
+fn xlsx_is_cell_tag(text : String, start : Int32, n : Int32) -> Bool {
   start + 2 < n &&
   xlsx_sheet_char_at(text, start) == '<' &&
   xlsx_sheet_char_at(text, start + 1) == 'c' &&
@@ -570,7 +599,7 @@ fn xlsx_is_cell_tag(text : String, start : Int, n : Int) -> Bool {
 }
 
 ///|
-fn xlsx_find_tag_end(text : String, start : Int, n : Int) -> Int? {
+fn xlsx_find_tag_end(text : String, start : Int32, n : Int32) -> Int32? {
   let mut i = start
   while i < n {
     if xlsx_sheet_char_at(text, i) == '>' {
@@ -582,7 +611,7 @@ fn xlsx_find_tag_end(text : String, start : Int, n : Int) -> Int? {
 }
 
 ///|
-fn xlsx_find_cell_close(text : String, start : Int, n : Int) -> Int? {
+fn xlsx_find_cell_close(text : String, start : Int32, n : Int32) -> Int32? {
   let mut i = start
   while i + 3 < n {
     if xlsx_sheet_char_at(text, i) == '<' &&
@@ -599,8 +628,8 @@ fn xlsx_find_cell_close(text : String, start : Int, n : Int) -> Int? {
 ///|
 fn xlsx_tag_is_self_closing(
   text : String,
-  tag_start : Int,
-  tag_end : Int,
+  tag_start : Int32,
+  tag_end : Int32,
 ) -> Bool {
   let mut i = tag_end - 1
   while i > tag_start {
@@ -624,12 +653,12 @@ priv struct XlsxFormulaInfo {
 fn xlsx_find_named_open_tag_range(
   text : String,
   name : String,
-  start : Int,
-  end_ : Int,
-) -> Int? {
+  start : Int32,
+  end_ : Int32,
+) -> Int32? {
   let pattern = "<" + name
   let mut pos = start
-  let mut result : Int? = None
+  let mut result : Int32? = None
   while pos < end_ && result is None {
     match xlsx_find_sub_range(text, pattern, pos, end_) {
       None => pos = end_
@@ -650,8 +679,8 @@ fn xlsx_find_named_open_tag_range(
 ///|
 fn xlsx_tag_text_range(
   xml : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
   name : String,
 ) -> String? {
   match xlsx_find_named_open_tag_range(xml, name, range_start, range_end) {
@@ -684,8 +713,8 @@ fn xlsx_tag_text_range(
 ///|
 fn xlsx_extract_formula_info_range(
   xml : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
 ) -> XlsxFormulaInfo? {
   match xlsx_find_named_open_tag_range(xml, "f", range_start, range_end) {
     None => None
@@ -720,11 +749,11 @@ fn xlsx_resolve_cell_display(
   raw_value : String?,
   inline_text : String?,
   formula_text : String?,
-  style_index : Int,
+  style_index : Int32,
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
-) -> (String, String, Int?) {
+) -> (String, String, Int32?) {
   let raw = raw_value.unwrap_or("")
   match formula_text {
     Some(formula) =>
@@ -749,11 +778,11 @@ fn xlsx_resolve_base_cell_value(
   cell_type : String,
   raw_value : String?,
   inline_text : String?,
-  style_index : Int,
+  style_index : Int32,
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
-) -> (String, String, Int?) {
+) -> (String, String, Int32?) {
   let raw = raw_value.unwrap_or("")
   if cell_type == "s" {
     let index = xlsx_parse_int(raw)
@@ -785,7 +814,7 @@ fn xlsx_resolve_base_cell_value(
 ///|
 fn xlsx_format_value(
   raw : String,
-  style_index : Int,
+  style_index : Int32,
   styles : XlsxStyles,
   uses_date_1904 : Bool,
 ) -> String {
@@ -804,7 +833,7 @@ fn xlsx_format_value(
 ///|
 fn xlsx_semantic_type_for_style(
   raw : String,
-  style_index : Int,
+  style_index : Int32,
   styles : XlsxStyles,
 ) -> String {
   let num_fmt_id = xlsx_style_numfmt(styles, style_index)
@@ -837,8 +866,8 @@ fn xlsx_semantic_type_for_style(
 ///|
 fn xlsx_parse_inline_string_range(
   xml : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
 ) -> String? {
   match xlsx_find_named_open_tag_range(xml, "is", range_start, range_end) {
     None => {
@@ -912,8 +941,8 @@ fn xlsx_concat_text_runs(inner : String) -> String {
 ///|
 fn xlsx_concat_text_runs_range(
   xml : String,
-  range_start : Int,
-  range_end : Int,
+  range_start : Int32,
+  range_end : Int32,
 ) -> String {
   let out = StringBuilder()
   let mut pos = range_start
@@ -942,7 +971,7 @@ fn xlsx_concat_text_runs_range(
 }
 
 ///|
-fn xlsx_parse_comments_part(
+async fn xlsx_parse_comments_part(
   pkg : @ox.OoxmlPackage,
   part_name : String,
 ) -> Array[XlsxComment] raise @ox.OoxmlError {
@@ -1052,12 +1081,12 @@ fn xlsx_comment_strip_author_prefix(author : String?, text : String) -> String {
 fn xlsx_effective_bounds(
   dimension_ref : String?,
   cells : Array[XlsxCell],
-  hidden_rows : Map[Int, Bool],
+  hidden_rows : Map[Int32, Bool],
   include_hidden_rows : Bool,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
-) -> (Int, Int, Int, Int, Bool, Bool) {
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
+) -> (Int32, Int32, Int32, Int32, Bool, Bool) {
   let base_bounds = match
     xlsx_bounds_from_visible_cells(
       cells, hidden_rows, include_hidden_rows, true,
@@ -1112,8 +1141,8 @@ fn xlsx_effective_bounds(
 ///|
 fn xlsx_sheet_is_effectively_empty(
   base_is_empty : Bool,
-  non_empty_cell_count : Int,
-  formula_count : Int,
+  non_empty_cell_count : Int32,
+  formula_count : Int32,
 ) -> Bool {
   base_is_empty || (non_empty_cell_count == 0 && formula_count == 0)
 }
@@ -1121,10 +1150,10 @@ fn xlsx_sheet_is_effectively_empty(
 ///|
 fn xlsx_bounds_from_visible_cells(
   cells : Array[XlsxCell],
-  hidden_rows : Map[Int, Bool],
+  hidden_rows : Map[Int32, Bool],
   include_hidden_rows : Bool,
   semantic_only : Bool,
-) -> (Int, Int, Int, Int)? {
+) -> (Int32, Int32, Int32, Int32)? {
   let mut found = false
   let mut min_row = 0
   let mut min_col = 0
@@ -1166,7 +1195,10 @@ fn xlsx_bounds_from_visible_cells(
 }
 
 ///|
-fn xlsx_row_is_hidden(hidden_rows : Map[Int, Bool], row_index : Int) -> Bool {
+fn xlsx_row_is_hidden(
+  hidden_rows : Map[Int32, Bool],
+  row_index : Int32,
+) -> Bool {
   match hidden_rows.get(row_index) {
     Some(value) => value
     None => false
@@ -1180,10 +1212,10 @@ fn xlsx_cell_has_semantic_content(cell : XlsxCell) -> Bool {
 
 ///|
 fn xlsx_visible_row_count(
-  hidden_rows : Map[Int, Bool],
-  min_row : Int,
-  max_row : Int,
-) -> Int {
+  hidden_rows : Map[Int32, Bool],
+  min_row : Int32,
+  max_row : Int32,
+) -> Int32 {
   if min_row > max_row {
     return 0
   }
@@ -1200,11 +1232,11 @@ fn xlsx_visible_row_count(
 
 ///|
 fn xlsx_effective_row_count(
-  hidden_rows : Map[Int, Bool],
+  hidden_rows : Map[Int32, Bool],
   include_hidden_rows : Bool,
-  min_row : Int,
-  max_row : Int,
-) -> Int {
+  min_row : Int32,
+  max_row : Int32,
+) -> Int32 {
   if include_hidden_rows {
     if min_row > max_row {
       0
@@ -1219,10 +1251,10 @@ fn xlsx_effective_row_count(
 ///|
 fn xlsx_filter_merge_ranges(
   ranges : Array[String],
-  min_row : Int,
-  min_col : Int,
-  max_row : Int,
-  max_col : Int,
+  min_row : Int32,
+  min_col : Int32,
+  max_row : Int32,
+  max_col : Int32,
   is_empty : Bool,
 ) -> Array[String] {
   if is_empty {

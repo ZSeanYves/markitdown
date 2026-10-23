@@ -1,5 +1,5 @@
 ///|
-fn lower_eml_multipart_children(
+async fn lower_eml_multipart_children(
   part : @deml.EmlPart,
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -7,7 +7,7 @@ fn lower_eml_multipart_children(
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
   rewrites : Array[EmlAssetRewrite],
-  child_count : Int,
+  child_count : Int32,
 ) -> Array[@core.CoreBlock] {
   if part.summary.mime_type == "multipart/alternative" {
     eml_increment_metric(diagnostics, "multipart_alternative_count")
@@ -93,7 +93,7 @@ fn eml_rewrite_cid_references(
   document : @core.DocumentIR,
   diagnostics : @core.Diagnostics,
   context : @parser.ParseContext,
-) -> String {
+) -> String raise {
   let mut out = html
   let inline_attachments = eml_inline_image_attachments_for_related(
     part, sibling_parts,
@@ -156,7 +156,7 @@ fn eml_materialize_inline_attachment_asset(
   document : @core.DocumentIR,
   context : @parser.ParseContext,
   diagnostics : @core.Diagnostics,
-) -> Bool {
+) -> Bool raise {
   if !eml_attachment_within_asset_budget(
       attachment, context, document, diagnostics,
     ) {
@@ -188,7 +188,7 @@ fn eml_attachment_within_asset_budget(
   attachment : @deml.EmlAttachment,
   context : @parser.ParseContext,
   document : @core.DocumentIR,
-  diagnostics : @core.Diagnostics,
+  _diagnostics : @core.Diagnostics,
 ) -> Bool {
   let declared_bytes = match attachment.bytes {
     Some(bytes) => bytes.length().to_int64()
@@ -205,20 +205,9 @@ fn eml_attachment_within_asset_budget(
       _ => ()
     }
   }
-  if @parser.asset_payload_within_limits(
-      context, declared_bytes, materialized_bytes,
-    ) {
-    true
-  } else {
-    diagnostics.warnings.push(
-      "EML attachment skipped before decode because it exceeds the asset budget: " +
-      attachment.file_name.unwrap_or(attachment.mime_type),
-    )
-    if !diagnostics.degraded_features.contains("eml_attachment_budget_skip") {
-      diagnostics.degraded_features.push("eml_attachment_budget_skip")
-    }
-    false
-  }
+  @parser.require_asset_payload_within_limits(
+    context, declared_bytes, materialized_bytes,
+  )
 }
 
 ///|
@@ -226,7 +215,7 @@ fn eml_materialize_attachment_payload(
   attachment : @deml.EmlAttachment,
   want_text : Bool,
   want_bytes : Bool,
-) -> @deml.EmlAttachment {
+) -> @deml.EmlAttachment raise {
   @deml.materialize_attachment_payload(attachment, want_text, want_bytes)
 }
 

@@ -7,10 +7,10 @@ pub(all) suberror HtmlError {
 ///|
 /// Line-based source span for HTML tokens and nodes.
 pub struct HtmlSourceSpan {
-  line_start : Int
-  line_end : Int
-  byte_start : Int
-  byte_end : Int
+  line_start : Int32
+  line_end : Int32
+  byte_start : Int32
+  byte_end : Int32
 }
 
 ///|
@@ -51,8 +51,8 @@ pub struct HtmlTokenEvent {
   tag_name : String
   attributes : Array[HtmlAttribute]
   self_closing : Bool
-  source_start : Int
-  source_end : Int
+  source_start : Int32
+  source_end : Int32
   span : HtmlSourceSpan
 }
 
@@ -62,12 +62,12 @@ pub fn make_html_token_event(
   tag_name : String,
   attributes : Array[HtmlAttribute],
   self_closing : Bool,
-  source_start : Int,
-  source_end : Int,
-  line_start : Int,
-  line_end : Int,
-  byte_start? : Int = source_start,
-  byte_end? : Int = source_end,
+  source_start : Int32,
+  source_end : Int32,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start~ : Int32 = source_start,
+  byte_end~ : Int32 = source_end,
 ) -> HtmlTokenEvent {
   {
     kind,
@@ -82,17 +82,17 @@ pub fn make_html_token_event(
 
 ///|
 pub struct HtmlTokenEventSummary {
-  node_count : Int
-  block_scope_count : Int
-  structural_scope_count : Int
-  max_depth : Int
-  char_count : Int
+  node_count : Int32
+  block_scope_count : Int32
+  structural_scope_count : Int32
+  max_depth : Int32
+  char_count : Int32
 }
 
 ///|
 pub struct HtmlTokenSourceRange {
-  source_start : Int
-  source_end : Int
+  source_start : Int32
+  source_end : Int32
 }
 
 ///|
@@ -104,7 +104,7 @@ pub struct HtmlSourceAnalysis {
 ///|
 /// Parser-owned semantic block categories for future HTML lowering.
 pub(all) enum HtmlBlockKind {
-  Heading(Int)
+  Heading(Int32)
   Paragraph
   List(Bool)
   ListItem
@@ -217,8 +217,8 @@ pub struct HtmlUnsupportedFact {
   source_key : String
   related_source_key : String?
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   parent_source_key : String?
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
@@ -232,8 +232,8 @@ pub struct HtmlBlockFact {
   kind : HtmlBlockKind
   source_key : String
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   parent_source_key : String?
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
@@ -247,8 +247,8 @@ pub struct HtmlParagraphFact {
   source_key : String
   block_source_key : String
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   parent_block_source_key : String?
   inline_child_keys : Array[String]
   raw_text_preview : String
@@ -380,8 +380,8 @@ pub struct HtmlInlineFact {
   kind : HtmlInlineKind
   source_key : String
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   parent_block_source_key : String?
   parent_inline_source_key : String?
   raw_text_preview : String
@@ -480,29 +480,29 @@ pub struct HtmlTableFact {
   source_key : String
   block_source_key : String
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   parent_block_source_key : String?
   caption_source_key : String?
   caption_text_preview : String?
   sections : Array[String]
   rows : Array[String]
   cells : Array[String]
-  row_count : Int
-  cell_count : Int
-  max_column_count : Int
+  row_count : Int32
+  cell_count : Int32
+  max_column_count : Int32
   has_ragged_rows : Bool
   has_span : Bool
   has_caption : Bool
   has_nested_table : Bool
   has_complex_cell : Bool
-  span_cell_count : Int
-  ragged_row_count : Int
-  nested_table_cell_count : Int
-  complex_cell_count : Int
-  image_cell_count : Int
-  block_child_cell_count : Int
-  malformed_warning_count : Int
+  span_cell_count : Int32
+  ragged_row_count : Int32
+  nested_table_cell_count : Int32
+  complex_cell_count : Int32
+  image_cell_count : Int32
+  block_child_cell_count : Int32
+  malformed_warning_count : Int32
   safe_simple_table_candidate : Bool
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
@@ -517,10 +517,10 @@ pub struct HtmlTableSectionFact {
   block_source_key : String
   kind : HtmlTableSectionKind
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   row_source_keys : Array[String]
-  row_count : Int
+  row_count : Int32
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
   span : HtmlSourceSpan
@@ -533,11 +533,11 @@ pub struct HtmlTableRowFact {
   table_source_key : String
   section_source_key : String?
   block_source_key : String
-  source_order : Int
-  depth : Int
-  row_index : Int
+  source_order : Int32
+  depth : Int32
+  row_index : Int32
   cell_source_keys : Array[String]
-  cell_count : Int
+  cell_count : Int32
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
   span : HtmlSourceSpan
@@ -551,16 +551,16 @@ pub struct HtmlTableCellFact {
   section_source_key : String?
   row_source_key : String
   block_source_key : String
-  source_order : Int
-  depth : Int
-  row_index : Int
-  cell_index : Int
+  source_order : Int32
+  depth : Int32
+  row_index : Int32
+  cell_index : Int32
   kind : HtmlTableCellKind
   tag_name : String
   colspan : String?
   rowspan : String?
-  colspan_value : Int
-  rowspan_value : Int
+  colspan_value : Int32
+  rowspan_value : Int32
   headers : String?
   scope : String?
   inline_child_keys : Array[String]
@@ -587,13 +587,13 @@ pub struct HtmlListFact {
   block_source_key : String
   kind : HtmlListKind
   tag_name : String
-  source_order : Int
-  depth : Int
-  list_depth : Int
+  source_order : Int32
+  depth : Int32
+  list_depth : Int32
   parent_list_source_key : String?
   parent_item_source_key : String?
   item_source_keys : Array[String]
-  item_count : Int
+  item_count : Int32
   start : String?
   type_attr : String?
   reversed : Bool
@@ -609,10 +609,10 @@ pub struct HtmlListItemFact {
   block_source_key : String
   list_source_key : String?
   parent_item_source_key : String?
-  source_order : Int
-  depth : Int
-  list_depth : Int
-  item_order : Int
+  source_order : Int32
+  depth : Int32
+  list_depth : Int32
+  item_order : Int32
   child_list_source_keys : Array[String]
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
@@ -624,9 +624,9 @@ pub struct HtmlListItemFact {
 pub struct HtmlBlockQuoteFact {
   source_key : String
   block_source_key : String
-  source_order : Int
-  depth : Int
-  quote_depth : Int
+  source_order : Int32
+  depth : Int32
+  quote_depth : Int32
   parent_quote_source_key : String?
   child_block_source_keys : Array[String]
   cite : String?
@@ -642,8 +642,8 @@ pub struct HtmlCodeBlockFact {
   block_source_key : String
   code_block_source_key : String?
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   language_hint : String?
   class_hint : String?
   code_text : String
@@ -659,8 +659,8 @@ pub struct HtmlCodeBlockFact {
 pub struct HtmlFigureFact {
   source_key : String
   block_source_key : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   child_block_source_keys : Array[String]
   caption_block_source_key : String?
   caption_text_preview : String?
@@ -683,7 +683,7 @@ pub struct HtmlNoteRefFact {
   ref_text_preview : String
   inline_child_keys : Array[String]
   kind : HtmlNoteKind
-  source_order : Int
+  source_order : Int32
   relation_confidence : HtmlNoteRelationConfidence
   is_broken : Bool
   is_back_reference : Bool
@@ -695,7 +695,7 @@ pub struct HtmlNoteRefFact {
 pub struct HtmlNoteBodyFact {
   source_key : String
   block_source_key : String
-  source_order : Int
+  source_order : Int32
   kind : HtmlNoteKind
   note_id : String?
   marker : String?
@@ -718,7 +718,7 @@ pub struct HtmlNoteFact {
   href : String?
   ref_text_preview : String
   body_text_preview : String
-  source_order : Int
+  source_order : Int32
   relation_confidence : HtmlNoteRelationConfidence
   warnings : Array[HtmlSemanticWarning]
 }
@@ -749,8 +749,8 @@ pub struct HtmlNoiseCandidateFact {
   block_source_key : String?
   parent_source_key : String?
   tag_name : String
-  source_order : Int
-  depth : Int
+  source_order : Int32
+  depth : Int32
   text_preview : String
   attributes : Array[HtmlSemanticAttributeSummary]
   reasons : Array[HtmlNoiseCandidateReason]
@@ -781,171 +781,171 @@ pub struct HtmlSemanticDocument {
   noise_candidates : Array[HtmlNoiseCandidateFact]
   unsupported : Array[HtmlUnsupportedFact]
   warnings : Array[HtmlSemanticWarning]
-  max_depth : Int
+  max_depth : Int32
 }
 
 ///|
 pub struct HtmlSemanticInspectReport {
-  block_count : Int
-  heading_count : Int
-  paragraph_count : Int
-  list_count : Int
-  list_item_count : Int
-  table_count : Int
-  table_row_count : Int
-  table_cell_count : Int
-  blockquote_count : Int
-  pre_count : Int
-  code_block_count : Int
-  figure_count : Int
-  figcaption_count : Int
-  horizontal_rule_count : Int
-  unknown_block_count : Int
-  unsupported_block_count : Int
-  paragraph_fact_count : Int
-  paragraph_with_link_count : Int
-  paragraph_with_image_count : Int
-  paragraph_with_code_count : Int
-  paragraph_with_emphasis_count : Int
-  paragraph_with_strong_count : Int
-  paragraph_with_break_count : Int
-  paragraph_meaningful_text_count : Int
-  paragraph_candidate_count : Int
-  paragraph_repeated_whitespace_count : Int
-  paragraph_newline_count : Int
-  inline_count : Int
-  text_inline_count : Int
-  emphasis_inline_count : Int
-  strong_inline_count : Int
-  code_inline_count : Int
-  link_inline_count : Int
-  image_inline_count : Int
-  break_inline_count : Int
-  span_inline_count : Int
-  inline_container_count : Int
-  unsupported_inline_count : Int
-  unknown_inline_count : Int
-  whitespace_only_text_inline_count : Int
-  leading_whitespace_inline_count : Int
-  trailing_whitespace_inline_count : Int
-  repeated_whitespace_inline_count : Int
-  newline_inline_count : Int
-  whitespace_preserving_inline_count : Int
-  inline_with_surrounding_text_count : Int
-  link_count : Int
-  internal_link_count : Int
-  external_link_count : Int
-  mailto_link_count : Int
-  tel_link_count : Int
-  data_link_count : Int
-  unsafe_link_count : Int
-  empty_link_count : Int
-  image_count : Int
-  local_image_count : Int
-  remote_image_count : Int
-  data_uri_image_count : Int
-  empty_image_count : Int
-  unsafe_image_count : Int
-  linked_image_count : Int
-  image_in_link_count : Int
-  note_ref_inline_count : Int
-  srcset_image_count : Int
-  picture_source_count : Int
-  note_fact_count : Int
-  note_ref_fact_count : Int
-  note_body_fact_count : Int
-  broken_note_ref_count : Int
-  duplicate_note_body_count : Int
-  backref_note_count : Int
-  table_fact_count : Int
-  table_section_count : Int
-  table_head_section_count : Int
-  table_body_section_count : Int
-  table_foot_section_count : Int
-  table_unknown_section_count : Int
-  table_caption_count : Int
-  table_fact_row_count : Int
-  table_fact_cell_count : Int
-  table_header_cell_count : Int
-  table_data_cell_count : Int
-  table_unknown_cell_count : Int
-  max_table_row_count : Int
-  max_table_cell_count : Int
-  table_span_cell_count : Int
-  table_ragged_row_count : Int
-  table_nested_cell_count : Int
-  table_complex_cell_count : Int
-  table_image_cell_count : Int
-  table_block_child_cell_count : Int
-  table_malformed_warning_count : Int
-  table_warning_count : Int
-  scope_fact_count : Int
-  scope_body_count : Int
-  scope_main_count : Int
-  scope_article_count : Int
-  scope_document_root_count : Int
-  scope_fragment_count : Int
-  scope_heuristic_count : Int
-  scope_missing_body_count : Int
-  scope_multiple_body_count : Int
-  scope_malformed_root_count : Int
-  noise_candidate_count : Int
-  noise_nav_like_count : Int
-  noise_footer_like_count : Int
-  noise_sidebar_like_count : Int
-  noise_hiddenish_count : Int
-  noise_script_style_template_count : Int
-  noise_repeated_boilerplate_count : Int
-  list_fact_count : Int
-  ordered_list_fact_count : Int
-  unordered_list_fact_count : Int
-  list_item_fact_count : Int
-  max_list_depth : Int
-  blockquote_fact_count : Int
-  max_quote_depth : Int
-  code_block_fact_count : Int
-  code_block_language_hint_count : Int
-  figure_fact_count : Int
-  figure_caption_count : Int
-  figure_image_count : Int
-  max_depth : Int
-  warning_count : Int
-  warning_info_count : Int
-  warning_warning_count : Int
-  warning_error_count : Int
-  unsupported_fact_count : Int
-  unsupported_info_count : Int
-  unsupported_warning_count : Int
-  unsupported_error_count : Int
-  unsupported_script_count : Int
-  unsupported_style_count : Int
-  unsupported_iframe_count : Int
-  unsupported_embed_count : Int
-  unsupported_object_count : Int
-  unsupported_svg_count : Int
-  unsupported_math_count : Int
-  unsupported_template_count : Int
-  unsupported_form_count : Int
-  unsupported_input_count : Int
-  unsupported_select_count : Int
-  unsupported_textarea_count : Int
-  unsupported_button_count : Int
-  unsupported_video_count : Int
-  unsupported_audio_count : Int
-  unsupported_source_count : Int
-  unsupported_canvas_count : Int
-  unsupported_remote_image_count : Int
-  unsupported_data_image_count : Int
-  unsupported_unsafe_url_count : Int
-  unsupported_empty_url_count : Int
-  unsupported_broken_local_image_count : Int
-  unsupported_charset_count : Int
-  unsupported_huge_text_node_count : Int
-  unsupported_huge_attribute_value_count : Int
-  unsupported_deep_nesting_count : Int
-  unsupported_huge_table_count : Int
-  unsupported_malformed_tag_count : Int
-  unsupported_unknown_count : Int
+  block_count : Int32
+  heading_count : Int32
+  paragraph_count : Int32
+  list_count : Int32
+  list_item_count : Int32
+  table_count : Int32
+  table_row_count : Int32
+  table_cell_count : Int32
+  blockquote_count : Int32
+  pre_count : Int32
+  code_block_count : Int32
+  figure_count : Int32
+  figcaption_count : Int32
+  horizontal_rule_count : Int32
+  unknown_block_count : Int32
+  unsupported_block_count : Int32
+  paragraph_fact_count : Int32
+  paragraph_with_link_count : Int32
+  paragraph_with_image_count : Int32
+  paragraph_with_code_count : Int32
+  paragraph_with_emphasis_count : Int32
+  paragraph_with_strong_count : Int32
+  paragraph_with_break_count : Int32
+  paragraph_meaningful_text_count : Int32
+  paragraph_candidate_count : Int32
+  paragraph_repeated_whitespace_count : Int32
+  paragraph_newline_count : Int32
+  inline_count : Int32
+  text_inline_count : Int32
+  emphasis_inline_count : Int32
+  strong_inline_count : Int32
+  code_inline_count : Int32
+  link_inline_count : Int32
+  image_inline_count : Int32
+  break_inline_count : Int32
+  span_inline_count : Int32
+  inline_container_count : Int32
+  unsupported_inline_count : Int32
+  unknown_inline_count : Int32
+  whitespace_only_text_inline_count : Int32
+  leading_whitespace_inline_count : Int32
+  trailing_whitespace_inline_count : Int32
+  repeated_whitespace_inline_count : Int32
+  newline_inline_count : Int32
+  whitespace_preserving_inline_count : Int32
+  inline_with_surrounding_text_count : Int32
+  link_count : Int32
+  internal_link_count : Int32
+  external_link_count : Int32
+  mailto_link_count : Int32
+  tel_link_count : Int32
+  data_link_count : Int32
+  unsafe_link_count : Int32
+  empty_link_count : Int32
+  image_count : Int32
+  local_image_count : Int32
+  remote_image_count : Int32
+  data_uri_image_count : Int32
+  empty_image_count : Int32
+  unsafe_image_count : Int32
+  linked_image_count : Int32
+  image_in_link_count : Int32
+  note_ref_inline_count : Int32
+  srcset_image_count : Int32
+  picture_source_count : Int32
+  note_fact_count : Int32
+  note_ref_fact_count : Int32
+  note_body_fact_count : Int32
+  broken_note_ref_count : Int32
+  duplicate_note_body_count : Int32
+  backref_note_count : Int32
+  table_fact_count : Int32
+  table_section_count : Int32
+  table_head_section_count : Int32
+  table_body_section_count : Int32
+  table_foot_section_count : Int32
+  table_unknown_section_count : Int32
+  table_caption_count : Int32
+  table_fact_row_count : Int32
+  table_fact_cell_count : Int32
+  table_header_cell_count : Int32
+  table_data_cell_count : Int32
+  table_unknown_cell_count : Int32
+  max_table_row_count : Int32
+  max_table_cell_count : Int32
+  table_span_cell_count : Int32
+  table_ragged_row_count : Int32
+  table_nested_cell_count : Int32
+  table_complex_cell_count : Int32
+  table_image_cell_count : Int32
+  table_block_child_cell_count : Int32
+  table_malformed_warning_count : Int32
+  table_warning_count : Int32
+  scope_fact_count : Int32
+  scope_body_count : Int32
+  scope_main_count : Int32
+  scope_article_count : Int32
+  scope_document_root_count : Int32
+  scope_fragment_count : Int32
+  scope_heuristic_count : Int32
+  scope_missing_body_count : Int32
+  scope_multiple_body_count : Int32
+  scope_malformed_root_count : Int32
+  noise_candidate_count : Int32
+  noise_nav_like_count : Int32
+  noise_footer_like_count : Int32
+  noise_sidebar_like_count : Int32
+  noise_hiddenish_count : Int32
+  noise_script_style_template_count : Int32
+  noise_repeated_boilerplate_count : Int32
+  list_fact_count : Int32
+  ordered_list_fact_count : Int32
+  unordered_list_fact_count : Int32
+  list_item_fact_count : Int32
+  max_list_depth : Int32
+  blockquote_fact_count : Int32
+  max_quote_depth : Int32
+  code_block_fact_count : Int32
+  code_block_language_hint_count : Int32
+  figure_fact_count : Int32
+  figure_caption_count : Int32
+  figure_image_count : Int32
+  max_depth : Int32
+  warning_count : Int32
+  warning_info_count : Int32
+  warning_warning_count : Int32
+  warning_error_count : Int32
+  unsupported_fact_count : Int32
+  unsupported_info_count : Int32
+  unsupported_warning_count : Int32
+  unsupported_error_count : Int32
+  unsupported_script_count : Int32
+  unsupported_style_count : Int32
+  unsupported_iframe_count : Int32
+  unsupported_embed_count : Int32
+  unsupported_object_count : Int32
+  unsupported_svg_count : Int32
+  unsupported_math_count : Int32
+  unsupported_template_count : Int32
+  unsupported_form_count : Int32
+  unsupported_input_count : Int32
+  unsupported_select_count : Int32
+  unsupported_textarea_count : Int32
+  unsupported_button_count : Int32
+  unsupported_video_count : Int32
+  unsupported_audio_count : Int32
+  unsupported_source_count : Int32
+  unsupported_canvas_count : Int32
+  unsupported_remote_image_count : Int32
+  unsupported_data_image_count : Int32
+  unsupported_unsafe_url_count : Int32
+  unsupported_empty_url_count : Int32
+  unsupported_broken_local_image_count : Int32
+  unsupported_charset_count : Int32
+  unsupported_huge_text_node_count : Int32
+  unsupported_huge_attribute_value_count : Int32
+  unsupported_deep_nesting_count : Int32
+  unsupported_huge_table_count : Int32
+  unsupported_malformed_tag_count : Int32
+  unsupported_unknown_count : Int32
 }
 
 ///|
@@ -998,7 +998,7 @@ pub struct HtmlDoctype {
 /// Tolerantly parsed HTML document with validation issues kept explicitly.
 pub struct HtmlDocument {
   nodes : Array[HtmlNode]
-  source_length : Int
+  source_length : Int32
   has_doctype : Bool
   issues : Array[HtmlValidationIssue]
 }
@@ -1053,8 +1053,8 @@ pub extend HtmlValidationIssueKind with Eq::{equal, not_equal}
 pub struct HtmlValidationIssue {
   kind : HtmlValidationIssueKind
   severity : HtmlValidationSeverity
-  line_start : Int?
-  line_end : Int?
+  line_start : Int32?
+  line_end : Int32?
   tag_name : String?
   message : String
 }
@@ -1062,36 +1062,36 @@ pub struct HtmlValidationIssue {
 ///|
 /// Aggregated validation report for a parsed HTML document.
 pub struct HtmlValidationReport {
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[HtmlValidationIssue]
 }
 
 ///|
 /// Structural summary for a parsed HTML document.
 pub struct HtmlInspectReport {
-  node_count : Int
-  element_count : Int
-  text_node_count : Int
-  comment_count : Int
-  doctype_count : Int
-  attribute_count : Int
-  link_element_count : Int
-  image_element_count : Int
-  heading_element_count : Int
-  table_element_count : Int
-  list_element_count : Int
-  form_element_count : Int
-  script_element_count : Int
-  style_element_count : Int
-  pre_element_count : Int
-  code_element_count : Int
-  max_depth : Int
+  node_count : Int32
+  element_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  doctype_count : Int32
+  attribute_count : Int32
+  link_element_count : Int32
+  image_element_count : Int32
+  heading_element_count : Int32
+  table_element_count : Int32
+  list_element_count : Int32
+  form_element_count : Int32
+  script_element_count : Int32
+  style_element_count : Int32
+  pre_element_count : Int32
+  code_element_count : Int32
+  max_depth : Int32
   has_doctype : Bool
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   is_empty : Bool
 }
 

@@ -1,5 +1,14 @@
 ///|
-test "EPUB parser lowers spine metadata navigation images and boundary packages" {
+async test "EPUB parser lowers spine metadata navigation images and boundary packages" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/epub/epub_basic_package.epub", "samples/fixtures/contracts/epub/epub_basic_spine.epub",
     "samples/fixtures/contracts/epub/epub_metadata_basic.epub", "samples/fixtures/contracts/epub/epub_nav_toc.epub",
@@ -12,7 +21,7 @@ test "EPUB parser lowers spine metadata navigation images and boundary packages"
   let mut blocks = 0
   let mut assets = 0
   for path in fixtures {
-    let result = (parser.parse)(@input.input_from_path(path), context).unwrap()
+    let result = (parser.parse)(owned_input_path(path), context).unwrap()
     blocks += result.block_stream.unwrap().length()
     assets += result.assets.length()
     assert_true(result.diagnostics.metrics.get("spine_item_count") is Some(_))
@@ -22,7 +31,16 @@ test "EPUB parser lowers spine metadata navigation images and boundary packages"
 }
 
 ///|
-test "EPUB parser fails closed for unsafe missing and colliding package paths" {
+async test "EPUB parser fails closed for unsafe missing and colliding package paths" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/rejections/epub/epub_missing_container.epub", "samples/fixtures/rejections/epub/epub_rootfile_parent_escape.epub",
     "samples/fixtures/rejections/epub/epub_manifest_href_parent_escape.epub", "samples/fixtures/rejections/epub/epub_normalized_collision.epub",
@@ -31,7 +49,7 @@ test "EPUB parser fails closed for unsafe missing and colliding package paths" {
   let context = @parser.new_parse_context(Epub)
   let mut controlled = 0
   for path in fixtures {
-    match (parser.parse)(@input.input_from_path(path), context) {
+    match (parser.parse)(owned_input_path(path), context) {
       Err(error) => if error != "" { controlled += 1 }
       Ok(result) =>
         if result.diagnostics.errors.length() > 0 ||

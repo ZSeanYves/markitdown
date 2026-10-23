@@ -2,14 +2,14 @@
 priv struct ShapeContainerContext {
   part_name : String
   group_prefix : String?
-  offset_x : Int
-  offset_y : Int
-  scale_x_num : Int
-  scale_x_den : Int
-  scale_y_num : Int
-  scale_y_den : Int
-  depth : Int
-  shape_count : Ref[Int]
+  offset_x : Int32
+  offset_y : Int32
+  scale_x_num : Int32
+  scale_x_den : Int32
+  scale_y_num : Int32
+  scale_y_den : Int32
+  depth : Int32
+  shape_count : Ref[Int32]
 }
 
 ///|
@@ -29,11 +29,11 @@ fn default_shape_container_context(part_name : String) -> ShapeContainerContext 
 }
 
 ///|
-fn parse_source_slide(
+async fn parse_source_slide(
   ctx : PptxSourceParseContext,
   slide_ref : PptxSlideRef,
   authors : Array[PptxCommentAuthor],
-) -> PptxSourceSlide raise {
+) -> PptxSourceSlide {
   let part_name = slide_ref.part_name
   let source_key = pptx_source_key(
     part_name,
@@ -104,10 +104,10 @@ fn find_slide_layout_ref(rels : Array[PptxRelationship]) -> PptxLayoutRef? {
 }
 
 ///|
-fn find_layout_master_ref(
+async fn find_layout_master_ref(
   ctx : PptxSourceParseContext,
   layout_part : String,
-) -> PptxMasterRef? {
+) -> PptxMasterRef? noraise {
   for rel in read_source_relationships(ctx, layout_part) {
     if rel.rel_type.has_suffix("/slideMaster") &&
       rel.resolved_target.has_prefix("ppt/slideMasters/") &&
@@ -122,11 +122,11 @@ fn find_layout_master_ref(
 }
 
 ///|
-fn parse_slide_objects(
+async fn parse_slide_objects(
   ctx : PptxSourceParseContext,
   part_name : String,
   slide_xml : Bytes,
-) -> Array[PptxObject] raise {
+) -> Array[PptxObject] {
   match find_sp_tree_inner(slide_xml) {
     Some(inner) =>
       parse_shape_container(
@@ -171,11 +171,11 @@ fn find_sp_tree_inner(slide_xml : Bytes) -> Bytes? raise {
 }
 
 ///|
-fn parse_shape_container(
+async fn parse_shape_container(
   ctx : PptxSourceParseContext,
   inner : Bytes,
   c : ShapeContainerContext,
-) -> Array[PptxObject] raise {
+) -> Array[PptxObject] {
   if c.depth > ctx.budget.max_group_depth {
     ctx.warnings.push(
       pptx_warning(
@@ -287,7 +287,7 @@ fn consume_shape_budget(
   ctx : PptxSourceParseContext,
   c : ShapeContainerContext,
   name : String,
-  child_count : Int,
+  child_count : Int32,
 ) -> Bool {
   c.shape_count.val += 1
   if c.shape_count.val > ctx.budget.max_shapes_per_slide {
@@ -308,11 +308,11 @@ fn consume_shape_budget(
 }
 
 ///|
-fn parse_group_shape(
+async fn parse_group_shape(
   ctx : PptxSourceParseContext,
   group_xml : Bytes,
   c : ShapeContainerContext,
-) -> PptxGroupShape raise {
+) -> PptxGroupShape {
   let shape_id = read_cnvpr_attr(group_xml, "id")
   let name = read_cnvpr_attr(group_xml, "name")
   let object_ref = object_ref("group", shape_id, c.group_prefix)
@@ -334,11 +334,11 @@ fn parse_group_shape(
 }
 
 ///|
-fn parse_shape(
+async fn parse_shape(
   ctx : PptxSourceParseContext,
   sp_xml : Bytes,
   c : ShapeContainerContext,
-) -> PptxShape raise {
+) -> PptxShape {
   let shape_id = read_cnvpr_attr(sp_xml, "id")
   let name = read_cnvpr_attr(sp_xml, "name")
   let object_ref = object_ref("shape", shape_id, c.group_prefix)
@@ -363,11 +363,11 @@ fn parse_shape(
 }
 
 ///|
-fn parse_picture(
+async fn parse_picture(
   ctx : PptxSourceParseContext,
   pic_xml : Bytes,
   c : ShapeContainerContext,
-) -> PptxPicture raise {
+) -> PptxPicture {
   let shape_id = read_cnvpr_attr(pic_xml, "id")
   let name = read_cnvpr_attr(pic_xml, "name")
   let object_ref = object_ref("picture", shape_id, c.group_prefix)
@@ -401,11 +401,11 @@ fn parse_connector(
 }
 
 ///|
-fn parse_graphic_frame(
+async fn parse_graphic_frame(
   ctx : PptxSourceParseContext,
   frame_xml : Bytes,
   c : ShapeContainerContext,
-) -> PptxObject raise {
+) -> PptxObject {
   let shape_id = read_cnvpr_attr(frame_xml, "id")
   let object_ref0 = object_ref("graphicFrame", shape_id, c.group_prefix)
   let source_key = pptx_source_key(
@@ -491,14 +491,14 @@ fn parse_graphic_frame(
 }
 
 ///|
-fn resolve_graphic_frame_target(
+async fn resolve_graphic_frame_target(
   ctx : PptxSourceParseContext,
   part_name : String,
   source_key : PptxSourceKey,
   object_ref : String?,
   rel_id : String,
   kind : String,
-) -> String? {
+) -> String? noraise {
   match find_source_relationship_by_id(ctx, part_name, rel_id) {
     Some(rel) => Some(rel.resolved_target)
     None => {
@@ -551,7 +551,7 @@ fn read_graphic_frame_relationship_id(
 }
 
 ///|
-fn read_chart_cached_facts(
+async fn read_chart_cached_facts(
   ctx : PptxSourceParseContext,
   target : String?,
 ) -> (
@@ -560,7 +560,7 @@ fn read_chart_cached_facts(
   Array[String],
   Array[String],
   Array[PptxChartSeries],
-) raise {
+) {
   let part = match target {
     Some(p) => p
     None => return (None, [], [], [], [])
@@ -631,7 +631,7 @@ fn pptx_chart_cache_is_sufficient(
 ///|
 fn collect_chart_series(
   xml : Bytes,
-  limit : Int,
+  limit : Int32,
 ) -> Array[PptxChartSeries] raise {
   let out : Array[PptxChartSeries] = []
   let mut pos = 0
@@ -679,7 +679,7 @@ fn parse_chart_series(ser_xml : Bytes) -> PptxChartSeries raise {
 fn collect_chart_values_in_element(
   xml : Bytes,
   open_prefix : String,
-  limit : Int,
+  limit : Int32,
 ) -> Array[String] raise {
   match
     find_element_inner(
@@ -695,7 +695,7 @@ fn collect_chart_values_in_element(
 ///|
 fn collect_chart_preferred_categories(
   ser_xml : Bytes,
-  limit : Int,
+  limit : Int32,
 ) -> Array[String] raise {
   match find_element_inner(ser_xml, "<c:cat", "</c:cat>") {
     Some(inner) => {
@@ -713,7 +713,7 @@ fn collect_chart_preferred_categories(
 ///|
 fn collect_multilevel_chart_categories(
   xml : Bytes,
-  limit : Int,
+  limit : Int32,
 ) -> Array[String] raise {
   let levels = collect_multilevel_chart_levels(xml, limit)
   if levels.length() == 0 {
@@ -736,9 +736,9 @@ fn collect_multilevel_chart_categories(
 ///|
 fn collect_multilevel_chart_levels(
   xml : Bytes,
-  limit : Int,
-) -> Array[Array[(Int, String)]] raise {
-  let out : Array[Array[(Int, String)]] = []
+  limit : Int32,
+) -> Array[Array[(Int32, String)]] raise {
+  let out : Array[Array[(Int32, String)]] = []
   let mut pos = 0
   while out.length() < limit {
     let start = find_bytes(xml, pat("<c:lvl"), pos).unwrap_or(-1)
@@ -759,9 +759,9 @@ fn collect_multilevel_chart_levels(
 ///|
 fn collect_indexed_chart_values(
   xml : Bytes,
-  limit : Int,
-) -> Array[(Int, String)] raise {
-  let out : Array[(Int, String)] = []
+  limit : Int32,
+) -> Array[(Int32, String)] raise {
+  let out : Array[(Int32, String)] = []
   let mut pos = 0
   while out.length() < limit {
     let start = find_bytes(xml, pat("<c:pt"), pos).unwrap_or(-1)
@@ -787,12 +787,12 @@ fn collect_indexed_chart_values(
 }
 
 ///|
-fn parse_chart_point_index(pt_xml : Bytes) -> Int raise {
+fn parse_chart_point_index(pt_xml : Bytes) -> Int32 raise {
   parse_int_or_zero(read_attr_value_in_first_tag_bytes(pt_xml, "<c:pt", "idx"))
 }
 
 ///|
-fn collect_chart_values(xml : Bytes, limit : Int) -> Array[String] raise {
+fn collect_chart_values(xml : Bytes, limit : Int32) -> Array[String] raise {
   let out : Array[String] = []
   let open = pat("<c:v>")
   let close = pat("</c:v>")
@@ -940,7 +940,7 @@ fn read_geometry(xml : Bytes, c : ShapeContainerContext) -> PptxGeometry raise {
 }
 
 ///|
-fn scale_coord(value : Int, num : Int, den : Int) -> Int {
+fn scale_coord(value : Int32, num : Int32, den : Int32) -> Int32 {
   if den <= 0 {
     value
   } else {
@@ -975,7 +975,10 @@ fn find_transform_element(xml : Bytes, open_prefix : String) -> Bytes? raise {
 }
 
 ///|
-fn read_transform_pair(xml : Bytes, tag_prefix : String) -> (Int, Int) raise {
+fn read_transform_pair(
+  xml : Bytes,
+  tag_prefix : String,
+) -> (Int32, Int32) raise {
   let p0 = find_bytes(xml, pat(tag_prefix), 0).unwrap_or(-1)
   if p0 < 0 {
     return (0, 0)

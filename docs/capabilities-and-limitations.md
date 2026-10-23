@@ -1,6 +1,11 @@
 # Capabilities and Limitations
 
-`markitdown-mb` converts supported inputs through one path:
+`markitdown-mb` is a Native library and CLI for Linux x86_64 and macOS arm64.
+The supported toolchain is MoonBit `0.1.20261021` with
+`moonc v0.10.17+093cb8f9c`. Product packages declare Native as their only target;
+Wasm, Wasm-GC and JavaScript product distributions are retired.
+
+Supported inputs use one conversion path:
 
 ```text
 detect -> probe -> route -> ParseResult -> pipeline or controlled pull stream
@@ -30,7 +35,7 @@ Support levels used below:
 | Format | Level | What is preserved | Modes | Important boundary |
 | --- | --- | --- | --- | --- |
 | `txt` | Mainstream | Unicode text and line order | balance, stream | No inferred document structure |
-| `csv`, `tsv` | Mainstream | Quoted/multiline cells, rows and Markdown tables | balance, stream | Delimiter tables only; no spreadsheet formulas or styles; Wasm's legacy-byte fallback covers Shift_JIS/JIS X 0208 and rejects CP932 extension rows, while Native may use iconv for those rows |
+| `csv`, `tsv` | Mainstream | Quoted/multiline cells, rows and Markdown tables | balance, stream | Delimiter tables only; no spreadsheet formulas or styles; CP932 fallback uses host iconv and fails closed if unavailable or malformed |
 | `srt`, `vtt` | Mainstream | Cue IDs, timings, settings, common inline tags; VTT header/NOTE/STYLE/REGION | balance, stream | Bad cues may be skipped with diagnostics; not a media player |
 | `json` | Mainstream | Nested objects/arrays, scalar types, table/list lowering and source paths | balance, stream | Invalid JSON fails closed; no JSON Schema evaluation |
 | `jsonl`, `ndjson` | Mainstream | Record order and per-record structure | balance, stream | Blank malformed records are diagnosed; no cross-record schema |
@@ -92,11 +97,14 @@ JPEG, while decoded Gray/RGB/CMYK/Indexed images and masks are normalized to PNG
 
 ## General Safety Limits
 
-Parsers enforce format-specific limits for input bytes, nesting, archive entry
-count, decompressed size, compression ratio, object/page trees, MIME recursion,
-aliases and materialized assets. Security, encryption and integrity failures
-fail closed. Recoverable unknown structures may preserve readable content with
-a stable warning instead of discarding the whole document.
+The readers have format-specific limits for input bytes, nesting, archives,
+MIME recursion, aliases and materialized assets. The
+[upgrade plan](architecture/native-performance-plan.md) tracks remaining gaps
+in cumulative parsing, decompression, cache and temporary-storage budgets.
+An existing local limit does not certify every path as bounded. Security,
+encryption, integrity, I/O, cancellation and budget failures are required to
+terminate conversion. Defined recoverable syntax problems may preserve
+readable content with a diagnostic.
 
 Inputs may be path, text, bytes, or caller-owned random-access readers.
 `SourceCursor` supplies bounded range reads for seekable PDF and package
@@ -107,7 +115,8 @@ The project does not provide browser/editor-grade rendering, password recovery,
 remote includes, external XML entities, parser-time network access, arbitrary
 file reads, or native Outlook MSG decoding.
 
-For runtime installation see
-[environment-dependencies.md](./environment-dependencies.md). For the exact
-regression decision rules see
+Install the CLI with `moon install`; import `ZSeanYves/markitdown/lib` from a
+Native consumer module. See the [README](../README.md) for local, pinned Git
+and post-publication exact-version installation forms. For the exact regression
+decision rules see
 [tools/regression/README.md](../tools/regression/README.md).

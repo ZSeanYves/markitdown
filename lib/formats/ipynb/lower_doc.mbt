@@ -1,5 +1,5 @@
 ///|
-fn lower_ipynb_notebook(
+async fn lower_ipynb_notebook(
   notebook : @dipynb.IpynbNotebook,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
@@ -142,7 +142,7 @@ fn ipynb_summary_table_block(
 }
 
 ///|
-fn lower_ipynb_cell(
+async fn lower_ipynb_cell(
   cell : @dipynb.IpynbCell,
   notebook : @dipynb.IpynbNotebook,
   source : @input.InputSource,
@@ -294,10 +294,10 @@ fn lower_ipynb_markdown_cell(
 }
 
 ///|
-fn lower_ipynb_output(
+async fn lower_ipynb_output(
   cell : @dipynb.IpynbCell,
   output : @dipynb.IpynbOutput,
-  output_index : Int,
+  output_index : Int32,
   source : @input.InputSource,
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
@@ -373,12 +373,12 @@ fn lower_ipynb_output(
 }
 
 ///|
-fn lower_ipynb_mime_entries(
+async fn lower_ipynb_mime_entries(
   entries : Array[@dipynb.IpynbMimeEntry],
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
   output_json_pointer : String,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
@@ -397,12 +397,12 @@ fn lower_ipynb_mime_entries(
 }
 
 ///|
-fn lower_ipynb_mime_entry(
+async fn lower_ipynb_mime_entry(
   entry : @dipynb.IpynbMimeEntry,
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
   output_json_pointer : String,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
   diagnostics : @core.Diagnostics,
   document : @core.DocumentIR,
@@ -572,7 +572,7 @@ fn ipynb_materialize_image_asset(
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
   output_json_pointer : String,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
   document : @core.DocumentIR,
 ) -> @core.CoreBlock {
@@ -726,7 +726,7 @@ fn ipynb_cell_label_text(cell : @dipynb.IpynbCell) -> String {
 fn ipynb_output_label_block(
   cell : @dipynb.IpynbCell,
   output : @dipynb.IpynbOutput,
-  output_index : Int,
+  output_index : Int32,
   source : @input.InputSource,
 ) -> @core.CoreBlock {
   let flavor = match output.kind {
@@ -825,7 +825,7 @@ fn ipynb_plain_or_fenced_text_block(
   text : String,
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
 ) -> @core.CoreBlock {
   if text.contains("\n") {
@@ -857,7 +857,7 @@ fn ipynb_fenced_text_block(
   text : String,
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
   info : String,
 ) -> @core.CoreBlock {
@@ -885,11 +885,11 @@ fn ipynb_fenced_text_block(
 fn ipynb_source_ref(
   source : @input.InputSource,
   json_pointer : String,
-  cell_index : Int?,
+  cell_index : Int32?,
   cell_kind : String?,
   cell_id : String?,
-  output_index : Int?,
-  execution_count : Int?,
+  output_index : Int32?,
+  execution_count : Int32?,
   output_kind : String?,
   attachment_name : String?,
   mime_type : String?,
@@ -971,7 +971,7 @@ fn ipynb_rewrite_attachment_refs(
 ///|
 fn ipynb_output_image_asset_path(
   cell : @dipynb.IpynbCell,
-  output_index : Int?,
+  output_index : Int32?,
   mime_type : String,
 ) -> String {
   if output_index is Some(index) {
@@ -1040,7 +1040,7 @@ fn ipynb_rebind_output_block_source_ref(
   source : @input.InputSource,
   cell : @dipynb.IpynbCell,
   output_json_pointer : String,
-  output_index : Int?,
+  output_index : Int32?,
   output_kind : String?,
 ) -> @core.CoreBlock {
   let rebound_ref = ipynb_source_ref(
@@ -1139,7 +1139,7 @@ fn ipynb_trim_hyphens(text : String) -> String {
 }
 
 ///|
-fn ipynb_pad2(value : Int) -> String {
+fn ipynb_pad2(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {

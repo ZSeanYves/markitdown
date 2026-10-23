@@ -61,52 +61,8 @@ pub fn lookup_content_type_override(
 }
 
 ///|
-fn parse_content_types(
-  xml : String,
-) -> (Map[String, String], Map[String, String]) raise OoxmlError {
-  let defaults : Map[String, String] = Map([])
-  let overrides : Map[String, String] = Map([])
-
-  for tag in collect_start_tags(xml, "Default") {
-    let attrs = parse_tag_attributes(tag)
-    let ext = get_required_attr(attrs, "Extension") catch {
-      _ => raise InvalidXml("[Content_Types].xml: missing attribute: Extension")
-    }
-    let content_type = get_required_attr(attrs, "ContentType") catch {
-      _ =>
-        raise InvalidXml("[Content_Types].xml: missing attribute: ContentType")
-    }
-    if ext.trim() == "" {
-      raise InvalidXml(
-        "[Content_Types].xml: empty content type default extension",
-      )
-    }
-    if defaults.contains(ext) {
-      raise InvalidXml(
-        "[Content_Types].xml: duplicate content type default extension: " + ext,
-      )
-    }
-    defaults.set(ext, content_type)
-  }
-
-  for tag in collect_start_tags(xml, "Override") {
-    let attrs = parse_tag_attributes(tag)
-    let part_name = get_required_attr(attrs, "PartName") catch {
-      _ => raise InvalidXml("[Content_Types].xml: missing attribute: PartName")
-    }
-    let content_type = get_required_attr(attrs, "ContentType") catch {
-      _ =>
-        raise InvalidXml("[Content_Types].xml: missing attribute: ContentType")
-    }
-    let normalized_part_name = normalize_part_name(part_name)
-    let override_key = "/" + normalized_part_name
-    if overrides.contains(override_key) {
-      raise InvalidXml(
-        "[Content_Types].xml: duplicate content type override: " + override_key,
-      )
-    }
-    overrides.set(override_key, content_type)
-  }
-
-  (defaults, overrides)
+/// Admitted per-part cursor statistics for profiling. No finite numeric
+/// depth/token defaults have been selected by this consumer.
+pub fn inspect_content_types_cursor(pkg : OoxmlPackage) -> @xml.XmlCursorStats {
+  pkg.content_types_scan
 }

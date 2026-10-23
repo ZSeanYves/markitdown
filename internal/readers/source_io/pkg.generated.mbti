@@ -6,31 +6,35 @@ import {
 }
 
 // Values
-pub fn collect_source_text_chunks(@input.InputSource, max_bytes? : Int64) -> Result[String, String]
+pub async fn collect_source_text_chunks(@input.InputSource, max_bytes? : Int64) -> Result[String, String] noraise
 
 pub fn decode_utf16_text_bytes(Bytes) -> String?
 
+pub fn decode_utf8_source_chunk(Bytes, Bool) -> Result[(String, Bytes), String]
+
 pub fn decode_xml_input_bytes(Bytes) -> Result[String, String]
 
-pub fn open_source_text_block_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int, max_block_lines? : Int) -> Result[SourceTextBlockReader, String]
+pub async fn open_source_text_block_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int32, max_block_lines? : Int32) -> Result[SourceTextBlockReader, String] noraise
 
-pub fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int) -> Result[SourceTextChunkReader, String]
+pub async fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int32) -> Result[SourceTextChunkReader, String] noraise
 
-pub fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int) -> Result[SourceTextLineReader, String]
+pub async fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int32) -> Result[SourceTextLineReader, String] noraise
 
-pub fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String]
+pub async fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String] noraise
 
-pub fn read_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+pub async fn read_source_text(@input.InputSource) -> Result[SourceTextPayload, String] noraise
 
-pub fn read_source_text_with_cp932_fallback(@input.InputSource) -> Result[SourceTextPayload, String]
+pub async fn read_source_text_with_cp932_fallback(@input.InputSource) -> Result[SourceTextPayload, String] noraise
 
-pub fn read_source_text_with_utf16_bom(@input.InputSource) -> Result[SourceTextPayload, String]
+pub async fn read_source_text_with_utf16_bom(@input.InputSource) -> Result[SourceTextPayload, String] noraise
 
-pub fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, String]
+pub async fn read_xml_source_text(@input.InputSource) -> Result[SourceTextPayload, String] noraise
 
 pub fn sniff_xml_declared_encoding(Bytes) -> String?
 
 pub fn source_text_chunk_text(SourceTextChunk) -> String
+
+pub fn source_text_scalar_at(String, Int32) -> Result[(Char, Int32), String]
 
 // Errors
 
@@ -42,37 +46,42 @@ pub struct SourceBytesPayload {
 
 pub struct SourceTextBlock {
   lines : Array[String]
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   truncated : Bool
 }
 
 pub struct SourceTextBlockReader {
-  next : () -> Result[SourceTextBlock?, String]
+  next : async () -> Result[SourceTextBlock?, String] noraise
+  close : () -> Unit
 }
 
 pub struct SourceTextChunk {
   text : String
   byte_start : Int64
   byte_end : Int64
-  line_start : Int
-  line_end : Int
-  utf16_start : Int
-  utf16_end : Int
+  line_start : Int32
+  line_end : Int32
+  utf16_start : Int32
+  utf16_end : Int32
 }
 
 pub struct SourceTextChunkReader {
-  next : () -> Result[SourceTextChunk?, String]
+  next : async () -> Result[SourceTextChunk?, String] noraise
+  input_error : () -> String?
+  close : () -> Unit
 }
 
 pub struct SourceTextLine {
   text : String
-  line_no : Int
+  line_no : Int32
   truncated : Bool
 }
 
 pub struct SourceTextLineReader {
-  next : () -> Result[SourceTextLine?, String]
+  next : async () -> Result[SourceTextLine?, String] noraise
+  input_error : () -> String?
+  close : () -> Unit
 }
 
 pub struct SourceTextPayload {

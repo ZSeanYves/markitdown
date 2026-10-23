@@ -1,7 +1,7 @@
 ///|
-fn parse_source_layouts(
+async fn parse_source_layouts(
   ctx : PptxSourceParseContext,
-) -> Array[PptxSourceLayout] raise {
+) -> Array[PptxSourceLayout] {
   let out : Array[PptxSourceLayout] = []
   let parts = @ox.list_parts_by_prefix(ctx.pkg, "ppt/slideLayouts/")
   for part in parts {
@@ -24,9 +24,9 @@ fn parse_source_layouts(
 }
 
 ///|
-fn parse_source_masters(
+async fn parse_source_masters(
   ctx : PptxSourceParseContext,
-) -> Array[PptxSourceMaster] raise {
+) -> Array[PptxSourceMaster] {
   let out : Array[PptxSourceMaster] = []
   let parts = @ox.list_parts_by_prefix(ctx.pkg, "ppt/slideMasters/")
   for part in parts {
@@ -47,11 +47,11 @@ fn parse_source_masters(
 }
 
 ///|
-fn parse_placeholder_candidates(
+async fn parse_placeholder_candidates(
   ctx : PptxSourceParseContext,
   part_name : String,
   xml : Bytes,
-) -> Array[PptxPlaceholderCandidate] raise {
+) -> Array[PptxPlaceholderCandidate] {
   let out : Array[PptxPlaceholderCandidate] = []
   match find_sp_tree_inner(xml) {
     Some(inner) => {

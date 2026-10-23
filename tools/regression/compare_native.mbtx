@@ -1,0 +1,105 @@
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+}
+
+///|
+async fn outputs(root : String, relative~ : String = "") -> Array[String] {
+  let out : Array[String] = []
+  for name in @fs.readdir(root + "/" + relative) {
+    let path = if relative == "" { name } else { relative + "/" + name }
+    if @fs.kind(root + "/" + path) == @fs.Directory {
+      out.append(outputs(root, relative=path))
+    } else if name.has_prefix("result.") ||
+      name == "provenance.json" || name == "stdout.log" || name == "stderr.log" ||
+      path.contains("/assets/") {
+      out.push(path)
+    }
+  }
+  out.sort()
+  out
+}
+
+///|
+// Only phase timings are nondeterministic; input metadata remains significant.
+fn stable(value : Json, path~ : String = "") -> Json {
+  match value {
+    Object(fields) => {
+      let next : Map[String, Json] = Map([])
+      for key, item in fields {
+        if path == "diagnostics.metrics" && key.has_prefix("timing_") { continue }
+        if path == "" && key == "stage_timings_ms" { continue }
+        let child = if path == "" { key } else { path + "." + key }
+        next[key] = stable(item, path=child)
+      }
+      Json::object(next)
+    }
+    Array(items) => Json::array(items.map(item => stable(item, path~)))
+    _ => value
+  }
+}
+
+///|
+fn without_assets(value : Json) -> Json {
+  match value {
+    Object(fields) => {
+      let next = fields.copy()
+      next.remove("assets")
+      Json::object(next)
+    }
+    _ => value
+  }
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() != 4 {
+    fail("usage: compare_native.mbtx BASELINE_EVIDENCE CANDIDATE_EVIDENCE NEW_REPORT_DIRECTORY")
+  }
+  let report = args[3]
+  if @fs.exists(report) { fail("report already exists: " + report) }
+  @fs.mkdir(report, recursive=true)
+  let baseline = args[1] + "/cases"
+  let candidate = args[2] + "/cases"
+  let before = outputs(baseline)
+  let after = outputs(candidate)
+  let rows : Array[String] = ["path\tclassification"]
+  let mut equal = 0
+  let mut repaired = 0
+  let mut unexpected = 0
+  for path in before {
+    if !after.contains(path) {
+      rows.push(path + "\tmissing_candidate_output")
+      unexpected += 1
+      continue
+    }
+    let a = @fs.read_file(baseline + "/" + path).binary()
+    let b = @fs.read_file(candidate + "/" + path).binary()
+    if a == b { equal += 1; continue }
+    if path.has_suffix(".json") {
+      let a = stable(@json.parse(@fs.read_file(baseline + "/" + path).text()))
+      let b = stable(@json.parse(@fs.read_file(candidate + "/" + path).text()))
+      if a == b { equal += 1; continue }
+      if path.has_suffix(".rag.json") && without_assets(a) == without_assets(b) {
+        rows.push(path + "\trag_assets_repaired_REVIEW_REQUIRED")
+        repaired += 1
+        continue
+      }
+    }
+    rows.push(path + "\tunexpected_change")
+    unexpected += 1
+  }
+  for path in after {
+    if !before.contains(path) {
+      rows.push(path + "\tadded_candidate_output")
+      unexpected += 1
+    }
+  }
+  @fs.write_file(report + "/changes.tsv", rows.join("\n") + "\n")
+  @fs.write_file(report + "/summary.tsv", "equal\trag_asset_repairs_requiring_review\tunexpected\n" + equal.to_string() + "\t" + repaired.to_string() + "\t" + unexpected.to_string() + "\n")
+  println("Compared outputs: equal=" + equal.to_string() + ", asset repairs=" + repaired.to_string() + ", unexpected=" + unexpected.to_string())
+  if unexpected > 0 || repaired > 0 { fail("output changes require review; see " + report) }
+}

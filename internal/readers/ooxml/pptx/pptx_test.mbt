@@ -8,13 +8,13 @@ fn bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -22,12 +22,12 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -37,18 +37,18 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : String,
 ) -> Unit {
@@ -79,7 +79,7 @@ fn add_store_entry(
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
   for entry in entries {
     let (name, data) = entry
     add_store_entry(out, central, name, data)
@@ -144,7 +144,7 @@ fn content_types(extra : String) -> String {
 }
 
 ///|
-fn repeat_text(piece : String, count : Int) -> String {
+fn repeat_text(piece : String, count : Int32) -> String {
   let parts : Array[String] = []
   for _ in 0..<count {
     parts.push(piece)
@@ -190,7 +190,7 @@ fn comments_xml() -> String {
 }
 
 ///|
-fn sample_pkg() -> @ox.OoxmlPackage raise {
+async fn sample_pkg() -> @ox.OoxmlPackage {
   let pptx = build_store_zip([
     (
       "[Content_Types].xml",
@@ -272,7 +272,7 @@ fn sample_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
-test "pptx M0-M10 source and model facts" {
+async test "pptx M0-M10 source and model facts" {
   let pkg = sample_pkg()
   assert_true(@ox.has_part(pkg, "ppt/slides/slide1.xml"))
   let raw_slide = @ox.read_part_text(pkg, "ppt/slides/slide1.xml")
@@ -394,7 +394,7 @@ fn m11_chart_xml() -> String {
 }
 
 ///|
-fn m11_pkg() -> @ox.OoxmlPackage raise {
+async fn m11_pkg() -> @ox.OoxmlPackage {
   build_store_zip([
     (
       "[Content_Types].xml",
@@ -436,7 +436,7 @@ fn m11_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
-test "pptx M11 graphic frames produce typed refs and warnings" {
+async test "pptx M11 graphic frames produce typed refs and warnings" {
   let doc = @pptx.parse_pptx_document_from_package(m11_pkg())
   let slide = doc.slides[0]
   let mut saw_chart = false
@@ -503,9 +503,9 @@ test "pptx M11 graphic frames produce typed refs and warnings" {
 }
 
 ///|
-fn chart_external_data_warning_pkg(
+async fn chart_external_data_warning_pkg(
   chart_xml : String,
-) -> @ox.OoxmlPackage raise {
+) -> @ox.OoxmlPackage {
   build_store_zip([
     (
       "[Content_Types].xml",
@@ -543,7 +543,7 @@ fn chart_external_data_warning_pkg(
 }
 
 ///|
-test "pptx chart externalData warning only remains when cache is not renderable" {
+async test "pptx chart externalData warning only remains when cache is not renderable" {
   let cache_ok_xml = "<c:chartSpace xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" xmlns:c=\"http://schemas.openxmlformats.org/drawingml/2006/chart\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">" +
     "<c:chart><c:plotArea><c:barChart><c:ser><c:tx><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>Series A</c:v></c:pt></c:strCache></c:strRef></c:tx>" +
     "<c:cat><c:strRef><c:strCache><c:pt idx=\"0\"><c:v>Q1</c:v></c:pt></c:strCache></c:strRef></c:cat>" +
@@ -584,7 +584,7 @@ fn m12_group_child_xml() -> String {
 }
 
 ///|
-fn deep_group_xml(depth : Int) -> String {
+fn deep_group_xml(depth : Int32) -> String {
   if depth <= 0 {
     "<p:sp><p:nvSpPr><p:cNvPr id=\"90\" name=\"Too Deep\"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:txBody><a:p><a:r><a:t>Too deep</a:t></a:r></a:p></p:txBody></p:sp>"
   } else {
@@ -610,7 +610,7 @@ fn m12_slide_xml() -> String {
 }
 
 ///|
-fn m12_pkg() -> @ox.OoxmlPackage raise {
+async fn m12_pkg() -> @ox.OoxmlPackage {
   build_store_zip([
     ("[Content_Types].xml", content_types("")),
     (
@@ -635,7 +635,7 @@ fn m12_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
-test "pptx M12 groups connectors decorative shapes and depth guard" {
+async test "pptx M12 groups connectors decorative shapes and depth guard" {
   let doc = @pptx.parse_pptx_document_from_package(m12_pkg())
   let slide = doc.slides[0]
   let mut saw_group_child = false
@@ -684,12 +684,12 @@ test "pptx M12 groups connectors decorative shapes and depth guard" {
 }
 
 ///|
-fn one_slide_pkg(
+async fn one_slide_pkg(
   slide : String,
   slide_rels : String,
   extra_content_types : String,
   extra_entries : Array[(String, String)],
-) -> @ox.OoxmlPackage raise {
+) -> @ox.OoxmlPackage {
   let entries : Array[(String, String)] = [
     ("[Content_Types].xml", content_types(extra_content_types)),
     (
@@ -730,12 +730,12 @@ fn simple_slide(inner : String) -> String {
 
 ///|
 fn text_shape(
-  id : Int,
+  id : Int32,
   name : String,
-  x : Int,
-  y : Int,
-  w : Int,
-  h : Int,
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
   text : String,
 ) -> String {
   "<p:sp><p:nvSpPr><p:cNvPr id=\"" +
@@ -757,13 +757,13 @@ fn text_shape(
 
 ///|
 fn placeholder_shape(
-  id : Int,
+  id : Int32,
   name : String,
   ph_type : String,
-  x : Int,
-  y : Int,
-  w : Int,
-  h : Int,
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
   text : String,
 ) -> String {
   "<p:sp><p:nvSpPr><p:cNvPr id=\"" +
@@ -787,13 +787,13 @@ fn placeholder_shape(
 
 ///|
 fn picture_shape(
-  id : Int,
+  id : Int32,
   name : String,
   rel_id : String,
-  x : Int,
-  y : Int,
-  w : Int,
-  h : Int,
+  x : Int32,
+  y : Int32,
+  w : Int32,
+  h : Int32,
   descr : String,
   title : String,
 ) -> String {
@@ -828,7 +828,7 @@ fn image_rel(id : String, target : String) -> String {
 }
 
 ///|
-fn repeated_picture_shapes(count : Int, id_offset : Int) -> String {
+fn repeated_picture_shapes(count : Int32, id_offset : Int32) -> String {
   let items : Array[String] = []
   for i in 0..<count {
     let n = i + 1
@@ -850,7 +850,7 @@ fn repeated_picture_shapes(count : Int, id_offset : Int) -> String {
 }
 
 ///|
-fn repeated_image_relationships(count : Int) -> String {
+fn repeated_image_relationships(count : Int32) -> String {
   let items : Array[String] = []
   for i in 0..<count {
     let n = i + 1
@@ -860,10 +860,10 @@ fn repeated_image_relationships(count : Int) -> String {
 }
 
 ///|
-fn media_ref_stress_pkg(
-  slide_count : Int,
-  pictures_per_slide : Int,
-) -> @ox.OoxmlPackage raise {
+async fn media_ref_stress_pkg(
+  slide_count : Int32,
+  pictures_per_slide : Int32,
+) -> @ox.OoxmlPackage {
   let entries : Array[(String, String)] = [
     ("[Content_Types].xml", content_types("")),
     (
@@ -920,7 +920,7 @@ fn media_ref_stress_pkg(
 }
 
 ///|
-fn repeated_table_cells(count : Int, grid_span : Int) -> String {
+fn repeated_table_cells(count : Int32, grid_span : Int32) -> String {
   let items : Array[String] = []
   for i in 0..<count {
     let n = i + 1
@@ -943,7 +943,7 @@ fn table_frame_xml(row_xml : String) -> String {
 }
 
 ///|
-fn table_hyperlink_pkg() -> @ox.OoxmlPackage raise {
+async fn table_hyperlink_pkg() -> @ox.OoxmlPackage {
   build_store_zip([
     ("[Content_Types].xml", content_types("")),
     (
@@ -975,7 +975,7 @@ fn table_hyperlink_pkg() -> @ox.OoxmlPackage raise {
 }
 
 ///|
-test "pptx A image caption pairs preserve image metadata" {
+async test "pptx A image caption pairs preserve image metadata" {
   let slide = simple_slide(
     picture_shape(
       2, "System Image", "rIdImg", 100000, 100000, 1000000, 800000, "System diagram alt",
@@ -1019,7 +1019,7 @@ test "pptx A image caption pairs preserve image metadata" {
 }
 
 ///|
-test "pptx parser bounds oversized media bytes" {
+async test "pptx parser bounds oversized media bytes" {
   let slide = simple_slide(
     picture_shape(
       2, "Large Image", "rIdImg", 100000, 100000, 1000000, 800000, "Large", "Large",
@@ -1046,7 +1046,7 @@ test "pptx parser bounds oversized media bytes" {
 }
 
 ///|
-test "pptx parser bounds deck media references without loading extra bytes" {
+async test "pptx parser bounds deck media references without loading extra bytes" {
   let doc = @pptx.parse_pptx_document_from_package(
     media_ref_stress_pkg(100, 51),
   )
@@ -1072,7 +1072,7 @@ test "pptx parser bounds deck media references without loading extra bytes" {
 }
 
 ///|
-test "pptx parser bounds table grid span expansion facts" {
+async test "pptx parser bounds table grid span expansion facts" {
   let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc gridSpan=\"2000\"><a:txBody><a:p><a:r><a:t>Wide</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
   let doc = @pptx.parse_pptx_document_from_package(
     one_slide_pkg(simple_slide(table_xml), "", "", []),
@@ -1102,7 +1102,7 @@ test "pptx parser bounds table grid span expansion facts" {
 }
 
 ///|
-test "pptx parser bounds table row and output cell span expansion" {
+async test "pptx parser bounds table row and output cell span expansion" {
   let table_xml = table_frame_xml(repeated_table_cells(9, 128))
   let doc = @pptx.parse_pptx_document_from_package(
     one_slide_pkg(simple_slide(table_xml), "", "", []),
@@ -1129,7 +1129,7 @@ test "pptx parser bounds table row and output cell span expansion" {
 }
 
 ///|
-test "pptx parser preserves table merge spans and continuation hints" {
+async test "pptx parser preserves table merge spans and continuation hints" {
   let table_xml = "<p:graphicFrame><p:nvGraphicFramePr><p:cNvPr id=\"5\" name=\"Table\"/></p:nvGraphicFramePr><a:graphic><a:graphicData uri=\"http://schemas.openxmlformats.org/drawingml/2006/table\"><a:tbl><a:tr><a:tc rowSpan=\"2\" gridSpan=\"2\"><a:txBody><a:p><a:r><a:t>Merged</a:t></a:r></a:p></a:txBody></a:tc><a:tc rowSpan=\"2\" hMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Tail</a:t></a:r></a:p></a:txBody></a:tc></a:tr><a:tr><a:tc gridSpan=\"2\" vMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc hMerge=\"1\" vMerge=\"1\"><a:txBody><a:p/></a:txBody></a:tc><a:tc><a:txBody><a:p><a:r><a:t>Tail 2</a:t></a:r></a:p></a:txBody></a:tc></a:tr></a:tbl></a:graphicData></a:graphic></p:graphicFrame>"
   let doc = @pptx.parse_pptx_document_from_package(
     one_slide_pkg(simple_slide(table_xml), "", "", []),
@@ -1157,7 +1157,7 @@ test "pptx parser preserves table merge spans and continuation hints" {
 }
 
 ///|
-test "pptx parser keeps hyperlink facts inside table cells" {
+async test "pptx parser keeps hyperlink facts inside table cells" {
   let doc = @pptx.parse_pptx_document_from_package(table_hyperlink_pkg())
   let mut saw_table = false
   for obj in doc.slides[0].objects {
@@ -1180,7 +1180,7 @@ test "pptx parser keeps hyperlink facts inside table cells" {
 }
 
 ///|
-test "pptx B inferred table grid card and two-column regions" {
+async test "pptx B inferred table grid card and two-column regions" {
   let table_doc = @pptx.parse_pptx_document_from_package(
     one_slide_pkg(
       simple_slide(
@@ -1283,7 +1283,7 @@ test "pptx B inferred table grid card and two-column regions" {
 }
 
 ///|
-test "pptx E reading order policy uses placeholders geometry and grouping" {
+async test "pptx E reading order policy uses placeholders geometry and grouping" {
   let slide = simple_slide(
     placeholder_shape(2, "Title", "title", 0, 0, 4000000, 300000, "Title") +
     text_shape(3, "Right Body", 3000000, 900000, 1000000, 300000, "Right") +
@@ -1347,7 +1347,7 @@ test "pptx E reading order policy uses placeholders geometry and grouping" {
 }
 
 ///|
-test "pptx E reading order keeps large grouped coordinates in slide space" {
+async test "pptx E reading order keeps large grouped coordinates in slide space" {
   let slide = simple_slide(
     "<p:sp><p:nvSpPr><p:cNvPr id=\"7\" name=\"TextBox 6\"/><p:cNvSpPr txBox=\"1\"/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm><a:off x=\"5580112\" y=\"2924944\"/><a:ext cx=\"1005403\" cy=\"369332\"/></a:xfrm><a:prstGeom prst=\"rect\"><a:avLst/></a:prstGeom><a:noFill/><a:ln><a:solidFill><a:srgbClr val=\"D9D9D9\"/></a:solidFill></a:ln></p:spPr><p:txBody><a:bodyPr wrap=\"none\" rtlCol=\"0\"><a:spAutoFit/></a:bodyPr><a:lstStyle/><a:p><a:r><a:t>Test text</a:t></a:r></a:p></p:txBody></p:sp>" +
     "<p:grpSp><p:nvGrpSpPr><p:cNvPr id=\"11\" name=\"Group 10\"/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x=\"5580112\" y=\"3645024\"/><a:ext cx=\"1608659\" cy=\"1305436\"/><a:chOff x=\"5580112\" y=\"3645024\"/><a:chExt cx=\"1608659\" cy=\"1305436\"/></a:xfrm></p:grpSpPr>" +

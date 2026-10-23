@@ -8,9 +8,9 @@ pub struct PreparedIpynbNotebook {
 }
 
 ///|
-pub fn prepare_ipynb_notebook_from_source(
+pub async fn prepare_ipynb_notebook_from_source(
   source : @input.InputSource,
-) -> Result[PreparedIpynbNotebook, String] {
+) -> Result[PreparedIpynbNotebook, String] noraise {
   let text_payload = match @sourceio.read_source_text(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)

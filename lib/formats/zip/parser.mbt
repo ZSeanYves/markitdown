@@ -9,7 +9,7 @@ pub fn zip_container_parser(
     ZIP_PARSER_NAME,
     ContainerRecursive,
     @internal.zip_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -19,7 +19,7 @@ pub fn zip_container_parser(
 }
 
 ///|
-fn parse_zip_container_result(
+async fn parse_zip_container_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry_provider : () -> @parser.ParserRegistry,

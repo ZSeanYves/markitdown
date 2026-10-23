@@ -1,7 +1,7 @@
 ///|
 fn decompress_deflate_raw_backend(
   compressed : Bytes,
-  max_output_size : Int,
+  max_output_size : Int32,
 ) -> Bytes raise CodecError {
   @flate.inflate_exact(compressed, max_output=Some(max_output_size)) catch {
     InflateError(OutputLimitExceeded, _) =>

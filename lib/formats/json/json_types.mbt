@@ -59,12 +59,12 @@ pub struct JsonErrorInfo {
 ///|
 /// Structural summary for a parsed JSON document.
 pub struct JsonInspectReport {
-  node_count : Int
-  object_count : Int
-  array_count : Int
-  scalar_count : Int
-  member_count : Int
-  max_depth : Int
+  node_count : Int32
+  object_count : Int32
+  array_count : Int32
+  scalar_count : Int32
+  member_count : Int32
+  max_depth : Int32
   root_kind : String
 }
 
@@ -85,29 +85,32 @@ pub(all) enum JsonStreamEventKind {
 pub extend JsonStreamEventKind with Eq::{equal, not_equal}
 
 ///|
+/// Positions refer to the parser's BOM-stripped, CR/CRLF-normalized text.
+/// byte_start/end are zero-based half-open UTF8 positions in that decoded
+/// representation, not raw physical-file, UTF16 or scalar indices.
 pub struct JsonStreamSource {
-  line : Int
-  column : Int
-  byte_start : Int
-  byte_end : Int
+  line : Int32
+  column : Int32
+  byte_start : Int32
+  byte_end : Int32
 }
 
 ///|
 pub struct JsonStreamEvent {
   kind : JsonStreamEventKind
   pointer : String
-  depth : Int
+  depth : Int32
   text : String?
   source : JsonStreamSource
 }
 
 ///|
 pub struct JsonStreamSummary {
-  token_count : Int
-  object_count : Int
-  array_count : Int
-  scalar_count : Int
-  max_depth : Int
+  token_count : Int32
+  object_count : Int32
+  array_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
   root_kind : String
 }
 

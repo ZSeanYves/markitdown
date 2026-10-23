@@ -17,21 +17,9 @@ import {
   "moonbitlang/async",
 } for "wbtest"
 
-supported_targets = "native+wasm"
+supported_targets = "native"
 
 options(
   "preferred-target": "native",
   "native-stub": [ "atomic_file_sink_native_stub.c" ],
-  targets: {
-    "atomic_file_sink.mbt": [ "native" ],
-    "atomic_file_sink_portable.mbt": [ "wasm", "wasm-gc", "js" ],
-    "atomic_file_sink_wbtest.mbt": [ "native" ],
-    "cli_batch_wbtest.mbt": [ "native" ],
-    "cli_help_wbtest.mbt": [ "native" ],
-    "cli_output_wbtest.mbt": [ "native" ],
-    "cli_parse_wbtest.mbt": [ "native" ],
-    "cli_policy_wbtest.mbt": [ "native" ],
-    "cli_stdin_wbtest.mbt": [ "native" ],
-    "cli_wbtest_support_wbtest.mbt": [ "native" ],
-  },
 )

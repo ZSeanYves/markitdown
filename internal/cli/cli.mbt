@@ -97,7 +97,7 @@ fn cli_atomic_stream_output_supported(
 }
 
 ///|
-fn atomic_sink_should_abort(wrote_any : Bool, error_count : Int) -> Bool {
+fn atomic_sink_should_abort(wrote_any : Bool, error_count : Int32) -> Bool {
   !wrote_any && error_count > 0
 }
 
@@ -234,7 +234,7 @@ async fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
 async fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
-  emit_warnings? : Bool = false,
+  emit_warnings~ : Bool = false,
 ) -> Result[String, CliFailure] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
     return Err(
@@ -317,7 +317,7 @@ async fn cli_render_convert_result(
 ///|
 /// Top-level CLI app entry that parses raw argv and exits with a process-style
 /// status code.
-pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
+pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int32 {
   let first = match first_user_cli_arg(raw_cli_args) {
     Some(value) => value.to_lower()
     None => {

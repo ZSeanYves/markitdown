@@ -10,15 +10,16 @@ pub fn decode_eml_source_text(Bytes) -> String
 
 pub fn inspect_eml_message(EmlMessage) -> EmlInspectReport
 
-pub fn materialize_attachment_payload(EmlAttachment, Bool, Bool) -> EmlAttachment
+pub fn materialize_attachment_payload(EmlAttachment, Bool, Bool) -> EmlAttachment raise
 
 pub fn parse_eml_message(String) -> EmlMessage raise
 
-pub fn prepare_eml_message_from_source(@input.InputSource) -> Result[PreparedEmlMessage, String]
+pub async fn prepare_eml_message_from_source(@input.InputSource) -> Result[PreparedEmlMessage, String] noraise
 
 // Errors
 pub(all) suberror EmlError {
   ParseError(String)
+  InvalidEncoding(String)
 }
 pub fn EmlError::output(Self, &Logger) -> Unit
 pub fn EmlError::to_string(Self) -> String
@@ -73,15 +74,15 @@ pub struct EmlHeaderMap {
 }
 
 pub struct EmlInspectReport {
-  part_count : Int
-  multipart_count : Int
-  text_part_count : Int
-  html_part_count : Int
-  attachment_count : Int
-  inline_image_count : Int
-  nested_message_count : Int
-  max_depth : Int
-  max_part_chars : Int
+  part_count : Int32
+  multipart_count : Int32
+  text_part_count : Int32
+  html_part_count : Int32
+  attachment_count : Int32
+  inline_image_count : Int32
+  nested_message_count : Int32
+  max_depth : Int32
+  max_part_chars : Int32
 }
 
 pub struct EmlMessage {
@@ -97,7 +98,7 @@ pub struct EmlMessage {
 }
 
 pub struct EmlPart {
-  index : Int
+  index : Int32
   headers : Array[EmlHeader]
   header_map : EmlHeaderMap
   summary : EmlPartSummary

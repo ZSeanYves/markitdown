@@ -39,8 +39,8 @@ pub struct ModeStrategyPolicy {
   canonical : StrategyRouteSpec
   explicit_stream_supported : Bool
   explicit_stream : StrategyRouteSpec?
-  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
-  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int32)]
+  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int32)]
   soft_limit_render_profile : @product.RenderProfile?
   hard_limit_route : StrategyRouteSpec?
   lowering_profile : @product.LoweringProfile
@@ -56,12 +56,12 @@ fn make_mode_strategy_policy(
   lowering_profile : @product.LoweringProfile,
   render_profile : @product.RenderProfile,
   current_state_label : String,
-  explicit_stream? : StrategyRouteSpec? = None,
-  soft_limit_thresholds? : Array[(@product.ProbeSignalKind, Int)] = [],
-  hard_limit_thresholds? : Array[(@product.ProbeSignalKind, Int)] = [],
-  soft_limit_render_profile? : @product.RenderProfile? = None,
-  hard_limit_route? : StrategyRouteSpec? = None,
-  accurate_features? : Array[@product.AccurateFeature] = [],
+  explicit_stream~ : StrategyRouteSpec? = None,
+  soft_limit_thresholds~ : Array[(@product.ProbeSignalKind, Int32)] = [],
+  hard_limit_thresholds~ : Array[(@product.ProbeSignalKind, Int32)] = [],
+  soft_limit_render_profile~ : @product.RenderProfile? = None,
+  hard_limit_route~ : StrategyRouteSpec? = None,
+  accurate_features~ : Array[@product.AccurateFeature] = [],
 ) -> ModeStrategyPolicy {
   {
     canonical,
@@ -129,11 +129,11 @@ fn make_format_route_profile(
   capability_granularity : @parser.StreamingGranularity,
   canonical_ir_input_kind : String,
   current_state_label : String,
-  explicit_stream_route? : FormatRoute? = None,
-  over_limit_route? : FormatRoute? = None,
-  large_route_parser_mode? : @parser.ParserMode? = None,
-  large_route_granularity? : @parser.StreamingGranularity? = None,
-  large_route_ir_input_kind? : String? = None,
+  explicit_stream_route~ : FormatRoute? = None,
+  over_limit_route~ : FormatRoute? = None,
+  large_route_parser_mode~ : @parser.ParserMode? = None,
+  large_route_granularity~ : @parser.StreamingGranularity? = None,
+  large_route_ir_input_kind~ : String? = None,
 ) -> FormatRouteProfile {
   {
     format,
@@ -567,7 +567,7 @@ fn default_render_profile_for_route(
 ///|
 fn soft_limit_thresholds_for_format(
   format : @input.DetectedFormat,
-) -> Array[(@product.ProbeSignalKind, Int)] {
+) -> Array[(@product.ProbeSignalKind, Int32)] {
   match format {
     Markdown => []
     Json => []
@@ -586,7 +586,7 @@ fn soft_limit_thresholds_for_format(
 ///|
 fn hard_limit_thresholds_for_format(
   format : @input.DetectedFormat,
-) -> Array[(@product.ProbeSignalKind, Int)] {
+) -> Array[(@product.ProbeSignalKind, Int32)] {
   match format {
     Markdown => [(BlockCount, 0), (CharCount, 0)]
     Json => [(NodeCount, 0), (MaxDepth, 0)]

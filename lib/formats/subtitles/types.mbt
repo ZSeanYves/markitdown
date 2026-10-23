@@ -9,7 +9,7 @@ pub extend SubtitleFormat with Eq::{equal, not_equal}
 
 ///|
 pub struct SubtitleCue {
-  index : Int
+  index : Int32
   identifier : String?
   time_range : String
   time_start : String?
@@ -18,8 +18,8 @@ pub struct SubtitleCue {
   note_kind : String?
   note_payload : String?
   cue_settings : String?
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 ///|
@@ -30,12 +30,12 @@ pub struct SubtitleDocument {
 
 ///|
 pub struct SubtitleInspectReport {
-  cue_count : Int
-  note_count : Int
-  style_count : Int
-  region_count : Int
-  multiline_cue_count : Int
-  blank_line_count : Int
-  char_count : Int
-  max_lines_per_cue : Int
+  cue_count : Int32
+  note_count : Int32
+  style_count : Int32
+  region_count : Int32
+  multiline_cue_count : Int32
+  blank_line_count : Int32
+  char_count : Int32
+  max_lines_per_cue : Int32
 }

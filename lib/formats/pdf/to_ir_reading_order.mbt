@@ -9,26 +9,26 @@ priv struct PdfNativeLoweredParagraph {
   text : String
   source_ref : @core.SourceRef
   rich_inlines : Array[@core.CoreInline]?
-  consumed_link_indexes : Array[Int]
+  consumed_link_indexes : Array[Int32]
 }
 
 ///|
 priv struct PdfNativePageLoweringPlan {
   items : Array[PdfNativeLoweringItem]
-  consumed_link_indexes : Array[Int]
+  consumed_link_indexes : Array[Int32]
 }
 
 ///|
 priv struct PdfNativeLoweringPlan {
   page_plans : Array[PdfNativePageLoweringPlan]
-  header_footer_removed_count : Int
+  header_footer_removed_count : Int32
   header_footer_removed_candidates : Array[String]
   header_footer_removed_source_refs : Array[String]
-  table_reconstruction_table_count : Int
-  table_reconstruction_skipped_count : Int
+  table_reconstruction_table_count : Int32
+  table_reconstruction_skipped_count : Int32
   table_reconstruction_skipped_reasons : Array[String]
   table_reconstruction_source_refs : Array[String]
-  link_productized_count : Int
+  link_productized_count : Int32
 }
 
 ///|
@@ -56,9 +56,9 @@ fn pdf_native_lowering_plan(
   )
   for page in doc.pages {
     let items : Array[PdfNativeLoweringItem] = []
-    let consumed_link_indexes : Array[Int] = []
-    let removed_block_indexes : Array[Int] = []
-    let consumed_table_block_indexes : Array[Int] = []
+    let consumed_link_indexes : Array[Int32] = []
+    let removed_block_indexes : Array[Int32] = []
+    let consumed_table_block_indexes : Array[Int32] = []
     let page_table_regions = table_regions.filter(region => {
       region.page_no == page.geometry.page_no
     })
@@ -200,7 +200,7 @@ fn pdf_native_page_blocks(
 priv struct PdfNativeHeaderFooterRemovalCandidate {
   kind : String
   normalized_text : String
-  pages : Array[Int]
+  pages : Array[Int32]
   bbox : PdfBBox
 }
 
@@ -317,7 +317,7 @@ fn pdf_native_bbox_from_json_object(
 
 ///|
 priv enum PdfNativeTableLoweringResult {
-  Lowered(@core.CoreBlock, Array[Int], String)
+  Lowered(@core.CoreBlock, Array[Int32], String)
   Skipped(String)
 }
 
@@ -330,19 +330,19 @@ priv struct PdfNativeTableCellLowering {
 ///|
 fn pdf_native_projection_diagnostics(
   diagnostics : @core.Diagnostics,
-  block_count : Int,
-  paragraph_count : Int,
-  link_count : Int,
-  annotation_count : Int,
-  form_field_count : Int,
-  outline_count : Int,
-  destination_count : Int,
-  page_count : Int,
-  image_count : Int,
-  asset_count : Int,
-  image_candidate_count : Int,
-  table_candidate_count : Int,
-  artifact_candidate_count : Int,
+  block_count : Int32,
+  paragraph_count : Int32,
+  link_count : Int32,
+  annotation_count : Int32,
+  form_field_count : Int32,
+  outline_count : Int32,
+  destination_count : Int32,
+  page_count : Int32,
+  image_count : Int32,
+  asset_count : Int32,
+  image_candidate_count : Int32,
+  table_candidate_count : Int32,
+  artifact_candidate_count : Int32,
   header_footer_candidates : PdfNativeHeaderFooterCandidateSummary,
   table_candidates : PdfNativeTableCandidateSummary,
   lowering : PdfNativeLoweringPlan,
@@ -489,17 +489,17 @@ fn pdf_native_projection_diagnostics(
 ///|
 fn pdf_native_stream_bridge_diagnostics(
   diagnostics : @core.Diagnostics,
-  block_count : Int,
-  paragraph_count : Int,
-  link_count : Int,
-  annotation_count : Int,
-  form_field_count : Int,
-  outline_count : Int,
-  destination_count : Int,
-  page_count : Int,
-  image_candidate_count : Int,
-  table_candidate_count : Int,
-  artifact_candidate_count : Int,
+  block_count : Int32,
+  paragraph_count : Int32,
+  link_count : Int32,
+  annotation_count : Int32,
+  form_field_count : Int32,
+  outline_count : Int32,
+  destination_count : Int32,
+  page_count : Int32,
+  image_candidate_count : Int32,
+  table_candidate_count : Int32,
+  artifact_candidate_count : Int32,
   header_footer_candidates : PdfNativeHeaderFooterCandidateSummary,
   table_candidates : PdfNativeTableCandidateSummary,
 ) -> @core.Diagnostics {

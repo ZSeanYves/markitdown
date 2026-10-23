@@ -1,5 +1,5 @@
 ///|
-fn locate_docx_main_document_part(
+async fn locate_docx_main_document_part(
   pkg : @ox.OoxmlPackage,
 ) -> String raise DocxError {
   let rels = @ox.find_relationships_by_type(pkg, "", "/officeDocument") catch {
@@ -26,9 +26,15 @@ fn locate_docx_main_document_part(
 }
 
 ///|
-fn parse_docx_document_metadata(pkg : @ox.OoxmlPackage) -> DocxDocumentMetadata {
-  let core = @ox.read_core_properties(pkg)
-  let app = @ox.read_app_properties(pkg)
+async fn parse_docx_document_metadata(
+  pkg : @ox.OoxmlPackage,
+) -> DocxDocumentMetadata raise DocxError {
+  let core = @ox.read_core_properties(pkg) catch {
+    error => raise OoxmlFailure(error.to_string())
+  }
+  let app = @ox.read_app_properties(pkg) catch {
+    error => raise OoxmlFailure(error.to_string())
+  }
   {
     core: {
       title: core.title,
@@ -51,7 +57,9 @@ fn parse_docx_document_metadata(pkg : @ox.OoxmlPackage) -> DocxDocumentMetadata 
       sheets: app.sheets,
     },
     custom_properties: docx_custom_properties_from_ooxml(
-      @ox.read_custom_properties(pkg),
+      @ox.read_custom_properties(pkg) catch {
+        error => raise OoxmlFailure(error.to_string())
+      },
     ),
   }
 }

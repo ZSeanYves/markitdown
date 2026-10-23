@@ -17,6 +17,8 @@ fn legacy_output_mode(mode : OutputMode) -> @product.OutputMode {
 }
 
 ///|
+// Keep option failures as values for the frozen facade's Result contract.
+#warnings("-result_error_return")
 fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
   if options.limits.max_rows <= 0 ||
     options.limits.max_cols <= 0 ||
@@ -46,6 +48,7 @@ fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
 }
 
 ///|
+#warnings("-result_error_return")
 fn legacy_options(
   options : ConvertOptions,
 ) -> Result[@convert.ConvertOptions, ConvertError] {
@@ -310,5 +313,21 @@ fn stable_output(execution : @convert.ConvertExecution) -> Output {
     assets: stable_assets(result.assets),
     source_map: stable_source_map(result.source_map),
     chunks: stable_chunks(result.chunks),
+  }
+}
+
+///|
+fn stable_conversion_summary(
+  result : @convert.ConvertResult,
+) -> ConversionSummary {
+  {
+    detected_format: @input.detected_format_name(result.detected_format),
+    convert_mode: stable_convert_mode(result.convert_mode),
+    output_mode: stable_output_mode(result.output_mode),
+    metadata_json: metadata_json(result.metadata),
+    diagnostics: stable_diagnostics(result.diagnostics),
+    assets: stable_assets(result.assets),
+    source_map: stable_source_map(result.source_map),
+    chunk_count: result.chunks.map(chunks => chunks.length()).unwrap_or(0),
   }
 }

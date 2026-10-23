@@ -1,5 +1,5 @@
 ///|
-fn yaml_test_parse(text : String) -> @parser.ParseResult {
+async fn yaml_test_parse(text : String) -> @parser.ParseResult {
   let source = @input.input_from_text_with_format(
     text,
     "contract.yaml",
@@ -9,13 +9,16 @@ fn yaml_test_parse(text : String) -> @parser.ParseResult {
 }
 
 ///|
-test "YAML lowering covers scalar sequence table mapping and fallback shapes" {
+async test "YAML lowering covers scalar sequence table mapping and fallback shapes" {
   let cases = [
     "[]", "- alpha\n- 2\n- true\n- null", "- name: alpha\n  value: 1\n- name: beta\n  value: 2",
     "- name: alpha\n  value: 1\n- value: 2\n  extra: beta", "service:\n  name: api\n  ports:\n    - 80\n    - 443\nenabled: true",
     "plain scalar", "42", "false", "null",
   ]
-  let results = cases.map(yaml_test_parse)
+  let results : Array[@parser.ParseResult] = []
+  for text in cases {
+    results.push(yaml_test_parse(text))
+  }
   assert_true(
     results.all(result => result.document.unwrap().blocks.length() == 1),
   )
@@ -34,7 +37,7 @@ test "YAML lowering covers scalar sequence table mapping and fallback shapes" {
 }
 
 ///|
-test "YAML prepared structure events reproduce canonical document lowering" {
+async test "YAML prepared structure events reproduce canonical document lowering" {
   let text = "items:\n  - name: alpha\n    tags: [one, two]\n  - name: beta\n    tags: [three]\nmeta: {ready: true, count: 2}"
   let source = @input.input_from_text_with_format(
     text,
@@ -64,7 +67,7 @@ test "YAML prepared structure events reproduce canonical document lowering" {
 }
 
 ///|
-test "YAML malformed and unsupported documents fail closed with diagnostics" {
+async test "YAML malformed and unsupported documents fail closed with diagnostics" {
   for text in ["key:\n\tbad: tab", "key: \"unterminated"] {
     match
       (yaml_parser().parse)(
@@ -82,7 +85,7 @@ test "YAML malformed and unsupported documents fail closed with diagnostics" {
 }
 
 ///|
-test "YAML unknown directives preserve the complete source in raw fallback" {
+async test "YAML unknown directives preserve the complete source in raw fallback" {
   let text = "%FOO  bar baz # Should be retained\n---\n\"foo\"\n"
   let result = yaml_test_parse(text)
   let document = result.document.unwrap()
@@ -93,7 +96,7 @@ test "YAML unknown directives preserve the complete source in raw fallback" {
 }
 
 ///|
-test "YAML multi-document streams lower without whole-document fallback" {
+async test "YAML multi-document streams lower without whole-document fallback" {
   let result = (yaml_parser().parse)(
     @input.input_from_text_with_format(
       "---\na: 1\n---\nb: 2\n",
@@ -135,7 +138,7 @@ test "YAML lowering helpers preserve quoting block and pointer contracts" {
 }
 
 ///|
-test "YAML streaming lowering covers root and nested event shapes" {
+async test "YAML streaming lowering covers root and nested event shapes" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Yaml),
     Some(StreamingEvent),

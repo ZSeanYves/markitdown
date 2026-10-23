@@ -2,34 +2,34 @@
 priv struct PdfBuiltinPredefinedCMapEntry {
   family : String
   vertical_writing : Bool
-  code_width_mask : Int
-  base_one_byte_ranges : Array[Int]
-  base_two_byte_ranges : Array[Int]
-  vertical_override_one_byte_ranges : Array[Int]
-  vertical_override_two_byte_ranges : Array[Int]
+  code_width_mask : Int32
+  base_one_byte_ranges : Array[Int32]
+  base_two_byte_ranges : Array[Int32]
+  vertical_override_one_byte_ranges : Array[Int32]
+  vertical_override_two_byte_ranges : Array[Int32]
   range_blob : Bytes?
-  base_one_byte_range_offset : Int
-  base_one_byte_range_count : Int
-  base_two_byte_range_offset : Int
-  base_two_byte_range_count : Int
-  vertical_override_one_byte_range_offset : Int
-  vertical_override_one_byte_range_count : Int
-  vertical_override_two_byte_range_offset : Int
-  vertical_override_two_byte_range_count : Int
+  base_one_byte_range_offset : Int32
+  base_one_byte_range_count : Int32
+  base_two_byte_range_offset : Int32
+  base_two_byte_range_count : Int32
+  vertical_override_one_byte_range_offset : Int32
+  vertical_override_one_byte_range_count : Int32
+  vertical_override_two_byte_range_offset : Int32
+  vertical_override_two_byte_range_count : Int32
 }
 
 ///|
 priv struct PdfBuiltinUnicodeFamilyData {
-  horizontal_runs : Array[Int]
+  horizontal_runs : Array[Int32]
   codepoints : String
-  vertical_override_pairs : Array[Int]
+  vertical_override_pairs : Array[Int32]
   blob : Bytes?
-  horizontal_run_offset : Int
-  horizontal_run_count : Int
-  vertical_override_pair_offset : Int
-  vertical_override_pair_count : Int
-  codepoint_offset : Int
-  codepoint_count : Int
+  horizontal_run_offset : Int32
+  horizontal_run_count : Int32
+  vertical_override_pair_offset : Int32
+  vertical_override_pair_count : Int32
+  codepoint_offset : Int32
+  codepoint_count : Int32
 }
 
 ///|
@@ -37,20 +37,20 @@ priv struct PdfResolvedPredefinedCMap {
   source_name : String?
   family : String?
   vertical_writing : Bool
-  code_width_mask : Int
-  base_one_byte_ranges : Array[Int]
-  base_two_byte_ranges : Array[Int]
-  vertical_override_one_byte_ranges : Array[Int]
-  vertical_override_two_byte_ranges : Array[Int]
+  code_width_mask : Int32
+  base_one_byte_ranges : Array[Int32]
+  base_two_byte_ranges : Array[Int32]
+  vertical_override_one_byte_ranges : Array[Int32]
+  vertical_override_two_byte_ranges : Array[Int32]
   range_blob : Bytes?
-  base_one_byte_range_offset : Int
-  base_one_byte_range_count : Int
-  base_two_byte_range_offset : Int
-  base_two_byte_range_count : Int
-  vertical_override_one_byte_range_offset : Int
-  vertical_override_one_byte_range_count : Int
-  vertical_override_two_byte_range_offset : Int
-  vertical_override_two_byte_range_count : Int
+  base_one_byte_range_offset : Int32
+  base_one_byte_range_count : Int32
+  base_two_byte_range_offset : Int32
+  base_two_byte_range_count : Int32
+  vertical_override_one_byte_range_offset : Int32
+  vertical_override_one_byte_range_count : Int32
+  vertical_override_two_byte_range_offset : Int32
+  vertical_override_two_byte_range_count : Int32
   direct_decode_kind : String?
 }
 
@@ -160,7 +160,7 @@ fn pdf_predefined_empty_resolved_cmap(
   source_name : String?,
   family : String?,
   vertical_writing : Bool,
-  code_width_mask : Int,
+  code_width_mask : Int32,
   direct_decode_kind : String?,
 ) -> PdfResolvedPredefinedCMap {
   {
@@ -242,7 +242,7 @@ fn pdf_predefined_name_has_utf32_direct_decode(name : String) -> Bool {
 
 ///|
 fn pdf_predefined_cmap_decode_bytes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   match cmap.direct_decode_kind {
@@ -417,7 +417,7 @@ fn pdf_predefined_family_unicode_mapping(
 
 ///|
 fn pdf_predefined_decode_mapped_codes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   let family = match cmap.family {
@@ -446,8 +446,8 @@ fn pdf_predefined_decode_mapped_codes(
 
 ///|
 fn pdf_predefined_decode_next_mapped_unit(
-  bytes : Array[Int],
-  start : Int,
+  bytes : Array[Int32],
+  start : Int32,
   cmap : PdfResolvedPredefinedCMap,
   family : String,
 ) -> PdfDecodedFontUnit? {
@@ -466,9 +466,9 @@ fn pdf_predefined_decode_next_mapped_unit(
 ///|
 fn pdf_predefined_decode_candidate_widths(
   cmap : PdfResolvedPredefinedCMap,
-  bytes : Array[Int],
-  start : Int,
-) -> Array[Int] {
+  bytes : Array[Int32],
+  start : Int32,
+) -> Array[Int32] {
   let has_one = pdf_predefined_code_width_mask_contains(cmap.code_width_mask, 1)
   let has_two = pdf_predefined_code_width_mask_contains(cmap.code_width_mask, 2)
   if has_one && has_two {
@@ -494,7 +494,7 @@ fn pdf_predefined_decode_candidate_widths(
 ///|
 fn pdf_predefined_prefers_single_byte_first(
   cmap : PdfResolvedPredefinedCMap,
-  first_byte : Int,
+  first_byte : Int32,
 ) -> Bool {
   match cmap.source_name {
     Some(name) =>
@@ -509,11 +509,11 @@ fn pdf_predefined_prefers_single_byte_first(
 
 ///|
 fn pdf_predefined_decode_next_mapped_unit_at_width(
-  bytes : Array[Int],
-  start : Int,
+  bytes : Array[Int32],
+  start : Int32,
   cmap : PdfResolvedPredefinedCMap,
   family : String,
-  width : Int,
+  width : Int32,
 ) -> PdfDecodedFontUnit? {
   if !pdf_predefined_code_width_mask_contains(cmap.code_width_mask, width) ||
     width <= 0 ||
@@ -535,7 +535,7 @@ fn pdf_predefined_decode_next_mapped_unit_at_width(
 
 ///|
 fn pdf_predefined_decode_cid_identity(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   let family = match cmap.family {
@@ -571,7 +571,7 @@ fn pdf_predefined_decode_cid_identity(
 
 ///|
 fn pdf_predefined_decode_identity_ascii(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   ignore(cmap)
@@ -604,7 +604,7 @@ fn pdf_predefined_decode_identity_ascii(
 
 ///|
 fn pdf_predefined_decode_utf16be(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   ignore(cmap)
@@ -647,7 +647,7 @@ fn pdf_predefined_decode_utf16be(
 
 ///|
 fn pdf_predefined_decode_utf32be(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   ignore(cmap)
@@ -679,7 +679,7 @@ fn pdf_predefined_decode_utf32be(
 
 ///|
 fn pdf_predefined_decode_utf8(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   cmap : PdfResolvedPredefinedCMap,
 ) -> PdfDecodedFontBytes? {
   ignore(cmap)
@@ -727,7 +727,7 @@ fn pdf_predefined_decode_utf8(
 }
 
 ///|
-fn pdf_utf8_sequence_width(first_byte : Int) -> Int {
+fn pdf_utf8_sequence_width(first_byte : Int32) -> Int32 {
   if first_byte <= 0x7F {
     1
   } else if first_byte >= 0xC2 && first_byte <= 0xDF {
@@ -742,8 +742,10 @@ fn pdf_utf8_sequence_width(first_byte : Int) -> Int {
 }
 
 ///|
-fn pdf_predefined_code_widths_from_mask(code_width_mask : Int) -> Array[Int] {
-  let widths : Array[Int] = []
+fn pdf_predefined_code_widths_from_mask(
+  code_width_mask : Int32,
+) -> Array[Int32] {
+  let widths : Array[Int32] = []
   for width in [4, 3, 2, 1] {
     if pdf_predefined_code_width_mask_contains(code_width_mask, width) {
       widths.push(width)
@@ -754,8 +756,8 @@ fn pdf_predefined_code_widths_from_mask(code_width_mask : Int) -> Array[Int] {
 
 ///|
 fn pdf_predefined_code_width_mask_contains(
-  code_width_mask : Int,
-  width : Int,
+  code_width_mask : Int32,
+  width : Int32,
 ) -> Bool {
   if width <= 0 || width > 4 {
     false
@@ -767,9 +769,9 @@ fn pdf_predefined_code_width_mask_contains(
 ///|
 fn pdf_predefined_cmap_lookup_cid(
   cmap : PdfResolvedPredefinedCMap,
-  width : Int,
-  code : Int,
-) -> Int? {
+  width : Int32,
+  code : Int32,
+) -> Int32? {
   if !pdf_predefined_code_width_mask_contains(cmap.code_width_mask, width) {
     return None
   }
@@ -823,7 +825,10 @@ fn pdf_predefined_cmap_lookup_cid(
 }
 
 ///|
-fn pdf_predefined_lookup_linear_range(ranges : Array[Int], key : Int) -> Int? {
+fn pdf_predefined_lookup_linear_range(
+  ranges : Array[Int32],
+  key : Int32,
+) -> Int32? {
   if ranges.length() < 3 {
     return None
   }
@@ -855,10 +860,10 @@ fn pdf_predefined_lookup_linear_range(ranges : Array[Int], key : Int) -> Int? {
 ///|
 fn pdf_predefined_lookup_linear_range_blob(
   blob : Bytes,
-  byte_offset : Int,
-  entry_count : Int,
-  key : Int,
-) -> Int? {
+  byte_offset : Int32,
+  entry_count : Int32,
+  key : Int32,
+) -> Int32? {
   if entry_count <= 0 {
     return None
   }
@@ -897,7 +902,7 @@ fn pdf_predefined_lookup_linear_range_blob(
 fn pdf_predefined_family_unicode_value(
   family : String,
   vertical : Bool,
-  cid : Int,
+  cid : Int32,
 ) -> String? {
   let data = match pdf_builtin_unicode_family_data(family) {
     Some(value) => value
@@ -960,10 +965,10 @@ fn pdf_predefined_family_unicode_value(
 
 ///|
 fn pdf_predefined_lookup_codepoint_in_runs(
-  horizontal_runs : Array[Int],
+  horizontal_runs : Array[Int32],
   codepoints : String,
-  cid : Int,
-) -> Int? {
+  cid : Int32,
+) -> Int32? {
   if horizontal_runs.length() < 3 {
     return None
   }
@@ -997,12 +1002,12 @@ fn pdf_predefined_lookup_codepoint_in_runs(
 ///|
 fn pdf_predefined_lookup_codepoint_in_runs_blob(
   blob : Bytes,
-  horizontal_run_offset : Int,
-  horizontal_run_count : Int,
-  codepoint_offset : Int,
-  codepoint_count : Int,
-  cid : Int,
-) -> Int? {
+  horizontal_run_offset : Int32,
+  horizontal_run_count : Int32,
+  codepoint_offset : Int32,
+  codepoint_count : Int32,
+  cid : Int32,
+) -> Int32? {
   if horizontal_run_count <= 0 {
     return None
   }
@@ -1043,10 +1048,10 @@ fn pdf_predefined_lookup_codepoint_in_runs_blob(
 ///|
 fn pdf_predefined_lookup_blob_pair_value(
   blob : Bytes,
-  byte_offset : Int,
-  entry_count : Int,
-  key : Int,
-) -> Int? {
+  byte_offset : Int32,
+  entry_count : Int32,
+  key : Int32,
+) -> Int32? {
   if entry_count <= 0 {
     return None
   }
@@ -1070,7 +1075,7 @@ fn pdf_predefined_lookup_blob_pair_value(
 }
 
 ///|
-fn pdf_predefined_bmp_codepoint_at(text : String, index : Int) -> Int? {
+fn pdf_predefined_bmp_codepoint_at(text : String, index : Int32) -> Int32? {
   if index < 0 || index >= text.length() {
     return None
   }
@@ -1083,7 +1088,7 @@ fn pdf_predefined_bmp_codepoint_at(text : String, index : Int) -> Int? {
 }
 
 ///|
-fn pdf_predefined_codepoint_text_at(text : String, index : Int) -> String? {
+fn pdf_predefined_codepoint_text_at(text : String, index : Int32) -> String? {
   match pdf_predefined_bmp_codepoint_at(text, index) {
     Some(codepoint) => pdf_predefined_codepoint_text(codepoint)
     None => None
@@ -1091,7 +1096,7 @@ fn pdf_predefined_codepoint_text_at(text : String, index : Int) -> String? {
 }
 
 ///|
-fn pdf_predefined_codepoint_text(codepoint : Int) -> String? {
+fn pdf_predefined_codepoint_text(codepoint : Int32) -> String? {
   if codepoint < 0 || codepoint > 0x10FFFF {
     None
   } else if codepoint >= 0xD800 && codepoint <= 0xDFFF {

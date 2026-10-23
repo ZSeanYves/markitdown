@@ -9,7 +9,7 @@ pub fn epub_parser(
     EPUB_PARSER_NAME,
     PackageSinglePass,
     @internal.epub_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -19,7 +19,7 @@ pub fn epub_parser(
 }
 
 ///|
-fn parse_epub_container_result(
+async fn parse_epub_container_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry_provider : () -> @parser.ParserRegistry,

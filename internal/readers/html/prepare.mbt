@@ -11,7 +11,7 @@ pub struct PreparedHtmlDocument {
 }
 
 ///|
-pub fn prepare_html_document_from_source(
+pub async fn prepare_html_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedHtmlDocument, String] {
   let text_payload = match @sourceio.read_source_text(source) {

@@ -12,7 +12,7 @@ pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @produ
 
 pub async fn run_cli(CliOptions) -> Result[String, String]
 
-pub async fn run_cli_app(Array[String]) -> Int
+pub async fn run_cli_app(Array[String]) -> Int32
 
 // Errors
 

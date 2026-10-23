@@ -213,7 +213,7 @@ fn tables_look_continued(
 }
 
 ///|
-fn table_column_count(block : @core.CoreBlock) -> Int {
+fn table_column_count(block : @core.CoreBlock) -> Int32 {
   match block.attrs.get("table_column_count") {
     Some(value) =>
       @string.parse_int(value.trim()) catch {
@@ -224,7 +224,7 @@ fn table_column_count(block : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn inferred_table_column_count(block : @core.CoreBlock) -> Int {
+fn inferred_table_column_count(block : @core.CoreBlock) -> Int32 {
   let mut width = 0
   for row in block.children {
     if row.children.length() > width {

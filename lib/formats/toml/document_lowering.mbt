@@ -145,8 +145,8 @@ fn toml_compact_table_block_from_rows(
   rows : Array[Array[String]],
   source : @input.InputSource,
   path : String,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
 ) -> @core.CoreBlock {
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
   let table = @core.block_with_children(
@@ -428,8 +428,8 @@ fn toml_table_block_from_rows(
   rows : Array[Array[String]],
   source : @input.InputSource,
   path : String,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
 ) -> @core.CoreBlock {
   let table_ref = toml_source_ref_from_path(source, path, line_start, line_end)
   let row_paths : Array[String] = Array(capacity=rows.length())
@@ -455,7 +455,7 @@ fn toml_table_block_from_rows(
 ///|
 fn toml_heading_block(
   text : String,
-  level : Int,
+  level : Int32,
   source_ref : @core.SourceRef,
 ) -> @core.CoreBlock {
   let heading = @core.make_block(Heading, text, source_ref~)
@@ -480,8 +480,8 @@ fn toml_source_ref_from_member(
 fn toml_source_ref_from_path(
   source : @input.InputSource,
   path : String,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
 ) -> @core.SourceRef {
   let base = @core.source_ref_with_lines(
     @core.empty_source_ref(),
@@ -498,8 +498,8 @@ fn toml_code_block(
   text : String,
   source : @input.InputSource,
   path : String,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
   info : String,
 ) -> @core.CoreBlock {
   let block = @core.make_block(
@@ -641,7 +641,7 @@ fn toml_inline_table_array_rows(
 ) -> Array[Array[String]]? {
   let rows : Array[Array[String]] = []
   let mut keys : Array[String] = []
-  let key_index : Map[String, Int] = Map([])
+  let key_index : Map[String, Int32] = Map([])
   let mut has_key_index = false
   for i in 0..<values.length() {
     let entries = match values[i] {
@@ -673,7 +673,7 @@ fn toml_inline_table_array_rows(
 ///|
 fn toml_array_tables_shared_keys(tables : Array[TomlTable]) -> Array[String]? {
   let mut keys : Array[String] = []
-  let key_index : Map[String, Int] = Map([])
+  let key_index : Map[String, Int32] = Map([])
   let mut has_key_index = false
   for i in 0..<tables.length() {
     let next_keys = tables[i].members.map(fn(item) { item.key })
@@ -701,8 +701,8 @@ fn toml_table_block_from_array_tables(
   keys : Array[String],
   source : @input.InputSource,
   path : String,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
 ) -> @core.CoreBlock {
   let rows : Array[Array[String]] = [keys]
   for table_index in 0..<tables.length() {
@@ -750,7 +750,7 @@ fn toml_array_base_path(path : String) -> String {
 }
 
 ///|
-fn toml_heading_level_for_path(path : String) -> Int {
+fn toml_heading_level_for_path(path : String) -> Int32 {
   let depth = toml_path_depth(path)
   if depth <= 1 {
     1
@@ -778,7 +778,7 @@ fn toml_display_path(path : String) -> String {
 }
 
 ///|
-fn toml_path_depth(path : String) -> Int {
+fn toml_path_depth(path : String) -> Int32 {
   if path == "/" || path == "" {
     return 1
   }

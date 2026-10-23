@@ -3,27 +3,29 @@
 /// from `text`; `line_no` is one-based.
 pub struct SourceTextLine {
   text : String
-  line_no : Int
+  line_no : Int32
   truncated : Bool
 }
 
 ///|
 /// Pull reader for physical lines over a bounded source cursor.
 pub struct SourceTextLineReader {
-  next : () -> Result[SourceTextLine?, String]
+  next : async () -> Result[SourceTextLine?, String] noraise
+  input_error : () -> String?
+  close : () -> Unit
 }
 
 ///|
 /// Open a bounded UTF-8 physical-line reader without collecting the source.
-pub fn open_source_text_line_reader(
+pub async fn open_source_text_line_reader(
   source : @input.InputSource,
-  max_bytes? : Int64 = 512L * 1024L * 1024L,
-  max_line_chars? : Int = 4 * 1024 * 1024,
-) -> Result[SourceTextLineReader, String] {
+  max_bytes? : Int64,
+  max_line_chars~ : Int32 = 4 * 1024 * 1024,
+) -> Result[SourceTextLineReader, String] noraise {
   if max_line_chars <= 0 {
     return Err("text line limit must be positive")
   }
-  let chunks = match open_source_text_chunk_reader(source, max_bytes~) {
+  let chunks = match open_source_text_chunk_reader(source, max_bytes?) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -37,6 +39,11 @@ pub fn open_source_text_line_reader(
   let eof = Ref(false)
   let saw_content = Ref(false)
   let skip_bom = Ref(true)
+  let closed = Ref(false)
+  let close = fn() {
+    closed.val = true
+    (chunks.close)()
+  }
   let emit = fn() -> SourceTextLine {
     let value = {
       text: line.val.to_string(),
@@ -50,7 +57,12 @@ pub fn open_source_text_line_reader(
     value
   }
   Ok({
-    next: fn() {
+    input_error: chunks.input_error,
+    close,
+    next: async fn() -> Result[SourceTextLine?, String] noraise {
+      if closed.val {
+        return Ok(None)
+      }
       while true {
         if chunk_index.val >= chunk.val.length() && !eof.val {
           match (chunks.next)() {
@@ -60,7 +72,10 @@ pub fn open_source_text_line_reader(
               continue
             }
             Ok(None) => eof.val = true
-            Err(message) => return Err(message)
+            Err(message) => {
+              close()
+              return Err(message)
+            }
           }
         }
         if chunk_index.val >= chunk.val.length() {
@@ -71,10 +86,20 @@ pub fn open_source_text_line_reader(
           if saw_content.val && (line_chars.val > 0 || line_truncated.val) {
             return Ok(Some(emit()))
           }
+          close()
           return Ok(None)
         }
-        let ch = chunk.val[chunk_index.val].unsafe_to_char()
-        chunk_index.val += 1
+        let previous_index = chunk_index.val
+        let (ch, next_index) = match
+          source_text_scalar_at(chunk.val, previous_index) {
+          Ok(value) => value
+          Err(message) => {
+            @input.record_input_failure(source, message)
+            close()
+            return Err(message)
+          }
+        }
+        chunk_index.val = next_index
         saw_content.val = true
         if skip_bom.val {
           skip_bom.val = false
@@ -87,7 +112,7 @@ pub fn open_source_text_line_reader(
           if ch == '\n' {
             return Ok(Some(emit()))
           }
-          chunk_index.val -= 1
+          chunk_index.val = previous_index
           return Ok(Some(emit()))
         }
         if ch == '\r' {
@@ -98,7 +123,7 @@ pub fn open_source_text_line_reader(
           return Ok(Some(emit()))
         }
         let width = if ch.to_int() > 0xFFFF { 2 } else { 1 }
-        if line_chars.val + width <= max_line_chars {
+        if !line_truncated.val && line_chars.val + width <= max_line_chars {
           line.val.write_char(ch)
           line_chars.val += width
         } else {
@@ -114,27 +139,28 @@ pub fn open_source_text_line_reader(
 /// One blank-line-delimited record with its inclusive source line range.
 pub struct SourceTextBlock {
   lines : Array[String]
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   truncated : Bool
 }
 
 ///|
 /// Pull reader for blank-line-delimited text records.
 pub struct SourceTextBlockReader {
-  next : () -> Result[SourceTextBlock?, String]
+  next : async () -> Result[SourceTextBlock?, String] noraise
+  close : () -> Unit
 }
 
 ///|
 /// Open a bounded block reader. It retains only the current record.
-pub fn open_source_text_block_reader(
+pub async fn open_source_text_block_reader(
   source : @input.InputSource,
-  max_bytes? : Int64 = 512L * 1024L * 1024L,
-  max_line_chars? : Int = 4 * 1024 * 1024,
-  max_block_lines? : Int = 100000,
-) -> Result[SourceTextBlockReader, String] {
+  max_bytes? : Int64,
+  max_line_chars~ : Int32 = 4 * 1024 * 1024,
+  max_block_lines~ : Int32 = 100000,
+) -> Result[SourceTextBlockReader, String] noraise {
   let lines = match
-    open_source_text_line_reader(source, max_bytes~, max_line_chars~) {
+    open_source_text_line_reader(source, max_bytes?, max_line_chars~) {
     Ok(value) => value
     Err(message) => return Err(message)
   }
@@ -143,11 +169,21 @@ pub fn open_source_text_block_reader(
   let finish = Ref(0)
   let truncated = Ref(false)
   let eof = Ref(false)
+  let closed = Ref(false)
+  let close = fn() {
+    closed.val = true
+    (lines.close)()
+  }
   Ok({
-    next: fn() {
+    close,
+    next: async fn() -> Result[SourceTextBlock?, String] noraise {
+      if closed.val {
+        return Ok(None)
+      }
       while true {
         if eof.val {
           if current.length() == 0 {
+            close()
             return Ok(None)
           }
           let block = {
@@ -187,7 +223,10 @@ pub fn open_source_text_block_reader(
             truncated.val = truncated.val || line.truncated
           }
           Ok(None) => eof.val = true
-          Err(message) => return Err(message)
+          Err(message) => {
+            close()
+            return Err(message)
+          }
         }
       }
       Ok(None)

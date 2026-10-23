@@ -71,10 +71,28 @@ fn cli_provenance_with_stage_timings(
         "stage_timings_ms",
         convert_stage_timings_json(execution.result.diagnostics.metrics),
       )
+      fields.set(
+        "budget_usage",
+        convert_budget_usage_json(execution.result.diagnostics.metrics),
+      )
       provenance
     }
     _ => provenance
   }
+}
+
+///|
+/// The output meter is sampled after rendering. Keep it in the existing
+/// provenance sidecar so its own JSON does not recursively change the measured
+/// converted payload. Counter values are decimal Int64 strings like timings.
+fn convert_budget_usage_json(metrics : Map[String, String]) -> Json {
+  let fields : Map[String, Json] = Map([])
+  for key, value in metrics {
+    if key.has_prefix("budget_") {
+      fields.set(key, Json(value))
+    }
+  }
+  Json::object(fields)
 }
 
 ///|
@@ -89,7 +107,7 @@ fn convert_stage_timings_json(metrics : Map[String, String]) -> Json {
       ("total", "timing_total_ms"),
     ] {
     match metrics.get(entry.1) {
-      Some(value) => fields.set(entry.0, value.to_json())
+      Some(value) => fields.set(entry.0, Json(value))
       None => ()
     }
   }
@@ -97,7 +115,7 @@ fn convert_stage_timings_json(metrics : Map[String, String]) -> Json {
 }
 
 ///|
-async fn run_batch_cli_app(cli_args : Array[String]) -> Int {
+async fn run_batch_cli_app(cli_args : Array[String]) -> Int32 {
   let parsed = parse_batch_cli_options(cli_args, 1)
   let (opts, output_dir) = match parsed {
     Ok(value) => value
@@ -132,8 +150,8 @@ async fn run_batch_cli_app(cli_args : Array[String]) -> Int {
   }
   let manifest_path = output_dir + "/manifest.json"
   let manifest = Json::object({
-    "task_count": results.length().to_json(),
-    "results": results.map(batch_task_result_to_json).to_json(),
+    "task_count": Json(results.length()),
+    "results": Json(results.map(batch_task_result_to_json)),
   })
   @fs.write_string_to_file(
     manifest_path,
@@ -152,7 +170,7 @@ async fn run_batch_cli_app(cli_args : Array[String]) -> Int {
   for result in results {
     match result.failure_kind {
       Some(kind) =>
-        exit_code = Int::max(
+        exit_code = Int32::max(
           exit_code,
           cli_failure_exit_code(cli_failure(kind, "batch task failed")),
         )
@@ -165,7 +183,7 @@ async fn run_batch_cli_app(cli_args : Array[String]) -> Int {
 ///|
 fn parse_batch_cli_options(
   args : Array[String],
-  start_index : Int,
+  start_index : Int32,
 ) -> Result[(CliOptions, String), String] {
   let mut parsed_index = start_index
   let mut mode = @convert.ConvertMode::Balanced
@@ -421,7 +439,7 @@ async fn run_single_batch_task(
 fn path_extension_label(path : String) -> String? {
   let trimmed = path.trim().to_owned().to_lower()
   let chars = trimmed.to_array()
-  let mut last_dot : Int? = None
+  let mut last_dot : Int32? = None
   for i in 0..<chars.length() {
     if chars[i] == '.' {
       last_dot = Some(i)
@@ -467,7 +485,7 @@ priv struct CliResolvedAssets {
 }
 
 ///|
-fn resolve_cli_assets(
+async fn resolve_cli_assets(
   input_path : String,
   content : String,
   assets : Array[@core.AssetRef],
@@ -513,14 +531,18 @@ fn resolve_cli_assets_for_stdout(
 }
 
 ///|
-const CLI_MAX_ASSET_BYTES : Int = 32 * 1024 * 1024
+const CLI_MAX_ASSET_BYTES : Int32 = 32 * 1024 * 1024
 
 ///|
-fn cli_asset_is_materializable(
+async fn cli_asset_is_materializable(
   input_dir : String,
   zip_archive : @dzip.ZipArchive?,
   asset : @core.AssetRef,
-) -> Bool {
+) -> Bool noraise {
+  match asset.payload {
+    Some(Bytes(_)) | Some(Utf8(_)) => return true
+    _ => ()
+  }
   match asset.attrs.get("zip_nested_archive_entry_path") {
     Some(outer_path) => {
       let inner_path = match asset.attrs.get("zip_nested_asset_entry_path") {
@@ -610,7 +632,7 @@ fn cli_replace_unavailable_image(
   content : String,
   asset : @core.AssetRef,
   source : String,
-  diagnostic_label? : String = "Asset unavailable",
+  diagnostic_label~ : String = "Asset unavailable",
 ) -> String {
   let rendered = Ref(content)
   let paths : Array[String] = []
@@ -669,9 +691,9 @@ fn cli_replace_unavailable_image_path(
 }
 
 ///|
-fn cli_last_image_open_before(content : String, before : Int) -> Int? {
+fn cli_last_image_open_before(content : String, before : Int32) -> Int32? {
   let cursor = Ref(0)
-  let found : Ref[Int?] = Ref(None)
+  let found : Ref[Int32?] = Ref(None)
   while cursor.val < before {
     let relative = match content[cursor.val:before].find("![") {
       Some(value) => value
@@ -685,7 +707,7 @@ fn cli_last_image_open_before(content : String, before : Int) -> Int? {
 }
 
 ///|
-fn persist_cli_assets(
+async fn persist_cli_assets(
   input_path : String,
   output_path : String,
   assets : Array[@core.AssetRef],
@@ -700,6 +722,13 @@ fn persist_cli_assets(
     let rel_path = asset.path.unwrap_or("").trim().to_owned()
     if rel_path == "" {
       continue
+    }
+    match asset.payload {
+      Some(Bytes(_)) | Some(Utf8(_)) => {
+        ignore(persist_asset_payload(input_dir, output_dir, rel_path, asset))
+        continue
+      }
+      _ => ()
     }
     if persist_nested_zip_backed_asset(zip_archive, output_dir, rel_path, asset) {
       continue
@@ -728,7 +757,7 @@ fn cli_asset_relative_path_is_safe(path : String) -> Bool {
 }
 
 ///|
-fn validate_cli_assets(
+async fn validate_cli_assets(
   input_path : String,
   assets : Array[@core.AssetRef],
 ) -> Result[Unit, String] {
@@ -747,6 +776,10 @@ fn validate_cli_assets(
       Some(existing) if existing != asset.asset_id =>
         return Err("asset output path collision: " + rel_path)
       _ => paths.set(rel_path, asset.asset_id)
+    }
+    match asset.payload {
+      Some(Bytes(_)) | Some(Utf8(_)) => continue
+      _ => ()
     }
     match asset.attrs.get("zip_nested_archive_entry_path") {
       Some(outer_path) => {
@@ -877,6 +910,10 @@ fn load_zip_archive_for_assets(
 ) -> @dzip.ZipArchive? {
   let mut needs_zip = false
   for asset in assets {
+    match asset.payload {
+      Some(Bytes(_)) | Some(Utf8(_)) => continue
+      _ => ()
+    }
     if asset.attrs.get("zip_entry_path") is Some(_) ||
       asset.attrs.get("zip_nested_archive_entry_path") is Some(_) {
       needs_zip = true
@@ -899,7 +936,7 @@ fn load_zip_archive_for_assets(
 }
 
 ///|
-fn persist_nested_zip_backed_asset(
+async fn persist_nested_zip_backed_asset(
   archive : @dzip.ZipArchive?,
   output_dir : String,
   rel_path : String,
@@ -960,7 +997,7 @@ fn persist_nested_zip_backed_asset(
 }
 
 ///|
-fn persist_zip_backed_asset(
+async fn persist_zip_backed_asset(
   archive : @dzip.ZipArchive?,
   output_dir : String,
   rel_path : String,

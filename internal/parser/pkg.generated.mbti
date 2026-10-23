@@ -8,18 +8,6 @@ import {
 }
 
 // Values
-pub fn asset_payload_within_limits(ParseContext, Int64, Int64) -> Bool
-
-pub fn async_parser_from_sync(Parser) -> AsyncParser
-
-pub fn async_registry_from_sync(ParserRegistry) -> AsyncParserRegistry
-
-pub fn async_registry_lookup(AsyncParserRegistry, @input.DetectedFormat) -> AsyncParser?
-
-pub async fn async_registry_parse(AsyncParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
-
-pub fn async_registry_register(AsyncParserRegistry, @input.DetectedFormat, AsyncParser) -> Unit
-
 pub fn block_stream_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn container_recursive_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
@@ -34,29 +22,19 @@ pub fn default_pdf_table_reconstruction_policy() -> PdfTableReconstructionPolicy
 
 pub fn dom_ast_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
-pub fn empty_async_registry() -> AsyncParserRegistry
-
 pub fn empty_registry() -> ParserRegistry
 
-pub fn empty_unified_registry() -> UnifiedParserRegistry
+pub fn make_parse_event_stream(async () -> Result[@core.CoreEvent?, String], async () -> Result[ParseStreamSummary, String]) -> ParseEventStream
 
-pub fn make_async_parse_event_stream(async () -> Result[@core.CoreEvent?, String], () -> Result[ParseStreamSummary, String]) -> ParseEventStream
-
-pub fn make_async_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String]) -> AsyncParser
-
-pub fn make_parse_event_stream(() -> Result[@core.CoreEvent?, String], () -> Result[ParseStreamSummary, String]) -> ParseEventStream
-
-pub fn make_parser(String, ParserMode, ParserCapability, (@input.InputSource, ParseContext) -> Result[ParseResult, String], stream_events? : ((@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?) -> Parser
+pub fn make_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String], open_stream? : (async (@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?) -> Parser
 
 pub fn make_parser_capability(ParserMode, Bool, StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn materialized_asset_payload_bytes(Array[@core.AssetRef]) -> Int64
 
-pub fn max_asset_payload_bytes(ParseContext) -> Int64
-
 pub fn max_input_bytes(ParseContext) -> Int64
 
-pub fn max_line_chars(ParseContext) -> Int
+pub fn max_line_chars(ParseContext) -> Int32
 
 pub fn mode_name(ParserMode) -> String
 
@@ -64,11 +42,17 @@ pub fn new_parse_context(@input.DetectedFormat) -> ParseContext
 
 pub fn package_with_block_route_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
+pub fn parse_context_inherit_session(ParseContext, ParseContext) -> ParseContext
+
 pub fn parse_context_with_asset_limits(ParseContext, Int64, Int64) -> ParseContext
 
 pub fn parse_context_with_execution_profiles(ParseContext, @product.ExecutionProfile, @product.LoweringProfile, @product.RenderProfile, @product.AccurateFeatureProfile) -> ParseContext
 
-pub fn parse_context_with_limits(ParseContext, ParserMode?, Int?, Int?, Int?, Int?, Bool, limits? : @product.ResourceLimits) -> ParseContext
+pub fn parse_context_with_input_access_limit(ParseContext, Int64?) -> ParseContext
+
+pub fn parse_context_with_input_source(ParseContext, @input.InputSource) -> ParseContext
+
+pub fn parse_context_with_limits(ParseContext, ParserMode?, Int32?, Int32?, Int32?, Int32?, Bool, limits? : @product.ResourceLimits) -> ParseContext
 
 pub fn parse_context_with_pdf_header_footer_filter_policy(ParseContext, PdfHeaderFooterFilterPolicy) -> ParseContext
 
@@ -77,6 +61,8 @@ pub fn parse_context_with_pdf_native_runtime_policy(ParseContext, PdfNativeRunti
 pub fn parse_context_with_pdf_table_reconstruction_policy(ParseContext, PdfTableReconstructionPolicy) -> ParseContext
 
 pub fn parse_context_with_product_modes(ParseContext, @product.FidelityMode, @product.OutputMode) -> ParseContext
+
+pub fn parse_context_with_resource_failure_reporter(ParseContext, (@input.ResourceLimitFailure) -> Unit) -> ParseContext
 
 pub fn parse_result_with_blocks(String, ParserMode, Array[@core.CoreBlock], @core.Diagnostics) -> ParseResult
 
@@ -100,49 +86,29 @@ pub fn pdf_native_runtime_policy_name(PdfNativeRuntimePolicy) -> String
 
 pub fn pdf_table_reconstruction_policy_name(PdfTableReconstructionPolicy) -> String
 
-pub fn record_asset_payload_budget_skip(@core.Diagnostics, String, String, Int64, Int64) -> Unit
-
 pub fn registry_key(@input.DetectedFormat) -> String
 
 pub fn registry_lookup(ParserRegistry, @input.DetectedFormat) -> Parser?
 
-pub fn registry_open_event_stream(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseEventStream?, String]
+pub async fn registry_open_event_stream(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseEventStream?, String]
 
-pub fn registry_parse(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
+pub async fn registry_parse(ParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
 
 pub fn registry_register(ParserRegistry, @input.DetectedFormat, Parser) -> Unit
+
+pub fn require_asset_payload_within_limits(ParseContext, Int64, Int64) -> Bool
 
 pub fn streaming_event_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, Bool, Bool, Bool, Bool) -> ParserCapability
 
 pub fn streaming_granularity_name(StreamingGranularity) -> String
 
-pub fn unified_registry_from_sync(ParserRegistry) -> UnifiedParserRegistry
-
-pub fn unified_registry_open_event_stream(UnifiedParserRegistry, @input.InputSource, ParseContext) -> Result[ParseEventStream?, String]
-
-pub async fn unified_registry_parse(UnifiedParserRegistry, @input.InputSource, ParseContext) -> Result[ParseResult, String]
-
-pub fn unified_registry_register(UnifiedParserRegistry, @input.DetectedFormat, Parser) -> Unit
-
-pub fn unified_registry_register_async(UnifiedParserRegistry, @input.DetectedFormat, AsyncParser) -> Unit
-
-pub fn unified_registry_sync_projection(UnifiedParserRegistry) -> ParserRegistry
-
 // Errors
 
 // Types and methods
-pub struct AsyncParser {
-  name : String
-  mode : ParserMode
-  capability : ParserCapability
-  parse : async (@input.InputSource, ParseContext) -> Result[ParseResult, String]
-}
-
-pub struct AsyncParserRegistry {
-  parsers : Map[String, Array[AsyncParser]]
-}
-
 pub struct ParseContext {
+  input_source : @input.InputSource?
+  input_access_limit : Int64?
+  report_resource_limit_failure : (@input.ResourceLimitFailure) -> Unit
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
   fidelity_mode : @product.FidelityMode
@@ -155,17 +121,16 @@ pub struct ParseContext {
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
   limits : @product.ResourceLimits
-  max_rows : Int?
-  max_cols : Int?
-  max_cells : Int?
-  max_line_chars : Int?
+  max_rows : Int32?
+  max_cols : Int32?
+  max_cells : Int32?
+  max_line_chars : Int32?
   debug : Bool
 }
 
 pub struct ParseEventStream {
-  next : () -> Result[@core.CoreEvent?, String]
-  next_async : async () -> Result[@core.CoreEvent?, String]
-  finish : () -> Result[ParseStreamSummary, String]
+  next : async () -> Result[@core.CoreEvent?, String]
+  finish : async () -> Result[ParseStreamSummary, String]
 }
 
 pub struct ParseResult {
@@ -197,8 +162,8 @@ pub struct Parser {
   name : String
   mode : ParserMode
   capability : ParserCapability
-  parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String]
-  stream_events : ((@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?
+  parse : async (@input.InputSource, ParseContext) -> Result[ParseResult, String]
+  open_stream : (async (@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?
 }
 
 pub struct ParserCapability {
@@ -235,14 +200,6 @@ pub(all) enum ParserMode {
 } derive(Eq)
 pub fn ParserMode::equal(Self, Self) -> Bool
 pub fn ParserMode::not_equal(Self, Self) -> Bool
-
-pub struct ParserRegistration {
-  name : String
-  mode : ParserMode
-  capability : ParserCapability
-  sync_parser : Parser?
-  async_parser : AsyncParser?
-}
 
 pub struct ParserRegistry {
   parsers : Map[String, Array[Parser]]
@@ -296,10 +253,6 @@ pub(all) enum StreamingGranularity {
 } derive(Eq)
 pub fn StreamingGranularity::equal(Self, Self) -> Bool
 pub fn StreamingGranularity::not_equal(Self, Self) -> Bool
-
-pub struct UnifiedParserRegistry {
-  parsers : Map[String, Array[ParserRegistration]]
-}
 
 // Type aliases
 

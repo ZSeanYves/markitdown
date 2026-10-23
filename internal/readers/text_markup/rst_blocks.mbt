@@ -1,9 +1,9 @@
 ///|
 fn detect_raw_boundary(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   match format {
     Asciidoc => {
@@ -119,8 +119,8 @@ fn detect_raw_boundary(
 ///|
 fn detect_rst_field_list(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let rows : Array[(String, String)] = []
   let mut i = index
   while i < lines.length() {
@@ -172,8 +172,8 @@ fn detect_rst_field_list(
 ///|
 fn detect_rst_note_definition(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix(".. [") {
     return None
@@ -222,8 +222,8 @@ fn detect_rst_note_definition(
 ///|
 fn detect_rst_definition_list(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let term = lines[index].trim().to_owned()
   if !rst_definition_term_candidate(term) ||
     index + 1 >= lines.length() ||
@@ -271,8 +271,8 @@ fn detect_rst_definition_list(
 ///|
 fn detect_rst_directive_block(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix(".. ") || !trimmed.contains("::") {
     return None
@@ -410,8 +410,8 @@ fn detect_rst_directive_block(
 ///|
 fn detect_rst_include_directive(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix(".. include::") {
     return None

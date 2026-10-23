@@ -2,7 +2,10 @@ import {
   "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
   "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

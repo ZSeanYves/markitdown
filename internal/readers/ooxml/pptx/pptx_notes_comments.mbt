@@ -1,8 +1,8 @@
 ///|
-fn parse_notes_for_slide(
+async fn parse_notes_for_slide(
   ctx : PptxSourceParseContext,
   slide_part : String,
-) -> PptxNotesSlide? raise {
+) -> PptxNotesSlide? {
   let mut notes_part : String? = None
   for rel in read_source_relationships(ctx, slide_part) {
     if rel.rel_type.has_suffix("/notesSlide") &&
@@ -97,9 +97,9 @@ fn collect_paragraphs_from_objects(
 }
 
 ///|
-fn parse_comment_authors(
+async fn parse_comment_authors(
   ctx : PptxSourceParseContext,
-) -> Array[PptxCommentAuthor] raise {
+) -> Array[PptxCommentAuthor] {
   let xml = match read_source_part_bytes(ctx, "ppt/commentAuthors.xml") {
     Some(bytes) => bytes
     None => return []
@@ -135,11 +135,11 @@ fn parse_comment_authors(
 }
 
 ///|
-fn parse_comments_for_slide(
+async fn parse_comments_for_slide(
   ctx : PptxSourceParseContext,
   slide_part : String,
   authors : Array[PptxCommentAuthor],
-) -> Array[PptxComment] raise {
+) -> Array[PptxComment] {
   let mut comments_part : String? = None
   for rel in read_source_relationships(ctx, slide_part) {
     if rel.rel_type.has_suffix("/comments") ||

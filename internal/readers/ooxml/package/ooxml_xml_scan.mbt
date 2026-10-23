@@ -1,64 +1,11 @@
 ///|
 /// Convert ZIP entry bytes to XML text.
 ///
-/// OOXML XML parts are UTF-8 text in mainstream DOCX/XLSX/PPTX packages.
-/// Decode as UTF-8 first so non-ASCII shared strings and text runs stay
-/// readable, while preserving the historical byte-to-char fallback for odd
-/// malformed payloads.
-fn bytes_to_xml_text(bytes : Bytes) -> String {
-  match
-    (
-      try @utf8.decode(bytes, ignore_bom=false) |> Ok catch {
-        e => Err(e)
-      } : Result[String, Error]) {
-    Ok(text) => return text
-    Err(_) => ()
+/// Reject invalid UTF-8 before package XML enters the text caches.
+fn bytes_to_xml_text(bytes : Bytes) -> String raise OoxmlError {
+  @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => raise InvalidEncoding("utf8 decode failed")
   }
-
-  let chars : Array[Char] = []
-  for b in bytes {
-    chars.push(Int::unsafe_to_char(byte_to_int(b)))
-  }
-  String::from_array(chars)
-}
-
-///|
-fn collect_start_tags(xml : String, local_name : String) -> Array[String] {
-  let tags : Array[String] = []
-  let chars = xml.to_array()
-  let n = chars.length()
-  let mut i = 0
-
-  while i < n {
-    if chars[i] != '<' {
-      i = i + 1
-      continue
-    }
-
-    if i + 1 < n &&
-      (chars[i + 1] == '/' || chars[i + 1] == '?' || chars[i + 1] == '!') {
-      i = i + 1
-      continue
-    }
-
-    let mut j = i + 1
-    while j < n && chars[j] != '>' {
-      j = j + 1
-    }
-    if j >= n {
-      break
-    }
-
-    let tag = xml[i:j + 1].to_owned()
-    let tag_name = start_tag_local_name(tag)
-    if tag_name == local_name {
-      tags.push(tag)
-    }
-
-    i = j + 1
-  }
-
-  tags
 }
 
 ///|
@@ -85,7 +32,7 @@ fn start_tag_local_name(tag : String) -> String {
     return ""
   }
 
-  local_name_from_raw(tag[i:j].to_owned())
+  local_name_from_raw(String::from_array(chars[i:j]))
 }
 
 ///|
@@ -109,7 +56,7 @@ fn end_tag_local_name(tag : String) -> String {
     return ""
   }
 
-  local_name_from_raw(tag[i:j].to_owned())
+  local_name_from_raw(String::from_array(chars[i:j]))
 }
 
 ///|
@@ -172,36 +119,12 @@ fn parse_tag_attributes(tag : String) -> Map[String, String] {
     let value_end = i
     i = i + 1
 
-    let key = tag[key_start:key_end].to_owned()
-    let value = tag[value_start:value_end].to_owned()
+    let key = String::from_array(chars[key_start:key_end])
+    let value = String::from_array(chars[value_start:value_end])
     attrs.set(key, value)
   }
 
   attrs
-}
-
-///|
-fn get_required_attr(
-  attrs : Map[String, String],
-  key : String,
-) -> String raise OoxmlError {
-  match attrs.get(key) {
-    Some(value) =>
-      if value.trim() == "" {
-        raise InvalidXml("missing attribute: " + key)
-      } else {
-        value
-      }
-    None => raise InvalidXml("missing attribute: " + key)
-  }
-}
-
-///|
-fn get_optional_attr(attrs : Map[String, String], key : String) -> String {
-  match attrs.get(key) {
-    Some(value) => value
-    None => ""
-  }
 }
 
 ///|
@@ -230,7 +153,7 @@ fn tag_text(xml : String, local_name : String) -> String? {
       break
     }
 
-    let start_tag = xml[i:tag_end + 1].to_owned()
+    let start_tag = String::from_array(chars[i:tag_end + 1])
     let name = start_tag_local_name(start_tag)
 
     if name == local_name {
@@ -240,11 +163,13 @@ fn tag_text(xml : String, local_name : String) -> String? {
         return None
       }
 
-      let end = find_closing_tag_by_local_name(xml, local_name, content_start)
+      let end = find_closing_tag_by_local_name(chars, local_name, content_start)
       match end {
         Some(pos) =>
           return Some(
-            xml_entity_decode(xml[content_start:pos].trim().to_owned()),
+            xml_entity_decode(
+              String::from_array(chars[content_start:pos]).trim().to_owned(),
+            ),
           )
         None => ()
       }
@@ -272,11 +197,10 @@ fn start_tag_is_self_closing(tag : String) -> Bool {
 
 ///|
 fn find_closing_tag_by_local_name(
-  xml : String,
+  chars : Array[Char],
   local_name : String,
-  start : Int,
-) -> Int? {
-  let chars = xml.to_array()
+  start : Int32,
+) -> Int32? {
   let n = chars.length()
   let mut i = start
 
@@ -294,7 +218,7 @@ fn find_closing_tag_by_local_name(
       return None
     }
 
-    let tag = xml[i:tag_end + 1].to_owned()
+    let tag = String::from_array(chars[i:tag_end + 1])
     if end_tag_local_name(tag) == local_name {
       return Some(i)
     }
@@ -328,21 +252,11 @@ fn local_name_from_raw(raw_name : String) -> String {
   if colon < 0 {
     raw_name
   } else {
-    raw_name[colon + 1:].to_owned()
+    String::from_array(raw_chars[colon + 1:])
   }
 }
 
 ///|
 fn is_space(c : Char) -> Bool {
   c == ' ' || c == '\n' || c == '\r' || c == '\t'
-}
-
-///|
-fn byte_to_int(b : Byte) -> Int {
-  let v = b.to_int()
-  if v >= 0 {
-    v
-  } else {
-    v + 256
-  }
 }

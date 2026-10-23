@@ -1,0 +1,61 @@
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/core/env",
+  "moonbitlang/x@0.5.5/crypto",
+}
+
+///|
+async fn capture(program : String, args : Array[String], cwd : String) -> String {
+  let result = @shell.Cmd(program, args, cwd~).output()
+  if result.exit_code() != 0 {
+    fail(program + " failed: " + result.stderr())
+  }
+  result.stdout()
+}
+
+///|
+async fn inventory(root : String, prefix : String) -> Array[String] {
+  let paths = capture("git", ["ls-files", "-z"], root)
+  let rows : Array[String] = []
+  for raw in paths.split("\u{0}") {
+    let path = raw.to_owned()
+    if path == "" { continue }
+    let full = root + "/" + path
+    if !@fs.exists(full) {
+      rows.push(prefix + path + "\tmissing\t0\t-")
+      continue
+    }
+    if @fs.kind(full) != @fs.Regular { continue }
+    let data = @fs.read_file(full).binary()
+    let hash = @crypto.bytes_to_hex_string(@crypto.sha256(data))
+    rows.push(prefix + path + "\tpresent\t" + data.length().to_string() + "\t" + hash)
+  }
+  rows
+}
+
+///|
+async fn main {
+  let args = @env.args()
+  if args.length() != 2 {
+    fail("usage: freeze_native.mbtx NEW_EVIDENCE_DIRECTORY")
+  }
+  let root = @env.current_dir().unwrap_or(".")
+  let evidence = args[1]
+  if @fs.exists(evidence) { fail("evidence directory already exists: " + evidence) }
+  @fs.mkdir(evidence, recursive=true)
+  let lab = root + "/markitdown-quality-lab"
+  let rows = inventory(root, "product/")
+  rows.append(inventory(lab, "quality-lab/"))
+  @fs.write_file(evidence + "/files.tsv", "path\tstatus\tbytes\tsha256\n" + rows.join("\n") + "\n")
+  @fs.write_file(evidence + "/toolchain.txt", capture("moon", ["version", "--all"], root))
+  @fs.write_file(evidence + "/machine.txt", capture("uname", ["-a"], root))
+  for (name, dir) in [("product", root), ("quality-lab", lab)] {
+    @fs.write_file(evidence + "/" + name + ".revision", capture("git", ["rev-parse", "HEAD"], dir))
+    @fs.write_file(evidence + "/" + name + ".status", capture("git", ["status", "--short"], dir))
+    @fs.write_file(evidence + "/" + name + ".patch", capture("git", ["diff", "--binary"], dir))
+  }
+  @fs.write_file(evidence + "/dependencies.txt", capture("moon", ["tree"], root))
+  println("Frozen " + rows.length().to_string() + " tracked file records: " + evidence)
+}

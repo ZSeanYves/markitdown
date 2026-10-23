@@ -27,13 +27,13 @@ pub fn docx_resolve_paragraph_style(DocxDocument, DocxParagraph) -> DocxStyle?
 
 pub fn normalize_docx_source(DocxSourceDocument) -> DocxDocument
 
-pub fn parse_docx_document_from_package(@package.OoxmlPackage) -> DocxDocument raise DocxError
+pub async fn parse_docx_document_from_package(@package.OoxmlPackage) -> DocxDocument raise DocxError
 
-pub fn parse_docx_source_document_xml(String, String) -> DocxSourceDocument raise DocxError
+pub async fn parse_docx_source_document_xml(String, String) -> DocxSourceDocument raise DocxError
 
-pub fn parse_docx_source_from_package(@package.OoxmlPackage) -> DocxSourceDocument raise DocxError
+pub async fn parse_docx_source_from_package(@package.OoxmlPackage) -> DocxSourceDocument raise DocxError
 
-pub fn prepare_docx_document_from_source(@input.InputSource) -> Result[PreparedDocxDocument, String]
+pub async fn prepare_docx_document_from_source(@input.InputSource) -> Result[PreparedDocxDocument, String] noraise
 
 // Errors
 pub(all) suberror DocxError {
@@ -537,7 +537,7 @@ pub(all) enum DocxSourceInline {
 
 pub struct DocxSourceKey {
   part_name : String
-  block_index : Int
+  block_index : Int32
   node_key : String
 }
 
@@ -666,28 +666,28 @@ pub struct DocxSourceSymbol {
 
 pub struct DocxSourceTable {
   rows : Array[DocxSourceTableRow]
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
 
 pub struct DocxSourceTableCell {
-  row_index : Int
-  cell_index : Int
+  row_index : Int32
+  cell_index : Int32
   blocks : Array[DocxSourceBlock]
   text : String
   grid_span : String?
   vertical_merge : String?
   has_nested_table : Bool
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
 
 pub struct DocxSourceTableRow {
-  row_index : Int
+  row_index : Int32
   is_header : Bool
   cells : Array[DocxSourceTableCell]
   source_key : DocxSourceKey
@@ -801,22 +801,22 @@ pub struct DocxSymbol {
 
 pub struct DocxTable {
   rows : Array[DocxTableRow]
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
 
 pub struct DocxTableCell {
-  row_index : Int
-  cell_index : Int
+  row_index : Int32
+  cell_index : Int32
   blocks : Array[DocxBlock]
   text : String
   grid_span : String?
   vertical_merge : String?
   has_nested_table : Bool
-  nesting_depth : Int
-  max_nested_depth : Int
+  nesting_depth : Int32
+  max_nested_depth : Int32
   deep_table_guard_triggered : Bool
   source_key : DocxSourceKey
 }
@@ -826,7 +826,7 @@ pub struct DocxTablePlaceholder {
 }
 
 pub struct DocxTableRow {
-  row_index : Int
+  row_index : Int32
   is_header : Bool
   cells : Array[DocxTableCell]
   source_key : DocxSourceKey
