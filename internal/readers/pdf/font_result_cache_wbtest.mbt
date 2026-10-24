@@ -768,15 +768,15 @@ async test "FontFile retained payload counts None Some error and fixed optional 
   }
   assert_eq(
     pdf_font_result_retained_payload(cache.context, base, Ok(None)),
-    108L,
+    116L,
   )
   assert_eq(
     pdf_font_result_retained_payload(cache.context, base, Err("no")),
-    112L,
+    120L,
   )
   assert_eq(
     pdf_font_result_retained_payload(cache.context, base, Ok(Some(empty))),
-    156L,
+    164L,
   )
   assert_eq(
     pdf_font_result_retained_payload(
@@ -784,17 +784,17 @@ async test "FontFile retained payload counts None Some error and fixed optional 
       base,
       Ok(Some({ ..empty, default_advance_width: Some(0), })),
     ),
-    156L,
+    164L,
   )
   let optional = { ..base, kind: Some(0), declared_length: None, }
   assert_eq(
     pdf_font_result_retained_payload(cache.context, optional, Ok(None)),
-    108L,
+    116L,
   )
   let rejected = { ..base, plan: Rejected("x"), }
   assert_eq(
     pdf_font_result_retained_payload(cache.context, rejected, Ok(None)),
-    102L,
+    110L,
   )
   let params : PdfFontDecodeParamsKey = {
     predictor: None,

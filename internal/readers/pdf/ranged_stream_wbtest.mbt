@@ -3,7 +3,7 @@ fn pdf_wbtest_loaded_stream(
   reference : PdfNativeStreamRef,
 ) -> PdfNativeStreamSlice raise {
   match reference {
-    Loaded(stream) => stream
+    Loaded(stream) | SelectedLoaded(stream, _) => stream
     Ranged(_) => fail("expected an explicit in-memory test stream")
   }
 }
@@ -113,7 +113,7 @@ async test "indexed metadata survey retains range descriptors and preserves unus
   let mut ranged = 0
   for object in store.objects {
     match object.stream {
-      Some(Loaded(stream)) =>
+      Some(Loaded(stream) | SelectedLoaded(stream, _)) =>
         retained += stream.primary_bytes.length() +
           stream.endstream_bytes.length()
       Some(Ranged(_)) => ranged += 1

@@ -14,6 +14,7 @@ priv struct PdfLocalCMapKey {
   endstream_eol_suffix : Int32
   endstream_eol_length : Int32
   declared_length : Int32?
+  loaded : PdfLoadedStreamProof?
 } derive(Eq, Hash)
 
 ///|
@@ -23,13 +24,18 @@ priv struct PdfLocalCMapKey {
 priv struct PdfLocalCMapCache {
   context : PdfStreamDecodeContext
   entries : Map[PdfLocalCMapKey, Result[PdfToUnicodeCMapInfo, String]]
+  expected_loaded_snapshot : PdfLoadedSnapshot?
 }
 
 ///|
-fn pdf_make_local_cmap_cache(source : @input.InputSource) -> PdfLocalCMapCache? {
+fn pdf_make_local_cmap_cache(
+  source : @input.InputSource,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
+) -> PdfLocalCMapCache? {
   pdf_make_stream_decode_context(source).map(context => {
     context,
     entries: Map([]),
+    expected_loaded_snapshot: loaded_snapshot,
   })
 }
 
@@ -49,6 +55,22 @@ fn pdf_local_cmap_key(object : PdfNativeObject) -> PdfLocalCMapKey? {
         endstream_eol_suffix: range.endstream_eol_suffix,
         endstream_eol_length: range.endstream_eol_length,
         declared_length: range.declared_length,
+        loaded: None,
+      })
+    Some(SelectedLoaded(stream, definition)) =>
+      Some({
+        object_id: object.object_id,
+        selected_object_id: definition.object_id,
+        definition_offset: definition.definition_offset,
+        generation: definition.generation,
+        dict_text: object.dict_text,
+        payload_start: definition.payload_start,
+        primary_length: stream.primary_bytes.length(),
+        endstream_length: stream.endstream_bytes.length(),
+        endstream_eol_suffix: stream.endstream_eol_suffix,
+        endstream_eol_length: stream.endstream_eol_length,
+        declared_length: stream.declared_length,
+        loaded: pdf_loaded_stream_proof(object),
       })
     _ => None
   }
@@ -79,9 +101,16 @@ fn pdf_local_cmap_retained_payload(
   key : PdfLocalCMapKey,
   result : Result[PdfToUnicodeCMapInfo, String],
 ) -> Int64 raise PdfHardDecodeFailure {
-  // Key: numeric fields44 + dict ref8 + packed Option[Int] slot8, including None.
+  // Key: numeric44 + dict8 + packed Length8 + nullable proof8, including None.
   // Selected cache Entry key/result refs16; Result's stored value ref8.
-  let mut bytes = 84L
+  let mut bytes = 92L
+  if key.loaded is Some(proof) {
+    bytes = pdf_cmap_payload_add(
+      context,
+      bytes,
+      pdf_loaded_stream_proof_retained_payload(proof),
+    )
+  }
   bytes = pdf_cmap_payload_add(
     context,
     bytes,
@@ -168,28 +197,76 @@ async fn pdf_local_tounicode_cmap_info(
   object : PdfNativeObject,
   cache : PdfLocalCMapCache?,
 ) -> Result[PdfToUnicodeCMapInfo, String] {
-  let key = pdf_local_cmap_key(object)
-  guard cache is Some(cache) && key is Some(key) else {
-    return pdf_read_local_tounicode_cmap_info(object)
+  // Preserve the legacy/unproven private path. It has no stable definition to
+  // cache and does not borrow a foreign cache's source as its authority.
+  match object.stream {
+    None | Some(Loaded(_)) => return pdf_read_local_tounicode_cmap_info(object)
+    _ => ()
   }
-  // Both successful and ordinary negative hits obey the original live owner.
-  pdf_check_stream_live(Some(cache.context))
-  if cache.entries.get(key) is Some(value) {
-    return value
+  if cache is Some(cache) {
+    pdf_check_stream_live(Some(cache.context))
+  }
+  let selected_context = match object.stream {
+    Some(SelectedLoaded(_, definition)) => Some(definition.snapshot.context)
+    _ => None
+  }
+  pdf_check_stream_live(selected_context)
+  let key = if cache is Some(cache) {
+    match object.stream {
+      Some(SelectedLoaded(_, definition)) =>
+        if cache.expected_loaded_snapshot is Some(expected) &&
+          physical_equal(expected.authority, definition.snapshot.authority) {
+          pdf_local_cmap_key(object)
+        } else {
+          None
+        }
+      _ => pdf_local_cmap_key(object)
+    }
+  } else {
+    None
+  }
+  if cache is Some(cache) && key is Some(key) {
+    if cache.entries.get(key) is Some(value) {
+      return value
+    }
   }
   let result = pdf_read_local_tounicode_cmap_info(object) catch {
     PdfHardDecodeFailure(error) => {
       // Preserve the original typed result and any existing typed first error.
       // A caught CRC/IO failure must not permit another range read on retry.
-      @input.record_input_failure(cache.context.source, error.to_string())
+      if selected_context is Some(context) {
+        @input.record_input_failure(context.source, error.to_string())
+      }
+      if cache is Some(cache) && key is Some(_) {
+        @input.record_input_failure(cache.context.source, error.to_string())
+      }
       raise PdfHardDecodeFailure(error)
     }
     error => raise error
   }
-  let payload = pdf_local_cmap_retained_payload(cache.context, key, result)
-  match (cache.context.budget.retain_resident)(CacheBytes, payload) {
-    Ok(_) => cache.entries.set(key, result)
-    Err(error) => pdf_raise_budget_failure(Some(cache.context), error)
+  if cache is Some(cache) && key is Some(key) {
+    pdf_check_stream_live(Some(cache.context))
+    pdf_check_stream_live(selected_context)
+    let entry_payload = pdf_local_cmap_retained_payload(
+      cache.context,
+      key,
+      result,
+    )
+    // Native64 context/map/expected snapshot refs24, once at first result.
+    // A failed decode or empty factory has no wrapper publication admission.
+    let payload = pdf_cmap_payload_add(
+      cache.context,
+      entry_payload,
+      if cache.entries.is_empty() {
+        24L
+      } else {
+        0L
+      },
+    )
+    match (cache.context.budget.retain_resident)(CacheBytes, payload) {
+      Ok(_) => cache.entries.set(key, result)
+      Err(error) => pdf_raise_budget_failure(Some(cache.context), error)
+    }
   }
   result
 }

@@ -14,19 +14,30 @@
 P2/P3/P4 的若干基础实现。整个升级没有完成；后续本地源码仍须独立验收，P2–P6
 均未闭环。没有正式 PDF 性能收益、完整性能/持续负载 RC 或发布后交付通过结论。**
 
-最新已完成本地及远程验收的候选为 `lifecycle-xlsx-objstm-v11`，提交
-`f910d979f4cbea6f90dbfe62aad97018cd1e2a10`。本地严格Native debug/release各1424/1424，
-info/fmt/check/build通过；标准语料、独立预算侧车、实际安装后语料各935/935，安装与源码
-产物3329项输出相同。新1313项采样0失败，独立复核10504值、2488组最大值及见证，
-1208项源码与完整tar及双副本精确绑定。详见
-[本地v11验收与边界](native-upgrade-local-v11-acceptance.md)。
+当前本地冻结为 `cache-atomic-epub-v13`：52项有序SHA guard恢复43个最终路径，
+Native严格debug/release各1590/1590，info/fmt/check/build通过；标准、预算侧车、安装后
+语料各935/935，实际安装和新公共库consumer通过，安装/源码3329项输出相同。
+新1313项预算采样零失败；独立复核13130值、142上下文组、3100个动态maxima及见证，
+1246项源码/tar/两个物理副本精确绑定。对v12原始3328equal/1unexpected的W4预算差异
+已精确归因，523个资产SHA相同、28项负控拒绝；45次CLI及18项parity负控通过。
+本轮补入Loaded Font/CMap复用、Atomic共享临时预算及文件末LF、None JSONL防静默丢行、
+EPUB container cursor和partial_v13。用户要求本轮跨平台CI通过后合并关闭候选分支并收尾；
+远程结果与合并由关联PR/工作流记录。详见
+[本地v13验收及剩余项](native-upgrade-local-v13-acceptance.md)。
 
-该提交的Native CI `40068757028`、固定Git安装RC `40068810324` 均双平台成功。
-Linux/macOS各自debug/release1424/1424，固定提交安装、全新公共库consumer及安装后
+此前已完成本地及远程验收的候选为 `temp-loaded-presentation-v12`，提交
+`f8b8f9ba9a74649f4a15cb1192ce5763ed3f4d5c`。本地严格Native debug/release各1486/1486，
+info/fmt/check/build通过；标准语料、独立预算侧车、实际安装后语料各935/935，安装与源码
+产物3329项输出相同。新1313项采样0失败，独立复核10504值、142上下文组、2480最大值及见证，
+1228项源码与完整tar及双副本精确绑定。45实际CLI与18项parity负控通过。详见
+[本地v12验收与边界](native-upgrade-local-v12-acceptance.md)。
+
+该提交的Native CI `40081552705`、固定Git安装RC `40081624271` 均双平台成功。
+Linux/macOS各自debug/release1486/1486，固定提交安装、全新公共库consumer及安装后
 935/935通过。两端完整产物ZIP已下载并与服务端SHA256吻合。3329项持久化输出原始比较
 为3285equal/44unexpected；逐叶复核363项变化：272个完整输入路径、84个chunk ID及
 7个boundary key按同一源码双向重算，0未解释，十项篡改负控拒绝（含数字词法变化）。
-报告在本机`v11-fixedgit-exact-path-review-v1/`与`v11-remote-acceptance/`。
+报告在本机`v12-fixedgit-exact-path-review-v1/`与`v12-remote-acceptance/`。
 保留原始非零比较，不把它称为跨平台字节相同。此前v9提交`2f485127`的双平台CI与
 固定Git安装也通过；历史基础候选`d1a71988`的结果保留在下文，不代表当前工作树。
 
@@ -45,7 +56,10 @@ info/fmt/check/build；标准/侧车/安装后各935/935，安装与新公共库
 源码/安装3329输出一致。新1313采样及独立10504计数/142上下文组/2480 maxima见证、
 1228源码/tar/双副本绑定通过；45实际CLI与18项parity负控通过。原v11差异3328equal/1unexpected，
 W4 schema/coverage及两项Loaded逻辑收费精确审查，0未解释。详见
-[本地v12验收及边界](native-upgrade-local-v12-acceptance.md)；新提交跨平台验收待执行。
+[本地v12验收及边界](native-upgrade-local-v12-acceptance.md)；新提交跨平台验收已通过。
+冻结后16次真实CLI还确认旧None pull会把超长空格前缀后的scalar/非BMP内容静默丢弃；
+四次无provenance输出为空、四次collect对照及八个正控正常。下一独立修复正在执行，
+不称v12已解决该继承问题。
 
 本报告把“已实施”“某次产物已验证”和“阶段退出条件完成”分开。首次 candidate 的
 935 条语料结果不覆盖随后全部 P2 编辑；历史某次全量测试通过不自动等于当前工作树

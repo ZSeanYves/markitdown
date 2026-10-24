@@ -205,8 +205,9 @@ async fn pdf_extract_document_from_store(
 ) -> Result[PdfNativeDocument, PdfNativeError] {
   let objects = parsed_store.objects
   let object_index = parsed_store.object_index
-  let program_cache = pdf_make_font_program_cache(source)
-  let local_cache = pdf_make_local_cmap_cache(source)
+  let loaded_snapshot = pdf_loaded_store_snapshot(objects)
+  let program_cache = pdf_make_font_program_cache(source, loaded_snapshot~)
+  let local_cache = pdf_make_local_cmap_cache(source, loaded_snapshot~)
   let font_registry = match
     pdf_collect_font_infos(object_index, program_cache~, local_cache~) {
     Ok(parsed) => parsed
@@ -597,7 +598,44 @@ priv struct PdfNativeObject {
 // shared async gateway can turn a source range into a loaded framing slice.
 priv enum PdfNativeStreamRef {
   Loaded(PdfNativeStreamSlice)
+  SelectedLoaded(PdfNativeStreamSlice, PdfLoadedDefinition)
   Ranged(PdfNativeStreamRange)
+}
+
+///|
+// One immutable materialized read. The mutable reference is an opaque Native
+// authority token, never compared by Ref's contents or derived Eq/Hash. Raw
+// content proof remains the slice's already-owned Bytes, not a file reread.
+priv struct PdfLoadedSnapshot {
+  authority : Ref[Bool]
+  source_size : Int32
+  context : PdfStreamDecodeContext
+}
+
+///|
+priv struct PdfLoadedDefinition {
+  snapshot : PdfLoadedSnapshot
+  object_id : Int32
+  definition_offset : Int64
+  generation : Int32
+  body_start : Int64
+  payload_start : Int64
+}
+
+///|
+// Temporary parser coordinates, not published or included in retained models.
+priv struct PdfLoadedWindowOrigin {
+  snapshot : PdfLoadedSnapshot
+  window_start : Int64
+  selected : (Int64, Int32)?
+}
+
+///|
+priv struct PdfLoadedBodyOrigin {
+  snapshot : PdfLoadedSnapshot
+  definition_offset : Int64
+  generation : Int32
+  body_start : Int64
 }
 
 ///|

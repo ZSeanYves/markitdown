@@ -787,19 +787,20 @@ async test "Native64 local CMap model counts packed optional slots result Info a
     endstream_eol_suffix: 0,
     endstream_eol_length: 0,
     declared_length: None,
+    loaded: None,
   }
   let present = { ..absent, declared_length: Some(0), }
-  // Exact generated C: key body fields60, Entry key/result refs16 and Result
+  // Proposed Native64: key fields68, Entry key/result refs16 and Result
   // value ref8. Option[Int] is an int64 slot even when it represents None.
   for key in [absent, present] {
-    assert_eq(pdf_local_cmap_retained_payload(context, key, Err("")), 84L)
-    assert_eq(pdf_local_cmap_retained_payload(context, key, Err("bad")), 90L)
+    assert_eq(pdf_local_cmap_retained_payload(context, key, Err("")), 92L)
+    assert_eq(pdf_local_cmap_retained_payload(context, key, Err("bad")), 98L)
     let empty = pdf_empty_tounicode_cmap_info()
     assert_eq(empty.mapping.capacity(), 8)
     assert_eq(empty.invalid_keys.capacity(), 8)
     assert_eq(empty.widths.capacity(), 0)
     // Info5refs40 + two empty8-slot map buffers128. Headers/padding excluded.
-    assert_eq(pdf_local_cmap_retained_payload(context, key, Ok(empty)), 252L)
+    assert_eq(pdf_local_cmap_retained_payload(context, key, Ok(empty)), 260L)
     let info : PdfToUnicodeCMapInfo = {
       mapping: Map([("41", "A")], capacity=8),
       invalid_keys: Map([("42", true)], capacity=8),
@@ -807,6 +808,6 @@ async test "Native64 local CMap model counts packed optional slots result Info a
       usecmap_name: Some("P"),
       builtin_parent_name: None,
     }
-    assert_eq(pdf_local_cmap_retained_payload(context, key, Ok(info)), 296L)
+    assert_eq(pdf_local_cmap_retained_payload(context, key, Ok(info)), 304L)
   }
 }

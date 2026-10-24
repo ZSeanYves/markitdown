@@ -25,10 +25,7 @@ pub async fn open_epub_archive(
   }
 
   let mimetype = read_optional_text_part(archive, entry_index, "mimetype")
-  let container_payload = read_required_xml_part_payload(
-    archive, entry_index, "META-INF/container.xml",
-  )
-  let rootfiles = parse_container_rootfiles(container_payload.text, entry_index)
+  let rootfiles = read_container_rootfiles(archive, entry_index)
   let rootfile_path = select_primary_rootfile(rootfiles)
   let opf_payload = read_required_xml_part_payload(
     archive, entry_index, rootfile_path,
@@ -635,75 +632,6 @@ pub async fn read_nav_document(pkg : EpubPackage) -> String? noraise {
       }
     None => None
   }
-}
-
-///|
-fn parse_container_rootfiles(
-  xml : String,
-  entry_index : Map[String, String],
-) -> Array[EpubRootfileInfo] raise EpubError {
-  let tags = collect_start_tags(xml, "rootfile")
-  if tags.length() == 0 {
-    raise InvalidXml("container.xml missing rootfile")
-  }
-
-  let out : Array[EpubRootfileInfo] = []
-  for tag in tags {
-    let attrs = parse_tag_attributes(tag)
-    let full_path = get_optional_attr(attrs, "full-path").trim().to_owned()
-    if full_path == "" {
-      continue
-    }
-    let media_type0 = get_optional_attr(attrs, "media-type").trim().to_owned()
-    let media_type = if media_type0 == "" { None } else { Some(media_type0) }
-    let normalized = try normalize_package_full_path(full_path) |> Ok catch {
-      e => Err(e)
-    }
-    let normalized_path = match normalized {
-      Ok(path) => Some(path)
-      Err(_) => None
-    }
-    let exists = match normalized_path {
-      Some(path) => entry_index.contains(path)
-      None => false
-    }
-    let usable = match normalized_path {
-      Some(path) => entry_index.contains(path)
-      None => false
-    }
-    out.push({
-      full_path,
-      media_type,
-      normalized_path,
-      exists,
-      usable,
-      is_primary: false,
-    })
-  }
-
-  if out.length() == 0 {
-    raise InvalidXml("container.xml missing rootfile")
-  }
-
-  let primary_index = first_usable_rootfile_index(out)
-  if primary_index < 0 {
-    raise InvalidXml("container.xml has no usable rootfile")
-  }
-  let primary_path = out[primary_index].normalized_path.unwrap_or("")
-  let finalized : Array[EpubRootfileInfo] = []
-  for i in 0..<out.length() {
-    let item = out[i]
-    finalized.push({
-      full_path: item.full_path,
-      media_type: item.media_type,
-      normalized_path: item.normalized_path,
-      exists: item.exists,
-      usable: item.usable,
-      is_primary: item.normalized_path == Some(primary_path) &&
-      i == primary_index,
-    })
-  }
-  finalized
 }
 
 ///|

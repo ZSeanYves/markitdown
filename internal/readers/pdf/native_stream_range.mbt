@@ -54,6 +54,7 @@ fn pdf_stream_context(
 ) -> PdfStreamDecodeContext? {
   match reference {
     Loaded(stream) => stream.decode_context
+    SelectedLoaded(_, definition) => Some(definition.snapshot.context)
     Ranged(range) => range.decode_context
   }
 }
@@ -113,7 +114,8 @@ async fn pdf_load_stream_reference(
 ) -> PdfLoadedStreamRead {
   pdf_check_stream_live(pdf_stream_context(reference))
   match reference {
-    Loaded(stream) => { stream, private_payload: Ref(None), payload_bytes: 0L, }
+    Loaded(stream) | SelectedLoaded(stream, _) =>
+      { stream, private_payload: Ref(None), payload_bytes: 0L, }
     Ranged(range) => {
       // Returned Bytes may escape through raw images or unfiltered content.
       // Retain their payload until the owning InputSession ends; the temporary

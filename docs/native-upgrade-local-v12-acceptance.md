@@ -91,8 +91,23 @@ has7392 file bytes versus7391 admitted/confirmed bytes. Its observed follow-up
 fix is separate. Existing None pull/block readers have an additional static
 truncated-prefix classification gap recorded for a later narrow fix.
 
+Remote acceptance is complete at exact commit
+`f8b8f9ba9a74649f4a15cb1192ce5763ed3f4d5c`: Native CI40081552705 and
+fixed-Git RC40081624271 both succeed on Linux/macOS. Each platform passes1486
+debug/release tests and installed935/935 with a fresh consumer. Both complete
+ZIP digests match GitHub;363 exact path/derived-ID leaves explain the raw44
+cross-platform differences,0 unproven,10 rejecting mutation controls. Executed
+remote verification SHA is
+`d40afd9511a91c7174b178cf0012a007e20a46089153ab70e08e14c672d4653a`.
+
+After freezing,16 actual CLI calls reproduced the inherited None pull gap:
+four overlong space-prefixed scalar/astral records silently produced empty
+files without provenance; four collected counterparts and eight controls
+retained content. Its next isolated fix is not part of this candidate.
+
 No latency/RSS gain, two-window performance acceptance,60-minute reliability
-gate, full RC or publication follows from these results. Cross-platform CI and
-exact Git installation must run on the new pushed commit. Only this new report
+gate, full RC or publication follows from these results. Only this new report
 and the declared progress/budget reports may differ from the frozen shipping
-source before that push; all other payloads require exact proof.
+source before the candidate push; that proof passed. Later documentation
+updates record remote results and follow-up evidence without changing the
+accepted commit or frozen product.

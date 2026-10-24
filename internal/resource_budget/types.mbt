@@ -63,6 +63,7 @@ pub(all) enum BudgetError {
   )
   LeaseCountOverflow
   OutstandingLeases(Int64)
+  ReleasedLease
   Closed
 } derive(Eq)
 
@@ -153,6 +154,6 @@ pub struct Budget {
 pub struct BudgetLease {
   priv state : BudgetState
   priv kind : ResidentKind
-  priv amount : Int64
+  priv amount : Ref[Int64]
   priv released : Ref[Bool]
 }

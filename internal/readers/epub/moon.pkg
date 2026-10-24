@@ -3,6 +3,8 @@ import {
   "ZSeanYves/markitdown/internal/readers/xml",
   "ZSeanYves/markitdown/internal/readers/zip",
   "ZSeanYves/markitdown/internal/readers/zip_source" @zsource,
+  "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
   "moonbitlang/core/encoding/utf8",
 }
 

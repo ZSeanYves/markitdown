@@ -65,6 +65,7 @@ pub fn budget_error_message(error : BudgetError) -> String {
     LeaseCountOverflow => "budget lease count overflow"
     OutstandingLeases(count) =>
       "budget has outstanding leases: " + count.to_string()
+    ReleasedLease => "budget lease has already been released"
     Closed => "conversion budget is closed"
   }
 }

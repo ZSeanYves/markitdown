@@ -52,6 +52,18 @@ struct Report {
   mut v12_binary_path : String
   mut v12_observed : Int32
   mut v12_unavailable : Int32
+  v13_samples : Array[String]
+  v13_values : Array[String]
+  v13_maxima : Map[String, Int64]
+  v13_witnesses : Map[String, String]
+  v13_groups : Map[String, Json]
+  mut v13_external : Json?
+  mut v13_binary_hash : String
+  mut v13_tool_hash : String
+  mut v13_source_hash : String
+  mut v13_binary_path : String
+  mut v13_observed : Int32
+  mut v13_unavailable : Int32
 }
 
 ///|
@@ -87,6 +99,18 @@ fn new_report(evidence : String) -> Report {
     v12_binary_path: "",
     v12_observed: 0,
     v12_unavailable: 0,
+    v13_samples: [],
+    v13_values: [],
+    v13_maxima: Map([]),
+    v13_witnesses: Map([]),
+    v13_groups: Map([]),
+    v13_external: None,
+    v13_binary_hash: "",
+    v13_tool_hash: "",
+    v13_source_hash: "",
+    v13_binary_path: "",
+    v13_observed: 0,
+    v13_unavailable: 0,
   }
 }
 
@@ -152,6 +176,7 @@ fn budget_schema(value : Json) -> String raise {
     Some(String("partial_v10")) => "partial_v10"
     Some(String("partial_v11")) => "partial_v11"
     Some(String("partial_v12")) => "partial_v12"
+    Some(String("partial_v13")) => "partial_v13"
     _ => fail("unknown budget schema")
   }
 }
@@ -497,6 +522,10 @@ fn profile(provenance : String) -> Json raise {
   let root = @json.parse(provenance, reject_duplicate_keys=true)
   let result = field(root, "budget_usage")
   guard result is Object(fields) else { fail("missing budget_usage object") }
+  if field(result, "budget_schema") == Json("partial_v13") {
+    v13_validate(result)
+    return result
+  }
   if field(result, "budget_schema") == Json("partial_v12") {
     v12_validate(result)
     assert_eq(
@@ -916,7 +945,27 @@ async fn benchmark_sample(
       Some(item.format),
       Some(view),
     )
-    if budget_schema(value) == "partial_v12" {
+    if budget_schema(value) == "partial_v13" {
+      let route = @json.parse(
+        @fs.read_file(provenance).text(),
+        reject_duplicate_keys=true,
+      )
+      let command = @json.parse(
+        @fs.read_file(directory + "/command.json").text(),
+        reject_duplicate_keys=true,
+      )
+      record_v13_sample(
+        report,
+        "benchmark",
+        item.id,
+        actual_format,
+        v13_text(v13_get(route, "fidelity_mode")),
+        actual_view,
+        value,
+        provenance,
+        command,
+      )
+    } else if budget_schema(value) == "partial_v12" {
       let route = @json.parse(
         @fs.read_file(provenance).text(),
         reject_duplicate_keys=true,
@@ -1113,7 +1162,24 @@ async fn quality_samples(
       let text = @fs.read_file(provenance).text()
       let (value, format, view) = sample_profile(text, None, None)
       ignore(fingerprint(report, "quality_provenance", provenance))
-      if budget_schema(value) == "partial_v12" {
+      if budget_schema(value) == "partial_v13" {
+        let route = @json.parse(text, reject_duplicate_keys=true)
+        let command = @json.parse(
+          @fs.read_file(location + "/command.json").text(),
+          reject_duplicate_keys=true,
+        )
+        record_v13_sample(
+          report,
+          "quality",
+          id,
+          format,
+          v13_text(v13_get(route, "fidelity_mode")),
+          view,
+          value,
+          provenance,
+          command,
+        )
+      } else if budget_schema(value) == "partial_v12" {
         let route = @json.parse(text, reject_duplicate_keys=true)
         let command = @json.parse(
           @fs.read_file(location + "/command.json").text(),
@@ -1225,6 +1291,7 @@ async fn native_binary(report : Report, path : String) -> String {
 ///|
 async fn save(report : Report, status : String) -> Unit {
   save_v12(report)
+  save_v13(report)
   @fs.write_file(
     report.evidence + "/samples.tsv",
     "origin\tschema\tprofile\tid\tformat\tview\tstatus\tprovenance\tcoverage\tunmeasured\tresident_policy\n" +
@@ -1312,6 +1379,7 @@ async fn save(report : Report, status : String) -> Unit {
     "V8 adds DOCX paragraph cursor work including synthetic roots, escaping string metadata/cache and raw UTF8/feed/token/range Working payloads, plus PDF pending-image descriptor/reference-buffer and scope-name UTF16 Working payloads. Other dimensions/scopes are unchanged. New integrated v8 sampling remains pending; historical observations are never relabeled or merged into v8. No numeric defaults, full-budget, RSS or performance acceptance follows.\n" +
     "V9 adds only postparse Ranged local-CMap Native64 selected fields, slots and strings retained Cache payload. The 60B numeric/reference key, Info/Result/outer Entry selected references and actual inner-map/width capacities are a partial payload model, excluding outer buckets, hash/link/header bookkeeping, allocator, preparse, parsing and merge. Other seven measurement scopes and units are unchanged. A new v9 freeze and sampling remain pending; no v8 observation is relabeled. No new numeric defaults, complete-budget, RSS or performance acceptance follows.\n" +
     "V10 adds only document-local Ranged font-local Result postparse Native64 selected fields, slots and strings retained Cache payload. The model excludes outer map buckets/bookkeeping, allocator, parse/merge and filter-key scratch. Other seven measurement scopes, units and numeric defaults are unchanged. New v10 freeze and sampling are required; no v9 observation is relabeled or merged. No complete-budget, RSS or formal performance acceptance follows.\n" +
+    "V13 writes separate markitdown_budget_v13_tables_v1/context_v1 tables with explicit file/stdout/explicit_sink groups: None15/10 and finite16/10, owned Temporary credits on both. Generic confirmed<=admitted preserves borrowed history; equality only follows complete fresh successful CLI file proof. Atomic is a file strategy, never guessed from a path. Stdout final ACK remains unestablished. Ten counter rows per sample imply13130 only for a fresh complete1313 default window; maxima/groups are recomputed, never inherited. New scopes remain selected payload models, not RSS/default/performance acceptance.\n" +
     "V12 writes separate markitdown_budget_v12_tables_v1 tables. None has 13 fields/8 counters; finite temporary has 16/10 and requires complete external supplied/effective ten-limit and options evidence for usable maxima. Missing context retains nonzero raw values as unavailable_context, never adds maxima, and fails the measurement gate. All maxima remain exact account-context/mode/view qualified; no cross-context wildcard aggregate is emitted. A borrowed ledger can retain historical peak above a tightened temporary cap and nonzero current usage. New default None data must be sampled and reviewed from a new freeze; no historical data is relabeled. Temporary scope is owned payload under the SDK close/remove contract, not observed kernel close-error or RSS coverage.\n" +
     "V11 adds XLSX worksheet cursor ParseWork and Working workspace plus document-local Ranged ObjStm local Result postparse Native64 selected-field retained Cache payload. Raw selection buffers and outer result-map bookkeeping remain unmeasured; this is not preparse or RSS coverage. The other five scopes, all units and numeric defaults remain unchanged. New v11 freeze and 1313 sampling are required; no v10 observation is relabeled or merged.\n",
   )
@@ -3344,7 +3412,1775 @@ fn v12_account_self_test() -> Unit raise {
 }
 
 ///|
+fn v13_get(value : Json, key : String) -> Json raise {
+  guard value is Object(fields) else { fail("v13 object required") }
+  fields.get(key).unwrap_or_else(() => fail("v13 missing field: " + key))
+}
+
+///|
+fn v13_text(value : Json) -> String raise {
+  guard value is String(text) else { fail("v13 JSON string required") }
+  text
+}
+
+///|
+fn v13_nat(value : Json) -> Int64 raise {
+  let text = v13_text(value)
+  guard text != "" && (text == "0" || text[0] != '0') else {
+    fail("v13 canonical decimal required")
+  }
+  let mut result = 0L
+  for ch in text {
+    guard ch >= '0' && ch <= '9' else {
+      fail("v13 nonnegative decimal required")
+    }
+    let digit = (ch.to_int() - 48).to_int64()
+    guard result <= (9223372036854775807L - digit) / 10L else {
+      fail("v13 Int64 overflow")
+    }
+    result = result * 10L + digit
+  }
+  result
+}
+
+///|
+fn v13_finite(profile : String) -> Bool raise {
+  match profile {
+    "measurement_only" => false
+    "measurement_with_temporary_limit" | "explicit_enforced" => true
+    _ => fail("unrecognized v13 budget profile")
+  }
+}
+
+///|
+fn v13_contract(finite : Bool) -> Json {
+  if finite {
+    {
+      "condition": "snapshot.limits.temporary_bytes_is_Some_effective_limit;independent_of_whether_a_spool_was_used",
+      "field_count": 16,
+      "counter_count": 10,
+      "metadata_fields": [
+        "budget_schema", "budget_profile", "budget_coverage", "budget_unmeasured",
+        "budget_resident_policy", "budget_temporary_limit_bytes",
+      ],
+      "counter_fields": [
+        "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+        "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes",
+        "budget_working_payload_peak_bytes", "budget_parse_work", "budget_source_metadata_bytes",
+        "budget_temporary_payload_peak_bytes", "budget_temporary_current_bytes",
+      ],
+      "profiles": ["measurement_with_temporary_limit", "explicit_enforced"],
+      "profile_rule": "MeasurementOnly_with_finite_TemporaryBytes_uses_measurement_with_temporary_limit;Enforced_uses_explicit_enforced_and_still_requires_all_10_finite_limits;not_all_dimensions_enforced_by_public_temporary_option",
+      "coverage": "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,pdf_loaded_objstm_decoded_text_parse_work,pdf_loaded_objstm_decoded_text_logical_retention,pptx_presentation_cursor_work,pptx_presentation_cursor_workspace,pptx_presentation_reference_string_metadata,pptx_presentation_reference_retained_string_payload,output_utf8_admission,pdf_loaded_snapshot_selected_definition_native64_field_payload,pdf_loaded_font_local_result_postparse_retained_payload,pdf_loaded_cmap_local_result_postparse_retained_payload,cli_atomic_output_temporary_payload,cli_atomic_output_encoding_working_payload,cli_file_final_lf_output_admission_and_confirmation,epub_container_cursor_work,epub_container_cursor_workspace,epub_container_rootfile_selected_string_metadata,epub_container_rootfile_selected_string_payload,jsonl_spool_codec_wire_work,jsonl_spool_read_traffic,jsonl_spool_temporary_payload,jsonl_spool_codec_working,jsonl_spool_event_utf16_payload",
+      "new_scopes": [
+        "pdf_loaded_snapshot_selected_definition_native64_field_payload", "pdf_loaded_font_local_result_postparse_retained_payload",
+        "pdf_loaded_cmap_local_result_postparse_retained_payload", "cli_atomic_output_temporary_payload",
+        "cli_atomic_output_encoding_working_payload", "cli_file_final_lf_output_admission_and_confirmation",
+        "epub_container_cursor_work", "epub_container_cursor_workspace", "epub_container_rootfile_selected_string_metadata",
+        "epub_container_rootfile_selected_string_payload",
+      ],
+      "unmeasured": "other_parse_work,other_source_metadata,rag_metadata,ir,other_temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      "resident_policy": "scope_retained_payload_plus_owned_temporary_leases",
+      "limit_field": "budget_temporary_limit_bytes_is_actual_snapshot_effective_cap_after_same_ledger_min_tightening_not_requested_CLI_value",
+      "measurement_scopes": {
+        "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic_and_actual_TempOwner_read_payload_bytes;not_write_bytes_or_syscall_count",
+        "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+        "budget_output_admitted_utf8_bytes": "output_write_admission;includes_known_File_or_Atomic_final_LF_before_actual_transport_write;stdout_final_unconditional_LF_and_asset_URL_path_rewrite_delta_unmeasured",
+        "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes;includes_known_File_or_Atomic_final_LF_only_after_successful_writer_return_exactly_once;renderer_body_summary_size_unchanged;stdout_final_LF_unmeasured",
+        "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work_and_pdf_loaded_objstm_decoded_byte_string_utf16_code_units_and_pptx_presentation_cursor_utf8_work_and_each_JSONL_spool_codec_frame_wire_extent_once_on_write_admission_and_once_on_read;plus_EPUB_container_existing_XML_cursor_feed_token_namespace_entity_work_and_error_only_integrity_replay_each_combined_oldcarry_plus_newchunk_UTF8_byte_extent_once_and_final_carry_bytes_once;normal_semantic_rootfile_projection_adds_no_separate_counter;other_parse_work_unmeasured_including_JSON_parse_inspect_and_CPU_time",
+        "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only_and_pptx_presentation_selected_rid_id_node_key_utf8_payload_only;plus_EPUB_container_selected_trimmed_nonempty_full_path_optional_trimmed_nonempty_media_type_and_successful_normalized_path_actual_scalar_UTF8_bytes_by_field_occurrence;DTO_reference_copies_do_not_recharge;other_source_metadata_unmeasured",
+        "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound_and_pdf_loaded_objstm_decoded_byte_string_utf16_4N_plus_16_logical_scope_retained_admission_and_pptx_presentation_selected_rid_id_node_key_utf16_payload_only_and_scope_retained_JSONL_frame_returned_String_utf16_payload_2_times_code_units;plus_Loaded_snapshot24_once_per_materialization_selected_definition56_per_selected_stream_shared_Loaded_proof40_plus_2_times_dict_UTF16_code_units_plus_current_primary_and_endstream_raw_byte_lengths_by_occurrence_Font_entry100_CMap_entry92_and_each_cache_wrapper24_context_Map_refs16_plus_expected_snapshot_ref8_once_at_first_publication_plus_existing_result_payload;Native64_selected_field_payload_not_Heap_RSS_or_full_preallocation;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured_including_pptx_reference_tuple_array_map_headers_probe_error_artifact_bookkeeping_including_JSONL_allocator_and_RSS;plus_EPUB_same_three_selected_rootfile_String_fields_2_times_UTF16_code_units_scope_held_before_DTO_publication_duplicates_count_by_occurrence_not_reference_copy",
+        "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound_and_pptx_presentation_cursor_utf8_feed_token_namespace_payload_upper_bound_and_JSONL_schema_utf16_scan_lease_and_codec_write_2_times_25_plus_payload_utf8_bytes_and_read_25_plus_4_times_payload_utf8_bytes;plus_CLI_atomic_UTF8_encoder_N_validated_UTF8_payload_bytes_reserved_before_encode_per_call_and_released_after_call;excludes_stdio_allocator_path_nonAtomic_SDK_and_other_String_scratch;raw_selection_buffers_and_other_working_unmeasured_including_pptx_reference_tuple_array_map_and_probe_error_artifact_scratch_including_JSON_parser_SourceIO_scratch_and_allocator;plus_EPUB_container_existing_XML_cursor_leases_normalize_path_14_times_fullpath_UTF16_code_units_plus2_private_payload_and_error_only_replay_8_times_combined_UTF8_bytes_plus12_scratch_and_separate_actual_carry_at_most3_bytes;not_tuple_row_Map_header_allocator_GC_RSS",
+        "budget_temporary_payload_peak_bytes": "shared_ledger_lifetime_aggregate_reserved_file_payload_upper_bound_including_before_tighten_history;JSONL_TempOwner_frame_headers_and_UTF8_payload_plus_CLI_atomic_output_full_admitted_growth_including_failed_write_growth_and_any_other_registered_same_ledger_owner;admission_preflight_can_raise_peak_without_disk_growth;not_filesystem_blocks_or_all_temporary_storage",
+        "budget_temporary_current_bytes": "currently_outstanding_shared_ledger_TemporaryBytes_credits;includes_JSONL_TempOwners_atomic_output_and_callers_live_owners_or_uncertain_atomic_close_credit;not_only_this_converter_or_filesystem_blocks",
+      },
+      "generic_invariants": [
+        "all_present_counters_and_optional_effective_cap_nonnegative_Int64_canonical_base10_strings",
+        "temporary_current_le_temporary_peak", "output_confirmed_le_output_admitted",
+        "field_names_and_count_exact_for_profile", "None_has_no_temporary_limit_field_not_zero_or_null;finite_has_exact_effective_cap_string",
+      ],
+      "not_generic_invariants": [
+        "temporary_peak_le_current_effective_cap", "temporary_current_equals_zero",
+        "output_confirmed_equals_output_admitted", "temporary_peak_equals_physical_disk_bytes",
+      ],
+      "fresh_cli_owned_producer_controls_only": [
+        "no_preexisting_TemporaryBytes_history", "finite_limit_installed_before_first_growth",
+        "successful_owned_producer_cleanup_confirms_current_zero", "temporary_peak_le_effective_cap",
+      ],
+      "acceptance_state": "policy_frozen_for_integrated_validation;fresh_v13_runtime_tools_source_binary_quality_install_profiles_required;no_prior_sample_relabeling",
+      "v12_existing_new_scopes": [
+        "jsonl_spool_codec_wire_work", "jsonl_spool_read_traffic", "jsonl_spool_temporary_payload",
+        "jsonl_spool_codec_working", "jsonl_spool_event_utf16_payload",
+      ],
+      "fresh_cli_file_success_controls_only": [
+        "origin_proven_fresh_CLI_with_no_prior_output_or_TemporaryBytes_usage", "all_relevant_file_output_is_within_declared_File_Atomic_LF_scope",
+        "successful_owned_cleanup_or_commit_confirms_temporary_current_zero", "output_confirmed_equals_output_admitted_for_file_success_not_stdout_or_borrowed_ledger",
+        "finite_limit_installed_before_first_growth_can_additionally_check_peak_le_cap",
+      ],
+    }
+  } else {
+    {
+      "condition": "snapshot.limits.temporary_bytes_is_None;public_option_None_alone_does_not_prove_this_if_parent_account_is_finite",
+      "field_count": 15,
+      "counter_count": 10,
+      "metadata_fields": [
+        "budget_schema", "budget_profile", "budget_coverage", "budget_unmeasured",
+        "budget_resident_policy",
+      ],
+      "counter_fields": [
+        "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+        "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes",
+        "budget_working_payload_peak_bytes", "budget_parse_work", "budget_source_metadata_bytes",
+        "budget_temporary_payload_peak_bytes", "budget_temporary_current_bytes",
+      ],
+      "profiles": ["measurement_only"],
+      "coverage": "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,pdf_loaded_objstm_decoded_text_parse_work,pdf_loaded_objstm_decoded_text_logical_retention,pptx_presentation_cursor_work,pptx_presentation_cursor_workspace,pptx_presentation_reference_string_metadata,pptx_presentation_reference_retained_string_payload,output_utf8_admission,pdf_loaded_snapshot_selected_definition_native64_field_payload,pdf_loaded_font_local_result_postparse_retained_payload,pdf_loaded_cmap_local_result_postparse_retained_payload,cli_atomic_output_temporary_payload,cli_atomic_output_encoding_working_payload,cli_file_final_lf_output_admission_and_confirmation,epub_container_cursor_work,epub_container_cursor_workspace,epub_container_rootfile_selected_string_metadata,epub_container_rootfile_selected_string_payload",
+      "unmeasured": "other_parse_work,other_source_metadata,rag_metadata,ir,other_temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      "resident_policy": "scope_retained_payload_plus_owned_temporary_leases",
+      "measurement_scopes": {
+        "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+        "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+        "budget_output_admitted_utf8_bytes": "output_write_admission;includes_known_File_or_Atomic_final_LF_before_actual_transport_write;stdout_final_unconditional_LF_and_asset_URL_path_rewrite_delta_unmeasured",
+        "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes;includes_known_File_or_Atomic_final_LF_only_after_successful_writer_return_exactly_once;renderer_body_summary_size_unchanged;stdout_final_LF_unmeasured",
+        "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work_and_pdf_loaded_objstm_decoded_byte_string_utf16_code_units_and_pptx_presentation_cursor_utf8_work;plus_EPUB_container_existing_XML_cursor_feed_token_namespace_entity_work_and_error_only_integrity_replay_each_combined_oldcarry_plus_newchunk_UTF8_byte_extent_once_and_final_carry_bytes_once;normal_semantic_rootfile_projection_adds_no_separate_counter;other_parse_work_unmeasured",
+        "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only_and_pptx_presentation_selected_rid_id_node_key_utf8_payload_only;plus_EPUB_container_selected_trimmed_nonempty_full_path_optional_trimmed_nonempty_media_type_and_successful_normalized_path_actual_scalar_UTF8_bytes_by_field_occurrence;DTO_reference_copies_do_not_recharge;other_source_metadata_unmeasured",
+        "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound_and_pdf_loaded_objstm_decoded_byte_string_utf16_4N_plus_16_logical_scope_retained_admission_and_pptx_presentation_selected_rid_id_node_key_utf16_payload_only;plus_Loaded_snapshot24_once_per_materialization_selected_definition56_per_selected_stream_shared_Loaded_proof40_plus_2_times_dict_UTF16_code_units_plus_current_primary_and_endstream_raw_byte_lengths_by_occurrence_Font_entry100_CMap_entry92_and_each_cache_wrapper24_context_Map_refs16_plus_expected_snapshot_ref8_once_at_first_publication_plus_existing_result_payload;Native64_selected_field_payload_not_Heap_RSS_or_full_preallocation;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured_including_pptx_reference_tuple_array_map_headers_probe_error_artifact_bookkeeping;plus_EPUB_same_three_selected_rootfile_String_fields_2_times_UTF16_code_units_scope_held_before_DTO_publication_duplicates_count_by_occurrence_not_reference_copy",
+        "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound_and_pptx_presentation_cursor_utf8_feed_token_namespace_payload_upper_bound;plus_CLI_atomic_UTF8_encoder_N_validated_UTF8_payload_bytes_reserved_before_encode_per_call_and_released_after_call;excludes_stdio_allocator_path_nonAtomic_SDK_and_other_String_scratch;raw_selection_buffers_and_other_working_unmeasured_including_pptx_reference_tuple_array_map_and_probe_error_artifact_scratch;plus_EPUB_container_existing_XML_cursor_leases_normalize_path_14_times_fullpath_UTF16_code_units_plus2_private_payload_and_error_only_replay_8_times_combined_UTF8_bytes_plus12_scratch_and_separate_actual_carry_at_most3_bytes;not_tuple_row_Map_header_allocator_GC_RSS",
+        "budget_temporary_payload_peak_bytes": "shared_ledger_lifetime_aggregate_reserved_file_payload_upper_bound_including_before_tighten_history;JSONL_TempOwner_frame_headers_and_UTF8_payload_plus_CLI_atomic_output_full_admitted_growth_including_failed_write_growth_and_any_other_registered_same_ledger_owner;admission_preflight_can_raise_peak_without_disk_growth;not_filesystem_blocks_or_all_temporary_storage",
+        "budget_temporary_current_bytes": "currently_outstanding_shared_ledger_TemporaryBytes_credits;includes_JSONL_TempOwners_atomic_output_and_callers_live_owners_or_uncertain_atomic_close_credit;not_only_this_converter_or_filesystem_blocks",
+      },
+      "new_scopes": [
+        "pdf_loaded_snapshot_selected_definition_native64_field_payload", "pdf_loaded_font_local_result_postparse_retained_payload",
+        "pdf_loaded_cmap_local_result_postparse_retained_payload", "cli_atomic_output_temporary_payload",
+        "cli_atomic_output_encoding_working_payload", "cli_file_final_lf_output_admission_and_confirmation",
+        "epub_container_cursor_work", "epub_container_cursor_workspace", "epub_container_rootfile_selected_string_metadata",
+        "epub_container_rootfile_selected_string_payload",
+      ],
+      "acceptance_state": "policy_frozen_for_integrated_validation;fresh_v13_runtime_tools_source_binary_quality_install_profiles_required;no_prior_sample_relabeling",
+      "v12_existing_new_scopes": [
+        "pdf_loaded_objstm_decoded_text_parse_work", "pdf_loaded_objstm_decoded_text_logical_retention",
+        "pptx_presentation_cursor_work", "pptx_presentation_cursor_workspace", "pptx_presentation_reference_string_metadata",
+        "pptx_presentation_reference_retained_string_payload",
+      ],
+      "generic_invariants": [
+        "all_present_counters_and_optional_effective_cap_nonnegative_Int64_canonical_base10_strings",
+        "temporary_current_le_temporary_peak", "output_confirmed_le_output_admitted",
+        "field_names_and_count_exact_for_profile", "None_has_no_temporary_limit_field_not_zero_or_null;finite_has_exact_effective_cap_string",
+      ],
+      "not_generic_invariants": [
+        "temporary_peak_le_current_effective_cap", "temporary_current_equals_zero",
+        "output_confirmed_equals_output_admitted", "temporary_peak_equals_physical_disk_bytes",
+      ],
+      "fresh_cli_file_success_controls_only": [
+        "origin_proven_fresh_CLI_with_no_prior_output_or_TemporaryBytes_usage", "all_relevant_file_output_is_within_declared_File_Atomic_LF_scope",
+        "successful_owned_cleanup_or_commit_confirms_temporary_current_zero", "output_confirmed_equals_output_admitted_for_file_success_not_stdout_or_borrowed_ledger",
+        "finite_limit_installed_before_first_growth_can_additionally_check_peak_le_cap",
+      ],
+    }
+  }
+}
+
+///|
+fn v13_keys(profile : String) -> Array[String] raise {
+  guard v13_get(v13_contract(v13_finite(profile)), "counter_fields")
+    is Array(keys) else {
+    fail("v13 counter keys required")
+  }
+  keys.map(v13_text)
+}
+
+///|
+fn v13_scope(profile : String, dimension : String) -> String raise {
+  v13_text(
+    v13_get(
+      v13_get(v13_contract(v13_finite(profile)), "measurement_scopes"),
+      dimension,
+    ),
+  )
+}
+
+///|
+fn v13_unit(dimension : String) -> String {
+  if dimension == "budget_parse_work" {
+    "modeled_parse_work_units"
+  } else {
+    "bytes"
+  }
+}
+
+///|
+fn v13_validate(value : Json) -> Unit raise {
+  guard value is Object(fields) else { fail("v13 usage object required") }
+  assert_eq(v13_get(value, "budget_schema"), Json("partial_v13"))
+  let profile = v13_text(v13_get(value, "budget_profile"))
+  let finite = v13_finite(profile)
+  let policy = v13_contract(finite)
+  assert_eq(fields.length(), if finite { 16 } else { 15 })
+  for
+    (field, policy_key) in [
+      ("budget_coverage", "coverage"),
+      ("budget_unmeasured", "unmeasured"),
+      ("budget_resident_policy", "resident_policy"),
+    ] {
+    assert_eq(v13_get(value, field), v13_get(policy, policy_key))
+  }
+  for key in v13_keys(profile) {
+    ignore(v13_nat(v13_get(value, key)))
+  }
+  assert_true(
+    v13_nat(v13_get(value, "budget_output_confirmed_utf8_bytes")) <=
+    v13_nat(v13_get(value, "budget_output_admitted_utf8_bytes")),
+  )
+  assert_true(
+    v13_nat(v13_get(value, "budget_temporary_current_bytes")) <=
+    v13_nat(v13_get(value, "budget_temporary_payload_peak_bytes")),
+  )
+  if finite {
+    ignore(v13_nat(v13_get(value, "budget_temporary_limit_bytes")))
+  }
+}
+
+///|
+fn v13_fixture(profile : String, cap : String) -> Json raise {
+  let policy = v13_contract(v13_finite(profile))
+  let fields : Map[String, Json] = {
+    "budget_schema": Json("partial_v13"),
+    "budget_profile": Json(profile),
+    "budget_coverage": v13_get(policy, "coverage"),
+    "budget_unmeasured": v13_get(policy, "unmeasured"),
+    "budget_resident_policy": v13_get(policy, "resident_policy"),
+  }
+  for key in v13_keys(profile) {
+    fields[key] = Json("0")
+  }
+  if v13_finite(profile) {
+    fields["budget_temporary_limit_bytes"] = Json(cap)
+  }
+  Json::object(fields)
+}
+
+///|
+fn v13_policy_self_test() -> Unit raise {
+  let none = v13_fixture("measurement_only", "unused")
+  v13_validate(none)
+  let finite = v13_fixture("measurement_with_temporary_limit", "100")
+  v13_validate(finite)
+  assert_eq(
+    v13_text(v13_get(v13_contract(false), "coverage"))
+    .split(",")
+    .to_array()
+    .length(),
+    56,
+  )
+  assert_eq(
+    v13_text(v13_get(v13_contract(true), "coverage"))
+    .split(",")
+    .to_array()
+    .length(),
+    61,
+  )
+  assert_eq(
+    v13_get(v13_contract(false), "resident_policy"),
+    Json("scope_retained_payload_plus_owned_temporary_leases"),
+  )
+  assert_eq(
+    v13_get(v13_contract(true), "resident_policy"),
+    Json("scope_retained_payload_plus_owned_temporary_leases"),
+  )
+  let historical = match finite {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  historical["budget_temporary_payload_peak_bytes"] = Json("200")
+  historical["budget_temporary_current_bytes"] = Json("1")
+  v13_validate(Json::object(historical))
+  let borrowed = match none {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  borrowed["budget_output_admitted_utf8_bytes"] = Json("9")
+  borrowed["budget_output_confirmed_utf8_bytes"] = Json("3")
+  borrowed["budget_temporary_payload_peak_bytes"] = Json("200")
+  borrowed["budget_temporary_current_bytes"] = Json("1")
+  v13_validate(Json::object(borrowed))
+  let impossible_output = borrowed.copy()
+  impossible_output["budget_output_confirmed_utf8_bytes"] = Json("10")
+  assert_true(
+    try {
+      v13_validate(Json::object(impossible_output))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  let impossible_resident = borrowed.copy()
+  impossible_resident["budget_temporary_current_bytes"] = Json("201")
+  assert_true(
+    try {
+      v13_validate(Json::object(impossible_resident))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  let no_none_cap = borrowed.copy()
+  no_none_cap["budget_temporary_limit_bytes"] = Json("200")
+  assert_true(
+    try {
+      v13_validate(Json::object(no_none_cap))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  for
+    profile in [
+      "measurement_only", "measurement_with_temporary_limit", "explicit_enforced",
+    ] {
+    let original = v13_fixture(profile, "0")
+    v13_validate(original)
+    let keys = v13_keys(profile)
+    assert_eq(keys.length(), 10)
+    for key in keys {
+      assert_true(v13_scope(profile, key) != "")
+      assert_eq(
+        v13_unit(key),
+        if key == "budget_parse_work" {
+          "modeled_parse_work_units"
+        } else {
+          "bytes"
+        },
+      )
+      for
+        bad in [
+          Json(0),
+          Json(-1),
+          Json(1.5),
+          Json(true),
+          Json::null(),
+          Json("-1"),
+          Json("01"),
+          Json("9223372036854775808"),
+        ] {
+        let changed = match original {
+          Object(fields) => fields.copy()
+          _ => fail("object")
+        }
+        changed[key] = bad
+        assert_true(
+          try {
+            v13_validate(Json::object(changed))
+            false
+          } catch {
+            _ => true
+          },
+        )
+      }
+    }
+    for
+      (key, bad) in [
+        ("budget_schema", Json("partial_v11")),
+        ("budget_coverage", Json("old")),
+        ("budget_unmeasured", Json("none")),
+        ("budget_resident_policy", Json("rss")),
+        ("budget_profile", Json("unrecognized")),
+      ] {
+      let changed = match original {
+        Object(fields) => fields.copy()
+        _ => fail("object")
+      }
+      changed[key] = bad
+      assert_true(
+        try {
+          v13_validate(Json::object(changed))
+          false
+        } catch {
+          _ => true
+        },
+      )
+    }
+    let extra = match original {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    extra["unrecognized"] = Json("0")
+    assert_true(
+      try {
+        v13_validate(Json::object(extra))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  for
+    missing in [
+      "pdf_loaded_objstm_decoded_text_parse_work", "pdf_loaded_objstm_decoded_text_logical_retention",
+      "pptx_presentation_cursor_work", "pptx_presentation_cursor_workspace", "pptx_presentation_reference_string_metadata",
+      "pptx_presentation_reference_retained_string_payload",
+    ] {
+    let changed = match none {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    changed["budget_coverage"] = Json(
+      v13_text(changed["budget_coverage"]).replace_all(
+        old=missing + ",",
+        new="",
+      ),
+    )
+    assert_true(
+      try {
+        v13_validate(Json::object(changed))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  for
+    missing in [
+      "jsonl_spool_codec_wire_work", "jsonl_spool_read_traffic", "jsonl_spool_temporary_payload",
+      "jsonl_spool_codec_working", "jsonl_spool_event_utf16_payload",
+    ] {
+    let changed = match finite {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    let coverage = v13_text(changed["budget_coverage"])
+    changed["budget_coverage"] = Json(
+      if coverage.has_suffix(missing) {
+        coverage.strip_suffix("," + missing).unwrap().to_owned()
+      } else {
+        coverage.replace_all(old=missing + ",", new="")
+      },
+    )
+    assert_true(
+      try {
+        v13_validate(Json::object(changed))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  guard v13_get(v13_contract(false), "new_scopes") is Array(scopes) else {
+    fail("v13 exact new scopes required")
+  }
+  assert_eq(scopes.length(), 10)
+  for label in scopes {
+    let name = v13_text(label)
+    for original in [none, finite] {
+      let changed = match original {
+        Object(fields) => fields.copy()
+        _ => fail("object")
+      }
+      let coverage = v13_text(changed["budget_coverage"])
+      assert_true(coverage.split(",").to_array().contains(name[:]))
+      changed["budget_coverage"] = Json(
+        coverage
+        .split(",")
+        .filter(token => token != name[:])
+        .map(token => token.to_owned())
+        .to_array()
+        .join(","),
+      )
+      assert_true(
+        try {
+          v13_validate(Json::object(changed))
+          false
+        } catch {
+          _ => true
+        },
+      )
+    }
+  }
+  let wrong_current = historical.copy()
+  wrong_current["budget_temporary_current_bytes"] = Json("201")
+  assert_true(
+    try {
+      v13_validate(Json::object(wrong_current))
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
+
+///|
+fn v13_canonical(value : Json) -> String {
+  match value {
+    Object(fields) => {
+      let keys = fields.keys().to_array()
+      keys.sort()
+      "{" +
+      keys
+      .map(key => Json(key).stringify() + ":" + v13_canonical(fields[key]))
+      .join(",") +
+      "}"
+    }
+    Array(values) => "[" + values.map(v13_canonical).join(",") + "]"
+    _ => value.stringify()
+  }
+}
+
+///|
+fn v13_hash(value : Json) -> String {
+  digest(@utf8.encode(v13_canonical(value)))
+}
+
+///|
+fn v13_limit_keys() -> Array[String] {
+  [
+    "inflate_bytes", "parse_work", "output_utf8_bytes", "source_metadata_bytes",
+    "rag_metadata_bytes", "read_traffic_bytes", "cache_bytes", "working_bytes", "temporary_bytes",
+    "ir_bytes",
+  ]
+}
+
+///|
+fn v13_limits(value : Json, enforced : Bool) -> Unit raise {
+  guard value is Object(fields) else {
+    fail("complete external limits object required")
+  }
+  assert_eq(fields.length(), 10)
+  for key in v13_limit_keys() {
+    let limit = v13_get(value, key)
+    if limit == Json::null() {
+      assert_false(enforced, msg="Enforced needs all ten finite limits")
+    } else {
+      ignore(v13_nat(limit))
+    }
+  }
+}
+
+///|
+fn v13_context_for(
+  report : Report,
+  origin : String,
+  id : String,
+  view : String,
+) -> Json raise {
+  let external = report.v13_external.unwrap_or_else(() => {
+    fail("missing external account-context evidence")
+  })
+  assert_eq(
+    v13_get(external, "schema"),
+    Json("markitdown_budget_v13_context_v1"),
+  )
+  for
+    (key, value) in [
+      ("binary_sha256", report.v13_binary_hash),
+      ("tool_sha256", report.v13_tool_hash),
+      ("source_archive_sha256", report.v13_source_hash),
+    ] {
+    assert_true(value.length() == 64, msg="missing bound identity")
+    assert_eq(v13_get(external, key), Json(value))
+  }
+  if field(external, "sample_contexts") is Object(contexts) {
+    if contexts.get(origin + "/" + id + "/" + view) is Some(context) {
+      return context
+    }
+  }
+  v13_get(external, "default_context")
+}
+
+///|
+fn v13_cli_temporary(value : String) -> Json raise {
+  let text = value.trim().to_owned()
+  assert_true(text != "")
+  let mut result = 0L
+  for ch in text {
+    assert_true(ch >= '0' && ch <= '9')
+    let digit = (ch.to_int() - 48).to_int64()
+    assert_true(result <= (9223372036854775807L - digit) / 10L)
+    result = result * 10L + digit
+  }
+  Json(result.to_string())
+}
+
+///|
+fn v13_command_options(
+  report : Report,
+  context : Json,
+  command : Json,
+  provenance : String,
+) -> Json raise {
+  let representation = v13_text(v13_get(context, "options_representation"))
+  let declared = v13_get(context, "conversion_options")
+  guard declared is Object(options) && options.length() > 0 else {
+    fail("complete external conversion-options evidence required")
+  }
+  assert_eq(v13_get(context, "complete_options_evidence"), Json(true))
+  let kind = v13_text(v13_get(declared, "input_kind"))
+  assert_true(["Path", "Bytes", "Text", "Reader"].contains(kind))
+  let output_kind = v13_text(v13_get(declared, "output_kind"))
+  assert_true(
+    ["file", "stdout", "collected", "explicit_sink"].contains(output_kind),
+  )
+  if representation == "explicit_convert_options_v1" {
+    assert_true(options.contains("asset_demand"))
+    assert_eq(
+      command,
+      Json::null(),
+      msg="public API evidence cannot bypass an actual CLI command",
+    )
+    assert_true(["collected", "explicit_sink"].contains(output_kind))
+    return (
+      {
+        "schema": "explicit_convert_options_v1",
+        "declared": declared,
+        "output_kind": Json(output_kind),
+        "requested_temporary_option": v13_get(
+          context, "requested_temporary_option",
+        ),
+      } : Json)
+  }
+  assert_eq(representation, "frozen_cli_invocation_v1")
+  assert_eq(kind, "Path")
+  assert_eq(
+    v13_get(declared, "defaults_source_archive_sha256"),
+    Json(report.v13_source_hash),
+  )
+  assert_eq(v13_get(command, "program"), Json(report.v13_binary_path))
+  guard v13_get(command, "args") is Array(raw) else {
+    fail("CLI argument evidence required")
+  }
+  let args = raw.map(v13_text)
+  assert_true(args.length() >= 3)
+  assert_true(
+    args[args.length() - 2] != "-",
+    msg="stdin needs explicit input-kind evidence",
+  )
+  assert_eq(
+    output_kind,
+    if args[args.length() - 1] == "-" {
+      "stdout"
+    } else {
+      "file"
+    },
+  )
+  let normalized = args.copy()
+  normalized[args.length() - 2] = "<input-data>"
+  // Stdout is a distinct destination. A file path does not prove whether the
+  // planner selected direct/atomic persistence; that strategy remains in the
+  // complete options evidence, not inferred from the spelling of this path.
+  if output_kind == "file" {
+    normalized[args.length() - 1] = "<output-data>"
+  }
+  let mut requested : Json = Json::null()
+  let mut assets = false
+  let mut seen_provenance = false
+  for index in 0..<(args.length() - 2) {
+    if args[index] == "--provenance-out" {
+      assert_false(seen_provenance)
+      assert_true(index + 1 < args.length() - 2)
+      assert_eq(args[index + 1], provenance)
+      normalized[index + 1] = "<provenance-output>"
+      seen_provenance = true
+    }
+    if args[index] == "--assets-dir" {
+      assert_true(index + 1 < args.length() - 2)
+      let own_directory = provenance
+        .strip_suffix("/provenance.json")
+        .unwrap_or_else(() => fail("unexpected provenance location"))
+        .to_owned()
+      if args[index + 1] == own_directory + "/assets" {
+        normalized[index + 1] = "<assets-output>"
+      }
+      assets = true
+    }
+    if args[index] == "--max-temporary-bytes" {
+      assert_true(index + 1 < args.length() - 2)
+      requested = v13_cli_temporary(args[index + 1])
+    }
+    if args[index].has_prefix("--max-temporary-bytes=") {
+      requested = v13_cli_temporary(
+        args[index].strip_prefix("--max-temporary-bytes=").unwrap().to_owned(),
+      )
+    }
+  }
+  assert_true(seen_provenance)
+  assert_eq(requested, v13_get(context, "requested_temporary_option"))
+  let demand = if assets { "existing_output_assets" } else { "metadata_only" }
+  if options.get("asset_demand") is Some(declared_demand) {
+    assert_true(
+      declared_demand == Json("from_frozen_cli_arguments") ||
+      declared_demand == Json(demand),
+    )
+  }
+  (
+    {
+      "schema": "frozen_cli_invocation_v1",
+      "declared_defaults_and_input": declared,
+      "exact_options_arguments_without_data_locations": Json(normalized),
+      "asset_demand": Json(demand),
+      "output_kind": Json(output_kind),
+      "requested_temporary_option": requested,
+      "source_archive_sha256": Json(report.v13_source_hash),
+    } : Json)
+}
+
+///|
+fn v13_group(
+  report : Report,
+  origin : String,
+  id : String,
+  format : String,
+  mode : String,
+  view : String,
+  value : Json,
+  command : Json,
+  provenance : String,
+) -> Json raise {
+  let context = v13_context_for(report, origin, id, view)
+  let profile = v13_text(v13_get(value, "budget_profile"))
+  let finite = v13_finite(profile)
+  let supplied = v13_get(context, "supplied_limits")
+  let effective = v13_get(context, "effective_limits")
+  let ledger_profile = v13_text(v13_get(context, "ledger_profile"))
+  assert_true(["MeasurementOnly", "Enforced"].contains(ledger_profile))
+  assert_eq(ledger_profile == "Enforced", profile == "explicit_enforced")
+  v13_limits(supplied, ledger_profile == "Enforced")
+  v13_limits(effective, ledger_profile == "Enforced")
+  for key in v13_limit_keys() {
+    let provided = v13_get(supplied, key)
+    if provided != Json::null() {
+      let actual = v13_get(effective, key)
+      assert_true(
+        actual != Json::null(),
+        msg="supplied finite limit cannot become unbounded",
+      )
+      assert_true(
+        v13_nat(actual) <= v13_nat(provided),
+        msg="effective limit cannot loosen supplied limit",
+      )
+    }
+  }
+  let cap = if finite {
+    v13_get(value, "budget_temporary_limit_bytes")
+  } else {
+    Json::null()
+  }
+  assert_eq(v13_get(effective, "temporary_bytes"), cap)
+  let requested = v13_get(context, "requested_temporary_option")
+  if requested != Json::null() {
+    let requested_cap = v13_nat(requested)
+    assert_true(finite)
+    assert_true(v13_nat(cap) <= requested_cap)
+  }
+  let supplied_temporary = v13_get(supplied, "temporary_bytes")
+  if supplied_temporary != Json::null() {
+    let supplied_cap = v13_nat(supplied_temporary)
+    assert_true(finite)
+    assert_true(v13_nat(cap) <= supplied_cap)
+  }
+  let cohort = v13_text(v13_get(context, "origin_cohort"))
+  assert_true(
+    ["fresh_cli_owned", "fresh_public_owned", "borrowed_parent_ledger"].contains(
+      cohort,
+    ),
+  )
+  let usage_scope = v13_text(v13_get(context, "usage_scope"))
+  assert_eq(
+    usage_scope,
+    if cohort == "borrowed_parent_ledger" {
+      "ledger_lifetime"
+    } else {
+      "conversion_owned_lifetime"
+    },
+  )
+  if cohort == "fresh_cli_owned" {
+    let controls = v13_get(context, "fresh_temporary_controls")
+    guard controls is Object(fields) &&
+      fields.length() == (if finite { 3 } else { 2 }) else {
+      fail("closed fresh Temporary controls required")
+    }
+    for key in ["no_preexisting_temporary_history", "owned_cleanup_complete"] {
+      assert_eq(v13_get(controls, key), Json(true))
+    }
+    if finite {
+      assert_eq(v13_get(controls, "limit_installed_before_growth"), Json(true))
+      assert_true(
+        v13_nat(v13_get(value, "budget_temporary_payload_peak_bytes")) <=
+        v13_nat(cap),
+      )
+    }
+    assert_eq(v13_get(value, "budget_temporary_current_bytes"), Json("0"))
+  }
+  let options = v13_command_options(report, context, command, provenance)
+  let output_kind = v13_text(v13_get(options, "output_kind"))
+  if cohort == "fresh_cli_owned" && output_kind == "file" {
+    let controls = v13_get(context, "fresh_output_controls")
+    guard controls is Object(fields) && fields.length() == 3 else {
+      fail("closed fresh file-output evidence required")
+    }
+    for
+      key in [
+        "no_preexisting_output_history", "successful_cli_file_output", "output_finalization_completed",
+      ] {
+      assert_eq(v13_get(controls, key), Json(true))
+    }
+    assert_eq(
+      v13_get(value, "budget_output_admitted_utf8_bytes"),
+      v13_get(value, "budget_output_confirmed_utf8_bytes"),
+    )
+  }
+  (
+    {
+      "schema": "partial_v13",
+      "budget_profile": Json(profile),
+      "effective_temporary_limit_bytes_or_None": if finite {
+        cap
+      } else {
+        Json("None")
+      },
+      "origin_cohort": Json(cohort),
+      "usage_scope": Json(usage_scope),
+      "output_kind": Json(output_kind),
+      "full_supplied_ledger_limits_fingerprint": Json(v13_hash(supplied)),
+      "full_effective_ledger_limits_fingerprint": Json(v13_hash(effective)),
+      "public_temporary_option_and_conversion_options_fingerprint": Json(
+        v13_hash(options),
+      ),
+      "binary_sha256": Json(report.v13_binary_hash),
+      "tool_sha256": Json(report.v13_tool_hash),
+      "source_archive_sha256": Json(report.v13_source_hash),
+      "format": Json(format),
+      "mode": Json(mode),
+      "view": Json(view),
+      "evidence": {
+        "supplied_limits": supplied,
+        "effective_limits": effective,
+        "options": options,
+        "context": context,
+      },
+    } : Json)
+}
+
+///|
+fn record_v13_sample(
+  report : Report,
+  origin : String,
+  id : String,
+  format : String,
+  mode : String,
+  view : String,
+  value : Json,
+  provenance : String,
+  command : Json,
+) -> Unit raise {
+  v13_validate(value)
+  assert_true(
+    safe_id(format) &&
+    safe_id(mode) &&
+    ["markdown", "debug", "rag"].contains(view),
+  )
+  report.v13_observed += 1
+  let grouped = Ok(
+    v13_group(
+      report, origin, id, format, mode, view, value, command, provenance,
+    ),
+  ) catch {
+    error => Err(error.to_string())
+  }
+  let profile = v13_text(v13_get(value, "budget_profile"))
+  let cap = if v13_finite(profile) {
+    v13_text(v13_get(value, "budget_temporary_limit_bytes"))
+  } else {
+    "None"
+  }
+  let (group_id, status, reason, output_kind) = match grouped {
+    Ok(descriptor) => {
+      let group_id = v13_hash(descriptor)
+      if report.v13_groups.get(group_id) is Some(existing) {
+        assert_eq(v13_canonical(existing), v13_canonical(descriptor))
+      }
+      report.v13_groups[group_id] = descriptor
+      report.passed += 1
+      if origin == "benchmark" {
+        report.benchmark_measured += 1
+      } else {
+        report.quality_measured += 1
+      }
+      (group_id, "measured", "-", v13_text(v13_get(descriptor, "output_kind")))
+    }
+    Err(reason) => {
+      report.v13_unavailable += 1
+      ("-", "unavailable_context", clean(reason), "-")
+    }
+  }
+  report.policies["partial_v13\t" +
+  profile +
+  "\t" +
+  v13_text(v13_get(value, "budget_coverage")) +
+  "\t" +
+  v13_text(v13_get(value, "budget_unmeasured")) +
+  "\t" +
+  v13_text(v13_get(value, "budget_resident_policy"))] = true
+  report.v13_samples.push(
+    origin +
+    "\t" +
+    id +
+    "\t" +
+    format +
+    "\t" +
+    mode +
+    "\t" +
+    view +
+    "\t" +
+    profile +
+    "\t" +
+    cap +
+    "\t" +
+    output_kind +
+    "\t" +
+    status +
+    "\t" +
+    group_id +
+    "\t" +
+    clean(provenance) +
+    "\t" +
+    reason,
+  )
+  for dimension in v13_keys(profile) {
+    let count = v13_nat(v13_get(value, dimension))
+    report.v13_values.push(
+      origin +
+      "\t" +
+      id +
+      "\t" +
+      format +
+      "\t" +
+      mode +
+      "\t" +
+      view +
+      "\t" +
+      profile +
+      "\t" +
+      cap +
+      "\t" +
+      output_kind +
+      "\t" +
+      dimension +
+      "\t" +
+      count.to_string() +
+      "\t" +
+      v13_unit(dimension) +
+      "\t" +
+      v13_scope(profile, dimension) +
+      "\t" +
+      status +
+      "\t" +
+      group_id +
+      "\t" +
+      reason,
+    )
+    if status != "measured" {
+      continue
+    }
+    for group_origin in [origin, "all"] {
+      let key = group_id + "\t" + group_origin + "\t" + dimension
+      if report.v13_maxima.get(key) is None || count > report.v13_maxima[key] {
+        report.v13_maxima[key] = count
+        report.v13_witnesses[key] = origin + "/" + id
+      }
+    }
+  }
+}
+
+///|
+async fn save_v13(report : Report) -> Unit {
+  if report.v13_observed == 0 {
+    return
+  }
+  let raw_header = "origin\tid\tformat\tmode\tview\tprofile\tcap\toutput_kind\tdimension\tvalue\tunit\tmeasurement_scope\tstatus\tgroup_id\tcontext_reason"
+  let sample_header = "origin\tid\tformat\tmode\tview\tprofile\tcap\toutput_kind\tstatus\tgroup_id\tprovenance\tcontext_reason"
+  @fs.write_file(
+    report.evidence + "/v13-values-v1.tsv",
+    raw_header + "\n" + report.v13_values.join("\n") + "\n",
+  )
+  @fs.write_file(
+    report.evidence + "/v13-samples-v1.tsv",
+    sample_header + "\n" + report.v13_samples.join("\n") + "\n",
+  )
+  let rows = [
+    "group_id\torigin\tschema\tprofile\tcap\torigin_cohort\tsupplied_limits_fp\teffective_limits_fp\toptions_fp\tbinary_sha256\ttool_sha256\tsource_archive_sha256\tformat\tmode\tview\toutput_kind\tusage_scope\tdimension\tmax\twitness\tunit\tmeasurement_scope",
+  ]
+  let keys = report.v13_maxima.keys().to_array()
+  keys.sort()
+  for key in keys {
+    let parts = key.split("\t").to_array()
+    assert_eq(parts.length(), 3)
+    let group_id = parts[0].to_owned()
+    let descriptor = report.v13_groups[group_id]
+    let profile = v13_text(v13_get(descriptor, "budget_profile"))
+    let dimension = parts[2].to_owned()
+    let cells = [group_id, parts[1].to_owned(), "partial_v13", profile]
+    for
+      field in [
+        "effective_temporary_limit_bytes_or_None", "origin_cohort", "full_supplied_ledger_limits_fingerprint",
+        "full_effective_ledger_limits_fingerprint", "public_temporary_option_and_conversion_options_fingerprint",
+        "binary_sha256", "tool_sha256", "source_archive_sha256", "format", "mode",
+        "view", "output_kind", "usage_scope",
+      ] {
+      cells.push(v13_text(v13_get(descriptor, field)))
+    }
+    cells.append([
+      dimension,
+      report.v13_maxima[key].to_string(),
+      report.v13_witnesses[key],
+      v13_unit(dimension),
+      v13_scope(profile, dimension),
+    ])
+    assert_eq(cells.length(), 22)
+    rows.push(cells.join("\t"))
+  }
+  @fs.write_file(report.evidence + "/v13-maxima-v1.tsv", rows.join("\n") + "\n")
+  @fs.write_file(
+    report.evidence + "/v13-account-groups-v1.json",
+    Json::object(report.v13_groups).stringify(indent=2) + "\n",
+  )
+  let summary : Json = {
+    "table_schema": "markitdown_budget_v13_tables_v1",
+    "canonical_json_schema": "key_sorted_json_preserve_number_repr_v1",
+    "raw_observed": Json(report.v13_observed),
+    "unavailable_context": Json(report.v13_unavailable),
+    "usable": Json(report.v13_observed - report.v13_unavailable),
+    "raw_counter_rows": Json(report.v13_values.length()),
+    "account_groups": Json(report.v13_groups.length()),
+    "maxima_rows": Json(report.v13_maxima.length()),
+    "legacy_values_maxima_tables_exclude_v13": true,
+    "all_maxima_are_exact_account_context_qualified": true,
+    "destination_grouping": "file|stdout|collected|explicit_sink;atomic_is_a_file_strategy_not_inferred_from_path",
+    "stdout_final_ack": "not_established",
+    "performance_default_full_budget_acceptance": "not_established",
+  }
+  @fs.write_file(
+    report.evidence + "/v13-table-schema-v1.json",
+    summary.stringify(indent=2) + "\n",
+  )
+}
+
+///|
+fn v13_test_limits(temporary : Json, other : Json) -> Json {
+  let result : Map[String, Json] = Map([])
+  for key in v13_limit_keys() {
+    result[key] = if key == "temporary_bytes" { temporary } else { other }
+  }
+  Json::object(result)
+}
+
+///|
+fn v13_test_report() -> Report {
+  let report = new_report("")
+  report.v13_binary_hash = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  report.v13_tool_hash = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  report.v13_source_hash = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  report.v13_binary_path = "/selftest/markitdown"
+  report
+}
+
+///|
+fn v13_test_context(
+  report : Report,
+  profile : String,
+  cohort : String,
+  supplied : Json,
+  effective : Json,
+  requested : Json,
+) -> Json {
+  let cli = cohort == "fresh_cli_owned"
+  let finite = match effective {
+    Object(fields) => fields.get("temporary_bytes") is Some(String(_))
+    _ => false
+  }
+  (
+    {
+      "origin_cohort": Json(cohort),
+      "ledger_profile": Json(profile),
+      "supplied_limits": supplied,
+      "effective_limits": effective,
+      "requested_temporary_option": requested,
+      "options_representation": if cli {
+        "frozen_cli_invocation_v1"
+      } else {
+        "explicit_convert_options_v1"
+      },
+      "complete_options_evidence": true,
+      "usage_scope": if cohort == "borrowed_parent_ledger" {
+        "ledger_lifetime"
+      } else {
+        "conversion_owned_lifetime"
+      },
+      "conversion_options": {
+        "output_kind": if cli {
+          "file"
+        } else {
+          "explicit_sink"
+        },
+        "input_kind": if cli {
+          "Path"
+        } else {
+          "Reader"
+        },
+        "asset_demand": "metadata_only",
+        "defaults_source_archive_sha256": Json(report.v13_source_hash),
+        "complete_options": {
+          "convert_mode": "balanced",
+          "output_mode": "debug",
+          "temporary_option": requested,
+        },
+      },
+      "fresh_temporary_controls": if finite {
+        (
+          {
+            "no_preexisting_temporary_history": true,
+            "limit_installed_before_growth": true,
+            "owned_cleanup_complete": true,
+          } : Json)
+      } else {
+        (
+          {
+            "no_preexisting_temporary_history": true,
+            "owned_cleanup_complete": true,
+          } : Json)
+      },
+      "fresh_output_controls": {
+        "no_preexisting_output_history": true,
+        "successful_cli_file_output": true,
+        "output_finalization_completed": true,
+      },
+    } : Json)
+}
+
+///|
+fn v13_test_external(report : Report, context : Json) -> Json {
+  (
+    {
+      "schema": "markitdown_budget_v13_context_v1",
+      "binary_sha256": Json(report.v13_binary_hash),
+      "tool_sha256": Json(report.v13_tool_hash),
+      "source_archive_sha256": Json(report.v13_source_hash),
+      "default_context": context,
+      "sample_contexts": {},
+    } : Json)
+}
+
+///|
+fn v13_test_command(report : Report, cap : Json) -> Json {
+  if report.v13_external is Some(Object(external)) &&
+    external.get("default_context") is Some(Object(context)) &&
+    context.get("options_representation") ==
+    Some(Json("explicit_convert_options_v1")) {
+    return Json::null()
+  }
+  let args = [
+    "balance", "--debug", "--format", "jsonl", "--provenance-out", "/selftest/provenance.json",
+  ]
+  if cap != Json::null() {
+    args.append([
+      "--max-temporary-bytes",
+      v13_text(cap) catch {
+        _ => "invalid"
+      },
+    ])
+  }
+  args.append(["/input", "/output"])
+  ({ "program": Json(report.v13_binary_path), "args": Json(args) } : Json)
+}
+
+///|
+fn v13_account_self_test() -> Unit raise {
+  let none = v13_fixture("measurement_only", "unused")
+  let missing = v13_test_report()
+  record_v13_sample(
+    missing,
+    "benchmark",
+    "missing",
+    "jsonl",
+    "balanced",
+    "debug",
+    none,
+    "/selftest/provenance.json",
+    v13_test_command(missing, Json::null()),
+  )
+  assert_eq(missing.v13_observed, 1)
+  assert_eq(missing.v13_unavailable, 1)
+  assert_eq(missing.v13_values.length(), 10)
+  assert_eq(missing.v13_maxima.length(), 0)
+  assert_eq(missing.passed, 0)
+  assert_eq(missing.unavailable, 0) // only expected rejects use this legacy counter
+
+  let good = v13_test_report()
+  let fresh = v13_test_context(
+    good,
+    "MeasurementOnly",
+    "fresh_cli_owned",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json::null(), Json::null()),
+    Json::null(),
+  )
+  good.v13_external = Some(v13_test_external(good, fresh))
+  record_v13_sample(
+    good,
+    "benchmark",
+    "good",
+    "jsonl",
+    "balanced",
+    "debug",
+    none,
+    "/selftest/provenance.json",
+    v13_test_command(good, Json::null()),
+  )
+  assert_eq(good.passed, 1)
+  assert_eq(good.v13_groups.length(), 1)
+  assert_eq(good.v13_maxima.length(), 20)
+
+  let inherited = v13_test_report()
+  let historical = match
+    v13_fixture("measurement_with_temporary_limit", "100") {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  historical["budget_temporary_payload_peak_bytes"] = Json("200")
+  historical["budget_temporary_current_bytes"] = Json("1")
+  let supplied = match v13_test_limits(Json("200"), Json::null()) {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  supplied["working_bytes"] = Json("100")
+  let first = match v13_test_limits(Json("100"), Json::null()) {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  first["working_bytes"] = Json("64")
+  for (id, working) in [("one", "64"), ("two", "32")] {
+    first["working_bytes"] = Json(working)
+    let context = v13_test_context(
+      inherited,
+      "MeasurementOnly",
+      "borrowed_parent_ledger",
+      Json::object(supplied.copy()),
+      Json::object(first.copy()),
+      Json::null(),
+    )
+    inherited.v13_external = Some(v13_test_external(inherited, context))
+    record_v13_sample(
+      inherited,
+      "quality",
+      id,
+      "jsonl",
+      "balanced",
+      "debug",
+      Json::object(historical.copy()),
+      "/selftest/provenance.json",
+      v13_test_command(inherited, Json::null()),
+    )
+  }
+  assert_eq(inherited.passed, 2)
+  assert_eq(inherited.v13_groups.length(), 2)
+  assert_eq(inherited.v13_maxima.length(), 40)
+  let effective_seen : Map[String, Bool] = Map([])
+  for _, descriptor in inherited.v13_groups {
+    effective_seen[v13_text(
+      v13_get(descriptor, "full_effective_ledger_limits_fingerprint"),
+    )] = true
+  }
+  assert_eq(effective_seen.length(), 2)
+
+  let bad_enforced = v13_test_report()
+  let partial = v13_test_context(
+    bad_enforced,
+    "Enforced",
+    "borrowed_parent_ledger",
+    v13_test_limits(Json("200"), Json::null()),
+    v13_test_limits(Json("100"), Json::null()),
+    Json::null(),
+  )
+  bad_enforced.v13_external = Some(v13_test_external(bad_enforced, partial))
+  record_v13_sample(
+    bad_enforced,
+    "quality",
+    "incomplete-enforced",
+    "jsonl",
+    "balanced",
+    "debug",
+    v13_fixture("explicit_enforced", "100"),
+    "/selftest/provenance.json",
+    v13_test_command(bad_enforced, Json::null()),
+  )
+  assert_eq(bad_enforced.v13_unavailable, 1)
+  assert_eq(bad_enforced.v13_maxima.length(), 0)
+  let full_enforced = v13_test_report()
+  let full = v13_test_context(
+    full_enforced,
+    "Enforced",
+    "borrowed_parent_ledger",
+    v13_test_limits(Json("200"), Json("200")),
+    v13_test_limits(Json("100"), Json("200")),
+    Json::null(),
+  )
+  full_enforced.v13_external = Some(v13_test_external(full_enforced, full))
+  let enforced = historical.copy()
+  enforced["budget_profile"] = Json("explicit_enforced")
+  record_v13_sample(
+    full_enforced,
+    "quality",
+    "full-enforced",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(enforced),
+    "/selftest/provenance.json",
+    v13_test_command(full_enforced, Json::null()),
+  )
+  assert_eq(full_enforced.passed, 1)
+  assert_eq(full_enforced.v13_maxima.length(), 20)
+
+  let fresh_violation = v13_test_report()
+  let fresh_finite = v13_test_context(
+    fresh_violation,
+    "MeasurementOnly",
+    "fresh_cli_owned",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json("100"), Json::null()),
+    Json("100"),
+  )
+  fresh_violation.v13_external = Some(
+    v13_test_external(fresh_violation, fresh_finite),
+  )
+  record_v13_sample(
+    fresh_violation,
+    "quality",
+    "fresh-violation",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(historical.copy()),
+    "/selftest/provenance.json",
+    v13_test_command(fresh_violation, Json("100")),
+  )
+  assert_eq(fresh_violation.v13_unavailable, 1)
+  assert_eq(fresh_violation.v13_maxima.length(), 0)
+  assert_eq(v13_cli_temporary("0003"), Json("3"))
+  assert_eq(v13_cli_temporary(" 3 "), Json("3"))
+  assert_true(
+    try {
+      ignore(v13_cli_temporary("9223372036854775808"))
+      false
+    } catch {
+      _ => true
+    },
+  )
+
+  for
+    missing_key in [
+      "origin_cohort", "supplied_limits", "effective_limits", "conversion_options",
+      "complete_options_evidence",
+    ] {
+    let report = v13_test_report()
+    let fields = match fresh {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    fields.remove(missing_key)
+    report.v13_external = Some(v13_test_external(report, Json::object(fields)))
+    record_v13_sample(
+      report,
+      "benchmark",
+      "missing-" + missing_key,
+      "jsonl",
+      "balanced",
+      "debug",
+      none,
+      "/selftest/provenance.json",
+      v13_test_command(report, Json::null()),
+    )
+    assert_eq(report.v13_unavailable, 1)
+    assert_eq(report.v13_maxima.length(), 0)
+  }
+  let groups = v13_test_report()
+  groups.v13_external = Some(v13_test_external(groups, fresh))
+  for
+    (mode, view) in [
+      ("balanced", "debug"),
+      ("accurate", "debug"),
+      ("balanced", "rag"),
+    ] {
+    record_v13_sample(
+      groups,
+      "benchmark",
+      mode + "-" + view,
+      "jsonl",
+      mode,
+      view,
+      none,
+      "/selftest/provenance.json",
+      v13_test_command(groups, Json::null()),
+    )
+  }
+  assert_eq(groups.v13_groups.length(), 3)
+  assert_eq(groups.v13_maxima.length(), 60)
+
+  let varied = v13_test_report()
+  for cap in ["100", "200"] {
+    let context = v13_test_context(
+      varied,
+      "MeasurementOnly",
+      "borrowed_parent_ledger",
+      v13_test_limits(Json("200"), Json::null()),
+      v13_test_limits(Json(cap), Json::null()),
+      Json::null(),
+    )
+    varied.v13_external = Some(v13_test_external(varied, context))
+    record_v13_sample(
+      varied,
+      "quality",
+      "cap-" + cap,
+      "jsonl",
+      "balanced",
+      "debug",
+      v13_fixture("measurement_with_temporary_limit", cap),
+      "/selftest/provenance.json",
+      v13_test_command(varied, Json::null()),
+    )
+  }
+  assert_eq(varied.v13_groups.length(), 2)
+  assert_eq(varied.v13_maxima.length(), 40)
+  let changed = match fresh {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  let opts = match changed["conversion_options"] {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  opts["unregistered_dropping_options_is_forbidden"] = Json("retained")
+  changed["conversion_options"] = Json::object(opts)
+  good.v13_external = Some(v13_test_external(good, Json::object(changed)))
+  record_v13_sample(
+    good,
+    "benchmark",
+    "different-options",
+    "jsonl",
+    "balanced",
+    "debug",
+    none,
+    "/selftest/provenance.json",
+    v13_test_command(good, Json::null()),
+  )
+  assert_eq(good.v13_groups.length(), 2)
+
+  let flag_context = v13_test_context(
+    good,
+    "MeasurementOnly",
+    "fresh_cli_owned",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json("3"), Json::null()),
+    Json("3"),
+  )
+  let repeat : Json = {
+    "program": Json(good.v13_binary_path),
+    "args": [
+      "balance", "--max-temporary-bytes", "9", "--max-temporary-bytes=0003", "--provenance-out",
+      "/selftest/provenance.json", "/input", "/output",
+    ],
+  }
+  let exact = v13_command_options(
+    good, flag_context, repeat, "/selftest/provenance.json",
+  )
+  assert_eq(v13_get(exact, "requested_temporary_option"), Json("3"))
+  let supplied_loosened = v13_test_context(
+    good,
+    "MeasurementOnly",
+    "borrowed_parent_ledger",
+    v13_test_limits(Json("100"), Json("1")),
+    v13_test_limits(Json("100"), Json("2")),
+    Json::null(),
+  )
+  good.v13_external = Some(v13_test_external(good, supplied_loosened))
+  assert_true(
+    try {
+      ignore(
+        v13_group(
+          good,
+          "quality",
+          "loosened",
+          "jsonl",
+          "balanced",
+          "debug",
+          v13_fixture("measurement_with_temporary_limit", "100"),
+          v13_test_command(good, Json::null()),
+          "/selftest/provenance.json",
+        ),
+      )
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
+
+///|
+fn v13_object(value : Json) -> Map[String, Json] raise {
+  guard value is Object(fields) else { fail("object required") }
+  fields.copy()
+}
+
+///|
+fn v13_destination_self_test() -> Unit raise {
+  let partial = v13_object(v13_fixture("measurement_only", "unused"))
+  partial["budget_output_admitted_utf8_bytes"] = Json("9")
+  partial["budget_output_confirmed_utf8_bytes"] = Json("3")
+  partial["budget_temporary_payload_peak_bytes"] = Json("200")
+  partial["budget_temporary_current_bytes"] = Json("1")
+  let borrowed = v13_test_report()
+  let context = v13_test_context(
+    borrowed,
+    "MeasurementOnly",
+    "borrowed_parent_ledger",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json::null(), Json::null()),
+    Json::null(),
+  )
+  borrowed.v13_external = Some(v13_test_external(borrowed, context))
+  record_v13_sample(
+    borrowed,
+    "quality",
+    "borrowed-output-history",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(partial),
+    "/selftest/provenance.json",
+    v13_test_command(borrowed, Json::null()),
+  )
+  assert_eq(borrowed.passed, 1)
+  assert_eq(borrowed.v13_values.length(), 10)
+  assert_eq(borrowed.v13_maxima.length(), 20)
+  let descriptor = borrowed.v13_groups.values().to_array()[0]
+  assert_eq(v13_get(descriptor, "output_kind"), Json("explicit_sink"))
+  let collected = v13_object(context)
+  let collected_options = v13_object(collected["conversion_options"])
+  collected_options["output_kind"] = Json("collected")
+  collected["conversion_options"] = Json::object(collected_options)
+  borrowed.v13_external = Some(
+    v13_test_external(borrowed, Json::object(collected)),
+  )
+  record_v13_sample(
+    borrowed,
+    "quality",
+    "borrowed-collected-history",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(partial.copy()),
+    "/selftest/provenance.json",
+    v13_test_command(borrowed, Json::null()),
+  )
+  assert_eq(borrowed.passed, 2)
+  assert_eq(borrowed.v13_groups.length(), 2)
+  assert_eq(borrowed.v13_maxima.length(), 40)
+  for bad_kind in ["file", "stdout"] {
+    let bad_context = v13_object(context)
+    let bad_options = v13_object(bad_context["conversion_options"])
+    bad_options["output_kind"] = Json(bad_kind)
+    bad_context["conversion_options"] = Json::object(bad_options)
+    assert_true(
+      try {
+        ignore(
+          v13_command_options(
+            borrowed,
+            Json::object(bad_context),
+            Json::null(),
+            "/selftest/provenance.json",
+          ),
+        )
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  let forged : Json = {
+    "program": Json(borrowed.v13_binary_path),
+    "args": [
+      "balance", "--provenance-out", "/selftest/provenance.json", "/input", "/output",
+    ],
+  }
+  assert_true(
+    try {
+      ignore(
+        v13_command_options(
+          borrowed, context, forged, "/selftest/provenance.json",
+        ),
+      )
+      false
+    } catch {
+      _ => true
+    },
+  )
+
+  let fresh = v13_test_report()
+  let context = v13_test_context(
+    fresh,
+    "MeasurementOnly",
+    "fresh_cli_owned",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json::null(), Json::null()),
+    Json::null(),
+  )
+  fresh.v13_external = Some(v13_test_external(fresh, context))
+  let file_value = partial.copy()
+  file_value["budget_temporary_current_bytes"] = Json("0")
+  record_v13_sample(
+    fresh,
+    "benchmark",
+    "unconfirmed-fresh-file",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(file_value),
+    "/selftest/provenance.json",
+    v13_test_command(fresh, Json::null()),
+  )
+  assert_eq(fresh.passed, 0)
+  assert_eq(fresh.v13_unavailable, 1)
+  assert_eq(fresh.v13_maxima.length(), 0)
+  assert_true(fresh.v13_values.any(row => row.contains("\t9\t")))
+
+  let mixed = v13_test_report()
+  let file_context = v13_test_context(
+    mixed,
+    "MeasurementOnly",
+    "fresh_cli_owned",
+    v13_test_limits(Json::null(), Json::null()),
+    v13_test_limits(Json::null(), Json::null()),
+    Json::null(),
+  )
+  mixed.v13_external = Some(v13_test_external(mixed, file_context))
+  record_v13_sample(
+    mixed,
+    "benchmark",
+    "fresh-file",
+    "jsonl",
+    "balanced",
+    "debug",
+    v13_fixture("measurement_only", "unused"),
+    "/selftest/provenance.json",
+    v13_test_command(mixed, Json::null()),
+  )
+  let stdout_context = v13_object(file_context)
+  let stdout_options = v13_object(stdout_context["conversion_options"])
+  stdout_options["output_kind"] = Json("stdout")
+  stdout_context["conversion_options"] = Json::object(stdout_options)
+  // Stdout has no final downstream ACK contract in this measurement slice.
+  // Generic confirmed<=admitted remains valid; it must never be treated as a
+  // fresh successful File by erasing '-' from its real command evidence.
+  stdout_context.remove("fresh_output_controls")
+  let stdout_command = v13_object(v13_test_command(mixed, Json::null()))
+  guard stdout_command["args"] is Array(args) else { fail("args") }
+  let stdout_args = args.copy()
+  stdout_args[stdout_args.length() - 1] = Json("-")
+  stdout_command["args"] = Json::array(stdout_args)
+  mixed.v13_external = Some(
+    v13_test_external(mixed, Json::object(stdout_context)),
+  )
+  record_v13_sample(
+    mixed,
+    "benchmark",
+    "fresh-stdout-partial",
+    "jsonl",
+    "balanced",
+    "debug",
+    Json::object(file_value),
+    "/selftest/provenance.json",
+    Json::object(stdout_command),
+  )
+  assert_eq(mixed.passed, 2)
+  assert_eq(mixed.v13_groups.length(), 2)
+  assert_eq(mixed.v13_maxima.length(), 40)
+  let normalized = v13_command_options(
+    mixed,
+    Json::object(stdout_context),
+    Json::object(stdout_command),
+    "/selftest/provenance.json",
+  )
+  assert_eq(v13_get(normalized, "output_kind"), Json("stdout"))
+  guard v13_get(normalized, "exact_options_arguments_without_data_locations")
+    is Array(normalized_args) else {
+    fail("args")
+  }
+  assert_eq(normalized_args[normalized_args.length() - 1], Json("-"))
+  for kind in ["atomic", "AtomicFile", "unknown"] {
+    let wrong = v13_object(stdout_context["conversion_options"])
+    wrong["output_kind"] = Json(kind)
+    let context = stdout_context.copy()
+    context["conversion_options"] = Json::object(wrong)
+    assert_true(
+      try {
+        ignore(
+          v13_command_options(
+            mixed,
+            Json::object(context),
+            Json::object(stdout_command),
+            "/selftest/provenance.json",
+          ),
+        )
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  let mismatch = v13_object(file_context)
+  assert_true(
+    try {
+      ignore(
+        v13_command_options(
+          mixed,
+          Json::object(mismatch),
+          Json::object(stdout_command),
+          "/selftest/provenance.json",
+        ),
+      )
+      false
+    } catch {
+      _ => true
+    },
+  )
+  for
+    key in [
+      "no_preexisting_output_history", "successful_cli_file_output", "output_finalization_completed",
+    ] {
+    let report = v13_test_report()
+    let changed = v13_object(file_context)
+    let controls = v13_object(changed["fresh_output_controls"])
+    controls[key] = Json(false)
+    changed["fresh_output_controls"] = Json::object(controls)
+    report.v13_external = Some(v13_test_external(report, Json::object(changed)))
+    record_v13_sample(
+      report,
+      "quality",
+      "missing-fresh-output-proof",
+      "jsonl",
+      "balanced",
+      "debug",
+      v13_fixture("measurement_only", "unused"),
+      "/selftest/provenance.json",
+      v13_test_command(report, Json::null()),
+    )
+    assert_eq(report.v13_unavailable, 1)
+    assert_eq(report.v13_maxima.length(), 0)
+  }
+}
+
+///|
 fn self_test() -> Unit raise {
+  v13_policy_self_test()
+  v13_account_self_test()
+  v13_destination_self_test()
   v12_policy_self_test()
   v12_account_self_test()
   assert_true(natural("0") == Some(0L))
@@ -3893,21 +5729,44 @@ async fn main {
         report, "frozen_source_archive", path,
       )
     }
+    report.v13_binary_hash = report.v12_binary_hash
+    report.v13_binary_path = report.v12_binary_path
+    report.v13_tool_hash = report.v12_tool_hash
+    report.v13_source_hash = report.v12_source_hash
     if options.get("--account-context") is Some(path) {
       assert_true(
         path.has_prefix("/"),
         msg="--account-context must be absolute",
       )
-      ignore(fingerprint(report, "v12_account_context", path))
-      let context_text = @fs.read_file(path).text()
-      report.v12_external = Some(
-        @json.parse(
-          context_text,
-          preserve_number_repr=true,
-          reject_duplicate_keys=true,
-        ),
+      let supplied_context = @json.parse(
+        @fs.read_file(path).text(),
+        preserve_number_repr=true,
+        reject_duplicate_keys=true,
       )
-      @fs.write_file(evidence + "/v12-account-context-v1.json", context_text)
+      if field(supplied_context, "schema") ==
+        Json("markitdown_budget_v13_context_v1") {
+        ignore(fingerprint(report, "v13_account_context", path))
+        let context_text = @fs.read_file(path).text()
+        report.v13_external = Some(
+          @json.parse(
+            context_text,
+            preserve_number_repr=true,
+            reject_duplicate_keys=true,
+          ),
+        )
+        @fs.write_file(evidence + "/v13-account-context-v1.json", context_text)
+      } else {
+        ignore(fingerprint(report, "v12_account_context", path))
+        let context_text = @fs.read_file(path).text()
+        report.v12_external = Some(
+          @json.parse(
+            context_text,
+            preserve_number_repr=true,
+            reject_duplicate_keys=true,
+          ),
+        )
+        @fs.write_file(evidence + "/v12-account-context-v1.json", context_text)
+      }
     }
     let temporary_limit = options
       .get("--temporary-limit-bytes")
@@ -3952,23 +5811,44 @@ async fn main {
       [view]
     }
     report.selected = selected.length() * views.length()
-    @fs.write_file(
-      evidence + "/configuration.json",
-      (
-        {
-          "scope": "measurement_not_performance",
-          "route": "collecting_cli",
-          "mode": Json(mode),
-          "views": Json(views),
-          "case_filter": Json(options.get("--case")),
-          "format_filter": Json(options.get("--format")),
-          "binary_sha256": Json(hash),
-          "validate_only": Json(validate_only),
-          "timeout_ms": Json(timeout.to_string()),
-          "v12_account_context": Json(options.get("--account-context")),
-          "requested_temporary_limit_bytes": Json(temporary_limit),
-        } : Json).stringify(indent=2),
-    )
+    if report.v13_external is Some(_) {
+      @fs.write_file(
+        evidence + "/configuration.json",
+        (
+          {
+            "scope": "measurement_not_performance",
+            "route": "collecting_cli",
+            "benchmark_output_kind": "file",
+            "mode": Json(mode),
+            "views": Json(views),
+            "case_filter": Json(options.get("--case")),
+            "format_filter": Json(options.get("--format")),
+            "binary_sha256": Json(hash),
+            "validate_only": Json(validate_only),
+            "timeout_ms": Json(timeout.to_string()),
+            "v13_account_context": Json(options.get("--account-context")),
+            "requested_temporary_limit_bytes": Json(temporary_limit),
+          } : Json).stringify(indent=2),
+      )
+    } else {
+      @fs.write_file(
+        evidence + "/configuration.json",
+        (
+          {
+            "scope": "measurement_not_performance",
+            "route": "collecting_cli",
+            "mode": Json(mode),
+            "views": Json(views),
+            "case_filter": Json(options.get("--case")),
+            "format_filter": Json(options.get("--format")),
+            "binary_sha256": Json(hash),
+            "validate_only": Json(validate_only),
+            "timeout_ms": Json(timeout.to_string()),
+            "v12_account_context": Json(options.get("--account-context")),
+            "requested_temporary_limit_bytes": Json(temporary_limit),
+          } : Json).stringify(indent=2),
+      )
+    }
     if validate_only == "false" {
       for item in selected {
         for view in views {
@@ -4000,6 +5880,8 @@ async fn main {
   }
   let status = if report.errors.length() > 0 || report.failed > 0 {
     "fail"
+  } else if report.v13_unavailable > 0 {
+    "measurement_context_unavailable"
   } else if report.v12_unavailable > 0 {
     "measurement_context_unavailable"
   } else if validate_only == "true" {

@@ -4,10 +4,27 @@ async fn pdf_parse_objects(
   view : String,
   decode_context~ : PdfStreamDecodeContext? = None,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
-  match pdf_parse_objects_via_xref(bytes, view, decode_context~) {
+  // A materialized snapshot still borrows the original conversion owner. Do
+  // not allocate/publish identity metadata after its first failure or close.
+  pdf_check_stream_live(decode_context)
+  let loaded_snapshot = decode_context.map(context => {
+    // Native64 field payload: snapshot refs16 + size4 + mutable token Bool4.
+    // Validate against generated C before acceptance; headers/allocator and
+    // temporary parser origins remain unmeasured, not a heap/RSS bound.
+    pdf_session_retain(context, 24L)
+    { authority: Ref(false), source_size: bytes.length(), context, }
+  })
+  match
+    pdf_parse_objects_via_xref(bytes, view, decode_context~, loaded_snapshot~) {
     Ok(Some(store)) => Ok(store)
     Ok(None) =>
-      pdf_scan_object_store(bytes, view, "scan_fallback_v0", decode_context~)
+      pdf_scan_object_store(
+        bytes,
+        view,
+        "scan_fallback_v0",
+        decode_context~,
+        loaded_snapshot~,
+      )
     Err(ReadFailed(message)) => Err(ReadFailed(message))
     Err(err) =>
       match
@@ -16,6 +33,7 @@ async fn pdf_parse_objects(
           view,
           "scan_fallback_after_xref_error_v1",
           decode_context~,
+          loaded_snapshot~,
         ) {
         Ok(store) => Ok(store)
         Err(_) => Err(err)
@@ -28,6 +46,7 @@ async fn pdf_parse_objects_via_xref(
   bytes : Bytes,
   view : String,
   decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
 ) -> Result[PdfParsedObjectStore?, PdfNativeError] {
   let startxref = match pdf_find_startxref_offset(view) {
     Some(value) if value >= 0 && value < bytes.length() => value
@@ -49,6 +68,7 @@ async fn pdf_parse_objects_via_xref(
     },
     "materialized_xref",
     decode_context~,
+    loaded_snapshot~,
   )
 }
 
@@ -226,6 +246,7 @@ async fn pdf_build_store_from_resolved_xref(
   read_range : async (Int32, Int32) -> Result[Bytes, String],
   input_access_mode : String,
   decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
   prefetched~ : Map[Int32, PdfNativeObject] = Map([]),
   object_streams? : PdfObjectStreamResultCache,
   range_cursor~ : @input.SourceCursor? = None,
@@ -282,12 +303,30 @@ async fn pdf_build_store_from_resolved_xref(
           },
           metadata_prepaid: false,
         })
+        let loaded_source = if range_cursor is None {
+          loaded_snapshot.map(snapshot => {
+            snapshot,
+            window_start: location.offset.to_int64(),
+            selected: resolved.entries
+            .get(location.object_id)
+            .bind(entry => {
+              match entry {
+                InUse(offset, generation) =>
+                  Some((offset.to_int64(), generation))
+                _ => None
+              }
+            }),
+          })
+        } else {
+          None
+        }
         match
           pdf_parse_indirect_object_at(
             window,
             0,
             decode_context~,
             range_source~,
+            loaded_source~,
           ) {
           Ok(value) => value
           Err(_err) => {
@@ -388,6 +427,7 @@ async fn pdf_scan_object_store(
   view : String,
   xref_mode : String,
   decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let objects : Array[PdfNativeObject] = []
   let mut cursor = 0
@@ -406,7 +446,14 @@ async fn pdf_scan_object_store(
     }
     let object_body = bytes[header.body_start:endobj]
     let stream_slice = match
-      pdf_extract_stream_slice(object_body, decode_context) {
+      pdf_extract_stream_slice(
+        object_body,
+        decode_context,
+        object_id=header.object_id,
+        loaded_origin=loaded_snapshot.bind(snapshot => {
+          pdf_loaded_body_origin(snapshot, 0L, None, header)
+        }),
+      ) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
@@ -464,7 +511,7 @@ fn pdf_build_parsed_object_store(
       _ => continue
     }
     let available = match reference {
-      Loaded(stream) =>
+      Loaded(stream) | SelectedLoaded(stream, _) =>
         stream.endstream_bytes.length() + stream.endstream_eol_length
       Ranged(range) => range.endstream_length + range.endstream_eol_length
     }
@@ -477,6 +524,13 @@ fn pdf_build_parsed_object_store(
       Loaded(stream) => {
         let primary_bytes = pdf_stream_precise_payload(stream, length)
         Loaded({ ..stream, primary_bytes, declared_length: Some(length), })
+      }
+      SelectedLoaded(stream, definition) => {
+        let primary_bytes = pdf_stream_precise_payload(stream, length)
+        SelectedLoaded(
+          { ..stream, primary_bytes, declared_length: Some(length), },
+          definition,
+        )
       }
       Ranged(range) =>
         Ranged({
@@ -834,6 +888,7 @@ fn pdf_parse_indirect_object_at(
   offset : Int32,
   decode_context~ : PdfStreamDecodeContext? = None,
   range_source~ : PdfObjectRangeSource? = None,
+  loaded_source~ : PdfLoadedWindowOrigin? = None,
 ) -> Result[PdfNativeObject, PdfNativeError] raise PdfHardDecodeFailure {
   let header = match pdf_find_object_header_at(bytes, offset) {
     Some(value) => value
@@ -862,6 +917,14 @@ fn pdf_parse_indirect_object_at(
       range_source=range_source.map(source => {
         ..source,
         window_start: source.window_start + header.body_start.to_int64(),
+      }),
+      loaded_origin=loaded_source.bind(source => {
+        pdf_loaded_body_origin(
+          source.snapshot,
+          source.window_start,
+          source.selected,
+          header,
+        )
       }),
     ) {
     Ok(value) => value
@@ -907,7 +970,10 @@ fn pdf_collect_trailer_hints_from_view(view : String) -> Array[String] {
 ///|
 priv struct PdfNativeObjectHeader {
   object_id : Int32
+  generation : Int32
+  header_start : Int32
   body_start : Int32
+  exact : Bool
 }
 
 ///|
@@ -929,12 +995,20 @@ fn pdf_find_object_header_at(
   }
   match (pdf_parse_int(parts[0]), pdf_parse_int(parts[1])) {
     (Some(object_id), Some(generation)) => {
-      ignore(generation)
       let body_start = pdf_skip_object_header_whitespace_bytes(
         bytes,
         marker + " obj".length(),
       )
-      Some({ object_id, body_start, })
+      Some({
+        object_id,
+        generation,
+        header_start: cursor,
+        body_start,
+        exact: parts.length() == 2 &&
+        cursor < marker &&
+        bytes[cursor] >= b'0' &&
+        bytes[cursor] <= b'9',
+      })
     }
     _ => None
   }
@@ -959,12 +1033,23 @@ fn pdf_find_next_object_header_bytes(
     if parts.length() >= 2 {
       match (pdf_parse_int(parts[0]), pdf_parse_int(parts[1])) {
         (Some(object_id), Some(generation)) => {
-          ignore(generation)
+          let header_start = pdf_skip_ascii_whitespace_and_comments_bytes(
+            bytes, line_start,
+          )
           let body_start = pdf_skip_object_header_whitespace_bytes(
             bytes,
             marker + " obj".length(),
           )
-          return Some({ object_id, body_start, })
+          return Some({
+            object_id,
+            generation,
+            header_start,
+            body_start,
+            exact: parts.length() == 2 &&
+            header_start < marker &&
+            bytes[header_start] >= b'0' &&
+            bytes[header_start] <= b'9',
+          })
         }
         _ => ()
       }
@@ -980,6 +1065,7 @@ fn pdf_extract_stream_slice(
   decode_context : PdfStreamDecodeContext?,
   object_id~ : Int32 = 0,
   range_source~ : PdfObjectRangeSource? = None,
+  loaded_origin~ : PdfLoadedBodyOrigin? = None,
 ) -> Result[(String, PdfNativeStreamRef)?, PdfNativeError] raise PdfHardDecodeFailure {
   match pdf_find_bytes(object_body, pdf_ascii_bytes("stream"), 0) {
     None => Ok(None)
@@ -1066,17 +1152,72 @@ fn pdf_extract_stream_slice(
               object_body[raw_start:raw_start + length].to_owned()
             _ => endstream_bytes
           }
-          Loaded({
+          let slice : PdfNativeStreamSlice = {
             primary_bytes,
             endstream_bytes,
             endstream_eol_suffix,
             endstream_eol_length,
             declared_length,
             decode_context,
-          })
+          }
+          match loaded_origin {
+            Some(origin) if origin.body_start + endstream_rel.to_int64() <=
+              origin.snapshot.source_size.to_int64() => {
+              // Native64 retained fields: definition40 + variant refs16.
+              // Postparse metadata admission, not a preallocation/RSS bound.
+              pdf_session_retain(origin.snapshot.context, 56L)
+              let definition : PdfLoadedDefinition = {
+                snapshot: origin.snapshot,
+                object_id,
+                definition_offset: origin.definition_offset,
+                generation: origin.generation,
+                body_start: origin.body_start,
+                payload_start: origin.body_start + raw_start.to_int64(),
+              }
+              SelectedLoaded(
+                { ..slice, decode_context: Some(origin.snapshot.context), },
+                definition,
+              )
+            }
+            _ => Loaded(slice)
+          }
         }
       }
       Ok(Some((dict_text, reference)))
     }
   }
+}
+
+///|
+fn pdf_loaded_body_origin(
+  snapshot : PdfLoadedSnapshot,
+  window_start : Int64,
+  selected : (Int64, Int32)?,
+  header : PdfNativeObjectHeader,
+) -> PdfLoadedBodyOrigin? {
+  if !header.exact ||
+    header.object_id < 0 ||
+    header.generation < 0 ||
+    window_start < 0L ||
+    window_start > snapshot.source_size.to_int64() ||
+    header.header_start < 0 ||
+    header.body_start < header.header_start {
+    return None
+  }
+  let definition_offset = window_start + header.header_start.to_int64()
+  let body_start = window_start + header.body_start.to_int64()
+  if body_start > snapshot.source_size.to_int64() {
+    return None
+  }
+  if selected is Some((offset, generation)) &&
+    (offset != definition_offset || generation != header.generation) {
+    // Keep legacy repair/decode, but never invent an exact selected identity.
+    return None
+  }
+  Some({
+    snapshot,
+    definition_offset,
+    generation: header.generation,
+    body_start,
+  })
 }

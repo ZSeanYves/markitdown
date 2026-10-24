@@ -293,7 +293,7 @@ async fn next_line_json_record(
       Err(message) => return Err(message)
     }
     let raw = normalize_line_delimited_json_record(line.text).trim().to_owned()
-    if raw == "" {
+    if line.is_blank {
       continue
     }
     if line.truncated {
@@ -347,7 +347,7 @@ async fn scan_line_json_source(
         }
     }
     let raw = normalize_line_delimited_json_record(line.text).trim().to_owned()
-    if raw == "" {
+    if line.is_blank {
       blank_line_count += 1
       continue
     }

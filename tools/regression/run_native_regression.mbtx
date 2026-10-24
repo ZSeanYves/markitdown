@@ -1046,7 +1046,12 @@ async fn run_case(
     return "missing output"
   }
   if budget_profile && expected_exit == 0 {
-    let problem = budget_profile_error(channels.get("provenance").unwrap_or(""))
+    // This runner's saved command is a fresh process writing the fresh case
+    // directory's ordinary file, and this branch has observed successful exit.
+    let problem = budget_profile_error(
+      channels.get("provenance").unwrap_or(""),
+      fresh_file_success=output != "-",
+    )
     if problem != "" {
       return problem
     }
@@ -1141,12 +1146,29 @@ fn valid_budget_counter(value : Json) -> Bool {
 }
 
 ///|
-fn budget_profile_error(provenance : String) -> String {
+fn budget_profile_error(
+  provenance : String,
+  fresh_file_success~ : Bool = false,
+) -> String {
   let parsed = @json.parse(provenance, reject_duplicate_keys=true) catch {
     _ => return "missing or malformed budget provenance"
   }
   let usage = get_field(parsed, "budget_usage")
   guard usage is Object(fields) else { return "missing budget_usage object" }
+  if get_field(usage, "budget_schema") == Json("partial_v13") {
+    return try {
+      v13_validate(usage)
+      if fresh_file_success {
+        assert_eq(
+          v13_get(usage, "budget_output_admitted_utf8_bytes"),
+          v13_get(usage, "budget_output_confirmed_utf8_bytes"),
+        )
+      }
+      ""
+    } catch {
+      error => "invalid v13 budget profile: " + error.to_string()
+    }
+  }
   if get_field(usage, "budget_schema") == Json("partial_v12") {
     return try {
       v12_validate(usage)
@@ -1966,7 +1988,518 @@ fn v12_policy_self_test() -> Unit raise {
 }
 
 ///|
+fn v13_get(value : Json, key : String) -> Json raise {
+  guard value is Object(fields) else { fail("v13 object required") }
+  fields.get(key).unwrap_or_else(() => fail("v13 missing field: " + key))
+}
+
+///|
+fn v13_text(value : Json) -> String raise {
+  guard value is String(text) else { fail("v13 JSON string required") }
+  text
+}
+
+///|
+fn v13_nat(value : Json) -> Int64 raise {
+  let text = v13_text(value)
+  guard text != "" && (text == "0" || text[0] != '0') else {
+    fail("v13 canonical decimal required")
+  }
+  let mut result = 0L
+  for ch in text {
+    guard ch >= '0' && ch <= '9' else {
+      fail("v13 nonnegative decimal required")
+    }
+    let digit = (ch.to_int() - 48).to_int64()
+    guard result <= (9223372036854775807L - digit) / 10L else {
+      fail("v13 Int64 overflow")
+    }
+    result = result * 10L + digit
+  }
+  result
+}
+
+///|
+fn v13_finite(profile : String) -> Bool raise {
+  match profile {
+    "measurement_only" => false
+    "measurement_with_temporary_limit" | "explicit_enforced" => true
+    _ => fail("unrecognized v13 budget profile")
+  }
+}
+
+///|
+fn v13_contract(finite : Bool) -> Json {
+  if finite {
+    {
+      "condition": "snapshot.limits.temporary_bytes_is_Some_effective_limit;independent_of_whether_a_spool_was_used",
+      "field_count": 16,
+      "counter_count": 10,
+      "metadata_fields": [
+        "budget_schema", "budget_profile", "budget_coverage", "budget_unmeasured",
+        "budget_resident_policy", "budget_temporary_limit_bytes",
+      ],
+      "counter_fields": [
+        "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+        "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes",
+        "budget_working_payload_peak_bytes", "budget_parse_work", "budget_source_metadata_bytes",
+        "budget_temporary_payload_peak_bytes", "budget_temporary_current_bytes",
+      ],
+      "profiles": ["measurement_with_temporary_limit", "explicit_enforced"],
+      "profile_rule": "MeasurementOnly_with_finite_TemporaryBytes_uses_measurement_with_temporary_limit;Enforced_uses_explicit_enforced_and_still_requires_all_10_finite_limits;not_all_dimensions_enforced_by_public_temporary_option",
+      "coverage": "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,pdf_loaded_objstm_decoded_text_parse_work,pdf_loaded_objstm_decoded_text_logical_retention,pptx_presentation_cursor_work,pptx_presentation_cursor_workspace,pptx_presentation_reference_string_metadata,pptx_presentation_reference_retained_string_payload,output_utf8_admission,pdf_loaded_snapshot_selected_definition_native64_field_payload,pdf_loaded_font_local_result_postparse_retained_payload,pdf_loaded_cmap_local_result_postparse_retained_payload,cli_atomic_output_temporary_payload,cli_atomic_output_encoding_working_payload,cli_file_final_lf_output_admission_and_confirmation,epub_container_cursor_work,epub_container_cursor_workspace,epub_container_rootfile_selected_string_metadata,epub_container_rootfile_selected_string_payload,jsonl_spool_codec_wire_work,jsonl_spool_read_traffic,jsonl_spool_temporary_payload,jsonl_spool_codec_working,jsonl_spool_event_utf16_payload",
+      "new_scopes": [
+        "pdf_loaded_snapshot_selected_definition_native64_field_payload", "pdf_loaded_font_local_result_postparse_retained_payload",
+        "pdf_loaded_cmap_local_result_postparse_retained_payload", "cli_atomic_output_temporary_payload",
+        "cli_atomic_output_encoding_working_payload", "cli_file_final_lf_output_admission_and_confirmation",
+        "epub_container_cursor_work", "epub_container_cursor_workspace", "epub_container_rootfile_selected_string_metadata",
+        "epub_container_rootfile_selected_string_payload",
+      ],
+      "unmeasured": "other_parse_work,other_source_metadata,rag_metadata,ir,other_temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      "resident_policy": "scope_retained_payload_plus_owned_temporary_leases",
+      "limit_field": "budget_temporary_limit_bytes_is_actual_snapshot_effective_cap_after_same_ledger_min_tightening_not_requested_CLI_value",
+      "measurement_scopes": {
+        "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic_and_actual_TempOwner_read_payload_bytes;not_write_bytes_or_syscall_count",
+        "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+        "budget_output_admitted_utf8_bytes": "output_write_admission;includes_known_File_or_Atomic_final_LF_before_actual_transport_write;stdout_final_unconditional_LF_and_asset_URL_path_rewrite_delta_unmeasured",
+        "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes;includes_known_File_or_Atomic_final_LF_only_after_successful_writer_return_exactly_once;renderer_body_summary_size_unchanged;stdout_final_LF_unmeasured",
+        "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work_and_pdf_loaded_objstm_decoded_byte_string_utf16_code_units_and_pptx_presentation_cursor_utf8_work_and_each_JSONL_spool_codec_frame_wire_extent_once_on_write_admission_and_once_on_read;plus_EPUB_container_existing_XML_cursor_feed_token_namespace_entity_work_and_error_only_integrity_replay_each_combined_oldcarry_plus_newchunk_UTF8_byte_extent_once_and_final_carry_bytes_once;normal_semantic_rootfile_projection_adds_no_separate_counter;other_parse_work_unmeasured_including_JSON_parse_inspect_and_CPU_time",
+        "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only_and_pptx_presentation_selected_rid_id_node_key_utf8_payload_only;plus_EPUB_container_selected_trimmed_nonempty_full_path_optional_trimmed_nonempty_media_type_and_successful_normalized_path_actual_scalar_UTF8_bytes_by_field_occurrence;DTO_reference_copies_do_not_recharge;other_source_metadata_unmeasured",
+        "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound_and_pdf_loaded_objstm_decoded_byte_string_utf16_4N_plus_16_logical_scope_retained_admission_and_pptx_presentation_selected_rid_id_node_key_utf16_payload_only_and_scope_retained_JSONL_frame_returned_String_utf16_payload_2_times_code_units;plus_Loaded_snapshot24_once_per_materialization_selected_definition56_per_selected_stream_shared_Loaded_proof40_plus_2_times_dict_UTF16_code_units_plus_current_primary_and_endstream_raw_byte_lengths_by_occurrence_Font_entry100_CMap_entry92_and_each_cache_wrapper24_context_Map_refs16_plus_expected_snapshot_ref8_once_at_first_publication_plus_existing_result_payload;Native64_selected_field_payload_not_Heap_RSS_or_full_preallocation;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured_including_pptx_reference_tuple_array_map_headers_probe_error_artifact_bookkeeping_including_JSONL_allocator_and_RSS;plus_EPUB_same_three_selected_rootfile_String_fields_2_times_UTF16_code_units_scope_held_before_DTO_publication_duplicates_count_by_occurrence_not_reference_copy",
+        "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound_and_pptx_presentation_cursor_utf8_feed_token_namespace_payload_upper_bound_and_JSONL_schema_utf16_scan_lease_and_codec_write_2_times_25_plus_payload_utf8_bytes_and_read_25_plus_4_times_payload_utf8_bytes;plus_CLI_atomic_UTF8_encoder_N_validated_UTF8_payload_bytes_reserved_before_encode_per_call_and_released_after_call;excludes_stdio_allocator_path_nonAtomic_SDK_and_other_String_scratch;raw_selection_buffers_and_other_working_unmeasured_including_pptx_reference_tuple_array_map_and_probe_error_artifact_scratch_including_JSON_parser_SourceIO_scratch_and_allocator;plus_EPUB_container_existing_XML_cursor_leases_normalize_path_14_times_fullpath_UTF16_code_units_plus2_private_payload_and_error_only_replay_8_times_combined_UTF8_bytes_plus12_scratch_and_separate_actual_carry_at_most3_bytes;not_tuple_row_Map_header_allocator_GC_RSS",
+        "budget_temporary_payload_peak_bytes": "shared_ledger_lifetime_aggregate_reserved_file_payload_upper_bound_including_before_tighten_history;JSONL_TempOwner_frame_headers_and_UTF8_payload_plus_CLI_atomic_output_full_admitted_growth_including_failed_write_growth_and_any_other_registered_same_ledger_owner;admission_preflight_can_raise_peak_without_disk_growth;not_filesystem_blocks_or_all_temporary_storage",
+        "budget_temporary_current_bytes": "currently_outstanding_shared_ledger_TemporaryBytes_credits;includes_JSONL_TempOwners_atomic_output_and_callers_live_owners_or_uncertain_atomic_close_credit;not_only_this_converter_or_filesystem_blocks",
+      },
+      "generic_invariants": [
+        "all_present_counters_and_optional_effective_cap_nonnegative_Int64_canonical_base10_strings",
+        "temporary_current_le_temporary_peak", "output_confirmed_le_output_admitted",
+        "field_names_and_count_exact_for_profile", "None_has_no_temporary_limit_field_not_zero_or_null;finite_has_exact_effective_cap_string",
+      ],
+      "not_generic_invariants": [
+        "temporary_peak_le_current_effective_cap", "temporary_current_equals_zero",
+        "output_confirmed_equals_output_admitted", "temporary_peak_equals_physical_disk_bytes",
+      ],
+      "fresh_cli_owned_producer_controls_only": [
+        "no_preexisting_TemporaryBytes_history", "finite_limit_installed_before_first_growth",
+        "successful_owned_producer_cleanup_confirms_current_zero", "temporary_peak_le_effective_cap",
+      ],
+      "acceptance_state": "policy_frozen_for_integrated_validation;fresh_v13_runtime_tools_source_binary_quality_install_profiles_required;no_prior_sample_relabeling",
+      "v12_existing_new_scopes": [
+        "jsonl_spool_codec_wire_work", "jsonl_spool_read_traffic", "jsonl_spool_temporary_payload",
+        "jsonl_spool_codec_working", "jsonl_spool_event_utf16_payload",
+      ],
+      "fresh_cli_file_success_controls_only": [
+        "origin_proven_fresh_CLI_with_no_prior_output_or_TemporaryBytes_usage", "all_relevant_file_output_is_within_declared_File_Atomic_LF_scope",
+        "successful_owned_cleanup_or_commit_confirms_temporary_current_zero", "output_confirmed_equals_output_admitted_for_file_success_not_stdout_or_borrowed_ledger",
+        "finite_limit_installed_before_first_growth_can_additionally_check_peak_le_cap",
+      ],
+    }
+  } else {
+    {
+      "condition": "snapshot.limits.temporary_bytes_is_None;public_option_None_alone_does_not_prove_this_if_parent_account_is_finite",
+      "field_count": 15,
+      "counter_count": 10,
+      "metadata_fields": [
+        "budget_schema", "budget_profile", "budget_coverage", "budget_unmeasured",
+        "budget_resident_policy",
+      ],
+      "counter_fields": [
+        "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+        "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes",
+        "budget_working_payload_peak_bytes", "budget_parse_work", "budget_source_metadata_bytes",
+        "budget_temporary_payload_peak_bytes", "budget_temporary_current_bytes",
+      ],
+      "profiles": ["measurement_only"],
+      "coverage": "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,pdf_loaded_objstm_decoded_text_parse_work,pdf_loaded_objstm_decoded_text_logical_retention,pptx_presentation_cursor_work,pptx_presentation_cursor_workspace,pptx_presentation_reference_string_metadata,pptx_presentation_reference_retained_string_payload,output_utf8_admission,pdf_loaded_snapshot_selected_definition_native64_field_payload,pdf_loaded_font_local_result_postparse_retained_payload,pdf_loaded_cmap_local_result_postparse_retained_payload,cli_atomic_output_temporary_payload,cli_atomic_output_encoding_working_payload,cli_file_final_lf_output_admission_and_confirmation,epub_container_cursor_work,epub_container_cursor_workspace,epub_container_rootfile_selected_string_metadata,epub_container_rootfile_selected_string_payload",
+      "unmeasured": "other_parse_work,other_source_metadata,rag_metadata,ir,other_temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      "resident_policy": "scope_retained_payload_plus_owned_temporary_leases",
+      "measurement_scopes": {
+        "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+        "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+        "budget_output_admitted_utf8_bytes": "output_write_admission;includes_known_File_or_Atomic_final_LF_before_actual_transport_write;stdout_final_unconditional_LF_and_asset_URL_path_rewrite_delta_unmeasured",
+        "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes;includes_known_File_or_Atomic_final_LF_only_after_successful_writer_return_exactly_once;renderer_body_summary_size_unchanged;stdout_final_LF_unmeasured",
+        "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work_and_pdf_loaded_objstm_decoded_byte_string_utf16_code_units_and_pptx_presentation_cursor_utf8_work;plus_EPUB_container_existing_XML_cursor_feed_token_namespace_entity_work_and_error_only_integrity_replay_each_combined_oldcarry_plus_newchunk_UTF8_byte_extent_once_and_final_carry_bytes_once;normal_semantic_rootfile_projection_adds_no_separate_counter;other_parse_work_unmeasured",
+        "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only_and_pptx_presentation_selected_rid_id_node_key_utf8_payload_only;plus_EPUB_container_selected_trimmed_nonempty_full_path_optional_trimmed_nonempty_media_type_and_successful_normalized_path_actual_scalar_UTF8_bytes_by_field_occurrence;DTO_reference_copies_do_not_recharge;other_source_metadata_unmeasured",
+        "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound_and_pdf_loaded_objstm_decoded_byte_string_utf16_4N_plus_16_logical_scope_retained_admission_and_pptx_presentation_selected_rid_id_node_key_utf16_payload_only;plus_Loaded_snapshot24_once_per_materialization_selected_definition56_per_selected_stream_shared_Loaded_proof40_plus_2_times_dict_UTF16_code_units_plus_current_primary_and_endstream_raw_byte_lengths_by_occurrence_Font_entry100_CMap_entry92_and_each_cache_wrapper24_context_Map_refs16_plus_expected_snapshot_ref8_once_at_first_publication_plus_existing_result_payload;Native64_selected_field_payload_not_Heap_RSS_or_full_preallocation;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured_including_pptx_reference_tuple_array_map_headers_probe_error_artifact_bookkeeping;plus_EPUB_same_three_selected_rootfile_String_fields_2_times_UTF16_code_units_scope_held_before_DTO_publication_duplicates_count_by_occurrence_not_reference_copy",
+        "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound_and_pptx_presentation_cursor_utf8_feed_token_namespace_payload_upper_bound;plus_CLI_atomic_UTF8_encoder_N_validated_UTF8_payload_bytes_reserved_before_encode_per_call_and_released_after_call;excludes_stdio_allocator_path_nonAtomic_SDK_and_other_String_scratch;raw_selection_buffers_and_other_working_unmeasured_including_pptx_reference_tuple_array_map_and_probe_error_artifact_scratch;plus_EPUB_container_existing_XML_cursor_leases_normalize_path_14_times_fullpath_UTF16_code_units_plus2_private_payload_and_error_only_replay_8_times_combined_UTF8_bytes_plus12_scratch_and_separate_actual_carry_at_most3_bytes;not_tuple_row_Map_header_allocator_GC_RSS",
+        "budget_temporary_payload_peak_bytes": "shared_ledger_lifetime_aggregate_reserved_file_payload_upper_bound_including_before_tighten_history;JSONL_TempOwner_frame_headers_and_UTF8_payload_plus_CLI_atomic_output_full_admitted_growth_including_failed_write_growth_and_any_other_registered_same_ledger_owner;admission_preflight_can_raise_peak_without_disk_growth;not_filesystem_blocks_or_all_temporary_storage",
+        "budget_temporary_current_bytes": "currently_outstanding_shared_ledger_TemporaryBytes_credits;includes_JSONL_TempOwners_atomic_output_and_callers_live_owners_or_uncertain_atomic_close_credit;not_only_this_converter_or_filesystem_blocks",
+      },
+      "new_scopes": [
+        "pdf_loaded_snapshot_selected_definition_native64_field_payload", "pdf_loaded_font_local_result_postparse_retained_payload",
+        "pdf_loaded_cmap_local_result_postparse_retained_payload", "cli_atomic_output_temporary_payload",
+        "cli_atomic_output_encoding_working_payload", "cli_file_final_lf_output_admission_and_confirmation",
+        "epub_container_cursor_work", "epub_container_cursor_workspace", "epub_container_rootfile_selected_string_metadata",
+        "epub_container_rootfile_selected_string_payload",
+      ],
+      "acceptance_state": "policy_frozen_for_integrated_validation;fresh_v13_runtime_tools_source_binary_quality_install_profiles_required;no_prior_sample_relabeling",
+      "v12_existing_new_scopes": [
+        "pdf_loaded_objstm_decoded_text_parse_work", "pdf_loaded_objstm_decoded_text_logical_retention",
+        "pptx_presentation_cursor_work", "pptx_presentation_cursor_workspace", "pptx_presentation_reference_string_metadata",
+        "pptx_presentation_reference_retained_string_payload",
+      ],
+      "generic_invariants": [
+        "all_present_counters_and_optional_effective_cap_nonnegative_Int64_canonical_base10_strings",
+        "temporary_current_le_temporary_peak", "output_confirmed_le_output_admitted",
+        "field_names_and_count_exact_for_profile", "None_has_no_temporary_limit_field_not_zero_or_null;finite_has_exact_effective_cap_string",
+      ],
+      "not_generic_invariants": [
+        "temporary_peak_le_current_effective_cap", "temporary_current_equals_zero",
+        "output_confirmed_equals_output_admitted", "temporary_peak_equals_physical_disk_bytes",
+      ],
+      "fresh_cli_file_success_controls_only": [
+        "origin_proven_fresh_CLI_with_no_prior_output_or_TemporaryBytes_usage", "all_relevant_file_output_is_within_declared_File_Atomic_LF_scope",
+        "successful_owned_cleanup_or_commit_confirms_temporary_current_zero", "output_confirmed_equals_output_admitted_for_file_success_not_stdout_or_borrowed_ledger",
+        "finite_limit_installed_before_first_growth_can_additionally_check_peak_le_cap",
+      ],
+    }
+  }
+}
+
+///|
+fn v13_keys(profile : String) -> Array[String] raise {
+  guard v13_get(v13_contract(v13_finite(profile)), "counter_fields")
+    is Array(keys) else {
+    fail("v13 counter keys required")
+  }
+  keys.map(v13_text)
+}
+
+///|
+fn v13_scope(profile : String, dimension : String) -> String raise {
+  v13_text(
+    v13_get(
+      v13_get(v13_contract(v13_finite(profile)), "measurement_scopes"),
+      dimension,
+    ),
+  )
+}
+
+///|
+fn v13_unit(dimension : String) -> String {
+  if dimension == "budget_parse_work" {
+    "modeled_parse_work_units"
+  } else {
+    "bytes"
+  }
+}
+
+///|
+fn v13_validate(value : Json) -> Unit raise {
+  guard value is Object(fields) else { fail("v13 usage object required") }
+  assert_eq(v13_get(value, "budget_schema"), Json("partial_v13"))
+  let profile = v13_text(v13_get(value, "budget_profile"))
+  let finite = v13_finite(profile)
+  let policy = v13_contract(finite)
+  assert_eq(fields.length(), if finite { 16 } else { 15 })
+  for
+    (field, policy_key) in [
+      ("budget_coverage", "coverage"),
+      ("budget_unmeasured", "unmeasured"),
+      ("budget_resident_policy", "resident_policy"),
+    ] {
+    assert_eq(v13_get(value, field), v13_get(policy, policy_key))
+  }
+  for key in v13_keys(profile) {
+    ignore(v13_nat(v13_get(value, key)))
+  }
+  assert_true(
+    v13_nat(v13_get(value, "budget_output_confirmed_utf8_bytes")) <=
+    v13_nat(v13_get(value, "budget_output_admitted_utf8_bytes")),
+  )
+  assert_true(
+    v13_nat(v13_get(value, "budget_temporary_current_bytes")) <=
+    v13_nat(v13_get(value, "budget_temporary_payload_peak_bytes")),
+  )
+  if finite {
+    ignore(v13_nat(v13_get(value, "budget_temporary_limit_bytes")))
+  }
+}
+
+///|
+fn v13_fixture(profile : String, cap : String) -> Json raise {
+  let policy = v13_contract(v13_finite(profile))
+  let fields : Map[String, Json] = {
+    "budget_schema": Json("partial_v13"),
+    "budget_profile": Json(profile),
+    "budget_coverage": v13_get(policy, "coverage"),
+    "budget_unmeasured": v13_get(policy, "unmeasured"),
+    "budget_resident_policy": v13_get(policy, "resident_policy"),
+  }
+  for key in v13_keys(profile) {
+    fields[key] = Json("0")
+  }
+  if v13_finite(profile) {
+    fields["budget_temporary_limit_bytes"] = Json(cap)
+  }
+  Json::object(fields)
+}
+
+///|
+fn v13_policy_self_test() -> Unit raise {
+  let none = v13_fixture("measurement_only", "unused")
+  v13_validate(none)
+  let finite = v13_fixture("measurement_with_temporary_limit", "100")
+  v13_validate(finite)
+  assert_eq(
+    v13_text(v13_get(v13_contract(false), "coverage"))
+    .split(",")
+    .to_array()
+    .length(),
+    56,
+  )
+  assert_eq(
+    v13_text(v13_get(v13_contract(true), "coverage"))
+    .split(",")
+    .to_array()
+    .length(),
+    61,
+  )
+  assert_eq(
+    v13_get(v13_contract(false), "resident_policy"),
+    Json("scope_retained_payload_plus_owned_temporary_leases"),
+  )
+  assert_eq(
+    v13_get(v13_contract(true), "resident_policy"),
+    Json("scope_retained_payload_plus_owned_temporary_leases"),
+  )
+  let historical = match finite {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  historical["budget_temporary_payload_peak_bytes"] = Json("200")
+  historical["budget_temporary_current_bytes"] = Json("1")
+  v13_validate(Json::object(historical))
+  let borrowed = match none {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  borrowed["budget_output_admitted_utf8_bytes"] = Json("9")
+  borrowed["budget_output_confirmed_utf8_bytes"] = Json("3")
+  borrowed["budget_temporary_payload_peak_bytes"] = Json("200")
+  borrowed["budget_temporary_current_bytes"] = Json("1")
+  v13_validate(Json::object(borrowed))
+  let impossible_output = borrowed.copy()
+  impossible_output["budget_output_confirmed_utf8_bytes"] = Json("10")
+  assert_true(
+    try {
+      v13_validate(Json::object(impossible_output))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  let impossible_resident = borrowed.copy()
+  impossible_resident["budget_temporary_current_bytes"] = Json("201")
+  assert_true(
+    try {
+      v13_validate(Json::object(impossible_resident))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  let no_none_cap = borrowed.copy()
+  no_none_cap["budget_temporary_limit_bytes"] = Json("200")
+  assert_true(
+    try {
+      v13_validate(Json::object(no_none_cap))
+      false
+    } catch {
+      _ => true
+    },
+  )
+  for
+    profile in [
+      "measurement_only", "measurement_with_temporary_limit", "explicit_enforced",
+    ] {
+    let original = v13_fixture(profile, "0")
+    v13_validate(original)
+    let keys = v13_keys(profile)
+    assert_eq(keys.length(), 10)
+    for key in keys {
+      assert_true(v13_scope(profile, key) != "")
+      assert_eq(
+        v13_unit(key),
+        if key == "budget_parse_work" {
+          "modeled_parse_work_units"
+        } else {
+          "bytes"
+        },
+      )
+      for
+        bad in [
+          Json(0),
+          Json(-1),
+          Json(1.5),
+          Json(true),
+          Json::null(),
+          Json("-1"),
+          Json("01"),
+          Json("9223372036854775808"),
+        ] {
+        let changed = match original {
+          Object(fields) => fields.copy()
+          _ => fail("object")
+        }
+        changed[key] = bad
+        assert_true(
+          try {
+            v13_validate(Json::object(changed))
+            false
+          } catch {
+            _ => true
+          },
+        )
+      }
+    }
+    for
+      (key, bad) in [
+        ("budget_schema", Json("partial_v11")),
+        ("budget_coverage", Json("old")),
+        ("budget_unmeasured", Json("none")),
+        ("budget_resident_policy", Json("rss")),
+        ("budget_profile", Json("unrecognized")),
+      ] {
+      let changed = match original {
+        Object(fields) => fields.copy()
+        _ => fail("object")
+      }
+      changed[key] = bad
+      assert_true(
+        try {
+          v13_validate(Json::object(changed))
+          false
+        } catch {
+          _ => true
+        },
+      )
+    }
+    let extra = match original {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    extra["unrecognized"] = Json("0")
+    assert_true(
+      try {
+        v13_validate(Json::object(extra))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  for
+    missing in [
+      "pdf_loaded_objstm_decoded_text_parse_work", "pdf_loaded_objstm_decoded_text_logical_retention",
+      "pptx_presentation_cursor_work", "pptx_presentation_cursor_workspace", "pptx_presentation_reference_string_metadata",
+      "pptx_presentation_reference_retained_string_payload",
+    ] {
+    let changed = match none {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    changed["budget_coverage"] = Json(
+      v13_text(changed["budget_coverage"]).replace_all(
+        old=missing + ",",
+        new="",
+      ),
+    )
+    assert_true(
+      try {
+        v13_validate(Json::object(changed))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  for
+    missing in [
+      "jsonl_spool_codec_wire_work", "jsonl_spool_read_traffic", "jsonl_spool_temporary_payload",
+      "jsonl_spool_codec_working", "jsonl_spool_event_utf16_payload",
+    ] {
+    let changed = match finite {
+      Object(fields) => fields.copy()
+      _ => fail("object")
+    }
+    let coverage = v13_text(changed["budget_coverage"])
+    changed["budget_coverage"] = Json(
+      if coverage.has_suffix(missing) {
+        coverage.strip_suffix("," + missing).unwrap().to_owned()
+      } else {
+        coverage.replace_all(old=missing + ",", new="")
+      },
+    )
+    assert_true(
+      try {
+        v13_validate(Json::object(changed))
+        false
+      } catch {
+        _ => true
+      },
+    )
+  }
+  guard v13_get(v13_contract(false), "new_scopes") is Array(scopes) else {
+    fail("v13 exact new scopes required")
+  }
+  assert_eq(scopes.length(), 10)
+  for label in scopes {
+    let name = v13_text(label)
+    for original in [none, finite] {
+      let changed = match original {
+        Object(fields) => fields.copy()
+        _ => fail("object")
+      }
+      let coverage = v13_text(changed["budget_coverage"])
+      assert_true(coverage.split(",").to_array().contains(name[:]))
+      changed["budget_coverage"] = Json(
+        coverage
+        .split(",")
+        .filter(token => token != name[:])
+        .map(token => token.to_owned())
+        .to_array()
+        .join(","),
+      )
+      assert_true(
+        try {
+          v13_validate(Json::object(changed))
+          false
+        } catch {
+          _ => true
+        },
+      )
+    }
+  }
+  let wrong_current = historical.copy()
+  wrong_current["budget_temporary_current_bytes"] = Json("201")
+  assert_true(
+    try {
+      v13_validate(Json::object(wrong_current))
+      false
+    } catch {
+      _ => true
+    },
+  )
+}
+
+///|
+fn v13_runner_self_test() -> Unit raise {
+  let fields = match v13_fixture("measurement_only", "unused") {
+    Object(fields) => fields.copy()
+    _ => fail("object")
+  }
+  fields["budget_output_admitted_utf8_bytes"] = Json("9")
+  fields["budget_output_confirmed_utf8_bytes"] = Json("3")
+  let wrapped = ({ "budget_usage": Json::object(fields) } : Json).stringify()
+  assert_eq(budget_profile_error(wrapped), "")
+  assert_true(budget_profile_error(wrapped, fresh_file_success=true) != "")
+}
+
+///|
 async fn self_test() -> Unit {
+  v13_policy_self_test()
+  v13_runner_self_test()
   v12_policy_self_test()
   self_test_v11_budget_policy()
   self_test_v10_budget_policy()

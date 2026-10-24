@@ -92,7 +92,7 @@ fn pdf_decode_owned_object_stream_bytes(
   context : String,
 ) -> Result[Bytes, PdfNativeError] raise PdfHardDecodeFailure {
   match object.stream {
-    Some(Loaded(stream)) =>
+    Some(Loaded(stream) | SelectedLoaded(stream, _)) =>
       pdf_decode_loaded_stream_bytes(
         object.object_id,
         object.dict_text,

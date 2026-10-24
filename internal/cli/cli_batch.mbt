@@ -487,10 +487,10 @@ fn normalize_format_label(label : String) -> String {
 
 ///|
 fn normalized_written_content(text : String) -> String {
-  if text == "" || text.has_suffix("\n") {
-    text
-  } else {
+  if cli_file_needs_lf(text != "", text.has_suffix("\n")) {
     text + "\n"
+  } else {
+    text
   }
 }
 

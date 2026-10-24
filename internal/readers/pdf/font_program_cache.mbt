@@ -29,6 +29,7 @@ priv struct PdfFontProgramKey {
   declared_length : Int32?
   kind : Int32?
   plan : PdfFontDecodePlanKey
+  loaded : PdfLoadedStreamProof?
 } derive(Eq, Hash)
 
 ///|
@@ -38,15 +39,18 @@ priv struct PdfFontProgramKey {
 priv struct PdfFontProgramCache {
   context : PdfStreamDecodeContext
   programs : Map[PdfFontProgramKey, Result[PdfEmbeddedFontProgram?, String]]
+  expected_loaded_snapshot : PdfLoadedSnapshot?
 }
 
 ///|
 fn pdf_make_font_program_cache(
   source : @input.InputSource,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
 ) -> PdfFontProgramCache? {
   pdf_make_stream_decode_context(source).map(context => {
     context,
     programs: Map([]),
+    expected_loaded_snapshot: loaded_snapshot,
   })
 }
 
@@ -56,25 +60,7 @@ fn pdf_font_program_cache_key(
   kind : Int32?,
 ) -> PdfFontProgramKey? {
   match object.stream {
-    Some(Ranged(range)) => {
-      let plan = match pdf_extract_stream_filter_specs(object.dict_text) {
-        Ok((filters, params)) => {
-          let key_params : Array[PdfFontDecodeParamsKey?] = []
-          for param in params {
-            key_params.push(
-              param.map(value => {
-                predictor: value.predictor,
-                colors: value.colors,
-                bits_per_component: value.bits_per_component,
-                columns: value.columns,
-                early_change: value.early_change,
-              }),
-            )
-          }
-          PdfFontDecodePlanKey::Resolved(filters, key_params)
-        }
-        Err(_) => Rejected(object.dict_text)
-      }
+    Some(Ranged(range)) =>
       Some({
         object_id: object.object_id,
         selected_object_id: range.object_id,
@@ -87,10 +73,48 @@ fn pdf_font_program_cache_key(
         endstream_eol_length: range.endstream_eol_length,
         declared_length: range.declared_length,
         kind,
-        plan,
+        plan: pdf_font_program_decode_plan_key(object.dict_text),
+        loaded: None,
       })
-    }
+    Some(SelectedLoaded(stream, definition)) =>
+      Some({
+        object_id: object.object_id,
+        selected_object_id: definition.object_id,
+        definition_offset: definition.definition_offset,
+        generation: definition.generation,
+        payload_start: definition.payload_start,
+        primary_length: stream.primary_bytes.length(),
+        endstream_length: stream.endstream_bytes.length(),
+        endstream_eol_suffix: stream.endstream_eol_suffix,
+        endstream_eol_length: stream.endstream_eol_length,
+        declared_length: stream.declared_length,
+        kind,
+        plan: pdf_font_program_decode_plan_key(object.dict_text),
+        loaded: pdf_loaded_stream_proof(object),
+      })
     _ => None
+  }
+}
+
+///|
+fn pdf_font_program_decode_plan_key(dict_text : String) -> PdfFontDecodePlanKey {
+  match pdf_extract_stream_filter_specs(dict_text) {
+    Ok((filters, params)) => {
+      let key_params : Array[PdfFontDecodeParamsKey?] = []
+      for param in params {
+        key_params.push(
+          param.map(value => {
+            predictor: value.predictor,
+            colors: value.colors,
+            bits_per_component: value.bits_per_component,
+            columns: value.columns,
+            early_change: value.early_change,
+          }),
+        )
+      }
+      Resolved(filters, key_params)
+    }
+    Err(_) => Rejected(dict_text)
   }
 }
 
@@ -151,9 +175,20 @@ fn pdf_font_result_retained_payload(
   key : PdfFontProgramKey,
   result : Result[PdfEmbeddedFontProgram?, String],
 ) -> Int64 raise PdfHardDecodeFailure {
-  // Key numeric fields44 + declared_length8 + kind8 + plan ref8;
+  // Key numeric fields44 + declared_length8 + kind8 + plan/loaded refs16;
   // selected outer Entry key/value refs16 + Result's value ref8.
-  let mut bytes = 92L
+  let mut bytes = 100L
+  if key.loaded is Some(identity) {
+    // Proof fields: snapshot/body/dict/primary/endstream, each eight bytes.
+    // Encoded Bytes and dictionary are scope-retained logical payload; they
+    // may alias the already-owned slice. Count both candidate lengths rather
+    // than claiming a physical allocation/RSS deduplication.
+    bytes = pdf_font_payload_add(
+      context,
+      bytes,
+      pdf_loaded_stream_proof_retained_payload(identity),
+    )
+  }
   match key.plan {
     Resolved(filters, params) => {
       bytes = pdf_font_payload_add(context, bytes, 16L)
@@ -229,8 +264,22 @@ async fn pdf_font_program_for_object(
   if cache is Some(cache) {
     pdf_check_stream_live(Some(cache.context))
   }
-  let key = if cache is Some(_) {
-    pdf_font_program_cache_key(object, kind)
+  if object.stream is Some(SelectedLoaded(_, definition)) {
+    pdf_check_stream_live(Some(definition.snapshot.context))
+  }
+  let key = if cache is Some(cache) {
+    match object.stream {
+      Some(SelectedLoaded(_, definition)) =>
+        if cache.expected_loaded_snapshot is Some(expected) &&
+          physical_equal(expected.authority, definition.snapshot.authority) {
+          pdf_font_program_cache_key(object, kind)
+        } else {
+          // A different read of identical bytes (even on this same owner or
+          // account) is not the full store whose cache this is.
+          None
+        }
+      _ => pdf_font_program_cache_key(object, kind)
+    }
   } else {
     None
   }
@@ -244,7 +293,14 @@ async fn pdf_font_program_for_object(
       // Keep the original typed error for this call; a caller cannot catch it
       // and re-enter the cache with an otherwise still-live source. Typed
       // budget first errors are already latched and are never overwritten.
-      if cache is Some(cache) {
+      if object.stream is Some(SelectedLoaded(_, definition)) {
+        @input.record_input_failure(
+          definition.snapshot.context.source,
+          error.to_string(),
+        )
+      }
+      if cache is Some(cache) &&
+        (key is Some(_) || !(object.stream is Some(SelectedLoaded(_, _)))) {
         @input.record_input_failure(cache.context.source, error.to_string())
       }
       raise PdfHardDecodeFailure(error)
@@ -272,7 +328,25 @@ async fn pdf_font_program_for_object(
     // Decode callbacks may latch a failure: it must beat a newly computed
     // ordinary result, not be hidden by publication of that negative result.
     pdf_check_stream_live(Some(cache.context))
-    let payload = pdf_font_result_retained_payload(cache.context, key, result)
+    if object.stream is Some(SelectedLoaded(_, definition)) {
+      pdf_check_stream_live(Some(definition.snapshot.context))
+    }
+    let entry_payload = pdf_font_result_retained_payload(
+      cache.context,
+      key,
+      result,
+    )
+    // Native64 cache record: context/map/expected snapshot references, 24B.
+    // Admit once with the first result; an empty cache cannot beat earlier CRC.
+    let payload = pdf_font_payload_add(
+      cache.context,
+      entry_payload,
+      if cache.programs.is_empty() {
+        24L
+      } else {
+        0L
+      },
+    )
     match (cache.context.budget.retain_resident)(CacheBytes, payload) {
       Ok(_) => cache.programs.set(key, result)
       Err(error) => pdf_raise_budget_failure(Some(cache.context), error)

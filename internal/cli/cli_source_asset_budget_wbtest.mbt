@@ -317,7 +317,7 @@ async test "existing nonregular SourcePath is a hard IO output failure distinct 
 }
 
 ///|
-async test "CLI provenance samples asset materialization after render without changing confirmed output" {
+async test "CLI provenance samples asset materialization and confirms only text plus its CLI LF" {
   let root = test_tmp_root() + "/cli-source-asset-provenance"
   recreate_clean_dir(root)
   defer cleanup_temp_dir(root)
@@ -342,14 +342,14 @@ async test "CLI provenance samples asset materialization after render without ch
   guard fields.get("budget_usage") is Some(Object(usage)) else {
     fail("budget object required")
   }
-  assert_eq(usage.get("budget_schema"), Some(Json("partial_v12")))
+  assert_eq(usage.get("budget_schema"), Some(Json("partial_v13")))
   assert_true(
     usage.get("budget_cache_payload_peak_bytes") is Some(String(count)) &&
     count != "0",
   )
   assert_eq(
     usage.get("budget_output_confirmed_utf8_bytes"),
-    Some(Json((@utf8.encode(result).length() - 1).to_string())),
+    Some(Json(@utf8.encode(result).length().to_string())),
   )
   assert_eq(
     @fs.read_file_to_bytes(root + "/out/assets/image01.png"),

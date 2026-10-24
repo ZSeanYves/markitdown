@@ -253,7 +253,7 @@ pub async fn open_source_text_block_reader(
         }
         match (lines.next)() {
           Ok(Some(line)) => {
-            if line.text.trim() == "" {
+            if line.is_blank {
               if current.length() == 0 {
                 continue
               }

@@ -153,7 +153,47 @@ pub fn Budget::reserve(
   if amount > 0L {
     state.active_leases += 1L
   }
-  Ok({ state, kind, amount, released: Ref(amount == 0L), })
+  Ok({ state, kind, amount: Ref(amount), released: Ref(amount == 0L), })
+}
+
+///|
+/// Grow one live reservation before file growth/allocation. Copies share its
+/// amount as well as its release token: any alias refunds the full grown amount
+/// exactly once. This creates no new active lease or per-write lease array.
+/// Zero-byte reserve handles remain already released; callers can reserve their
+/// first nonzero growth lazily. Prior account error/close wins over lease state.
+pub fn BudgetLease::grow(
+  self : BudgetLease,
+  amount : Int64,
+) -> Result[Unit, BudgetError] {
+  let state = self.state
+  if state.first_error is Some(error) {
+    return Err(error)
+  }
+  if state.closed {
+    return Err(latch(state, Closed))
+  }
+  if self.released.val {
+    return Err(latch(state, ReleasedLease))
+  }
+  let index = resident_index(self.kind)
+  let next = match
+    checked_next(
+      state,
+      Resident(self.kind),
+      state.resident[index],
+      amount,
+      resident_limit(state.limits, self.kind),
+    ) {
+    Ok(next) => next
+    Err(error) => return Err(error)
+  }
+  // self.amount is part of the aggregate resident counter checked above, so
+  // this smaller nonnegative sum cannot overflow after aggregate admission.
+  self.amount.val += amount
+  state.resident[index] = next
+  state.resident_peak[index] = state.resident_peak[index].max(next)
+  Ok(())
 }
 
 ///|
@@ -165,7 +205,7 @@ pub fn BudgetLease::release(self : BudgetLease) -> Unit {
   }
   self.released.val = true
   let index = resident_index(self.kind)
-  self.state.resident[index] -= self.amount
+  self.state.resident[index] -= self.amount.val
   self.state.active_leases -= 1L
 }
 

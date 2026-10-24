@@ -27,7 +27,7 @@ while enforcing any finite cap that is supplied. Neither profile supplies new
 production defaults. Production InputSession explicitly selects MeasurementOnly
 with no new finite caps; tests supply finite caps to exercise enforcement.
 
-The next integrated v12 candidate adds public optional
+The v12 integration added public optional
 `ResourceLimits.max_temporary_bytes` (default None) and
 `--max-temporary-bytes`. A supplied value tightens TemporaryBytes on the same
 account and cannot relax a borrowed parent's cap. This is an opt-in ceiling,
@@ -100,6 +100,7 @@ The minimum operations are:
 ```text
 Budget.charge(kind: CumulativeKind, amount: Int64) -> Result[Unit, BudgetError]
 Budget.reserve(kind: ResidentKind, bytes: Int64) -> Result[BudgetLease, BudgetError]
+BudgetLease.grow(amount: Int64) -> Result[Unit, BudgetError]
 BudgetLease.release() -> Unit
 Budget.failure() -> BudgetError?
 Budget.snapshot() -> BudgetSnapshot
@@ -158,8 +159,11 @@ policy cannot enforce the limit, while a charge-before-write counter includes
 the admitted fragment even if the callback fails after a partial write. The
 measurement report therefore distinguishes admitted UTF8 bytes from
 the prefix confirmed by successful writes; the failing fragment's committed
-size is unknown. Successful conversions have equal admitted/confirmed values.
-Do not refund the failed fragment or label its count as exact committed bytes.
+size is unknown. Generic snapshots require confirmed<=admitted: a borrowed
+ledger can retain earlier admissions, and a successful collection is not a
+physical stdout acknowledgement. Equality additionally needs a fresh account
+and completed writes within the declared output scope. Do not refund a failed
+fragment or label its count as exact committed bytes.
 
 ## Raw input and derived representation
 
@@ -741,6 +745,56 @@ source files/tar/two copies bound.45 CLI controls and18 strict parity mutation
 controls pass. See the [local v12 report](../native-upgrade-local-v12-acceptance.md)
 for exact artifacts and failed checker attempts. No full P2-P5, formal performance
 or publication claim follows from this partial evidence.
+
+## partial_v13: Loaded caches, Atomic output and EPUB container
+
+The current protocol is `partial_v13`, frozen separately as
+`budget-v13-policy-contract.json`, SHA256
+`f560f34686bd2f268238658a4582d9c61a086fb5f050bb08c0e678e5774d87e2`.
+Earlier sections retain historical schema/coverage pairs; their samples are
+not relabelled. None emits15 fields and finite Temporary emits16; both have
+ten canonical Int64 string counters, including actual Temporary peak/current.
+None has no temporary-limit key. Coverage has56/61 exact labels respectively.
+Generic checks are confirmed<=admitted and Temporary current<=peak. Historical
+peaks can exceed a tightened cap; caller-owned credits can remain live.
+
+Loaded Font/CMap caches now bind the actual selected snapshot and decoding
+parameters. Native64 selected-field admission models snapshot24, selected
+definition56, shared proof40 plus declared strings/raw payload, Font entry100
+and CMap entry92. Each cache admits its complete24-byte wrapper once at first
+publication; factories and repeat hits add no wrapper credit. Live owners and
+typed first failures are checked before hits/publication. Deterministic local
+results can be reused, while parent lookups/merges still run. These are selected
+postparse retained fields, excluding Map/allocator overhead and parser scratch;
+they are not complete preallocation, heap or RSS bounds.
+
+Atomic output borrows the original ledger and grows one shared Temporary lease
+before writes; parser spools and output therefore share the cap. The admitted
+payload includes uncertain/failed write growth. Each encoder call also reserves
+its validated UTF8 payload workspace. Successful rename retires temporary
+ownership; ambiguous close retains credit. File/Atomic final LF is admitted
+before writing and confirmed once after writer success, without changing body
+summary sizes. Stdout final LF/ACK and asset URL/path rewrite deltas remain
+unmeasured. Logical admitted/confirmed equality does not prove physical file
+size. The independent CLI output closure design remains future work.
+
+EPUB `META-INF/container.xml` now uses the shared XML cursor through complete
+UTF8/EOF/ZIP integrity. Selected rootfile fields charge UTF8 metadata and
+UTF16 retained payload; cursor, path normalization and error-only integrity
+replay have explicit workspace/work models. OPF/nav/NCX/chapter migration is
+still pending. The existing128MiB part cap stays; no new numeric depth default
+or whole-EPUB memory bound is selected.
+
+V13 context/tables additionally distinguish `file`, `stdout`, `collected` and
+`explicit_sink`. Atomic is a file strategy. All ten supplied/effective limits,
+full options, source/tool/binary hashes and ownership history remain in every
+usable group. Fresh CLI Temporary cleanup needs explicit closed controls;
+finite peak<=cap additionally needs a limit installed before growth. Fresh
+file output equality has its own separate finalization controls. Missing
+context cannot produce usable maxima. See the
+[local v13 report](../native-upgrade-local-v13-acceptance.md) for actual gates
+and independently checked new data; this protocol selects no production
+defaults and closes no full P2/P4/performance acceptance gate.
 
 ## Default values and freeze gate
 

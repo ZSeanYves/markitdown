@@ -41,6 +41,7 @@ pub(all) enum BudgetError {
   LimitExceeded(BudgetDimension, used~ : Int64, requested~ : Int64, limit~ : Int64)
   LeaseCountOverflow
   OutstandingLeases(Int64)
+  ReleasedLease
   Closed
 } derive(Eq)
 pub fn BudgetError::equal(Self, Self) -> Bool
@@ -49,6 +50,7 @@ pub fn BudgetError::not_equal(Self, Self) -> Bool
 pub struct BudgetLease {
   // private fields
 }
+pub fn BudgetLease::grow(Self, Int64) -> Result[Unit, BudgetError]
 pub fn BudgetLease::release(Self) -> Unit
 
 pub struct BudgetLimits {
