@@ -201,6 +201,7 @@ async test "xlsx compact worksheet stream keeps budgeted rows and trailing metad
   let compact = match
     xlsx_compact_sheet_xml_stream(pkg, "xl/worksheets/sheet1.xml", 2) {
     Ok(value) => xlsx_decode_sheet_xml(value)
+    Err(BudgetExceeded(error)) => fail(@budget.budget_error_message(error))
     Err(ReadFailed(err) | UnsupportedShape(err) | InvalidEncoding(err)) =>
       fail("compact stream failed: " + err)
   }

@@ -102,6 +102,11 @@ fn counter_keys(schema : String) -> Array[String] raise {
         "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
         "budget_source_metadata_bytes",
       ])
+    "partial_v11" =>
+      result.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
     _ => fail("unknown budget schema")
   }
   result
@@ -121,6 +126,7 @@ fn budget_schema(value : Json) -> String raise {
     Some(String("partial_v8")) => "partial_v8"
     Some(String("partial_v9")) => "partial_v9"
     Some(String("partial_v10")) => "partial_v10"
+    Some(String("partial_v11")) => "partial_v11"
     _ => fail("unknown budget schema")
   }
 }
@@ -177,12 +183,24 @@ fn accounting_policy(schema : String) -> (String, String) raise {
         "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,output_utf8_admission",
         "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
       )
+    "partial_v11" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      )
     _ => fail("unknown budget schema")
   }
 }
 
 ///|
 fn counter_unit(schema : String, dimension : String) -> String {
+  if schema == "partial_v11" {
+    return if dimension == "budget_parse_work" {
+      "modeled_parse_work_units"
+    } else {
+      "bytes"
+    }
+  }
   if schema == "partial_v10" {
     return if dimension == "budget_parse_work" {
       "modeled_parse_work_units"
@@ -220,6 +238,26 @@ fn counter_unit(schema : String, dimension : String) -> String {
 
 ///|
 fn measurement_scope(schema : String, dimension : String) -> String {
+  if schema == "partial_v11" {
+    return match dimension {
+      "budget_read_traffic_bytes" =>
+        "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic"
+      "budget_inflate_bytes" =>
+        "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured"
+      "budget_output_admitted_utf8_bytes" => "output_write_admission"
+      "budget_output_confirmed_utf8_bytes" =>
+        "confirmed_successful_output_writes"
+      "budget_parse_work" =>
+        "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work;other_parse_work_unmeasured"
+      "budget_source_metadata_bytes" =>
+        "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured"
+      "budget_cache_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured"
+      "budget_working_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound;raw_selection_buffers_and_other_working_unmeasured"
+      _ => "unmeasured_unknown_dimension"
+    }
+  }
   if schema == "partial_v10" {
     return match dimension {
       "budget_read_traffic_bytes" =>
@@ -1194,7 +1232,8 @@ async fn save(report : Report, status : String) -> Unit {
     "# Measurement only\n\nCollecting Native CLI, one invocation per selected input/view. No timing, RSS, headroom/default freeze, formal performance or complete budget acceptance. Resident values are scope-retained payload upper bounds. Missing candidates and expected rejections have unavailable usage, never zero. Uninstrumented dimensions are explicitly unmeasured. Successful output admission equals confirmed bytes; partial failed-write commitment is unknown. Source checkout fingerprints do not alone prove a binary was built from that checkout; retain its independent freeze/build evidence. Quality evidence is linked and fingerprinted read-only, not rewritten or re-executed. Maxima never combine legacy_v1/partial_v2/partial_v3/partial_v4/partial_v5/partial_v6/partial_v7 schemas or measurement_only/explicit_enforced profiles. All-corpus maxima combine origins only within the same schema/profile; explicit_enforced observations can be censored by their configured limits. Historical v2/v3 ParseWork counts modeled UTF8 work units; v4/v5/v6/v7 use mixed modeled parse-work admission units for cursor UTF8 work, YAML logical nodes/merge copies and PDF probe bytes/code units/entries/visits/comparisons. V5 additionally admits selected core/app scalars and indexed ObjStm code units, and its resident scope adds admitted core/app buffers/strings and PDF indexed dictionaries/ranges/read scratch/member payloads. V6 preserves the v5 ParseWork and SourceMetadata scopes and adds CLI SourcePath actual opened-descriptor read traffic, scope-retained final Bytes and collection/bounded-read payload working. Empty extents use no content buffer; existing Bytes/Utf8 payloads are not recharged as new CLI cache. V7 adds custom emitted/serialized scalar work, final name/type/value UTF8 metadata, transient namespace/value workspace and retained strings, plus post-pure-parse Ranged font-program Native64 retained payload. The font cache adds no ParseWork/SourceMetadata and excludes preparse/parser scratch and allocator/Map headers. Extra CLI/font diagnostics are not budget_usage fields. No v7 profile window or numeric defaults follow from schema support. Neither unit measures machine instructions, elapsed time or a complete parse cost.\n" +
     "V8 adds DOCX paragraph cursor work including synthetic roots, escaping string metadata/cache and raw UTF8/feed/token/range Working payloads, plus PDF pending-image descriptor/reference-buffer and scope-name UTF16 Working payloads. Other dimensions/scopes are unchanged. New integrated v8 sampling remains pending; historical observations are never relabeled or merged into v8. No numeric defaults, full-budget, RSS or performance acceptance follows.\n" +
     "V9 adds only postparse Ranged local-CMap Native64 selected fields, slots and strings retained Cache payload. The 60B numeric/reference key, Info/Result/outer Entry selected references and actual inner-map/width capacities are a partial payload model, excluding outer buckets, hash/link/header bookkeeping, allocator, preparse, parsing and merge. Other seven measurement scopes and units are unchanged. A new v9 freeze and sampling remain pending; no v8 observation is relabeled. No new numeric defaults, complete-budget, RSS or performance acceptance follows.\n" +
-    "V10 adds only document-local Ranged font-local Result postparse Native64 selected fields, slots and strings retained Cache payload. The model excludes outer map buckets/bookkeeping, allocator, parse/merge and filter-key scratch. Other seven measurement scopes, units and numeric defaults are unchanged. New v10 freeze and sampling are required; no v9 observation is relabeled or merged. No complete-budget, RSS or formal performance acceptance follows.\n",
+    "V10 adds only document-local Ranged font-local Result postparse Native64 selected fields, slots and strings retained Cache payload. The model excludes outer map buckets/bookkeeping, allocator, parse/merge and filter-key scratch. Other seven measurement scopes, units and numeric defaults are unchanged. New v10 freeze and sampling are required; no v9 observation is relabeled or merged. No complete-budget, RSS or formal performance acceptance follows.\n" +
+    "V11 adds XLSX worksheet cursor ParseWork and Working workspace plus document-local Ranged ObjStm local Result postparse Native64 selected-field retained Cache payload. Raw selection buffers and outer result-map bookkeeping remain unmeasured; this is not preparse or RSS coverage. The other five scopes, all units and numeric defaults remain unchanged. New v11 freeze and 1313 sampling are required; no v10 observation is relabeled or merged.\n",
   )
 }
 
@@ -1654,6 +1693,269 @@ fn self_test_v10_budget_policy() -> Unit raise {
     )
     assert_false(valid_scope_row(columns.join("\t")))
     columns[9] = "all_cache_and_rss_complete"
+    assert_false(valid_scope_row(columns.join("\t")))
+  }
+}
+
+///|
+fn self_test_v11_budget_policy() -> Unit raise {
+  let fields = self_test_profile_fields("partial_v11", "measurement_only")
+  let wrap = fn() {
+    Json::object({ "budget_usage": Json::object(fields) }).stringify()
+  }
+  let rejects = fn(value : String) {
+    try {
+      ignore(profile(value))
+      false
+    } catch {
+      _ => true
+    }
+  }
+  assert_eq(fields.length(), 13)
+  assert_eq(counter_keys("partial_v11"), counter_keys("partial_v10"))
+  assert_eq(counter_keys("partial_v11").length(), 8)
+  assert_eq(
+    accounting_policy("partial_v11").1,
+    accounting_policy("partial_v10").1,
+  )
+  ignore(profile(wrap()))
+  fields["budget_schema"] = Json("partial_v10")
+  assert_true(rejects(wrap()))
+  fields["budget_schema"] = Json("partial_v11")
+  fields["budget_coverage"] = Json(accounting_policy("partial_v10").0)
+  assert_true(rejects(wrap()))
+  fields["budget_coverage"] = Json(accounting_policy("partial_v11").0)
+  for dimension in counter_keys("partial_v11") {
+    for
+      bad in [
+        Json(0),
+        Json(-1),
+        Json(1.5),
+        Json(true),
+        Json::null(),
+        Json("-1"),
+        Json("01"),
+        Json("9223372036854775808"),
+      ] {
+      fields[dimension] = bad
+      assert_true(rejects(wrap()))
+    }
+    fields[dimension] = Json("0")
+  }
+  fields["pdf_objstm_local_result_cache_bytes"] = Json("1")
+  assert_true(rejects(wrap()))
+  fields.remove("pdf_objstm_local_result_cache_bytes")
+  fields["budget_profile"] = Json("explicit_enforced")
+  ignore(profile(wrap()))
+  fields["budget_resident_policy"] = Json("rss_bound")
+  assert_true(rejects(wrap()))
+  fields["budget_resident_policy"] = Json("scope_retained_payload_upper_bound")
+  let report = new_report("")
+  for
+    (schema, account_profile, count) in [
+      ("partial_v10", "measurement_only", 113L),
+      ("partial_v10", "explicit_enforced", 127L),
+      ("partial_v11", "measurement_only", 131L),
+      ("partial_v11", "explicit_enforced", 137L),
+    ] {
+    let row = self_test_profile_fields(schema, account_profile)
+    row["budget_cache_payload_peak_bytes"] = Json(count.to_string())
+    record_sample(
+      report,
+      "benchmark",
+      schema + account_profile,
+      "pdf",
+      "debug",
+      profile(Json::object({ "budget_usage": Json::object(row) }).stringify()),
+      "selftest",
+    )
+    assert_eq(
+      report.maxima["all\t" +
+      schema +
+      "\t" +
+      account_profile +
+      "\t*\t*\tbudget_cache_payload_peak_bytes"],
+      count,
+    )
+  }
+  assert_eq(
+    report.maxima["all\tpartial_v10\tmeasurement_only\t*\t*\tbudget_cache_payload_peak_bytes"],
+    113L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v10\texplicit_enforced\t*\t*\tbudget_cache_payload_peak_bytes"],
+    127L,
+  )
+  for
+    missing in [
+      "xlsx_worksheet_cursor_work", "xlsx_worksheet_cursor_workspace", "pdf_ranged_objstm_local_result_postparse_retained_payload",
+    ] {
+    fields["budget_coverage"] = Json(
+      accounting_policy("partial_v11").0.replace_all(old=missing + ",", new=""),
+    )
+    assert_true(rejects(wrap()))
+  }
+  fields["budget_coverage"] = Json(accounting_policy("partial_v11").0)
+  assert_eq(
+    measurement_scope("partial_v11", "budget_read_traffic_bytes"),
+    "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+  )
+  assert_eq(counter_unit("partial_v11", "budget_read_traffic_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v11", "budget_read_traffic_bytes"),
+    measurement_scope("partial_v10", "budget_read_traffic_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_inflate_bytes"),
+    "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+  )
+  assert_eq(counter_unit("partial_v11", "budget_inflate_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v11", "budget_inflate_bytes"),
+    measurement_scope("partial_v10", "budget_inflate_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_output_admitted_utf8_bytes"),
+    "output_write_admission",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_output_admitted_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_output_admitted_utf8_bytes"),
+    measurement_scope("partial_v10", "budget_output_admitted_utf8_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_output_confirmed_utf8_bytes"),
+    "confirmed_successful_output_writes",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_output_confirmed_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_output_confirmed_utf8_bytes"),
+    measurement_scope("partial_v10", "budget_output_confirmed_utf8_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_parse_work"),
+    "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work;other_parse_work_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_source_metadata_bytes"),
+    "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_source_metadata_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_source_metadata_bytes"),
+    measurement_scope("partial_v10", "budget_source_metadata_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_cache_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_cache_payload_peak_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "budget_working_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound;raw_selection_buffers_and_other_working_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v11", "budget_working_payload_peak_bytes"),
+    "bytes",
+  )
+  assert_true(
+    measurement_scope("partial_v11", "budget_cache_payload_peak_bytes") !=
+    measurement_scope("partial_v10", "budget_cache_payload_peak_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v11", "unknown"),
+    "unmeasured_unknown_dimension",
+  )
+  let expected_scopes : Map[String, String] = {
+    "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+    "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+    "budget_output_admitted_utf8_bytes": "output_write_admission",
+    "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes",
+    "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units_and_xlsx_worksheet_cursor_utf8_work;other_parse_work_unmeasured",
+    "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured",
+    "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_and_ranged_font_local_result_postparse_and_ranged_objstm_local_result_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_font_and_objstm_result_map_bookkeeping_parse_merge_filter_key_scratch_and_other_cache_unmeasured",
+    "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound_and_xlsx_worksheet_cursor_utf8_feed_token_namespace_payload_upper_bound;raw_selection_buffers_and_other_working_unmeasured",
+  }
+  let valid_scope_row = fn(row : String) {
+    let columns = row.split("\t").to_array()
+    columns.length() == 10 &&
+    columns[1] == "partial_v11" &&
+    expected_scopes.get(columns[6].to_owned()) == Some(columns[9].to_owned())
+  }
+  let v11_rows = report.values.filter(row => {
+    row.split("\t").to_array()[1] == "partial_v11"
+  })
+  assert_eq(v11_rows.length(), 16)
+  for row in v11_rows {
+    assert_true(valid_scope_row(row))
+  }
+  let cache_rows = v11_rows.filter(row => {
+    row.split("\t").to_array()[6] == "budget_cache_payload_peak_bytes"
+  })
+  assert_eq(cache_rows.length(), 2)
+  for row in cache_rows {
+    let columns = row.split("\t").map(value => value.to_owned()).to_array()
+    columns[9] = measurement_scope(
+      "partial_v10", "budget_cache_payload_peak_bytes",
+    )
+    assert_false(valid_scope_row(columns.join("\t")))
+    columns[9] = "all_cache_and_rss_complete"
+    assert_false(valid_scope_row(columns.join("\t")))
+  }
+  assert_true(
+    measurement_scope("partial_v11", "budget_parse_work") !=
+    measurement_scope("partial_v10", "budget_parse_work"),
+  )
+  for
+    row in v11_rows.filter(row => {
+      row.split("\t").to_array()[6] == "budget_parse_work"
+    }) {
+    let columns = row.split("\t").map(value => value.to_owned()).to_array()
+    columns[9] = measurement_scope("partial_v10", "budget_parse_work")
+    assert_false(valid_scope_row(columns.join("\t")))
+  }
+  assert_true(
+    measurement_scope("partial_v11", "budget_working_payload_peak_bytes") !=
+    measurement_scope("partial_v10", "budget_working_payload_peak_bytes"),
+  )
+  for
+    row in v11_rows.filter(row => {
+      row.split("\t").to_array()[6] == "budget_working_payload_peak_bytes"
+    }) {
+    let columns = row.split("\t").map(value => value.to_owned()).to_array()
+    columns[9] = measurement_scope(
+      "partial_v10", "budget_working_payload_peak_bytes",
+    )
+    assert_false(valid_scope_row(columns.join("\t")))
+  }
+  assert_true(
+    measurement_scope("partial_v11", "budget_cache_payload_peak_bytes") !=
+    measurement_scope("partial_v10", "budget_cache_payload_peak_bytes"),
+  )
+  for
+    row in v11_rows.filter(row => {
+      row.split("\t").to_array()[6] == "budget_cache_payload_peak_bytes"
+    }) {
+    let columns = row.split("\t").map(value => value.to_owned()).to_array()
+    columns[9] = measurement_scope(
+      "partial_v10", "budget_cache_payload_peak_bytes",
+    )
     assert_false(valid_scope_row(columns.join("\t")))
   }
 }
@@ -2148,6 +2450,7 @@ fn self_test() -> Unit raise {
   )
   self_test_v9_budget_policy()
   self_test_v10_budget_policy()
+  self_test_v11_budget_policy()
   println("budget profile self-tests passed; no product run")
 }
 

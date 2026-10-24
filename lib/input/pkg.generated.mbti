@@ -8,7 +8,11 @@ import {
 // Values
 pub fn audio_format_name(AudioFormat) -> String
 
+pub fn begin_input_cleanup_scope(InputSession) -> InputCleanupScope
+
 pub fn begin_input_session(InputSource, max_bytes? : Int64, budget? : @resource_budget.Budget) -> InputSession
+
+pub async fn cleanup_input_scope(InputCleanupScope) -> Result[Unit, InputFailure] noraise + nocancel
 
 pub fn default_format_detector() -> FormatDetector
 
@@ -95,6 +99,8 @@ pub fn record_input_budget_failure(InputSource, @resource_budget.BudgetError) ->
 pub fn record_input_failure(InputSource, String) -> Unit
 
 pub fn record_input_resource_failure(InputSource, ResourceLimitFailure) -> Unit
+
+pub fn register_input_temporary_cleanup(InputSource, async () -> Result[Unit, InputFailure]) -> Result[Unit, InputFailure]
 
 pub fn source_cursor_close(SourceCursor) -> Unit
 
@@ -190,6 +196,10 @@ pub(all) enum ImageFormat {
 } derive(Eq)
 pub fn ImageFormat::equal(Self, Self) -> Bool
 pub fn ImageFormat::not_equal(Self, Self) -> Bool
+
+pub struct InputCleanupScope {
+  // private fields
+}
 
 pub(all) enum InputFailure {
   InputError(String)

@@ -1,4 +1,6 @@
 import {
+  "ZSeanYves/markitdown/internal/readers/xml",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/string",
   "ZSeanYves/markitdown/internal/readers/ooxml/package" @ox,

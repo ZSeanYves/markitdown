@@ -41,8 +41,18 @@ pub async fn open_source_text_line_reader(
   let skip_bom = Ref(true)
   let closed = Ref(false)
   let close = fn() {
-    closed.val = true
-    (chunks.close)()
+    if !closed.val {
+      closed.val = true
+      chunk.val = ""
+      chunk_index.val = 0
+      line.val = StringBuilder()
+      line_chars.val = 0
+      line_truncated.val = false
+      pending_cr.val = false
+      eof.val = true
+      saw_content.val = false
+      (chunks.close)()
+    }
   }
   let emit = fn() -> SourceTextLine {
     let value = {
@@ -171,8 +181,16 @@ pub async fn open_source_text_block_reader(
   let eof = Ref(false)
   let closed = Ref(false)
   let close = fn() {
-    closed.val = true
-    (lines.close)()
+    if !closed.val {
+      closed.val = true
+      current.clear()
+      current.shrink_to_fit()
+      start.val = 0
+      finish.val = 0
+      truncated.val = false
+      eof.val = true
+      (lines.close)()
+    }
   }
   Ok({
     close,

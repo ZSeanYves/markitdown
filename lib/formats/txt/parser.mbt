@@ -244,6 +244,21 @@ async fn open_txt_event_stream(
   let saw_crlf = Ref(false)
   let saw_cr = Ref(false)
   let max_line_chars = @parser.max_line_chars(context)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      chunk.val = ""
+      chunk_index.val = 0
+      current.val = StringBuilder()
+      current_chars.val = 0
+      line_truncated.val = false
+      line_has_content.val = false
+      pending_cr.val = false
+      eof.val = true
+      (reader.close)()
+    }
+  }
   let emit_line = fn() -> @core.CoreEvent {
     let text = current.val.to_string() +
       (if line_truncated.val { " [truncated]" } else { "" })
@@ -277,6 +292,9 @@ async fn open_txt_event_stream(
     Some(
       @parser.make_parse_event_stream(
         async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if chunk_index.val >= chunk.val.length() && !eof.val {
               match (reader.next)() {
@@ -286,7 +304,10 @@ async fn open_txt_event_stream(
                   continue
                 }
                 Ok(None) => eof.val = true
-                Err(message) => return Err(message)
+                Err(message) => {
+                  close()
+                  return Err(message)
+                }
               }
             }
             if chunk_index.val >= chunk.val.length() {
@@ -300,6 +321,7 @@ async fn open_txt_event_stream(
                 emitted_events.val += 1
                 return Ok(Some(emit_line()))
               }
+              close()
               return Ok(None)
             }
             let previous_index = chunk_index.val
@@ -308,6 +330,7 @@ async fn open_txt_event_stream(
               Ok(value) => value
               Err(message) => {
                 @input.record_input_failure(source, message)
+                close()
                 return Err(message)
               }
             }
@@ -365,7 +388,7 @@ async fn open_txt_event_stream(
           Ok(None)
         },
         fn() {
-          (reader.close)()
+          close()
           diagnostics.metrics.set(
             "input_line_count",
             line_count.val.to_string(),
@@ -414,6 +437,10 @@ async fn open_txt_event_stream(
               diagnostics,
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),

@@ -14,25 +14,31 @@
 P2/P3/P4 的若干基础实现。整个升级没有完成；后续本地源码仍须独立验收，P2–P6
 均未闭环。没有正式 PDF 性能收益、完整性能/持续负载 RC 或发布后交付通过结论。**
 
-最新本地冻结为 `mime-cmap-v9`：严格Native debug/release各1316/1316，info/fmt/check及
-release build通过；标准语料、独立预算侧车、实际安装后语料各935/935。安装产物与源码
-产物3329项输出全部相同；对v8的原始比较3328equal/1unexpected，唯一W4 provenance只改
-schema/coverage，八个counter及其余稳定字段精确相同，七项负控拒绝。新1313项采样0失败，
-独立复核10504值、2488组最大值及见证全部吻合；实际1177源码文件与tar及双副本精确绑定。
-本地工具链在安装结束后被升级；原日志支持v10安装与consumer先于替换完成，最终复核已用
-隔离固定093cb8f9c工具链通过。新候选远程双平台CI/固定Git RC待执行；详见
-[本地v9验收与待验项](native-upgrade-local-v9-acceptance.md)。
+最新已完成本地及远程验收的候选为 `font-jsonl-v10`，提交
+`2b0b1fa5a97991151d00cae2317a287fafa474b0`。本地严格Native debug/release各1358/1358，
+info/fmt/check/build通过；标准语料、独立预算侧车、实际安装后语料各935/935，安装与源码
+产物3329项输出相同。新1313项采样0失败，独立复核10504值、2488组最大值及见证，
+1188项源码与完整tar及双副本精确绑定。详见
+[本地v10验收与边界](native-upgrade-local-v10-acceptance.md)。
 
-最新远程基础候选为 `d1a7198896417a2ae5f439432d2e805facdef174`：Native CI
-`39964545691` 两平台成功，各自 debug/release 1138/1138；固定 Git RC
-`39964818181` 两平台成功，实际 `moon install URL . --rev SHA`、同 SHA 的全新
-库 consumer check/run、安装后二进制各935/935。两平台完整3329项持久化输出的原始
-比较为3285equal/44unexpected；独立审查逐叶证明363项变化：272个完整输入路径、
-84个chunk ID及7个boundary key按固定源码双向重算，0未解释，六类篡改负控均拒绝。
-报告为 `.audit/2026-10-23-native-upgrade/foundation-fixedgit-exact-path-review-v3/`。
-原始非零比较完整保留，不把它们称为跨平台字节相同。
-安装产物、日志与归档SHA均已保存。该结论覆盖远程基础候选；下述 v5 及后续本地
-SourcePath、custom cursor、字体缓存均不自动继承它。
+该提交的Native CI `40063655659`、固定Git安装RC `40063756304` 均双平台成功。
+Linux/macOS各自debug/release1358/1358，固定提交安装、全新公共库consumer及安装后
+935/935通过。两端完整产物ZIP已下载并与服务端SHA256吻合。3329项持久化输出原始比较
+为3285equal/44unexpected；逐叶复核363项变化：272个完整输入路径、84个chunk ID及
+7个boundary key按同一源码双向重算，0未解释，十项篡改负控拒绝（含数字词法变化）。
+报告在本机`v10-fixedgit-exact-path-review-v1/`与`v10-remote-acceptance/`。
+保留原始非零比较，不把它称为跨平台字节相同。此前v9提交`2f485127`的双平台CI与
+固定Git安装也通过；历史基础候选`d1a71988`的结果保留在下文，不代表当前工作树。
+
+新一轮`partial_v11`已按51项before/proposed guard合入50个独立路径：异步输入及parser
+清理、pull reader退休、共享临时账本的收紧/清理完成标记、XLSX实际row cursor及Ranged
+ObjStm局部Result缓存。严格debug/release各1424/1424、info/fmt/check/release build通过；
+标准/侧车/安装后语料各935/935、安装及新公共库consumer通过，安装产物与源码3329项输出
+一致。对v10仅W4 schema/coverage变化，八counter和其余稳定字段/数字词法精确不变，17项
+负控拒绝。新1313采样0失败，独立10504值/2488组最大值见证及1208源码/tar/双副本绑定通过。
+详见[本地v11验收及边界](native-upgrade-local-v11-acceptance.md)；推送后的跨平台验收待执行。
+公共临时上限/实际JSONL
+spool与Loaded ObjStm工作量补齐仍在隔离开发，不在本轮冻结，也没有继承本轮测试结论。
 
 本报告把“已实施”“某次产物已验证”和“阶段退出条件完成”分开。首次 candidate 的
 935 条语料结果不覆盖随后全部 P2 编辑；历史某次全量测试通过不自动等于当前工作树

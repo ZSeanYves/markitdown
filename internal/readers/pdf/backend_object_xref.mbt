@@ -227,13 +227,16 @@ async fn pdf_build_store_from_resolved_xref(
   input_access_mode : String,
   decode_context~ : PdfStreamDecodeContext? = None,
   prefetched~ : Map[Int32, PdfNativeObject] = Map([]),
-  object_streams~ : Map[(Int32, Int64, Int32), Array[PdfNativeObject]] = Map([]),
+  object_streams? : PdfObjectStreamResultCache,
   range_cursor~ : @input.SourceCursor? = None,
   locations~ : (
     Array[PdfXrefDirectObjectLocation],
     Array[PdfXrefCompressedObjectRef],
   )? = None,
 ) -> Result[PdfParsedObjectStore?, PdfNativeError] {
+  let object_streams = object_streams.unwrap_or_else(() => {
+    pdf_make_object_stream_result_cache(decode_context)
+  })
   let (direct_locations, compressed_refs) = locations.unwrap_or_else(() => {
     pdf_xref_object_locations(resolved, source_size)
   })

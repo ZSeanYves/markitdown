@@ -131,7 +131,7 @@ pub extend BudgetSnapshot with Eq::{equal, not_equal}
 
 ///|
 priv struct BudgetState {
-  limits : BudgetLimits
+  mut limits : BudgetLimits
   cumulative : FixedArray[Int64]
   resident : FixedArray[Int64]
   resident_peak : FixedArray[Int64]

@@ -28,11 +28,14 @@ pub fn make_parser(
         max_bytes=max_input_bytes(context),
       )
       defer @input.end_input_session(session)
+      let cleanup = @input.begin_input_cleanup_scope(session)
+      defer ignore(@input.cleanup_input_scope(cleanup))
       let context = parse_context_with_input_source(context, session.source)
       if @input.input_source_error(session.source) is Some(message) {
         return Err(message)
       }
       let result = parse(session.source, context)
+      ignore(@input.cleanup_input_scope(cleanup))
       match @input.input_source_error(session.source) {
         Some(message) => Err(message)
         None => result
@@ -40,46 +43,7 @@ pub fn make_parser(
     },
     open_stream: open_stream.map(fn(open) {
       async fn(source, context) {
-        let source = match context.input_source {
-          Some(parent) => @input.input_source_inherit_session(source, parent)
-          None => source
-        }
-        let context = parse_context_with_input_source(context, source)
-        if @input.input_source_error(source) is Some(message) {
-          return Err(message)
-        }
-        let result = open(source, context)
-        if @input.input_source_error(source) is Some(message) {
-          return Err(message)
-        }
-        match result {
-          Ok(Some(stream)) =>
-            Ok(
-              Some({
-                next: async fn() {
-                  if @input.input_source_error(source) is Some(message) {
-                    return Err(message)
-                  }
-                  let result = (stream.next)()
-                  match @input.input_source_error(source) {
-                    Some(message) => Err(message)
-                    None => result
-                  }
-                },
-                finish: async fn() {
-                  if @input.input_source_error(source) is Some(message) {
-                    return Err(message)
-                  }
-                  let result = (stream.finish)()
-                  match @input.input_source_error(source) {
-                    Some(message) => Err(message)
-                    None => result
-                  }
-                },
-              }),
-            )
-          other => other
-        }
+        open_parser_stream_with_cleanup(open, source, context)
       }
     }),
   }
@@ -115,6 +79,7 @@ pub fn parse_stream_summary(
 pub fn make_parse_event_stream(
   next : async () -> Result[@core.CoreEvent?, String],
   finish : async () -> Result[ParseStreamSummary, String],
+  close~ : async () -> Result[Unit, String] = fn() { Ok(()) },
 ) -> ParseEventStream {
   {
     next: async fn() {
@@ -122,6 +87,19 @@ pub fn make_parse_event_stream(
       next()
     },
     finish,
+    close_stream: close,
+  }
+}
+
+///|
+/// Abort without requesting a successful summary. It is safe to use in a
+/// cancellation defer; owned stream resources and temporary cleanup are closed
+/// independently of finish. Callers must not silently abandon a live stream.
+pub async fn ParseEventStream::close(
+  self : ParseEventStream,
+) -> Result[Unit, String] noraise + nocancel {
+  @async.protect_from_cancel(() => (self.close_stream)()) catch {
+    error => Err("parser stream close failed: " + error.to_string())
   }
 }
 

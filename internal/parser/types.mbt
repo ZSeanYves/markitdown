@@ -175,6 +175,7 @@ pub struct ParseStreamSummary {
 pub struct ParseEventStream {
   next : async () -> Result[@core.CoreEvent?, String]
   finish : async () -> Result[ParseStreamSummary, String]
+  priv close_stream : async () -> Result[Unit, String]
 }
 
 ///|

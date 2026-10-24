@@ -18,6 +18,7 @@ pub fn Budget::failure(Self) -> BudgetError?
 pub fn Budget::new(BudgetLimits) -> Self
 pub fn Budget::reserve(Self, ResidentKind, Int64) -> Result[BudgetLease, BudgetError]
 pub fn Budget::snapshot(Self) -> BudgetSnapshot
+pub fn Budget::tighten_resident_limit(Self, ResidentKind, Int64) -> Result[Unit, BudgetError]
 
 pub struct BudgetContext {
   account : Budget

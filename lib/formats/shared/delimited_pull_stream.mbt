@@ -41,6 +41,25 @@ async fn open_pull_delimited_reader(
   let line_no = Ref(1)
   let row_start = Ref(1)
   let last_record_break = Ref(false)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      chunk.val = ""
+      chunk_index.val = 0
+      eof.val = true
+      replay.val = None
+      skip_lf.val = false
+      row_fields.clear()
+      row_fields.shrink_to_fit()
+      field.val = StringBuilder()
+      field_chars.val = 0
+      in_quotes.val = false
+      pending_quote.val = false
+      field_started.val = false
+      (chunks.close)()
+    }
+  }
   let next_char = async fn() -> Result[Char?, String] {
     while true {
       match replay.val {
@@ -107,8 +126,11 @@ async fn open_pull_delimited_reader(
   }
   Ok({
     input_error: chunks.input_error,
-    close: chunks.close,
+    close,
     next: async fn() {
+      if closed.val {
+        return Ok(None)
+      }
       while true {
         let next = match next_char() {
           Ok(value) => value
@@ -255,6 +277,16 @@ async fn open_delimited_event_stream(
   let event_count = Ref(0)
   let queued : Array[@core.CoreEvent] = []
   let queued_index = Ref(0)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      (rows.close)()
+      queued.clear()
+      queued.shrink_to_fit()
+      queued_index.val = 0
+    }
+  }
   let format_name = @input.detected_format_name(format)
   let diagnostics = empty_parser_diagnostics(
     parser_name,
@@ -266,6 +298,9 @@ async fn open_delimited_event_stream(
     Some(
       @parser.make_parse_event_stream(
         async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -276,7 +311,7 @@ async fn open_delimited_event_stream(
             queued.clear()
             queued_index.val = 0
             if emitted_rows.val >= allowed_rows {
-              (rows.close)()
+              close()
               return Ok(None)
             }
             match (rows.next)() {
@@ -304,9 +339,12 @@ async fn open_delimited_event_stream(
                 }
                 emitted_rows.val += 1
               }
-              Ok(None) => return Ok(None)
+              Ok(None) => {
+                close()
+                return Ok(None)
+              }
               Err(message) => {
-                (rows.close)()
+                close()
                 return Err(message)
               }
             }
@@ -314,7 +352,7 @@ async fn open_delimited_event_stream(
           Ok(None)
         },
         fn() {
-          (rows.close)()
+          close()
           diagnostics.metrics.set("parser_name", parser_name)
           diagnostics.metrics.set("parser_mode", "streaming_event")
           diagnostics.metrics.set("detected_format", format_name)
@@ -367,6 +405,10 @@ async fn open_delimited_event_stream(
               diagnostics,
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),

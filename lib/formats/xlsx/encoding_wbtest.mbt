@@ -116,6 +116,7 @@ async test "XLSX streaming sheet carries a valid UTF8 scalar across a chunk boun
   )
   let compact = match
     xlsx_compact_sheet_xml_stream(pkg, "xl/worksheets/sheet1.xml", 1) {
+    Err(BudgetExceeded(error)) => fail(@budget.budget_error_message(error))
     Ok(bytes) => xlsx_decode_sheet_xml(bytes)
     Err(
       ReadFailed(message)

@@ -22,6 +22,7 @@ pub struct TempOwner {
   // private fields
 }
 pub async fn TempOwner::append(Self, BytesView) -> Result[Unit, TempFailure] noraise
+pub fn TempOwner::cleanup_complete(Self) -> Bool
 pub async fn TempOwner::close(Self) -> Result[Unit, TempFailure] noraise + nocancel
 pub async fn TempOwner::create(@resource_budget.Budget, capacity~ : Int64, report_failure? : (TempFailure) -> Unit) -> Result[Self, TempFailure] noraise
 pub fn TempOwner::failure(Self) -> TempFailure?

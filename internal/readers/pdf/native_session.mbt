@@ -30,7 +30,7 @@ priv struct PdfIndexedProbe {
     Array[PdfXrefCompressedObjectRef],
   )
   objects : Map[Int32, PdfNativeObject]
-  object_streams : Map[(Int32, Int64, Int32), Array[PdfNativeObject]]
+  object_streams : PdfObjectStreamResultCache
   loading : Map[Int32, Bool]
 }
 
@@ -147,7 +147,7 @@ async fn pdf_open_native_session_impl(
               resolved,
               locations: pdf_xref_object_locations(resolved, source_size),
               objects: Map([]),
-              object_streams: Map([]),
+              object_streams: pdf_make_object_stream_result_cache(Some(context)),
               loading: Map([]),
             }
             page_count = match pdf_probe_page_tree(probe, cursor, context) {

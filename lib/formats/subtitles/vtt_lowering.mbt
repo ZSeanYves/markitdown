@@ -43,6 +43,16 @@ async fn open_vtt_event_stream(
   let queued_index = Ref(0)
   let event_count = Ref(0)
   let truncated_blocks = Ref(0)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      (blocks.close)()
+      queued.clear()
+      queued.shrink_to_fit()
+      queued_index.val = 0
+    }
+  }
   let diagnostics = @fshared.empty_parser_diagnostics(
     "vtt_parser",
     StreamingEvent,
@@ -53,6 +63,9 @@ async fn open_vtt_event_stream(
     Some(
       @parser.make_parse_event_stream(
         async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -76,14 +89,20 @@ async fn open_vtt_event_stream(
                   stats,
                 )
               }
-              Ok(None) => return Ok(None)
-              Err(message) => return Err(message)
+              Ok(None) => {
+                close()
+                return Ok(None)
+              }
+              Err(message) => {
+                close()
+                return Err(message)
+              }
             }
           }
           Ok(None)
         },
         fn() {
-          (blocks.close)()
+          close()
           diagnostics.metrics.set("parser_name", "vtt_parser")
           diagnostics.metrics.set("parser_mode", "streaming_event")
           diagnostics.metrics.set("detected_format", "vtt")
@@ -141,6 +160,10 @@ async fn open_vtt_event_stream(
               diagnostics,
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),

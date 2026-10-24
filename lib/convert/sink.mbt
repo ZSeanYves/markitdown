@@ -113,11 +113,23 @@ async fn convert_input_to_sink_with_collection(
     max_bytes=options.limits.max_input_bytes,
   )
   defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
   if parser_pull_sink_candidate(source, options) {
     match
       try_convert_event_stream_to_sink(source, options, sink, collect_content) {
-      Ok(Some(result)) => return Ok(result)
+      Ok(Some(result)) => {
+        match finish_conversion_cleanup(cleanup, source) {
+          Err(error) => return Err(error)
+          Ok(_) => ()
+        }
+        refresh_budget_diagnostics(source, result.diagnostics)
+        return match (sink.finish)() {
+          Ok(_) => Ok(result)
+          Err(message) => Err(RenderFailed("sink finish failed: " + message))
+        }
+      }
       Ok(None) => ()
       Err(err) => return Err(err)
     }
@@ -144,6 +156,11 @@ async fn convert_input_to_sink_with_collection(
   } else {
     result.diagnostics.metrics.set("sink_buffered_fallback", "false")
   }
+  match finish_conversion_cleanup(cleanup, source) {
+    Err(error) => return Err(error)
+    Ok(_) => ()
+  }
+  refresh_budget_diagnostics(source, result.diagnostics)
   match (sink.finish)() {
     Ok(_) => Ok(result)
     Err(message) => Err(RenderFailed("sink finish failed: " + message))
@@ -200,6 +217,8 @@ async fn try_convert_event_stream_to_sink(
     max_bytes=options.limits.max_input_bytes,
   )
   defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
   let execution_started = @env.now()
   let (effective_source, detected, execution_plan) = match
@@ -236,6 +255,7 @@ async fn try_convert_event_stream_to_sink(
         input_failure_convert_error(source).unwrap_or(ParseFailed(message)),
       )
   }
+  defer ignore(stream.close())
   let content = Ref(StringBuilder())
   let confirmed_bytes = Ref(0L)
   let collecting_sink = make_output_sink(
@@ -316,10 +336,6 @@ async fn try_convert_event_stream_to_sink(
     "timing_total_ms",
     (@env.now() - execution_started).to_string(),
   )
-  match (sink.finish)() {
-    Ok(_) => ()
-    Err(message) => return Err(RenderFailed("sink finish failed: " + message))
-  }
   Ok(
     Some({
       content: content.val.to_string(),

@@ -55,6 +55,50 @@ fn checked_next(
 }
 
 ///|
+/// Tighten one resident dimension on this same account. A larger request never
+/// relaxes an existing limit, and no counter, lease, peak or first failure is
+/// reset. Failure leaves the previous limits unchanged. Successful updates
+/// replace the immutable limits record, so earlier snapshots remain frozen.
+/// A finite cap in MeasurementOnly still enforces admission; measurements of
+/// that dimension are consequently censored by the supplied configuration.
+pub fn Budget::tighten_resident_limit(
+  self : Budget,
+  kind : ResidentKind,
+  limit : Int64,
+) -> Result[Unit, BudgetError] {
+  let state = self.state
+  if state.first_error is Some(error) {
+    return Err(error)
+  }
+  if state.closed {
+    return Err(latch(state, Closed))
+  }
+  if limit < 0L {
+    return Err(latch(state, InvalidLimit(Resident(kind), limit)))
+  }
+  let effective = match resident_limit(state.limits, kind) {
+    Some(previous) => previous.min(limit)
+    None => limit
+  }
+  let used = state.resident[resident_index(kind)]
+  if used > effective {
+    return Err(
+      latch(
+        state,
+        LimitExceeded(Resident(kind), used~, requested=0L, limit=effective),
+      ),
+    )
+  }
+  state.limits = match kind {
+    CacheBytes => { ..state.limits, cache_bytes: Some(effective), }
+    WorkingBytes => { ..state.limits, working_bytes: Some(effective), }
+    TemporaryBytes => { ..state.limits, temporary_bytes: Some(effective), }
+    IrBytes => { ..state.limits, ir_bytes: Some(effective), }
+  }
+  Ok(())
+}
+
+///|
 /// Validate before performing the work. Failed charges do not change usage.
 pub fn Budget::charge(
   self : Budget,

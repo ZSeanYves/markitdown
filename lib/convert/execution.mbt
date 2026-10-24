@@ -13,6 +13,8 @@ async fn execute_conversion(
     max_bytes=options.limits.max_input_bytes,
   )
   defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
   let execution_started = @env.now()
   let detect_started = execution_started
@@ -99,7 +101,7 @@ async fn execute_conversion(
     "timing_parse_lower_ms",
     (@env.now() - parse_started).to_string(),
   )
-  finalize_pipeline_execution(
+  let result = finalize_pipeline_execution(
     effective_source,
     detected.format,
     options,
@@ -110,6 +112,12 @@ async fn execute_conversion(
     sink,
     output_assets~,
   )
+  let cleaned = finish_conversion_cleanup(cleanup, source)
+  match (result, cleaned) {
+    (Err(error), _) => Err(error)
+    (_, Err(error)) => Err(error)
+    (Ok(value), Ok(_)) => Ok(value)
+  }
 }
 
 ///|
@@ -182,7 +190,7 @@ pub fn refresh_budget_diagnostics(
     return
   }
   let snapshot = context.account.snapshot()
-  diagnostics.metrics.set("budget_schema", "partial_v10")
+  diagnostics.metrics.set("budget_schema", "partial_v11")
   diagnostics.metrics.set(
     "budget_profile",
     if snapshot.limits.profile == MeasurementOnly {
@@ -192,7 +200,7 @@ pub fn refresh_budget_diagnostics(
     },
   )
   diagnostics.metrics.set(
-    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,output_utf8_admission",
+    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,output_utf8_admission",
   )
   diagnostics.metrics.set(
     "budget_unmeasured", "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",

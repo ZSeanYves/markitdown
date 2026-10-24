@@ -7,6 +7,7 @@ priv struct InputSessionState {
   open_mutex : @async.Mutex
   account : @budget.Budget
   retained_leases : Array[@budget.BudgetLease]
+  cleanup : Ref[InputCleanupState?]
 }
 
 ///|
@@ -112,6 +113,7 @@ pub fn begin_input_session(
                 @budget.Budget::new(@budget.BudgetLimits::measurement_only())
             },
             retained_leases: [],
+            cleanup: Ref(None),
           }),
         },
         owner: true,
@@ -287,6 +289,14 @@ pub fn end_input_session(session : InputSession) -> Unit {
   }
   match session.source.session {
     Some(state) if !state.closed.val => {
+      if state.cleanup.val is Some(cleanup) &&
+        (cleanup.draining || (!cleanup.drained && !cleanup.failed)) {
+        record_input_failure(
+          session.source,
+          "input session has pending asynchronous cleanup",
+        )
+        return
+      }
       state.closed.val = true
       for _, cursor in state.cursors {
         source_cursor_close(cursor)

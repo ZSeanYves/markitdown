@@ -634,6 +634,47 @@ consumer passed. See `../native-upgrade-local-v10-acceptance.md` for frozen
 hashes and exact limits. These local results do not establish full budgeting,
 default values, formal timing/RSS targets or the complete upgrade.
 
+## partial_v11: worksheet cursor and Ranged ObjStm Result payload
+
+This policy adds exactly three coverage labels: `xlsx_worksheet_cursor_work`,
+`xlsx_worksheet_cursor_workspace` and
+`pdf_ranged_objstm_local_result_postparse_retained_payload`. Only ParseWork,
+Working and Cache scopes change. The other five scopes, all eight units,
+13-field shape, resident/unmeasured policies and numeric defaults stay equal
+to v10. Older observations keep their original schema.
+
+XLSX row selection now uses actual direct XML row boundaries, including
+self-closing rows and quoted opening tags; comments containing row-like text
+cannot consume the selected-row allowance. The cursor charges UTF8 work and
+modeled feed/token/namespace workspace. Raw selection buffers remain unmeasured.
+An ordinary syntax failure still drains the independent integrity path; later
+CRC, encoding, I/O or typed budget failures cannot become a syntax fallback.
+
+The Ranged ObjStm cache stores a whole local parse Result keyed by selected
+identity, dictionary, member offsets and stream framing. Individual-member
+lookup, visited/depth decisions and Loaded repair stay outside it. Native64
+selected fields model84B per key/Entry/Result, a first-wrapper16B and retained
+dictionary/error UTF16 payload. It is postparse admission; outer map buckets,
+allocator and parser scratch remain unmeasured. Hard errors and cancellation
+are never published. Independent component tests and935-case comparisons pass;
+these do not replace the new integrated sampling and source/executable freeze.
+
+Input cleanup now serializes protected asynchronous callbacks, preserves the
+first operation failure and retries incomplete deletion. Closing each pull
+parser retires its local reader buffers and queues. `cleanup_complete` means
+the SDK close call returned and owned paths are confirmed removed; it adds no
+stronger kernel-close guarantee. A private resident limit can only tighten the
+same ledger, preserving leases and usage on rejection. These lifecycle changes
+do not add a public temporary limit, production spool or all-temporary-disk cap.
+
+Integrated v11 debug/release1424/1424 and strict/info/fmt/build pass. Fresh
+standard/sidecar/installed935 runs pass, actual installation/new public-only
+consumer pass, and source/installed3329 stable outputs agree. New1313 samples
+have0 failures; independent10504 values/2488 maxima/witnesses and1208 shipping
+files exactly bind the complete tar/two copies. See the
+[local v11 report](../native-upgrade-local-v11-acceptance.md). No full-budget, default-profile,
+RSS, formal performance or P2/P4 completion follows from these partial scopes.
+
 ## Default values and freeze gate
 
 Existing constraints provide reference points, not an invented aggregate

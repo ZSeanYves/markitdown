@@ -33,30 +33,65 @@ async fn pdf_expand_object_streams(
 ///|
 async fn pdf_parse_object_stream_entries(
   object : PdfNativeObject,
-  cache~ : Map[(Int32, Int64, Int32), Array[PdfNativeObject]] = Map([]),
+  cache? : PdfObjectStreamResultCache,
 ) -> Result[Array[PdfNativeObject], PdfNativeError] {
-  let key = object.stream.bind(pdf_stream_reference_key)
-  if key is Some(key) && cache.get(key) is Some(entries) {
-    pdf_check_stream_live(object.stream.bind(pdf_stream_context))
-    return Ok(entries)
+  let context = object.stream.bind(pdf_stream_context)
+  pdf_check_stream_live(context)
+  if cache is Some(cache) {
+    pdf_check_stream_live(cache.context)
   }
+  let key = match cache {
+    Some(cache) if cache.context is Some(_) =>
+      pdf_object_stream_result_key(object)
+    _ => None
+  }
+  if cache is Some(cache) && key is Some(key) {
+    if cache.entries.get(key) is Some(result) {
+      return result
+    }
+  }
+  let result = pdf_parse_object_stream_entries_uncached(object) catch {
+    PdfHardDecodeFailure(error) => {
+      // Ordinary Result errors remain recoverable; this catch is only the
+      // separate hard channel, including errors raised by embedded slices.
+      if context is Some(context) {
+        @input.record_input_failure(context.source, error.to_string())
+      }
+      raise PdfHardDecodeFailure(error)
+    }
+    error => raise error
+  }
+  if cache is Some(cache) &&
+    key is Some(key) &&
+    pdf_object_stream_result_is_cacheable(result) &&
+    cache.context is Some(cache_context) {
+    pdf_check_stream_live(context)
+    pdf_check_stream_live(Some(cache_context))
+    let payload = pdf_object_stream_result_retained_payload(
+      cache_context, cache, key, result,
+    )
+    match (cache_context.budget.retain_resident)(CacheBytes, payload) {
+      Ok(_) => cache.entries.set(key, result)
+      Err(error) => pdf_raise_budget_failure(Some(cache_context), error)
+    }
+  }
+  result
+}
+
+///|
+async fn pdf_parse_object_stream_entries_uncached(
+  object : PdfNativeObject,
+) -> Result[Array[PdfNativeObject], PdfNativeError] {
   let stream_text = match pdf_decode_stream_text(object, "object stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  if key is Some(_) && object.stream.bind(pdf_stream_context) is Some(context) {
+  if object.stream.bind(pdf_stream_reference_key) is Some(_) &&
+    object.stream.bind(pdf_stream_context) is Some(context) {
     pdf_session_retain(context, stream_text.length().to_int64() * 4L + 16L)
     pdf_session_work(context, stream_text.length().to_int64())
   }
-  let entries = match
-    pdf_parse_object_stream_entries_from_text(object, stream_text) {
-    Ok(value) => value
-    Err(error) => return Err(error)
-  }
-  if key is Some(key) {
-    cache.set(key, entries)
-  }
-  Ok(entries)
+  pdf_parse_object_stream_entries_from_text(object, stream_text)
 }
 
 ///|

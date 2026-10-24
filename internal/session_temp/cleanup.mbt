@@ -21,6 +21,18 @@ fn take_and_close(state : TempState) -> Unit {
 }
 
 ///|
+/// Whether SDK close returned and both owned names were confirmed removed.
+/// This is cleanup completion, not conversion success: close/failure still
+/// preserve an earlier operation error after all resources have been cleaned.
+/// The SDK does not expose kernel close errors, so this adds no such claim.
+/// Cleanup callbacks can report that original error once and retire only when
+/// this status is true; an incomplete deletion remains eligible for retry.
+pub fn TempOwner::cleanup_complete(self : TempOwner) -> Bool {
+  let state = self.state
+  state.sdk_close_completed && state.file_removed && state.directory_removed
+}
+
+///|
 /// Mandatory before final successful conversion/Sink.finish, with the same
 /// call in an async defer for failures/cancellation. Idempotent; close is never
 /// repeated on a borrowed File descriptor whose number the OS may have reused.

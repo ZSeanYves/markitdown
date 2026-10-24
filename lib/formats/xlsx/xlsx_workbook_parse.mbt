@@ -932,6 +932,8 @@ async fn xlsx_parse_sheet_view(
           build_cell_source_refs~,
         ) {
         Ok(value) => value
+        Err(BudgetExceeded(error)) =>
+          raise @ox.OoxmlError::BudgetExceeded(error)
         Err(ReadFailed(message)) => raise @ox.OoxmlError::ZipError(message)
         Err(InvalidEncoding(message)) =>
           raise @ox.OoxmlError::InvalidEncoding(message)

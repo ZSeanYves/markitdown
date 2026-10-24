@@ -53,6 +53,9 @@ pub async fn open_source_text_chunk_reader(
   let close = fn() {
     if !closed.val {
       closed.val = true
+      carry.val = Bytes::new(0)
+      eof.val = true
+      pending_cr.val = false
       @input.end_input_session(session)
     }
   }

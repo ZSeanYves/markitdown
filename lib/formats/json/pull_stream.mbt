@@ -42,6 +42,20 @@ async fn open_line_json_event_stream(
   let queued : Array[@core.CoreEvent] = []
   let queued_index = Ref(0)
   let event_count = Ref(0)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      (table_reader.close)()
+      if code_reader.val is Some(reader) {
+        (reader.close)()
+      }
+      code_reader.val = None
+      queued.clear()
+      queued.shrink_to_fit()
+      queued_index.val = 0
+    }
+  }
   let diagnostics = @fshared.empty_parser_diagnostics(
     parser_name,
     StreamingEvent,
@@ -52,6 +66,9 @@ async fn open_line_json_event_stream(
     Some(
       @parser.make_parse_event_stream(
         async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -97,7 +114,7 @@ async fn open_line_json_event_stream(
                   continue
                 }
                 Err(message) => {
-                  (table_reader.close)()
+                  close()
                   return Err(message)
                 }
               }
@@ -107,7 +124,10 @@ async fn open_line_json_event_stream(
                 None => {
                   let value = match open_line_json_reader(source, context) {
                     Ok(opened) => opened
-                    Err(message) => return Err(message)
+                    Err(message) => {
+                      close()
+                      return Err(message)
+                    }
                   }
                   code_reader.val = Some(value)
                   value
@@ -142,11 +162,11 @@ async fn open_line_json_event_stream(
                   }
                 }
                 Ok(None) => {
-                  (reader.close)()
+                  close()
                   return Ok(None)
                 }
                 Err(message) => {
-                  (reader.close)()
+                  close()
                   return Err(message)
                 }
               }
@@ -155,10 +175,7 @@ async fn open_line_json_event_stream(
           Ok(None)
         },
         fn() {
-          (table_reader.close)()
-          if code_reader.val is Some(reader) {
-            (reader.close)()
-          }
+          close()
           @fshared.init_parser_route_metrics_with_granularity(
             diagnostics,
             source,
@@ -221,6 +238,10 @@ async fn open_line_json_event_stream(
               diagnostics,
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),

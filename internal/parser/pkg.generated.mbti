@@ -24,7 +24,7 @@ pub fn dom_ast_parser_capability(StreamingGranularity, Bool, Bool, Bool, Bool, B
 
 pub fn empty_registry() -> ParserRegistry
 
-pub fn make_parse_event_stream(async () -> Result[@core.CoreEvent?, String], async () -> Result[ParseStreamSummary, String]) -> ParseEventStream
+pub fn make_parse_event_stream(async () -> Result[@core.CoreEvent?, String], async () -> Result[ParseStreamSummary, String], close? : async () -> Result[Unit, String]) -> ParseEventStream
 
 pub fn make_parser(String, ParserMode, ParserCapability, async (@input.InputSource, ParseContext) -> Result[ParseResult, String], open_stream? : (async (@input.InputSource, ParseContext) -> Result[ParseEventStream?, String])?) -> Parser
 
@@ -131,7 +131,9 @@ pub struct ParseContext {
 pub struct ParseEventStream {
   next : async () -> Result[@core.CoreEvent?, String]
   finish : async () -> Result[ParseStreamSummary, String]
+  // private fields
 }
+pub async fn ParseEventStream::close(Self) -> Result[Unit, String] noraise + nocancel
 
 pub struct ParseResult {
   parser_name : String

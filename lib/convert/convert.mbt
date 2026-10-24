@@ -22,8 +22,10 @@ pub async fn plan_input(
     max_bytes=options.limits.max_input_bytes,
   )
   defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
-  match detect_and_resolve_execution_plan(source, options) {
+  let result = match detect_and_resolve_execution_plan(source, options) {
     Ok((_effective_source, _detected, execution_plan)) =>
       match input_failure_convert_error(source, detect=true) {
         Some(error) => Err(error)
@@ -31,6 +33,12 @@ pub async fn plan_input(
       }
     Err(err) =>
       Err(input_failure_convert_error(source, detect=true).unwrap_or(err))
+  }
+  let cleaned = finish_conversion_cleanup(cleanup, source, detect=true)
+  match (result, cleaned) {
+    (Err(error), _) => Err(error)
+    (_, Err(error)) => Err(error)
+    (Ok(value), Ok(_)) => Ok(value)
   }
 }
 
