@@ -74,6 +74,8 @@ pub async fn validate_ooxml_package(OoxmlPackage, mode? : OoxmlValidationMode) -
 
 pub async fn visit_part_inflated_chunks(OoxmlPackage, String, chunk_size? : Int32, async (Bytes) -> Result[Unit, String]) -> Result[Unit, String] noraise
 
+pub async fn visit_part_xml_tokens(OoxmlPackage, String, (@xml.XmlCursorToken) -> Unit raise OoxmlError, allow_syntax_recovery? : Bool, allow_unbound_prefixes? : Bool) -> @xml.XmlCursorStats raise OoxmlError
+
 // Errors
 pub(all) suberror OoxmlError {
   ZipError(String)

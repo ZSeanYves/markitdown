@@ -49,17 +49,6 @@ fn pdf_publish_stream_read(
 }
 
 ///|
-fn pdf_stream_reference_key(
-  reference : PdfNativeStreamRef,
-) -> (Int32, Int64, Int32)? {
-  match reference {
-    Ranged(range) =>
-      Some((range.object_id, range.definition_offset, range.generation))
-    Loaded(_) => None
-  }
-}
-
-///|
 fn pdf_stream_context(
   reference : PdfNativeStreamRef,
 ) -> PdfStreamDecodeContext? {

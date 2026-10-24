@@ -79,6 +79,28 @@ The async public `convert_to_sink` is available and returns a
 budget coverage and P2 acceptance remain pending. Use the generated
 [public interface](../lib/pkg.generated.mbti) to determine available APIs.
 
+An additive resource option is available as
+`ResourceLimits::with_max_temporary_bytes(Some(N))`; pass None to keep the
+compatibility route. N is nonnegative Int64 bytes; zero forbids spool payload
+growth while still allowing an empty file to be created and cleaned. The normal
+JSONL/NDJSON collect and Sink routes use two conversion-owned sequential files
+with a shared aggregate ceiling. Their UTF8/frame bytes have their own unit and
+do not reuse `max_input_bytes`. Temporary exhaustion remains a typed
+`ResourceLimitExceeded(kind="temporary_bytes", observed, limit)` and cannot
+silently switch to full-memory processing.
+
+This option does not complete P2: ordinary malformed-grammar recovery may still
+collect raw text, final IR/RAG/metadata can remain resident, and CLI atomic-output
+temporary siblings are not covered by this parser-spool ceiling. Other consumers
+and default finite policy need separate acceptance. A finite opt-in profile is
+explicitly marked and cannot be mixed into unconstrained measurement maxima.
+
+The accompanying collected JSONL source correction keeps filtered table rows
+aligned with their real input record ordinal, pointer and physical line. Earlier
+scalar or mismatching records no longer shift those references. Body text and
+table-before-code ordering are unchanged; affected RAG/source identities require
+their own review rather than a broad source-ref comparison exemption.
+
 ## Errors, output and modes
 
 Match `@lib.ConvertError` and persist `error.code().stable_name()`.

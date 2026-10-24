@@ -31,13 +31,13 @@ versions provide different acceptance evidence.
 Single file:
 
 ```text
-markitdown [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] <input> [output]
+markitdown [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] [--max-temporary-bytes <bytes>] <input> [output]
 ```
 
 Batch:
 
 ```text
-markitdown batch [balance|accurate|stream] [--format <format>] [--debug|--rag] <input> <output_dir>
+markitdown batch [balance|accurate|stream] [--format <format>] [--debug|--rag] [--max-temporary-bytes <bytes>] <input> <output_dir>
 ```
 
 Omitting the mode selects `balance`. Use `-` as input with an explicit
@@ -59,6 +59,22 @@ markitdown batch balance input-directory output-directory
 
 `--debug` and `--rag` are mutually exclusive. `--provenance-out` is
 single-file only; batch writes `manifest.json`.
+
+`--max-temporary-bytes N` enables a finite JSONL/NDJSON parser-spool ceiling for
+each conversion. N must be nonnegative decimal Int64 bytes; both space and
+`--max-temporary-bytes=N` forms are accepted. There is no suffix/hex/underscore
+grammar. A negative value, overflow or missing value is usage exit2; actual
+temporary exhaustion is resource exit5 with kind `temporary_bytes`. Zero allows
+empty storage but forbids payload growth. Omit the option for the compatibility
+route. Batch applies the same requested value separately to each input's account,
+not to the whole batch total.
+
+This ceiling counts registered parser-spool UTF8/frame bytes, not all disk
+activity. The atomic-output temporary sibling described below is not yet charged
+to it. Ordinary malformed-grammar recovery can still collect full raw text;
+input/encoding/budget/cleanup failures cannot use that fallback. Final IR/RAG and
+metadata may remain resident. This transitional option does not establish full
+P2 bounded memory or finite production defaults.
 
 ## Output and assets
 

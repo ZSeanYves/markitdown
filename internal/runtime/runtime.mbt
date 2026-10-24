@@ -313,6 +313,7 @@ fn child_product_options(
       context.max_cols.unwrap_or(50),
       context.max_cells.unwrap_or(100000),
       max_line_chars=context.max_line_chars.unwrap_or(4000),
+      max_temporary_bytes=context.limits.max_temporary_bytes,
     ),
     fidelity_mode=context.fidelity_mode,
     output_mode=context.output_mode,

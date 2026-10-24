@@ -18,7 +18,7 @@ pub async fn open_source_text_block_reader(@input.InputSource, max_bytes? : Int6
 
 pub async fn open_source_text_chunk_reader(@input.InputSource, max_bytes? : Int64, chunk_size? : Int32) -> Result[SourceTextChunkReader, String] noraise
 
-pub async fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int32) -> Result[SourceTextLineReader, String] noraise
+pub async fn open_source_text_line_reader(@input.InputSource, max_bytes? : Int64, max_line_chars? : Int32, split_cr? : Bool, skip_leading_bom? : Bool, blank_prefix? : Array[Char]) -> Result[SourceTextLineReader, String] noraise
 
 pub async fn read_source_bytes(@input.InputSource) -> Result[SourceBytesPayload, String] noraise
 
@@ -76,12 +76,14 @@ pub struct SourceTextLine {
   text : String
   line_no : Int32
   truncated : Bool
+  is_blank : Bool
 }
 
 pub struct SourceTextLineReader {
   next : async () -> Result[SourceTextLine?, String] noraise
   input_error : () -> String?
   close : () -> Unit
+  eof_has_empty_line : () -> Bool
 }
 
 pub struct SourceTextPayload {

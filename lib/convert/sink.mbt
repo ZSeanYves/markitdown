@@ -116,6 +116,10 @@ async fn convert_input_to_sink_with_collection(
   let cleanup = @input.begin_input_cleanup_scope(session)
   defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
+  match apply_conversion_temporary_limit(source, options.limits) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   if parser_pull_sink_candidate(source, options) {
     match
       try_convert_event_stream_to_sink(source, options, sink, collect_content) {
@@ -220,6 +224,10 @@ async fn try_convert_event_stream_to_sink(
   let cleanup = @input.begin_input_cleanup_scope(session)
   defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
+  match apply_conversion_temporary_limit(source, options.limits) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   let execution_started = @env.now()
   let (effective_source, detected, execution_plan) = match
     detect_and_resolve_execution_plan(source, options) {

@@ -254,6 +254,7 @@ priv enum RouteProbeArtifact {
   XmlPrepared(@dxml.PreparedXmlText)
   DocxPrepared(@ddocx.PreparedDocxDocument, DocxProbeArtifact)
   PptxPrepared(@pptxdoc.PreparedPptxDocument, PptxProbeArtifact)
+  PptxPreparationFailed(String)
   OdtPrepared(@dodf.PreparedOdtDocument)
   OdsPrepared(@dodf.PreparedOdsDocument)
   OdpPrepared(@dodf.PreparedOdpDocument)

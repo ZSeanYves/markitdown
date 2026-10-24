@@ -27,6 +27,12 @@ while enforcing any finite cap that is supplied. Neither profile supplies new
 production defaults. Production InputSession explicitly selects MeasurementOnly
 with no new finite caps; tests supply finite caps to exercise enforcement.
 
+The next integrated v12 candidate adds public optional
+`ResourceLimits.max_temporary_bytes` (default None) and
+`--max-temporary-bytes`. A supplied value tightens TemporaryBytes on the same
+account and cannot relax a borrowed parent's cap. This is an opt-in ceiling,
+not a new finite production default or enforcement of all other dimensions.
+
 The eleven leaf tests cover exact caps, negative values, overflow, first
 failure, shared account/lease handles, repeated release, and cleanup after
 failure or close. The narrow Budget + ZIP run passed 43/43 with
@@ -674,6 +680,67 @@ have0 failures; independent10504 values/2488 maxima/witnesses and1208 shipping
 files exactly bind the complete tar/two copies. See the
 [local v11 report](../native-upgrade-local-v11-acceptance.md). No full-budget, default-profile,
 RSS, formal performance or P2/P4 completion follows from these partial scopes.
+
+## partial_v12: optional temporary spooling and further selected scopes
+
+This candidate adds Loaded ObjStm decoded-text work and logical retention,
+plus PPTX presentation cursor work/workspace and selected reference UTF8
+metadata/UTF16 retained strings. The canonical local contract is
+`budget-v12-policy-contract.json`, SHA256
+`b2dc222db9631229f485cc8e099705a4d71910f38cd100e9b80e81dd6042c329`.
+Its protocol was frozen before integrated product acceptance; acceptance
+results are recorded separately and do not rewrite old samples.
+
+An actual ledger snapshot with no temporary cap emits13 fields/eight counters,
+`measurement_only`, and46 coverage labels. A finite snapshot emits16 fields,
+ten counters, the actual effective cap and51 labels. Its profile is
+`measurement_with_temporary_limit`, or `explicit_enforced` for an independently
+configured all-ten-cap account. Public None can still borrow a finite parent.
+Temporary current may include other live owners; historical peak can exceed
+a subsequently tightened cap. Neither current=0 nor peak<=current cap is a
+generic borrowed-account invariant.
+
+With the public finite option, JSONL/NDJSON uses two sequential owned spool
+files on that account, retaining table-before-code order without a per-record
+range index. Codec work, actual spool read traffic, temporary payload,
+modeled codec workspace and escaping event UTF16 payload are declared. Record
+sources use actual nonblank ordinals and original physical lines. Truncated
+whitespace prefixes cannot classify an entire line as blank: the source reader
+tracks that fact during bounded scanning with the pinned ASCII trim semantics
+and JSONL's ordered optional RS/BOM normalization. Admitted nonblank records
+over max_line_chars return the finite route's existing hard RecordLimit;
+the old collected None route did not enforce this bound. Omitted records stop
+statistics while whole-tail UTF8/I/O validation continues. Ordinary syntax
+recovery may still materialize raw text; hard failures cannot take that path.
+
+Loaded ObjStm's inherited `4*N+16` model is conservative logical scope-retained
+admission after decoding, including ordinary local errors. It is not heap/RSS
+or a new Loaded Result cache. PPTX accounts selected strings and cursor
+workspace; reference tuple/array/map headers and probe-error bookkeeping remain
+unmeasured. Malformed presentation.xml now returns its actual parse error;
+missing parts retain the existing recovery. Tail integrity remains a hard gate.
+
+New versioned sampling tables require external full supplied/effective ten-cap
+and conversion-options evidence, source/tool/binary fingerprints, cohort,
+format/mode/view and effective cap in every usable group. Missing context
+retains observed values as unavailable and produces no usable maxima. New
+1313 sampling and its independent dynamic maxima/witness review are required;
+the old context-free2488 maxima cannot be reused.
+
+CLI atomic output is still outside TemporaryBytes in this candidate. General
+IR/RAG/source metadata, parser/SourceIO scratch, full cache accounting and
+production defaults remain incomplete. CLI final LF is also outside renderer
+output admission/confirmation in this freeze: a real finite Debug file is7392B
+versus7391 admitted/confirmed. Follow-up ownership/budget fixes stay separate.
+
+Integrated1486 debug/release and all strict/info/fmt/build gates pass. Standard,
+sidecar and installed935 runs, local installation/new library consumer and3329
+source/installed equality pass. Fresh1313 data independently validates10504
+values,142 account groups and2480 exact-context maxima/witnesses, with1228
+source files/tar/two copies bound.45 CLI controls and18 strict parity mutation
+controls pass. See the [local v12 report](../native-upgrade-local-v12-acceptance.md)
+for exact artifacts and failed checker attempts. No full P2-P5, formal performance
+or publication claim follows from this partial evidence.
 
 ## Default values and freeze gate
 

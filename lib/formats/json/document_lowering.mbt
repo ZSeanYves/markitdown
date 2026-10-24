@@ -143,6 +143,7 @@ fn lower_line_delimited_json_events(
   let mut columns : LineJsonColumns? = None
   let record_line_numbers : Array[Int32] = []
   let record_pointers : Array[String] = []
+  let record_ordinals : Array[Int32] = []
   for i in 0..<lines.length() {
     let raw_line = normalize_line_delimited_json_record(lines[i].to_owned())
       .trim()
@@ -177,8 +178,6 @@ fn lower_line_delimited_json_events(
       max_depth = inspect.max_depth
     }
     let pointer = "/" + record_index.to_string()
-    record_line_numbers.push(i + 1)
-    record_pointers.push(pointer)
     match doc.root {
       Object(members) =>
         match columns {
@@ -206,6 +205,11 @@ fn lower_line_delimited_json_events(
             }
             let row = json_members_to_row(members, schema.keys)
             object_rows.push(row)
+            // Table rows are a filtered projection. Keep their source facts
+            // aligned with those rows, not with earlier scalar/mismatch rows.
+            record_line_numbers.push(i + 1)
+            record_pointers.push(pointer)
+            record_ordinals.push(record_index)
           }
         }
       _ =>
@@ -231,7 +235,7 @@ fn lower_line_delimited_json_events(
         all_rows.push(row)
       }
       let table_events = table_events_from_rows(
-        all_rows, source, format_name, record_line_numbers, record_pointers,
+        all_rows, source, format_name, record_line_numbers, record_pointers, record_ordinals,
       )
       table_events.append(events[:])
       Ok(

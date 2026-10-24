@@ -10,6 +10,7 @@ pub fn ResourceLimits::default() -> ResourceLimits {
     max_input_bytes: limits.max_input_bytes,
     max_asset_bytes: limits.max_asset_bytes,
     max_total_asset_bytes: limits.max_total_asset_bytes,
+    max_temporary_bytes: limits.max_temporary_bytes,
   }
 }
 
@@ -74,6 +75,17 @@ pub fn ResourceLimits::with_max_total_asset_bytes(
   max_total_asset_bytes : Int64,
 ) -> ResourceLimits {
   { ..self, max_total_asset_bytes, }
+}
+
+///|
+/// Set an optional conversion-owned spool payload ceiling. None keeps the
+/// compatibility route; zero permits empty storage but forbids payload growth.
+/// It cannot relax a smaller cap already installed on a shared account.
+pub fn ResourceLimits::with_max_temporary_bytes(
+  self : ResourceLimits,
+  max_temporary_bytes : Int64?,
+) -> ResourceLimits {
+  { ..self, max_temporary_bytes, }
 }
 
 ///|

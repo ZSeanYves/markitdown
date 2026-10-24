@@ -465,6 +465,52 @@ async fn parse_line_delimited_json_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
+  if context.limits.max_temporary_bytes is Some(_) {
+    let capability = if format_name == "jsonl" {
+      jsonl_parser_capability()
+    } else {
+      ndjson_parser_capability()
+    }
+    match
+      open_spooled_line_json_event_stream(
+        parser_name,
+        format_name,
+        source,
+        context,
+        capability,
+        collected_contract=true,
+      ) {
+      Err(message) => return Err(message)
+      Ok(Some(stream)) => {
+        defer ignore(stream.close())
+        let events : Array[@core.CoreEvent] = []
+        while true {
+          match (stream.next)() {
+            Ok(Some(event)) => events.push(event)
+            Ok(None) => break
+            Err(message) => return Err(message)
+          }
+        }
+        let summary = match (stream.finish)() {
+          Ok(summary) => summary
+          Err(message) => return Err(message)
+        }
+        return Ok(
+          @parser.parse_result_with_events_capability(
+            parser_name,
+            StreamingEvent,
+            events,
+            summary.diagnostics,
+            capability,
+          ),
+        )
+      }
+      Ok(None) =>
+        if @input.input_source_error(source) is Some(message) {
+          return Err(message)
+        }
+    }
+  }
   let prepared = match prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)

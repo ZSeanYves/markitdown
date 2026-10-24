@@ -18,6 +18,7 @@ pub struct CliOptions {
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
   rag_options : @rag.RagOptions
+  max_temporary_bytes : Int64?
 }
 
 ///|
@@ -151,6 +152,7 @@ pub fn make_cli_options(
   stream_requested : Bool,
   output_format : @convert.OutputFormat,
   rag_options~ : @rag.RagOptions = @rag.default_rag_options(),
+  max_temporary_bytes~ : Int64? = None,
 ) -> CliOptions {
   ignore(output_format)
   ignore(fidelity_mode)
@@ -163,5 +165,22 @@ pub fn make_cli_options(
     convert_mode,
     output_mode,
     rag_options,
+    max_temporary_bytes,
   }
+}
+
+///|
+/// Single-file and batch requests share exactly the same byte-ceiling adapter.
+fn cli_resource_limits(opts : CliOptions) -> @convert.ResourceLimits {
+  let defaults = @convert.default_resource_limits()
+  @product.make_resource_limits(
+    defaults.max_rows,
+    defaults.max_cols,
+    defaults.max_cells,
+    max_line_chars=defaults.max_line_chars,
+    max_input_bytes=defaults.max_input_bytes,
+    max_asset_bytes=defaults.max_asset_bytes,
+    max_total_asset_bytes=defaults.max_total_asset_bytes,
+    max_temporary_bytes=opts.max_temporary_bytes,
+  )
 }

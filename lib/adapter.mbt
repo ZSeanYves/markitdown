@@ -31,6 +31,9 @@ fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
     options.limits.max_total_asset_bytes <= 0L {
     return Err(InvalidOption("byte limits must be positive"))
   }
+  if options.limits.max_temporary_bytes is Some(limit) && limit < 0L {
+    return Err(InvalidOption("temporary byte limit must be non-negative"))
+  }
   if options.rag.chunk_size <= 0 ||
     options.rag.chunk_overlap < 0 ||
     options.rag.chunk_overlap >= options.rag.chunk_size {
@@ -67,6 +70,7 @@ fn legacy_options(
     max_input_bytes=options.limits.max_input_bytes,
     max_asset_bytes=options.limits.max_asset_bytes,
     max_total_asset_bytes=options.limits.max_total_asset_bytes,
+    max_temporary_bytes=options.limits.max_temporary_bytes,
   )
   let rag = @rag.make_rag_options(
     options.rag.chunk_size,

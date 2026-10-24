@@ -298,6 +298,7 @@ pub struct ResourceLimits {
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
+  max_temporary_bytes : Int64?
 } derive(Eq, @debug.Debug)
 pub fn ResourceLimits::default() -> Self
 pub fn ResourceLimits::equal(Self, Self) -> Bool
@@ -309,6 +310,7 @@ pub fn ResourceLimits::with_max_cols(Self, Int32) -> Self
 pub fn ResourceLimits::with_max_input_bytes(Self, Int64) -> Self
 pub fn ResourceLimits::with_max_line_chars(Self, Int32) -> Self
 pub fn ResourceLimits::with_max_rows(Self, Int32) -> Self
+pub fn ResourceLimits::with_max_temporary_bytes(Self, Int64?) -> Self
 pub fn ResourceLimits::with_max_total_asset_bytes(Self, Int64) -> Self
 
 pub struct SourceMap {

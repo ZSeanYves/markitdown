@@ -86,8 +86,11 @@ async fn pdf_parse_object_stream_entries_uncached(
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  if object.stream.bind(pdf_stream_reference_key) is Some(_) &&
-    object.stream.bind(pdf_stream_context) is Some(context) {
+  if object.stream.bind(pdf_stream_context) is Some(context) {
+    // The existing 4N+16 is a conservative logical scope-retained admission,
+    // not measured heap/RSS. Loaded repair must share it and ParseWork with
+    // the original conversion too. An ordinary local Err still holds this
+    // amount until the owning session ends; it does not create a cache entry.
     pdf_session_retain(context, stream_text.length().to_int64() * 4L + 16L)
     pdf_session_work(context, stream_text.length().to_int64())
   }

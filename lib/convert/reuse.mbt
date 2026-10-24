@@ -181,6 +181,12 @@ async fn parse_with_route_probe_artifact(
         } else {
           None
         }
+      PptxPreparationFailed(message) =>
+        if format == Pptx {
+          Some(Err(message))
+        } else {
+          None
+        }
       PptxPrepared(prepared, _artifact) =>
         if format == Pptx {
           Some(

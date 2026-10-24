@@ -91,7 +91,16 @@ schema. Defaults, complete IR/RAG/source/temp budgets, remaining XML consumers,
 PDF page lifecycle/geometry and formal two-window/60-minute reliability
 acceptance remain unfinished.
 
+Remote acceptance is now complete at exact commit
+`f910d979f4cbea6f90dbfe62aad97018cd1e2a10`: Native CI40068757028 and
+fixed-Git RC40068810324 both succeed on Linux and macOS. Each platform passes
+1424 debug/release tests and installed935/935 with a fresh library consumer.
+Complete artifact ZIP digests match GitHub. The raw cross-platform comparison
+remains3285equal/44unexpected; exact review explains363 leaves as272 input
+paths,84 chunk IDs and7 boundary keys, with0 unproven and10 rejecting mutation
+controls. Full metadata, logs and review are in local `v11-remote-acceptance/`.
+
 Only the progress/budget reports and this acceptance report may change after
 the source freeze; the candidate shipping manifest must prove all other files
-exact before push. New Linux/macOS CI and exact Git installation must run on
-the pushed candidate commit. This report is neither a full RC nor publication.
+exact before push. The completed remote gates cover that pushed candidate
+commit. This report is neither a full RC nor publication.

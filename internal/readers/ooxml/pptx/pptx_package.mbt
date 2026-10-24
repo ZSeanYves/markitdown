@@ -1,13 +1,7 @@
 ///|
-priv struct PptxSourcePartCache {
-  bytes : Bytes?
-  text : String?
-}
-
-///|
 priv struct PptxSourceParseContext {
   pkg : @ox.OoxmlPackage
-  part_cache : Map[String, PptxSourcePartCache]
+  part_cache : Map[String, Bytes]
   rel_cache : Map[String, Array[PptxRelationship]]
   rel_by_id_cache : Map[String, Map[String, PptxRelationship]]
   warnings : Array[PptxWarning]
@@ -89,45 +83,12 @@ async fn read_source_part_bytes(
     return None
   }
   match ctx.part_cache.get(part_name) {
-    Some(cached) =>
-      match cached.bytes {
-        Some(bytes) => return Some(bytes)
-        None => ()
-      }
+    Some(bytes) => return Some(bytes)
     None => ()
   }
   let bytes = @ox.read_part_bytes(ctx.pkg, part_name) catch { _ => return None }
-  let text = match ctx.part_cache.get(part_name) {
-    Some(cached) => cached.text
-    None => None
-  }
-  ctx.part_cache.set(part_name, { bytes: Some(bytes), text, })
+  ctx.part_cache.set(part_name, bytes)
   Some(bytes)
-}
-
-///|
-async fn read_source_part_text(
-  ctx : PptxSourceParseContext,
-  part_name : String,
-) -> String? noraise {
-  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
-    return None
-  }
-  match ctx.part_cache.get(part_name) {
-    Some(cached) =>
-      match cached.text {
-        Some(text) => return Some(text)
-        None => ()
-      }
-    None => ()
-  }
-  let text = @ox.read_part_text(ctx.pkg, part_name) catch { _ => return None }
-  let bytes = match ctx.part_cache.get(part_name) {
-    Some(cached) => cached.bytes
-    None => None
-  }
-  ctx.part_cache.set(part_name, { bytes, text: Some(text), })
-  Some(text)
 }
 
 ///|

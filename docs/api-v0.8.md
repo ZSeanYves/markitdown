@@ -92,6 +92,53 @@ claim that every format is a single-pass stream.
 their `with_*` methods to set every supported field before attaching them to
 `ConvertOptions`.
 
+### Optional JSONL temporary storage
+
+`ResourceLimits::with_max_temporary_bytes(Some(N))` opts JSONL/NDJSON into a
+conversion-owned spool with a nonnegative Int64 capacity. The default is `None`,
+which keeps the compatibility route. `Some(0)` permits empty stores but forbids
+payload growth; it does not promise no filesystem activity. Negative values
+return `InvalidOption` before any input or Sink callback. This ceiling is
+independent of original input bytes and the existing per-asset/total-asset caps.
+
+The normal successful spool path parses/inspects each admitted record once,
+writes table and non-table event frames to two sequential files sharing the
+same account, then replays the table before code records. Capacity counts actual
+UTF8 values and the private frame headers. Multiple live stores and nested
+documents share the effective ceiling; a larger child request cannot relax a
+smaller parent allowance. Exceeding it returns
+`ResourceLimitExceeded(kind="temporary_bytes", observed, limit)`, and does not
+fall back to an in-memory route or call Sink.finish.
+
+Collected conversion retains table source fields (including JSON pointers,
+cell ranges and synthetic-header markers); the pull Sink keeps its established
+line-based table refs. A filtered matching row now refers to its actual input
+record ordinal and line, including when scalar or mismatching records precede
+it. The body and table/code ordering are preserved.
+
+This is a transitional opt-in, not complete P2 acceptance. Ordinary malformed
+JSON grammar can still use the existing raw-text recovery, which may collect
+the complete text even with Some(N). Consumed encoding, input, budget or cleanup
+errors cannot take that recovery. The pull Sink keeps its existing row/line
+limits and does not poll beyond the admitted record prefix. Collected conversion
+keeps the old LF-split/record-BOM and blank-line diagnostics, and validates the
+complete input even after its row projection stops; that remaining drain does
+not parse or spool omitted records. Source Text/Bytes, final events/IR/RAG and metadata may still be
+resident. The codec accounts its transient buffers and retains conservative
+UTF16 payload credit for strings that may escape as events; this is not RSS.
+
+The ceiling currently covers registered parser spool files. CLI atomic-output
+temporary siblings are **not yet charged to it**; it is not a promise about all
+temporary disk usage. Other consumers and finite production defaults remain
+unfinished. Explicit finite caps also censor measurements; their effective
+configuration must be recorded separately from unconstrained measurement-only
+maxima. A finite effective temporary limit uses the `partial_v12` schema and
+`measurement_with_temporary_limit` profile. The sidecar reports that actual
+effective limit, shared-ledger lifetime temporary peak and current credit;
+caller history may make the peak exceed a later tightened limit, and another
+owner's live credit may make current nonzero. Older profile harnesses reject
+this distinct profile.
+
 ## Errors and CLI exits
 
 | API error | Stable code | CLI exit |

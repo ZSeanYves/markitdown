@@ -49,7 +49,7 @@ async fn run_cli_impl(
     opts.convert_mode,
     opts.output_mode,
     opts.explicit_format,
-    @convert.default_resource_limits(),
+    cli_resource_limits(opts),
     rag_options=opts.rag_options,
   )
   let session = @input.begin_input_session(

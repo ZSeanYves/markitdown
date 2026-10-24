@@ -61,6 +61,7 @@ pub struct ResourceLimits {
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
+  max_temporary_bytes : Int64?
 } derive(Eq, @debug.Debug)
 
 ///|

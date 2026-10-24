@@ -272,6 +272,7 @@ pub fn parse_context_with_asset_limits(
     max_input_bytes=current.max_input_bytes,
     max_asset_bytes~,
     max_total_asset_bytes~,
+    max_temporary_bytes=current.max_temporary_bytes,
   )
   { ..context, limits, }
 }

@@ -199,10 +199,14 @@ async fn pptx_preflight_probe(
 ) -> ProbeOutcome {
   let prepared = match @pptxdoc.prepare_pptx_document_from_source(source) {
     Ok(value) => value
-    Err(_) =>
-      return probe_outcome("pptx", ["probe_failed"], source, probe_failures=[
-        make_probe_failure("pptx", "probe_failed"),
-      ])
+    Err(message) =>
+      return probe_outcome(
+        "pptx",
+        ["probe_failed"],
+        source,
+        probe_failures=[make_probe_failure("pptx", message)],
+        probe_artifacts=[PptxPreparationFailed(message)],
+      )
   }
   let presentation = prepared.document
   let inspect = @pptxdoc.inspect_pptx_document(presentation)

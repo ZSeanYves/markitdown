@@ -57,20 +57,34 @@ async test "standalone PPTX source and document readers reject caught presentati
       assert_true(@dzip.archive_hard_failure(archive) is Some(_))
       assert_eq(reads.val, reads_at_failure.val)
       let ctx = new_pptx_source_parse_context(pkg)
-      assert_true(read_source_part_text(ctx, "ppt/presentation.xml") is None)
+      assert_true(read_source_part_bytes(ctx, "ppt/presentation.xml") is None)
       assert_eq(reads.val, reads_at_failure.val)
     }
   }
 }
 
 ///|
-async test "standalone PPTX retains missing and malformed optional presentation recovery" {
-  for presentation in [None, Some(b"<p:presentation><p:sldId")] {
-    let archive = @dzip.open_zip(pptx_integrity_fixture(presentation))
-    let document = parse_pptx_document_from_package(
-      @ox.open_ooxml_archive(archive),
-    )
-    assert_eq(document.slides.length(), 0)
-    assert_true(@dzip.archive_hard_failure(archive) is None)
+async test "standalone PPTX retains missing optional presentation recovery" {
+  let archive = @dzip.open_zip(pptx_integrity_fixture(None))
+  let document = parse_pptx_document_from_package(
+    @ox.open_ooxml_archive(archive),
+  )
+  assert_eq(document.slides.length(), 0)
+  assert_true(@dzip.archive_hard_failure(archive) is None)
+}
+
+///|
+async test "standalone PPTX malformed present presentation returns a format error" {
+  let archive = @dzip.open_zip(
+    pptx_integrity_fixture(Some(b"<p:presentation><p:sldId")),
+  )
+  let rejected = try {
+    ignore(parse_pptx_document_from_package(@ox.open_ooxml_archive(archive)))
+    false
+  } catch {
+    PptxError::ParseError(_) => true
+    _ => false
   }
+  assert_true(rejected)
+  assert_true(@dzip.archive_hard_failure(archive) is None)
 }

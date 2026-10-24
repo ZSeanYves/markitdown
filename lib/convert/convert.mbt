@@ -25,6 +25,10 @@ pub async fn plan_input(
   let cleanup = @input.begin_input_cleanup_scope(session)
   defer ignore(@input.cleanup_input_scope(cleanup))
   let source = session.source
+  match apply_conversion_temporary_limit(source, options.limits) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
   let result = match detect_and_resolve_execution_plan(source, options) {
     Ok((_effective_source, _detected, execution_plan)) =>
       match input_failure_convert_error(source, detect=true) {

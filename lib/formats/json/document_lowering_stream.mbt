@@ -753,6 +753,7 @@ fn table_events_from_rows(
   format_name : String,
   record_line_numbers : Array[Int32],
   record_pointers : Array[String],
+  record_ordinals : Array[Int32],
 ) -> Array[@core.CoreEvent] {
   let events : Array[@core.CoreEvent] = []
   for row_index in 0..<rows.length() {
@@ -789,7 +790,10 @@ fn table_events_from_rows(
     if row_index == 0 {
       row_ref.extra.set("synthetic_header", "true")
     } else {
-      row_ref.extra.set("record_index", (row_index - 1).to_string())
+      row_ref.extra.set(
+        "record_index",
+        record_ordinals[row_index - 1].to_string(),
+      )
     }
     for col_index in 0..<row.length() {
       let cell_ref = @core.source_ref_with_cell_range(
@@ -803,7 +807,10 @@ fn table_events_from_rows(
       if row_index == 0 {
         cell_ref.extra.set("synthetic_header", "true")
       } else {
-        cell_ref.extra.set("record_index", (row_index - 1).to_string())
+        cell_ref.extra.set(
+          "record_index",
+          record_ordinals[row_index - 1].to_string(),
+        )
       }
       events.push({
         kind: Cell,

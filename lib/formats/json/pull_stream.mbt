@@ -25,6 +25,11 @@ async fn open_line_json_event_stream(
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseEventStream?, String] {
+  if context.limits.max_temporary_bytes is Some(_) {
+    return open_spooled_line_json_event_stream(
+      parser_name, format_name, source, context, capability,
+    )
+  }
   let scan = match scan_line_json_source(format_name, source, context) {
     Ok(value) => value
     Err(RecoverableSyntax) => return Ok(None)
@@ -176,66 +181,16 @@ async fn open_line_json_event_stream(
         },
         fn() {
           close()
-          @fshared.init_parser_route_metrics_with_granularity(
-            diagnostics,
-            source,
-            context,
-            format_name,
-            parser_name,
-            StreamingEvent,
-            StreamingEvent,
-            "event_stream",
-            Record,
-            "record_event_stream",
-          )
-          @fshared.apply_product_metrics(diagnostics, format_name)
-          diagnostics.metrics.set("record_count", scan.record_count.to_string())
-          diagnostics.metrics.set("row_count", scan.record_count.to_string())
-          diagnostics.metrics.set("object_count", scan.object_count.to_string())
-          diagnostics.metrics.set("array_count", scan.array_count.to_string())
-          diagnostics.metrics.set("scalar_count", scan.scalar_count.to_string())
-          diagnostics.metrics.set(
-            "max_depth_observed",
-            scan.max_depth.to_string(),
-          )
-          diagnostics.metrics.set(
-            "blank_line_count",
-            scan.blank_line_count.to_string(),
-          )
-          diagnostics.metrics.set("invalid_record_count", "0")
-          diagnostics.metrics.set(
-            "non_table_record_count",
-            scan.mismatch_count.to_string(),
-          )
-          diagnostics.metrics.set("event_count", event_count.val.to_string())
-          diagnostics.metrics.set(
-            "record_count_emitted",
-            scan.record_count.to_string(),
-          )
-          diagnostics.metrics.set("stream_parser_to_renderer", "true")
-          if scan.blank_line_count > 0 {
-            diagnostics.warnings.push(
-              "blank " +
-              format_name +
-              " line(s) skipped: " +
-              scan.blank_line_count.to_string(),
-            )
-            diagnostics.degraded_features.push(
-              format_name + "_blank_line_skipped",
-            )
-            diagnostics.fallback_trace.push(
-              format_name + " blank line -> skip empty record",
-            )
-          }
-          @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
-          diagnostics.pass_trace.push("parse:" + parser_name + ":pull_stream")
-          diagnostics.pass_trace.push("parse:" + parser_name)
           Ok(
-            @parser.parse_stream_summary(
+            line_json_event_summary(
               parser_name,
-              StreamingEvent,
+              format_name,
+              source,
+              context,
               capability,
               diagnostics,
+              scan,
+              event_count.val.to_int64(),
             ),
           )
         },
@@ -249,6 +204,68 @@ async fn open_line_json_event_stream(
 }
 
 ///|
+fn line_json_event_summary(
+  parser_name : String,
+  format_name : String,
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  capability : @parser.ParserCapability,
+  diagnostics : @core.Diagnostics,
+  scan : LineJsonPullScan,
+  event_count : Int64,
+) -> @parser.ParseStreamSummary {
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    format_name,
+    parser_name,
+    StreamingEvent,
+    StreamingEvent,
+    "event_stream",
+    Record,
+    "record_event_stream",
+  )
+  @fshared.apply_product_metrics(diagnostics, format_name)
+  diagnostics.metrics.set("record_count", scan.record_count.to_string())
+  diagnostics.metrics.set("row_count", scan.record_count.to_string())
+  diagnostics.metrics.set("object_count", scan.object_count.to_string())
+  diagnostics.metrics.set("array_count", scan.array_count.to_string())
+  diagnostics.metrics.set("scalar_count", scan.scalar_count.to_string())
+  diagnostics.metrics.set("max_depth_observed", scan.max_depth.to_string())
+  diagnostics.metrics.set("blank_line_count", scan.blank_line_count.to_string())
+  diagnostics.metrics.set("invalid_record_count", "0")
+  diagnostics.metrics.set(
+    "non_table_record_count",
+    scan.mismatch_count.to_string(),
+  )
+  diagnostics.metrics.set("event_count", event_count.to_string())
+  diagnostics.metrics.set("record_count_emitted", scan.record_count.to_string())
+  diagnostics.metrics.set("stream_parser_to_renderer", "true")
+  if scan.blank_line_count > 0 {
+    diagnostics.warnings.push(
+      "blank " +
+      format_name +
+      " line(s) skipped: " +
+      scan.blank_line_count.to_string(),
+    )
+    diagnostics.degraded_features.push(format_name + "_blank_line_skipped")
+    diagnostics.fallback_trace.push(
+      format_name + " blank line -> skip empty record",
+    )
+  }
+  @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
+  diagnostics.pass_trace.push("parse:" + parser_name + ":pull_stream")
+  diagnostics.pass_trace.push("parse:" + parser_name)
+  @parser.parse_stream_summary(
+    parser_name,
+    StreamingEvent,
+    capability,
+    diagnostics,
+  )
+}
+
+///|
 async fn open_line_json_reader(
   source : @input.InputSource,
   context : @parser.ParseContext,
@@ -257,6 +274,7 @@ async fn open_line_json_reader(
     source,
     max_bytes=@parser.max_input_bytes(context),
     max_line_chars=@parser.max_line_chars(context),
+    blank_prefix=['\u{001E}', '\u{FEFF}'],
   )
 }
 
