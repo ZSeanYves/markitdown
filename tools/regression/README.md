@@ -135,8 +135,9 @@ sidecars that omitted `non_zip_inflate` from their limitations are rejected.
 V4/V5/V6/V7 ParseWork uses `modeled_parse_work_units`: cursor UTF8 work, YAML logical
 node/merge-copy admission and PDF probe byte/code-unit/entry/visit/comparison
 units. It is not uniformly UTF8 bytes or complete parse work. The exact models
-and remaining omissions are in
-[the budget contract](../../docs/architecture/conversion-budget-contract.md).
+and remaining omissions are recorded in
+[the profile policies](native_budget_profile.mbtx) and each sidecar's
+`budget_coverage` and `budget_unmeasured` fields.
 Schemas and measurement_only/explicit_enforced profiles remain separate groups.
 
 `--quality-evidence` reads an existing complete passing all-suite Native run made

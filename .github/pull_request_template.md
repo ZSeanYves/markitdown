@@ -23,7 +23,7 @@ Non-goals:
 - Semantic compatibility impact:
 - Operational/security impact (network, external process, resource limits):
 - API/CLI/error/golden changes:
-- RFC/ADR (`docs/rfcs/...` or `docs/adr/...`) for stable API changes:
+- ADR (`docs/adr/...`) for stable API changes:
 
 ## Performance
 

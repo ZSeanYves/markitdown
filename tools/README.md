@@ -33,5 +33,5 @@ records the exact corpus/source state. See the
 
 P2–P4 execution/format/PDF work, P5 two-platform quality/performance/reliability,
 and P6 exact published-version confirmation remain unfinished under the
-[Native plan](../docs/architecture/native-performance-plan.md). No current
-script alone certifies all those gates.
+[Native delivery decision](../docs/adr/0008-native-only-delivery-and-acceptance.md).
+No current script alone certifies all those gates.

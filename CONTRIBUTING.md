@@ -22,7 +22,7 @@ moon fmt
 Review generated `.mbti` diffs; do not edit generated interfaces manually.
 These checks cover the checkout and its artifacts. Installation, independent
 library consumption, full quality regression and performance have separate
-gates in the [upgrade plan](docs/architecture/native-performance-plan.md).
+gates described in [ADR 0008](docs/adr/0008-native-only-delivery-and-acceptance.md).
 
 ## Native consumer and regression validation
 
@@ -71,8 +71,8 @@ engines and formula recalculation are outside the product boundary.
 
 Keep the thin root `main.mbt`, public `lib`, and private `internal` split.
 There is one Native conversion chain. Small FFI boundaries must record their
-necessity, ownership, transitive dependencies and removal condition in the
-[FFI inventory](docs/ffi-inventory.md).
+necessity, ownership, transitive dependencies and removal condition alongside
+the binding, following [ADR 0008](docs/adr/0008-native-only-delivery-and-acceptance.md).
 
 Wasm, Wasm-GC and JavaScript product distributions and their compatibility
 implementations are retired. Repository `.mbtx` scripts may use the toolchain's

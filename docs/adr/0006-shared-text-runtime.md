@@ -1,14 +1,14 @@
 # ADR 0006: One asynchronous text runtime for Wasm and Native
 
 > Historical record. Current product targets, delivery and acceptance
-> instructions are superseded by the [Native upgrade plan](../architecture/native-performance-plan.md)
-> and [ADR 0008](0008-native-only-delivery-and-acceptance.md).
+> instructions are superseded by [ADR 0008](0008-native-only-delivery-and-acceptance.md).
 > Original evidence below is preserved and does not certify P2–P6 completion.
 
 - Status: accepted for implementation, 2026-10-07
 - Supersedes: ADR 0002's synchronous/native-only API and the multimodal scope
-- Implementation status: tracked in `../native-wasm-upgrade.md`; acceptance is
-  not a claim that implementation or release validation has completed
+- Implementation status: historical upgrade records are available in Git
+  history; acceptance is not a claim that implementation or release validation
+  has completed
 
 ## Decision
 

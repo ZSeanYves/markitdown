@@ -19,16 +19,18 @@ rendering. These types and helpers do not cross the stable
 The current child-document adapters include synchronous internals. The
 single async Reader/Registry/pull/Sink protocol, deterministic session cleanup
 and cumulative budgets remain P2 work in the
-[Native plan](../../docs/architecture/native-performance-plan.md). The current
-async public entrypoint does not prove that all internal execution is unified.
+[Native delivery decision](../../docs/adr/0008-native-only-delivery-and-acceptance.md).
+The current async public entrypoint does not prove that all internal execution
+is unified.
 
 ## Process support
 
 `command/` contains executable resolution and bounded direct-argv process
 helpers. Its current consumer is the repository's hermetic test support;
 conversion does not require an external converter, OCR/audio process or
-runtime installer. The C ownership and removal conditions are in the
-[FFI inventory](../../docs/ffi-inventory.md).
+runtime installer. C bindings must document their ownership and removal
+conditions alongside the binding, following
+[ADR 0008](../../docs/adr/0008-native-only-delivery-and-acceptance.md).
 
 Keep format-private logic in its format package. Child parsing must use the
 shared registry/pipeline rather than establish another conversion chain.

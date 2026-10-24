@@ -53,6 +53,5 @@ native product runtime.
 - High: triage within 5 business days and assign a release target.
 - Other: include in the next normal maintenance cycle.
 
-Every security fix adds a regression test, updates
-`docs/governance/risk-register.md`, and records affected versions, credits and
-rollback instructions.
+Every security fix adds a regression test and records affected versions,
+credits and rollback instructions in its security advisory.

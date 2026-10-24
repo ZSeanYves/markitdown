@@ -5,7 +5,6 @@
 - Owners: @ZSeanYves
 - Supersedes: ADR 0006's Wasm baseline and delivery targets; ADR 0007's sole
   published-MoonX acceptance path
-- Governing plan: [Native performance upgrade](../architecture/native-performance-plan.md)
 
 ## Context
 
@@ -28,7 +27,7 @@ Preserve the asynchronous façade, existing input constructors and façade-owned
 types. The target is one async input/Registry/pull/Sink execution protocol
 with explicit resource ownership, cancellation and cumulative budgets.
 Existing synchronous adapters and buffering do not establish that target's
-completion. Public `convert_to_sink` is P2 work until implemented and verified.
+completion.
 
 Keep text, Office/ODF semantics, PDF text/geometry, image assets, sources,
 Markdown/Debug/RAG and existing mode meanings. OCR, scanned-page recognition,
@@ -66,15 +65,13 @@ Unavailable tooling or incomplete measurements remain unaccepted.
 
 These decisions supersede ADR 0006/0007 only for product targets, delivery and
 acceptance policy. Their text-only scope, shared semantics, async direction
-and format/mode contracts continue where consistent with the Native plan.
+and format/mode contracts continue where consistent with this decision.
 Historical records remain unchanged apart from supersession pointers.
 
 ## Verification and rollback
 
-Use the Native source checks in [Contributing](../../CONTRIBUTING.md),
-the [installation/regression tools](../../tools/regression/README.md),
-the [performance protocol](../performance.md) and
-the [release checklist](../governance/release-checklist.md).
+Use the Native source checks in [Contributing](../../CONTRIBUTING.md) and
+the [installation/regression tools](../../tools/regression/README.md).
 Save command/status/output fingerprints and review semantic differences.
 
 Keep previous source and real Native binaries as frozen rollback artifacts;

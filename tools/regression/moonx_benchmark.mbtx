@@ -1,6 +1,6 @@
 ///|
 fn main raise {
   fail(
-    "Retired: MoonX package benchmarking cannot establish Native performance. Use the Native same-quality two-window protocol in docs/architecture/native-performance-plan.md.",
+    "Retired: MoonX package benchmarking cannot establish Native performance. Use the Native same-quality two-window protocol in tools/regression/README.md#native-benchmark-protocol.",
   )
 }

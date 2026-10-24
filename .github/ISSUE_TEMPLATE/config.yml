@@ -3,6 +3,6 @@ contact_links:
   - name: Security vulnerability
     url: https://github.com/ZSeanYves/markitdown/security/advisories/new
     about: Use a private security advisory for vulnerabilities or parser crashes.
-  - name: Maintenance plan
-    url: https://github.com/ZSeanYves/markitdown/blob/main/docs/project-maintenance-plan.md
-    about: Check the roadmap and compatibility policy before opening a structural request.
+  - name: Architecture decisions
+    url: https://github.com/ZSeanYves/markitdown/tree/main/docs/adr
+    about: Check the current architecture and compatibility decisions before opening a structural request.

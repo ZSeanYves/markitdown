@@ -1,152 +1,70 @@
 # markitdown
 
 Native document-to-Markdown conversion in MoonBit for text extraction, content
-ingestion, and RAG preparation. The supported product platforms are Linux
-x86_64 and macOS arm64. The CLI and `ZSeanYves/markitdown/lib` share the same
-readers, format semantics, pipeline, and output models.
+ingestion and RAG preparation. Supports Linux x86_64 and macOS arm64, with a
+command-line tool and the `ZSeanYves/markitdown/lib` library.
 
-The product preserves text, structure, metadata, source locations, and document
-image assets. OCR, scanned-page recognition, audio transcription, and image
-recognition remain outside the text-conversion contract.
+## Features
 
-> The 0.8 candidate is unreleased. Registry installation examples apply only
-> after the matching version is published and its installation is verified.
-> See the [upgrade plan](docs/architecture/native-performance-plan.md) for
-> remaining acceptance gates.
+- [x] Text and data: TXT, CSV/TSV, JSON/JSONL/NDJSON, YAML, TOML, IPYNB and
+  SRT/VTT subtitles.
+- [x] Markup: Markdown, HTML, XML, TeX, RST and AsciiDoc.
+- [x] Office documents: DOCX, XLSX, PPTX, ODT, ODS and ODP.
+- [x] Containers and messages: ZIP, EPUB and MIME/EML.
+- [x] PDF text-layer extraction, layout information, links and supported
+  document image assets.
+- [x] Markdown, debug JSON and RAG output, with metadata, source locations,
+  provenance and recoverable image assets.
+- [x] Single-file, batch and stdin conversion; asynchronous library conversion
+  from paths, text, bytes and readers.
 
-## Install
+`balance` is the default mode. `accurate` enables additional Office/ODF
+semantics and PDF text processing. `stream` is available only for formats with
+a supported streaming route; ZIP accepts `balance` only. OCR, scanned-page
+recognition, audio transcription and image recognition are not supported.
 
-Use MoonBit `0.1.20261021` with `moonc v0.10.17+093cb8f9c` and a C compiler.
-Install the Native CLI from a checkout:
+## Install and use
 
-```text
-moon install --path .
-markitdown balance input.docx output.md
-```
+Requires MoonBit `0.1.20261021` (`moonc v0.10.17+093cb8f9c`) and a C compiler.
+Install the Native CLI:
 
-For a source installation at a fixed Git commit:
-
-```text
-moon install https://github.com/ZSeanYves/markitdown.git . --rev <full-40-character-commit-sha>
-```
-
-After publication, install the exact registry version:
-
-```text
+```sh
 moon install ZSeanYves/markitdown@0.8.0
 ```
 
-`moon install` builds the Native executable. No separate prebuilt download is
-provided. `moonx` may launch repository `.mbtx` validation scripts; product
-installation and execution use the installed Native CLI. See the
-[official Moon manual](https://moonbitlang.github.io/moon/commands.html#moon-install).
+Ensure MoonBit's executable directory is on your `PATH`, then convert a file:
 
-## Library quick start
+```sh
+markitdown input.docx output.md
+markitdown accurate input.pdf output.md
+markitdown --rag input.pdf chunks.json
+markitdown batch balance input_dir output_dir
+cat input.jsonl | markitdown --format jsonl - output.md
+```
 
-After publication, add the exact dependency to a Native MoonBit module:
+Omit the output path to write to stdout. Use `--format` to specify the input
+format, `--provenance-out provenance.json` to save single-file provenance,
+and `--max-temporary-bytes <bytes>` to cap conversion spool storage.
 
-```text
+```sh
+markitdown --help
+markitdown --capabilities
+```
+
+### Library usage
+
+Add the library dependency from your consumer directory:
+
+```sh
 moon add ZSeanYves/markitdown@0.8.0
 ```
 
-Set `preferred_target = "native"` in the consumer's `moon.mod`, and import
-`ZSeanYves/markitdown/lib` in its `moon.pkg`:
+Set `preferred_target = "native"` in `moon.mod` and import
+`ZSeanYves/markitdown/lib` in `moon.pkg`:
 
 ```mbt
 async fn convert_example() -> Result[@lib.Output, @lib.ConvertError] {
   let input = @lib.Input::from_path("document.docx")
-  @lib.convert(input, options=@lib.ConvertOptions::default())
+  @lib.convert(input)
 }
 ```
-
-The asynchronous façade accepts paths, text, bytes, and caller-owned readers.
-Its output, diagnostics, provenance, source maps, assets, and RAG chunks use
-façade-owned types. Reader internals, parser records, community ASTs, IR and FFI
-handles remain implementation details.
-
-## Capabilities
-
-| Input family | Native conversion contract |
-| --- | --- |
-| Plain and structured text | TXT, CSV/TSV, JSON/JSONL, YAML and TOML |
-| Markup | Markdown, HTML, XML, TeX, RST and AsciiDoc |
-| Containers and messages | MIME/EML, ZIP and EPUB |
-| Office and ODF | DOCX, XLSX, PPTX, ODT, ODS and ODP |
-| PDF | Bounded text-layer extraction, geometry, links and supported image assets |
-| Document images | Exported assets when safely recoverable |
-
-The complete format matrix, mode boundaries, existing resource limits and
-failure diagnostics are in [Capabilities and limitations](docs/capabilities-and-limitations.md).
-A PDF without a recoverable text layer returns an explicit diagnostic.
-
-- `balance` is the default conversion mode.
-- `accurate` enables additional Office/ODF semantic recovery and declared PDF
-  text policies.
-- `stream` is accepted only by formats with a declared streaming route; it
-  preserves the format's promised meaning.
-- Markdown is the default output. Debug, RAG, provenance, source maps and
-  materialized assets are available at the output boundary.
-
-Unsupported formats and modes return domain errors. No conversion launches an
-external recognizer or downloads a model.
-
-## Native migration
-
-Consumers upgrading to this candidate must select the Native backend and build
-on Linux x86_64 or macOS arm64. Wasm, Wasm-GC and JavaScript product targets are
-retired. Replace product `moonx` invocations with `moon install` followed by the
-installed CLI. The public asynchronous `lib` façade and existing input
-constructors remain the integration boundary. CP932 decoding uses host iconv;
-missing encoding support produces an error.
-
-## Validation
-
-Run checkout checks in serialized order:
-
-```text
-moon check --target native --warn-list +73 --deny-warn
-moon test --target native --no-parallelize
-moon test --target native --release --no-parallelize
-moon build --target native --release .
-moon info
-moon fmt
-```
-
-The Native regression runner tests an actual installed or frozen executable
-against the pinned quality-lab corpus. Each run needs a new evidence directory:
-
-```text
-moon run tools/regression/run_native_regression.mbtx --binary /absolute/path/to/markitdown --lab /absolute/path/to/markitdown-quality-lab --suite all --evidence /absolute/path/to/new-evidence
-```
-
-`tools/regression/native_install.mbtx` checks installation and an independent
-module importing the public library:
-
-```text
-moon run --target native tools/regression/native_install.mbtx --source local --root /absolute/path/to/markitdown --evidence /absolute/path/to/new-install-evidence
-```
-
-See [regression tooling](tools/regression/README.md) for pinned Git and exact
-published-version checks and saved evidence.
-
-These commands produce evidence when executed; source configuration alone is
-not an installation, platform, performance or release acceptance result.
-Repository automation is `.mbtx`; see [Contributing](CONTRIBUTING.md).
-
-## Repository layout
-
-```text
-main.mbt       thin executable composition root
-lib/           stable façade and shared product packages
-internal/      CLI, readers, registry, pipeline, runtime, and tests
-tools/         regression and benchmark entrypoints (.mbtx only)
-samples/       deterministic fixtures and reviewed examples
-docs/          capabilities, API, architecture, migration, and release docs
-```
-
-See the [CLI guide](docs/cli-usage-guide.md), [showcase](samples/showcase/README.md),
-[API example](docs/api-v0.8.md), and [documentation index](docs/README.md).
-
-## License
-
-Apache-2.0. See [LICENSE](LICENSE).
