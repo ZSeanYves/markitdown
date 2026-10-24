@@ -140,7 +140,7 @@ fn lower_line_delimited_json_events(
   let mut record_index = 0
   let mut blank_line_count = 0
   let max_rows = context.max_rows.unwrap_or(200)
-  let mut header_keys : Array[String]? = None
+  let mut columns : LineJsonColumns? = None
   let record_line_numbers : Array[Int32] = []
   let record_pointers : Array[String] = []
   for i in 0..<lines.length() {
@@ -180,14 +180,9 @@ fn lower_line_delimited_json_events(
     record_line_numbers.push(i + 1)
     record_pointers.push(pointer)
     match doc.root {
-      Object(members) => {
-        let keys = members.map(fn(m) { m.key })
-        match header_keys {
-          Some(existing) if !@fshared.keys_match_position_index(
-              existing,
-              @fshared.key_position_index(existing),
-              keys,
-            ) =>
+      Object(members) =>
+        match columns {
+          Some(schema) if !schema.matches(members) =>
             events.push({
               kind: StartBlock(Code),
               text: raw_line,
@@ -201,14 +196,18 @@ fn lower_line_delimited_json_events(
               ),
             })
           _ => {
-            if header_keys is None {
-              header_keys = Some(keys)
+            let schema = match columns {
+              Some(schema) => schema
+              None => {
+                let schema = LineJsonColumns::new(members)
+                columns = Some(schema)
+                schema
+              }
             }
-            let row = json_members_to_row(members, header_keys.unwrap_or([]))
+            let row = json_members_to_row(members, schema.keys)
             object_rows.push(row)
           }
         }
-      }
       _ =>
         events.push({
           kind: StartBlock(Code),
@@ -225,9 +224,9 @@ fn lower_line_delimited_json_events(
     }
     record_index += 1
   }
-  match header_keys {
-    Some(keys) if object_rows.length() > 0 => {
-      let all_rows : Array[Array[String]] = [keys]
+  match columns {
+    Some(schema) if object_rows.length() > 0 => {
+      let all_rows : Array[Array[String]] = [schema.keys]
       for row in object_rows {
         all_rows.push(row)
       }

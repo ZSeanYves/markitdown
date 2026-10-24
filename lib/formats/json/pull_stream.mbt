@@ -1,6 +1,6 @@
 ///|
 priv struct LineJsonPullScan {
-  header_keys : Array[String]?
+  columns : LineJsonColumns?
   record_count : Int32
   object_count : Int32
   array_count : Int32
@@ -35,7 +35,7 @@ async fn open_line_json_event_stream(
     Err(message) => return Err(message)
   }
   let code_reader : Ref[@sourceio.SourceTextLineReader?] = { val: None, }
-  let phase = Ref(if scan.header_keys is Some(_) { 0 } else { 1 })
+  let phase = Ref(if scan.columns is Some(_) { 0 } else { 1 })
   let header_emitted = Ref(false)
   let table_records = Ref(0)
   let code_records = Ref(0)
@@ -62,7 +62,8 @@ async fn open_line_json_event_stream(
             queued.clear()
             queued_index.val = 0
             if phase.val == 0 {
-              let header = scan.header_keys.unwrap_or([])
+              let columns = scan.columns.unwrap()
+              let header = columns.keys
               if !header_emitted.val {
                 append_line_json_row_events(
                   queued, header, source, format_name, 1,
@@ -77,13 +78,8 @@ async fn open_line_json_event_stream(
                 Ok(Some(record)) => {
                   let root = record.1.root
                   match root {
-                    Object(members) => {
-                      let keys = members.map(entry => entry.key)
-                      if @fshared.keys_match_position_index(
-                          header,
-                          @fshared.key_position_index(header),
-                          keys,
-                        ) {
+                    Object(members) =>
+                      if columns.matches(members) {
                         append_line_json_row_events(
                           queued,
                           json_members_to_row(members, header),
@@ -92,7 +88,6 @@ async fn open_line_json_event_stream(
                           record.0.line_no,
                         )
                       }
-                    }
                     _ => ()
                   }
                 }
@@ -124,15 +119,9 @@ async fn open_line_json_event_stream(
                 ) {
                 Ok(Some(record)) => {
                   let raw = record.0.text.trim().to_owned()
-                  let mismatch = match (scan.header_keys, record.1.root) {
-                    (Some(header), Object(members)) => {
-                      let keys = members.map(entry => entry.key)
-                      !@fshared.keys_match_position_index(
-                        header,
-                        @fshared.key_position_index(header),
-                        keys,
-                      )
-                    }
+                  let mismatch = match (scan.columns, record.1.root) {
+                    (Some(columns), Object(members)) =>
+                      !columns.matches(members)
                     (Some(_), _) => true
                     (None, _) => true
                   }
@@ -300,7 +289,7 @@ async fn scan_line_json_source(
   }
   defer (reader.close)()
   let count = Ref(0)
-  let mut header_keys : Array[String]? = None
+  let mut columns : LineJsonColumns? = None
   let mut object_count = 0
   let mut array_count = 0
   let mut scalar_count = 0
@@ -335,26 +324,17 @@ async fn scan_line_json_source(
     scalar_count += inspect.scalar_count
     max_depth = max_depth.max(inspect.max_depth)
     match document.root {
-      Object(members) => {
-        let keys = members.map(entry => entry.key)
-        match header_keys {
-          Some(header) =>
-            if !@fshared.keys_match_position_index(
-                header,
-                @fshared.key_position_index(header),
-                keys,
-              ) {
-              mismatch_count += 1
-            }
-          None => header_keys = Some(keys)
+      Object(members) =>
+        match columns {
+          Some(schema) => if !schema.matches(members) { mismatch_count += 1 }
+          None => columns = Some(LineJsonColumns::new(members))
         }
-      }
       _ => mismatch_count += 1
     }
     count.val += 1
   }
   Ok({
-    header_keys,
+    columns,
     record_count: count.val,
     object_count,
     array_count,

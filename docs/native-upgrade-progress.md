@@ -220,8 +220,27 @@ exeSHA为`45fb7433de513e44e896992d0a217d95079a6c63b359355f24eb5017a0612bc3`
 编译器SHA，详见`local-install-v10-toolchain-window-review.md`。11:19的新compiler对复核器
 发出新增导入语法Warning96，旧失败日志保留；隔离固定093工具链下的Native负控自测和
 完整review随后通过，checker源c3a603f...、exe cb135a811bf61c5b1b02d3c576342bb98c0281189229cba2e1056c051d5c7671。
-该阻断不改写已冻结exe及其执行记录。新v9远程CI/固定Git RC待执行；旧d1两平台通过只覆盖
-旧基础提交，未继承。主仓和计划副本仍无完整P2–P6退出、正式延迟/RSS或发布通过结论。
+该阻断不改写已冻结exe及其执行记录。新v9已以精确提交
+`2f4851276791927ba87ca395806bdf63967b8006`推送独立候选分支。CI40059008133与固定Git
+RC40059027636均双平台success：debug/release各1316，实际安装、新公共库consumer及各935
+语料通过。新下载包、实际checkout/source-head与工具链均重新核对；跨平台原始比较保留
+3285equal/44unexpected，逐叶重算363变化均来自272输入路径、84派生chunkID和7边界CRC，
+0未解释，九项负控拒绝。证据见`v9-remote-acceptance/`。这些结果覆盖2f485127；主仓和计划
+副本仍无完整P2–P6退出、正式延迟/RSS或发布通过结论。
+
+随后集成的font/JSONL/TempOwner候选已通过严格检查、info/fmt、release构建和显式FD、
++73/deny-warn的debug/release各1358/1358。字体local Result缓存的独立935/935、3329equal及
+五个PDF全部正文/资产/18768来源几何叶一致；Cache新增字段按实际Native布局计量，五例
+精确增加460/1840/0/230/0B，Read/Inflate/Working不变。JSONL列索引复用独立935/935和
+3329equal，仍有三遍读取/解析；新增索引未构成完整resident模型。临时文件leaf十九合同
+覆盖短写、部分写取消后重入、关闭/删除失败及租约释放，尚未接生产消费端或公开临时限额。
+新partial_v10仅扩大字体local Result postparse Cache范围，其他七scope、单位和旧默认值
+不变；两验收工具Wasm/Native严格检查及完整自测均通过。新`font-jsonl-v10`冻结已实际完成
+标准/侧车各935、独立本地安装与新consumer、安装产物另935及3329输出一致。新1313项
+采样0失败，独立重算10504值/2488 maxima及见证全部吻合，完整tar与1188源码文件及两个
+副本精确绑定；九项缺失仍未验。v9→v10原始3328equal/1unexpected保留，精确审查仅W4
+schema/coverage变化，全部八counter和其它稳定字段不变，七负控拒绝。详见
+`native-upgrade-local-v10-acceptance.md`；本地门槛通过后才推送本轮远端验证，不继承v9 CI。
 
 两个已交付隔离Native缓存309MiB/237MiB及工具35.7MiB已清理，源码/exe/原始证据保留。
 v10另清理1388个已结束生成中间文件，三个保留exe路径的SHA前后相同。新v9的3969个cases文件

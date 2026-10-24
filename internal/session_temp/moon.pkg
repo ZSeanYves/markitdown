@@ -1,0 +1,12 @@
+import {
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/os_error",
+}
+
+supported_targets = "native"
+
+options(
+  "preferred-target": "native",
+)

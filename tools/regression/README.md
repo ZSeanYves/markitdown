@@ -500,3 +500,12 @@ attempts remain preserved. Those smoke prepared records are tied to their
 original harness hash and must not be reused for formal windows after an edit.
 No formal calibration or window has been executed. This is tool-development
 evidence, not P5 performance acceptance.
+
+The Native regression runner and budget profiler also accept `partial_v10`.
+It adds only document-local Ranged font Result postparse retained payload to
+the Cache scope. The other seven measurement scopes, units,13 fields and eight
+canonical string counters remain unchanged. The profiler keeps v1–v10 and
+measurement/enforced groups separate; an old observation cannot be relabeled.
+New source/executable fingerprints, actual sidecars and complete1313 sampling
+are required for a new candidate. This policy does not establish complete
+memory/RSS accounting, numeric defaults or a formal performance result.

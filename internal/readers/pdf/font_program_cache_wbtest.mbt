@@ -261,7 +261,7 @@ async test "program cache hit checks source first failure and closed owner befor
 }
 
 ///|
-async test "unknown and unsupported fonts preserve decode first and do not create negative cache entries" {
+async test "unknown font kinds cache only validated absence and preserve decode first" {
   for corrupt in [false, true] {
     let payload = if corrupt {
       b"\x78\x9c\x00"
@@ -287,7 +287,7 @@ async test "unknown and unsupported fonts preserve decode first and do not creat
     } else {
       assert_true(result is Ok(None))
     }
-    assert_eq(cache.programs.length(), 0)
+    assert_eq(cache.programs.length(), if corrupt { 0 } else { 1 })
     @input.end_input_session(owner)
   }
 }
@@ -483,7 +483,7 @@ async test "FontFile3 dispatch shares OpenType with FontFile2 but keeps CFF mode
       }
     }
   }
-  assert_eq(cache.programs.length(), 3)
+  assert_eq(cache.programs.length(), 4)
 }
 
 ///|
@@ -545,7 +545,7 @@ async test "FontFile miss hard integrity IO and budget failures cannot become ca
 }
 
 ///|
-async test "unsupported filter remains a recoverable miss without negative caching" {
+async test "unsupported filter result does not poison the same definition with a supported plan" {
   let payload = @zlib.zlib_compress(font_cache_test_sfnt())
   let (bytes, offset) = ranged_test_bytes(
     payload,
@@ -563,9 +563,9 @@ async test "unsupported filter remains a recoverable miss without negative cachi
   )
   let unsupported = { ..object, dict_text: "<< /Filter /UnknownFilter >>", }
   assert_true(font_cache_test_get(unsupported, cache) is Ok(None))
-  assert_eq(cache.programs.length(), 0)
-  assert_true(font_cache_test_get(object, cache).unwrap() is Some(_))
   assert_eq(cache.programs.length(), 1)
+  assert_true(font_cache_test_get(object, cache).unwrap() is Some(_))
+  assert_eq(cache.programs.length(), 2)
 }
 
 ///|

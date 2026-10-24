@@ -342,7 +342,7 @@ async test "CLI provenance samples asset materialization after render without ch
   guard fields.get("budget_usage") is Some(Object(usage)) else {
     fail("budget object required")
   }
-  assert_eq(usage.get("budget_schema"), Some(Json("partial_v9")))
+  assert_eq(usage.get("budget_schema"), Some(Json("partial_v10")))
   assert_true(
     usage.get("budget_cache_payload_peak_bytes") is Some(String(count)) &&
     count != "0",

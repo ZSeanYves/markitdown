@@ -595,6 +595,45 @@ neither result is a formal latency/RSS gain. The integrated main, new source/
 executable freeze,935 sidecars and1313 v9 sampling/review remain pending.
 Historical v8 observations are not relabeled or inherited.
 
+## partial_v10: document-local Ranged font Result payload
+
+This policy adds `pdf_ranged_font_local_result_postparse_retained_payload`.
+It preserves the other seven measurement scopes, all eight counter units,
+the13-field shape, resident/unmeasured policies and existing numeric limits.
+Historical observations retain their original schema and profile.
+
+One full-store extraction caches a typed `Result[Program?, String]` using
+selected object identity, exact stream framing, parser kind and the ordered
+filter/DecodeParms snapshot. Rejected plans retain their full original
+dictionary identity. Ordinary unsupported-decoder errors, validated absence
+and successful empty programs remain distinct. Lookup/parent/CMap decisions
+remain outside this local cache. CRC, I/O, encoding, cancellation and typed
+budget failures are never published as negative entries. Hit and publication
+both check the original session's first failure.
+
+The pinned Native64 generated C proves key68B + selected Entry references16B
++ Result value reference8B =92B before plan/value payload. Resolved plans add
+16B plus actual filter/parameter backing capacities and UTF16 strings; each
+present five-Option parameter record adds40B. Rejected plans add8B and their
+dictionary UTF16 payload. A successful program adds48B and its actual array
+capacities/string payload; None adds no program, while Err retains its message.
+This is postparse admission. Map buckets/links/hash bookkeeping, tags,
+headers/padding/allocator and parsing/merge/filter-key scratch remain unmeasured.
+
+The isolated candidate passed20 new contracts,230 related tests,935 corpus
+cases and3329 equal stable outputs. Five PDFs preserve all output, assets and
+18768 source/geometry leaves; their independently predicted Cache deltas are
+460/1840/0/230/0B. Other counters stay unchanged. A real repeated-negative
+font-registry construction reduces actual Inflate36B to4B; this is not a formal
+whole-document timing/RSS result. Integrated partial_v10 sampling completed
+1313 observations with0 failures; the independent review recomputed10504
+counter values and2488 maxima/witnesses and bound1188 source files to the
+complete archive and two independent copies. Standard/sidecar/installed
+corpus runs each passed935; local installation and a new public-only library
+consumer passed. See `../native-upgrade-local-v10-acceptance.md` for frozen
+hashes and exact limits. These local results do not establish full budgeting,
+default values, formal timing/RSS targets or the complete upgrade.
+
 ## Default values and freeze gate
 
 Existing constraints provide reference points, not an invented aggregate
