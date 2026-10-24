@@ -10,6 +10,14 @@ pub type FidelityMode = @product.FidelityMode
 pub type OutputMode = @product.OutputMode
 
 ///|
+/// Internal output demand. The public facade and stdout keep metadata-only
+/// assets; CLI file output validates only the final assets it will export.
+pub(all) enum OutputAssetDemand {
+  MetadataOnly
+  ExistingOutputAssets
+}
+
+///|
 
 ///|
 /// Compatibility name for the product-owned output mode. New callers should
@@ -262,6 +270,7 @@ pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
   RenderFailed(String)
+  OutputAssetFailure(String)
   ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
 } derive(Eq)
 
@@ -275,6 +284,7 @@ pub impl Show for ConvertError with fn to_string(self : ConvertError) -> String 
     DetectFailed(msg) => "detect failed: " + msg
     ParseFailed(msg) => "parse failed: " + msg
     RenderFailed(msg) => "render failed: " + msg
+    OutputAssetFailure(msg) => "output asset failed: " + msg
     ResourceLimitExceeded(kind~, observed~, limit~) =>
       "resource limit exceeded: " +
       kind +

@@ -10,6 +10,7 @@ fn pdf_decode_literal_pdf_text(value : String) -> String {
 fn pdf_decode_content_literal_pdf_text(
   value : String,
   font_info : PdfNativeFontInfo?,
+  successful_literal~ : Ref[PdfDecodedFontBytes?]? = None,
 ) -> String {
   match pdf_decode_utf16_literal_string(value) {
     Some(decoded) => decoded
@@ -20,7 +21,8 @@ fn pdf_decode_content_literal_pdf_text(
           let invalid_tounicode_bytes = pdf_bytes_hit_invalid_tounicode(
             bytes, info,
           )
-          match pdf_decode_literal_bytes_with_font(bytes, info) {
+          match
+            pdf_decode_literal_bytes_with_font(bytes, info, successful_literal~) {
             Some(decoded) => decoded
             None =>
               if invalid_tounicode_bytes ||
@@ -80,9 +82,15 @@ fn pdf_decode_utf16_literal_string(value : String) -> String? {
 fn pdf_decode_literal_bytes_with_font(
   bytes : Array[Int32],
   info : PdfNativeFontInfo,
+  successful_literal~ : Ref[PdfDecodedFontBytes?]? = None,
 ) -> String? {
   match pdf_decode_literal_bytes_with_font_result(bytes, info) {
-    Some(decoded) => Some(decoded.text)
+    Some(decoded) => {
+      if successful_literal is Some(receipt) {
+        receipt.val = Some(decoded)
+      }
+      Some(decoded.text)
+    }
     None =>
       match pdf_decode_raw_cjk_bytes_for_font(bytes, info) {
         Some(decoded) => Some(decoded)

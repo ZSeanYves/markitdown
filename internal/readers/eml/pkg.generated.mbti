@@ -20,6 +20,7 @@ pub async fn prepare_eml_message_from_source(@input.InputSource) -> Result[Prepa
 pub(all) suberror EmlError {
   ParseError(String)
   InvalidEncoding(String)
+  LimitExceeded(EmlStructuralLimitKind, observed~ : Int64, limit~ : Int64)
 }
 pub fn EmlError::output(Self, &Logger) -> Unit
 pub fn EmlError::to_string(Self) -> String
@@ -122,6 +123,11 @@ pub struct EmlPartSummary {
   content_id : String?
   location : String?
   json_pointer : String
+}
+
+pub(all) enum EmlStructuralLimitKind {
+  NestingDepth
+  MultipartParts
 }
 
 pub(all) enum EmlTransferEncoding {

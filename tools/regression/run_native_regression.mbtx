@@ -1222,6 +1222,81 @@ fn budget_profile_error(provenance : String) -> String {
         return "unknown partial_v4 budget accounting policy"
       }
     }
+    Some(String("partial_v5")) => {
+      expected_fields = 13
+      counters.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+      if string(get_field(usage, "budget_coverage")) !=
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,output_utf8_admission" ||
+        string(get_field(usage, "budget_unmeasured")) !=
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache" ||
+        string(get_field(usage, "budget_resident_policy")) !=
+        "scope_retained_payload_upper_bound" {
+        return "unknown partial_v5 budget accounting policy"
+      }
+    }
+    Some(String("partial_v6")) => {
+      expected_fields = 13
+      counters.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+      if string(get_field(usage, "budget_coverage")) !=
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,output_utf8_admission" ||
+        string(get_field(usage, "budget_unmeasured")) !=
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache" ||
+        string(get_field(usage, "budget_resident_policy")) !=
+        "scope_retained_payload_upper_bound" {
+        return "unknown partial_v6 budget accounting policy"
+      }
+    }
+    Some(String("partial_v7")) => {
+      expected_fields = 13
+      counters.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+      if string(get_field(usage, "budget_coverage")) !=
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,output_utf8_admission" ||
+        string(get_field(usage, "budget_unmeasured")) !=
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache" ||
+        string(get_field(usage, "budget_resident_policy")) !=
+        "scope_retained_payload_upper_bound" {
+        return "unknown partial_v7 budget accounting policy"
+      }
+    }
+    Some(String("partial_v8")) => {
+      expected_fields = 13
+      counters.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+      if string(get_field(usage, "budget_coverage")) !=
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,output_utf8_admission" ||
+        string(get_field(usage, "budget_unmeasured")) !=
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache" ||
+        string(get_field(usage, "budget_resident_policy")) !=
+        "scope_retained_payload_upper_bound" {
+        return "unknown partial_v8 budget accounting policy"
+      }
+    }
+    Some(String("partial_v9")) => {
+      expected_fields = 13
+      counters.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+      if string(get_field(usage, "budget_coverage")) !=
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission" ||
+        string(get_field(usage, "budget_unmeasured")) !=
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache" ||
+        string(get_field(usage, "budget_resident_policy")) !=
+        "scope_retained_payload_upper_bound" {
+        return "unknown partial_v9 budget accounting policy"
+      }
+    }
     _ => return "unknown budget schema"
   }
   if fields.length() != expected_fields {
@@ -1240,7 +1315,84 @@ fn budget_profile_error(provenance : String) -> String {
 }
 
 ///|
+fn self_test_v9_budget_policy() -> Unit raise {
+  let fields : Map[String, Json] = {
+    "budget_schema": Json("partial_v9"),
+    "budget_profile": Json("measurement_only"),
+    "budget_coverage": Json(
+      "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission",
+    ),
+    "budget_unmeasured": Json(
+      "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+    ),
+    "budget_resident_policy": Json("scope_retained_payload_upper_bound"),
+  }
+  for
+    key in [
+      "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+      "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes",
+      "budget_parse_work", "budget_source_metadata_bytes",
+    ] {
+    fields[key] = Json("0")
+  }
+  let wrap = fn() {
+    Json::object({ "budget_usage": Json::object(fields) }).stringify()
+  }
+  assert_eq(fields.length(), 13)
+  assert_eq(budget_profile_error(wrap()), "")
+  fields["budget_schema"] = Json("partial_v8")
+  assert_true(budget_profile_error(wrap()) != "")
+  fields["budget_schema"] = Json("partial_v9")
+  fields["budget_coverage"] = Json(
+    "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission".replace_all(
+      old="pdf_ranged_local_cmap_postparse_retained_payload,",
+      new="",
+    ),
+  )
+  assert_true(budget_profile_error(wrap()) != "")
+  fields["budget_coverage"] = Json(
+    "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission",
+  )
+  for
+    key in [
+      "budget_read_traffic_bytes", "budget_inflate_bytes", "budget_output_admitted_utf8_bytes",
+      "budget_output_confirmed_utf8_bytes", "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes",
+      "budget_parse_work", "budget_source_metadata_bytes",
+    ] {
+    for
+      bad in [
+        Json(0),
+        Json(-1),
+        Json(1.5),
+        Json(true),
+        Json::null(),
+        Json("-1"),
+        Json("01"),
+        Json("9223372036854775808"),
+      ] {
+      fields[key] = bad
+      assert_true(budget_profile_error(wrap()) != "")
+    }
+    fields[key] = Json("0")
+  }
+  fields["pdf_local_cmap_cache_bytes"] = Json("1")
+  assert_true(budget_profile_error(wrap()) != "")
+  fields.remove("pdf_local_cmap_cache_bytes")
+  fields["budget_unmeasured"] = Json("other_parse_work")
+  assert_true(budget_profile_error(wrap()) != "")
+  fields["budget_unmeasured"] = Json(
+    "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+  )
+  fields["budget_resident_policy"] = Json("rss_bound")
+  assert_true(budget_profile_error(wrap()) != "")
+  fields["budget_resident_policy"] = Json("scope_retained_payload_upper_bound")
+  fields["budget_profile"] = Json("explicit_enforced")
+  assert_eq(budget_profile_error(wrap()), "")
+}
+
+///|
 async fn self_test() -> Unit {
+  self_test_v9_budget_policy()
   assert_true(budget_profile_error("{}") != "")
   let budget_fields : Map[String, Json] = {
     "budget_profile": Json("measurement_only"),
@@ -1305,7 +1457,8 @@ async fn self_test() -> Unit {
   assert_true(
     budget_profile_error(
       Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
-    ) != "",
+    ) !=
+    "",
   )
   budget_fields["budget_parse_work"] = Json("0")
   budget_fields["budget_schema"] = Json("partial_v4")
@@ -1313,7 +1466,8 @@ async fn self_test() -> Unit {
   assert_true(
     budget_profile_error(
       Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
-    ) != "",
+    ) !=
+    "",
   )
   budget_fields["budget_coverage"] = Json(
     "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,output_utf8_admission",
@@ -1335,6 +1489,193 @@ async fn self_test() -> Unit {
     "",
   )
   budget_fields["budget_parse_work"] = Json("0")
+  budget_fields["budget_schema"] = Json("partial_v5")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_coverage"] = Json(
+    "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,output_utf8_admission",
+  )
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  let v5_coverage = string(budget_fields["budget_coverage"])
+  budget_fields["budget_schema"] = Json("partial_v6")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_coverage"] = Json(
+    v5_coverage.replace_all(
+      old="output_utf8_admission",
+      new="cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,output_utf8_admission",
+    ),
+  )
+  assert_eq(budget_fields.length(), 13)
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v5")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v6")
+  budget_fields["cli_source_asset_read_count"] = Json("1")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields.remove("cli_source_asset_read_count")
+  budget_fields["budget_profile"] = Json("explicit_enforced")
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_profile"] = Json("measurement_only")
+  let v6_coverage = string(budget_fields["budget_coverage"])
+  let v6_unmeasured = string(budget_fields["budget_unmeasured"])
+  budget_fields["budget_schema"] = Json("partial_v7")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_coverage"] = Json(
+    v6_coverage.replace_all(
+      old="output_utf8_admission",
+      new="ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,output_utf8_admission",
+    ),
+  )
+  // Both the new coverage and exact renamed unmeasured policy are required.
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_unmeasured"] = Json(
+    v6_unmeasured.replace_all(
+      old="ooxml_validation_issues_and_temporary_metadata",
+      new="ooxml_validation_issues_and_other_temporary_metadata",
+    ),
+  )
+  assert_eq(budget_fields.length(), 13)
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v6")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v7")
+  budget_fields["pdf_font_program_cache_bytes"] = Json("1")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields.remove("pdf_font_program_cache_bytes")
+  budget_fields["budget_profile"] = Json("explicit_enforced")
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_profile"] = Json("measurement_only")
+  let v7_coverage = string(budget_fields["budget_coverage"])
+  let v7_unmeasured = string(budget_fields["budget_unmeasured"])
+  budget_fields["budget_schema"] = Json("partial_v8")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_coverage"] = Json(
+    "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,output_utf8_admission",
+  )
+  assert_eq(budget_fields.length(), 13)
+  assert_eq(
+    budget_fields["budget_unmeasured"],
+    Json(
+      "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+    ),
+  )
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v7")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_schema"] = Json("partial_v8")
+  budget_fields["budget_unmeasured"] = Json("other_parse_work")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_unmeasured"] = Json(v7_unmeasured)
+  budget_fields["pdf_pending_image_queue_capacity"] = Json("1")
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields.remove("pdf_pending_image_queue_capacity")
+  budget_fields["budget_profile"] = Json("explicit_enforced")
+  assert_eq(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ),
+    "",
+  )
+  budget_fields["budget_profile"] = Json("measurement_only")
+  budget_fields["budget_coverage"] = Json(v7_coverage)
+  assert_true(
+    budget_profile_error(
+      Json::object({ "budget_usage": Json::object(budget_fields) }).stringify(),
+    ) !=
+    "",
+  )
+  budget_fields["budget_coverage"] = Json(
+    "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,output_utf8_admission",
+  )
   budget_fields["budget_unmeasured"] = Json("")
   assert_true(
     budget_profile_error(

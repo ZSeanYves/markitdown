@@ -300,6 +300,26 @@ pub fn input_source_entry_limit(source : InputSource) -> Int64? {
 }
 
 ///|
+/// CLI materializes an external asset with its own explicit access ceiling.
+/// Share conversion ownership/account/failure, never the root's raw extent
+/// proof. The asset is a different physical object from the original input.
+pub fn input_from_asset_path(
+  parent : InputSource,
+  path : String,
+  asset_limit~ : Int64,
+) -> InputSource {
+  let source = input_from_path(path)
+  input_source_inherit_session(
+    {
+      ..source,
+      byte_limit: Some(asset_limit),
+      derived_entry_limit: Some(asset_limit),
+    },
+    parent,
+  )
+}
+
+///|
 /// Construct a random-access reader input with the default `<reader>` name.
 pub fn input_from_reader(
   reader : InputReader,

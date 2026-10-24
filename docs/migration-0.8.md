@@ -91,6 +91,14 @@ Office/ODF/PDF semantics. `stream` preserves promised output meaning and is
 rejected where unsupported. It does not authorize lower extraction quality.
 OCR, audio transcription and scanned-page recognition remain outside scope.
 
+MIME structural limits now fail closed through the existing public
+`ResourceLimitExceeded` variant. A child at depth9 exceeds the unchanged
+depth8 limit (`kind="mime_nesting_depth"`); a container's1025th nonempty child
+exceeds the unchanged1024-part limit (`kind="mime_multipart_parts"`). Both
+carry exact `observed` and `limit` values. Older successful raw-text fallback
+with an error diagnostic is no longer returned for these limits. The CLI
+uses resource-error exit5; failed collection produces no output or asset files.
+
 CP932 uses host iconv. The unused `horideicom/encoding_sjis` dependency and
 portable adapter are removed; missing/invalid encoding support fails closed.
 

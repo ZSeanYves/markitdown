@@ -42,19 +42,21 @@ fn pdf_text_coverage_stream_object(
   {
     object_id,
     dict_text,
-    stream: Some({
-      primary_bytes: @utf8.encode(payload),
-      endstream_bytes: @utf8.encode(payload),
-      endstream_eol_suffix: 0,
-      endstream_eol_length: 0,
-      declared_length: Some(payload.length()),
-      decode_context: None,
-    }),
+    stream: Some(
+      Loaded({
+        primary_bytes: @utf8.encode(payload),
+        endstream_bytes: @utf8.encode(payload),
+        endstream_eol_suffix: 0,
+        endstream_eol_length: 0,
+        declared_length: Some(payload.length()),
+        decode_context: None,
+      }),
+    ),
   }
 }
 
 ///|
-test "pdf text content operators cover positioning spacing arrays and actual text" {
+async test "pdf text content operators cover positioning spacing arrays and actual text" {
   let fonts : Map[Int32, PdfNativeFontInfo] = Map([
     (1, pdf_text_coverage_font_info()),
   ])
@@ -85,7 +87,7 @@ test "pdf text content operators cover positioning spacing arrays and actual tex
 }
 
 ///|
-test "pdf text stream covers depth malformed tokens and form xobjects" {
+async test "pdf text stream covers depth malformed tokens and form xobjects" {
   let source = pdf_text_coverage_source()
   let geometry = make_pdf_page_geometry(2, 300.0, 300.0)
   let fonts : Map[Int32, PdfNativeFontInfo] = Map([
@@ -175,7 +177,7 @@ test "pdf text utility edge cases remain deterministic" {
 }
 
 ///|
-test "pdf embedded font extraction covers missing corrupt and supported streams" {
+async test "pdf embedded font extraction covers missing corrupt and supported streams" {
   let empty : Map[Int32, PdfNativeObject] = Map([])
   assert_true(pdf_extract_embedded_font_program("<< >>", empty) is None)
   assert_true(
@@ -231,7 +233,7 @@ test "pdf embedded font extraction covers missing corrupt and supported streams"
 }
 
 ///|
-test "pdf embedded font maps decoding and widths cover controlled fallbacks" {
+async test "pdf embedded font maps decoding and widths cover controlled fallbacks" {
   let identity : Map[Int32, PdfNativeObject] = Map([])
   assert_true(
     pdf_extract_cid_to_gid_map("<< /CIDToGIDMap /Identity >>", identity) == None,

@@ -21,6 +21,8 @@ pub struct InputSession {
 pub(all) enum ResourceLimitKind {
   SingleAssetBytes
   TotalAssetBytes
+  MimeNestingDepth
+  MimeMultipartParts
 } derive(Eq)
 
 ///|
@@ -58,6 +60,8 @@ fn input_failure_message(failure : InputFailure) -> String {
       let kind = match failure.kind {
         SingleAssetBytes => "single_asset_bytes"
         TotalAssetBytes => "total_asset_bytes"
+        MimeNestingDepth => "mime_nesting_depth"
+        MimeMultipartParts => "mime_multipart_parts"
       }
       "resource limit exceeded: " +
       kind +

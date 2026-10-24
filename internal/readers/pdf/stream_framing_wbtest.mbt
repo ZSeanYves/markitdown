@@ -4,7 +4,7 @@ fn framing_test_object(
   length_dict : String,
   separator : Bytes,
   context~ : PdfStreamDecodeContext? = None,
-) -> PdfNativeObject {
+) -> PdfNativeObject raise PdfHardDecodeFailure {
   let output = Buffer()
   output.write_bytes(
     pdf_ascii_bytes(
@@ -18,16 +18,17 @@ fn framing_test_object(
 }
 
 ///|
-fn framing_test_decode(
+async fn framing_test_decode(
   object : PdfNativeObject,
 ) -> Result[Bytes, PdfNativeError] {
   pdf_decode_stream_bytes(object, "framing regression") catch {
     PdfHardDecodeFailure(error) => Err(error)
+    error => raise error
   }
 }
 
 ///|
-test "PDF indirect Length preserves Adler CR before syntax LF" {
+async test "PDF indirect Length preserves Adler CR before syntax LF" {
   let compressed = @zlib.zlib_compress(b"\x0c")
   assert_eq(compressed[compressed.length() - 1], b'\r')
   let object = framing_test_object(compressed, "/Length 2 0 R", b"\n")
@@ -50,11 +51,14 @@ test "PDF indirect Length preserves Adler CR before syntax LF" {
     Ok(value) => assert_eq(value, b"\x0c")
     Err(error) => fail(error.to_string())
   }
-  assert_eq(resolved.stream.unwrap().declared_length, Some(compressed.length()))
+  assert_eq(
+    pdf_wbtest_loaded_stream(resolved.stream.unwrap()).declared_length,
+    Some(compressed.length()),
+  )
 }
 
 ///|
-test "PDF marker framing keeps legal CR LF data bytes for LF and CRLF separators" {
+async test "PDF marker framing keeps legal CR LF data bytes for LF and CRLF separators" {
   for decoded in [b"\x0c", b"\x09"] {
     let compressed = @zlib.zlib_compress(decoded)
     for separator in [b"\n", b"\r\n"] {
@@ -74,7 +78,7 @@ test "PDF marker framing keeps legal CR LF data bytes for LF and CRLF separators
 }
 
 ///|
-test "PDF Length keys are exact and declared EOL ambiguity repairs real framing" {
+async test "PDF Length keys are exact and declared EOL ambiguity repairs real framing" {
   let compressed = @zlib.zlib_compress(b"framed font")
   let output = Buffer()
   output.write_bytes(compressed)
@@ -85,7 +89,10 @@ test "PDF Length keys are exact and declared EOL ambiguity repairs real framing"
     "/Length1 99 /Length " + overlong.length().to_string(),
     b"\n",
   )
-  assert_eq(object.stream.unwrap().declared_length, Some(overlong.length()))
+  assert_eq(
+    pdf_wbtest_loaded_stream(object.stream.unwrap()).declared_length,
+    Some(overlong.length()),
+  )
   match framing_test_decode(object) {
     Ok(value) => assert_eq(value, b"framed font")
     Err(error) => fail(error.to_string())
@@ -93,11 +100,14 @@ test "PDF Length keys are exact and declared EOL ambiguity repairs real framing"
   let exact_key = framing_test_object(
     compressed, "/Length1 1 /Length99 2", b"\n",
   )
-  assert_eq(exact_key.stream.unwrap().declared_length, None)
+  assert_eq(
+    pdf_wbtest_loaded_stream(exact_key.stream.unwrap()).declared_length,
+    None,
+  )
 }
 
 ///|
-test "PDF framing never drops junk or recovers a corrupt Adler ending CR LF" {
+async test "PDF framing never drops junk or recovers a corrupt Adler ending CR LF" {
   let compressed = @zlib.zlib_compress(b"guarded")
   for suffix in [b"X\n", b"\x00\n", b" \n"] {
     let output = Buffer()
@@ -142,7 +152,7 @@ test "PDF framing never drops junk or recovers a corrupt Adler ending CR LF" {
 }
 
 ///|
-test "PDF EOL framing retry cannot follow a typed first budget failure" {
+async test "PDF EOL framing retry cannot follow a typed first budget failure" {
   let compressed = @zlib.zlib_compress(b"A")
   let output = Buffer()
   output.write_bytes(compressed)

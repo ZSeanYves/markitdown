@@ -9,7 +9,8 @@ priv struct PdfStreamDecodeContext {
 }
 
 ///|
-// Only actual compression integrity / resource failures use this effect.
+// Compression integrity, resource and deferred source IO failures use this
+// effect so optional font/image recovery cannot swallow the shared first error.
 // Existing unsupported-filter and decoded-font syntax recovery stays Result.
 priv suberror PdfHardDecodeFailure {
   PdfHardDecodeFailure(PdfNativeError)

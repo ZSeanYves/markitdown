@@ -356,6 +356,245 @@ filters/predictors/text and other working/cache allocations remain unmeasured.
 Neither the mixed work units nor payload peaks establish RSS bounds, default
 profile acceptance or completion of P2/P3/P4.
 
+The frozen core/app and indexed-PDF integration uses `partial_v5`, retaining the thirteen fields
+and eight canonical string counters. It adds the accepted core/app consumers
+and indexed PDF stream ranges. Its exact policy is separate from v4; historical
+schema/policy pairs remain strictly validated and their maxima stay separate.
+This schema is an instrumentation contract, not an accepted full profile window.
+
+| New scope | Accounting model and lifetime |
+| --- | --- |
+| Core/app selected values | Existing XML cursor work plus one ParseWork per scalar appended to each selected active value; nesting may append a scalar to more than one selected value |
+| Core/app final strings | UTF8 SourceMetadata admission and UTF16 code units × 2 Cache admission before constructing final trimmed strings; static catalog keys and object/container overhead excluded; successful values retained through input scope |
+| Core/app private scalar buffers | Working admission of 4 bytes per capacity slot, geometric growth admits old and replacement arrays together; buffers retire at field completion or error/cancellation |
+| PDF indexed direct source windows | Working admission of requested window bytes before I/O; release after dictionary/range extraction, as the original full window does not escape |
+| PDF non-prepaid dictionary/range metadata | Cache admission of original dictionary byte length × 2 plus 44 numeric-field bytes for a stream range; pre-existing probe objects keep their older 4 × window prepayment rather than charging the same dictionary again |
+| PDF consumed stream ranges | Private Working admission of primary length plus a distinct endstream length, plus separate raw-read scratch of their maximum; returned Bytes are explicitly copied, and successful payloads transfer to scope-held ownership synchronously before publication |
+| PDF indexed ObjStm members | ParseWork per decoded UTF16 code unit before splitting; Cache payload model 4 × decoded code units + 16 numeric bytes for the identity key; successful entries cached by object ID, selected definition offset and generation in the same session |
+
+The 44-byte range descriptor and 16-byte ObjStm key models exclude references,
+Option/enum tags, Map/Array capacity, allocator headers and alignment. ObjStm
+parser scratch, decoded text conversions, non-Flate filters/predictors, fonts,
+images, SourceCursor internal buffers, full xref parsing and the other v4
+unmeasured scopes remain unmeasured. Indexed metadata/global resource surveys
+still read their previous windows; repeated stream consumption can read and
+retain the same encoded payload again. Neither lazy object reachability nor
+page-lifetime cleanup is complete. Missing/unusable indexes still use the owned
+repair path. No read-traffic, RSS or timing benefit is inferred from this schema.
+All stream cache hits and delayed reads retain owner/first-failure checks.
+Budget, I/O and cancellation cannot become a recoverable missing CMap/image or
+ordinary framing retry. The legacy v1/v2/v3/v4 policies are unchanged.
+
+The CLI asset integration uses `partial_v6`. It retains the same thirteen
+fields/eight counters, exact v5 unmeasured list and
+`scope_retained_payload_upper_bound` resident policy. Immediately before
+`output_utf8_admission`, its exact coverage adds only
+`cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working`.
+The v1-v5 policies remain unchanged and are grouped separately. All runtime
+routes use v6, including public-library conversions without CLI SourcePath
+activity; the policy does not switch based on whether an asset happened to read.
+Extra `cli_source_asset_*` diagnostic metrics are not budget_usage fields.
+V6's full binary-bound profile is pending execution. Schema support and scoped
+correctness tests do not accept a new profile, defaults or complete budgets.
+
+| V6 added CLI scope | Accounting model and lifetime |
+| --- | --- |
+| SourcePath actual read traffic | Actual returned content bytes from the admitted opened descriptor, charged to the same outer conversion account; a successfully cached pathname is read once, with no second persistence read |
+| SourcePath final Bytes | `size` Cache payload admitted before publication, retained through the outer single/batch owner's cleanup because multiple AssetRefs can borrow it |
+| SourcePath private collection | `size + 2 * min(size, 65536)` Working payload before collection allocation: the collection buffer and two bounded native read payloads; released on success/error/cancellation |
+| Empty or existing owned payloads | Empty admitted extents return `b""` without a collection buffer/content read/resident lease. Existing Bytes/Utf8 assets undergo per-logical-asset size admission but gain no extra new CLI cache charge |
+
+The consumer supplies the existing 32 MiB single-asset and 128 MiB total-asset
+limits. Every logical asset counts toward total admission even when its Bytes
+come from the pathname cache. Root physical input extent and asset access extent
+remain separate, while owner/account/typed first failure are shared. Metadata
+admission and bounded reads use one pinned descriptor; known-size early EOF,
+hard reads, first failure and cancellation cannot become a successful missing
+placeholder. Only a typed ENOENT probe may preserve the existing missing-asset
+contract, frozen for that AssetRef. Other probe errors, including ENOTDIR,
+ELOOP and EACCES, remain hard IO failures. A failed/closed parent stops before
+new asset probing or opening.
+
+The CLI outer owner spans conversion, admission, persistence and usage refresh
+for both single-file and batch calls. Refresh preserves the renderer's actual
+confirmed-output count and excludes the provenance sidecar itself. It borrows
+the same ledger rather than opening a fresh asset budget. This is descriptor
+identity plus actual-byte admission, not a file snapshot or protection from
+concurrent external mutation. Output I/O can leave earlier files; multi-file
+transactional persistence is not added. SourceMetadata and ParseWork coverage
+and units are exactly those of v5; neither gains CLI path/string accounting.
+Full metadata/IR/temp/RAG/allocator coverage remains unmeasured as declared.
+
+The accepted local v7 freezes use `partial_v7`, with the same thirteen fields, eight
+canonical string counters, profile meanings and
+`scope_retained_payload_upper_bound` policy. Its exact coverage extends v6 by
+these five items immediately before `output_utf8_admission`:
+`ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload`.
+Only one unmeasured item changes spelling/scope:
+`ooxml_validation_issues_and_temporary_metadata` becomes
+`ooxml_validation_issues_and_other_temporary_metadata`; all other items remain
+unchanged. V1-v6 policy literals and profile groups are preserved. A v7 label
+with old coverage or the old unmeasured item is rejected. Actual v7 profiling
+now has independently reviewed1313-sample runs for both custom-font-assets-v7
+and the later office-html-literal-v7 freeze, each with its own source, executable
+and935 quality sidecars. The later run verifies all1162 source inventory files
+against a second archive extraction with zero outside files or drift. Both
+recompute10504 raw values and2488 grouped maxima/witnesses. See
+[the progress record](../native-upgrade-progress.md) and its exact evidence paths.
+These are measurement-only observations, not numeric-default or full-budget
+acceptance; schema self-tests alone establish none of those gates.
+
+| V7 added scope | Accounting model and lifetime |
+| --- | --- |
+| Custom property name, local type and final value | UTF8 SourceMetadata admission and two Cache bytes per UTF16 unit before final String ownership; structural values include serialized wrappers, attributes, namespace context and escaping |
+| Custom emitted value work | One modeled ParseWork unit per emitted consumer character, in addition to the existing XML cursor's work; this includes structural serialization and remains a mixed admission unit rather than raw bytes or CPU work |
+| Custom name/type and namespace state | Two Working bytes per UTF16 code unit for raw name/local type Strings held across `next()` and active namespace declaration names/URIs; shadowed bindings retain their leases until restoration/scope end |
+| Custom value buffers | Four Working bytes per actual Char capacity slot; geometric growth admits old and new arrays together before releasing the old lease. Incomplete values/namespaces retire on completion, recovery, hard failure or cancellation |
+| Ranged parsed font programs | After pure parsing, before successful cache publication: three Int32 array capacities × 4, two String-reference array capacities × 8, stored String UTF16 units × 2, four bytes for a present default width, and twenty numeric key bytes. Retain the resulting Cache lease through the outer InputSession because returned program arrays remain borrowed |
+
+Custom properties publish only completed rows after XML EOF/ZIP integrity or
+the approved syntax-only integrity replay. Replay charges the actual repeated
+read/inflate/cursor work; hard failures do not replay. Duplicate property names
+retain array order. Static catalog/part literals and shallow-copy/container/GC
+overhead remain unmeasured. Existing visitor chunks still use the conservative
+scope-retained model, so the consumer is not claimed constant-memory. The
+existing 128 MiB part boundary and explicit MeasurementOnly cursor caps remain;
+no new property/depth/token default is inferred.
+
+The parsed-font cache applies only to Ranged streams in the same document and
+uses `(object ID, selected absolute definition offset, generation, parser kind)`.
+Successful parsed programs, including the existing recoverable empty program,
+publish only after live-owner/first-failure checks and Cache admission. Loaded/
+repair streams remain uncached. Hard errors retain the existing typed first
+failure; cancellation publishes no entry. This stage adds **no ParseWork or
+SourceMetadata** for font parsing. Its Native64 capacity/payload model may
+conservatively count aliased strings repeatedly and excludes parser scratch,
+preparse allocations, temporary maps/sort buffers, object/Map/enum/GC/allocator
+headers and alignment. It is neither a unique-heap/RSS model nor a preparse
+allocation guard. Existing decoded/encoded Bytes keep their earlier Working
+ownership, and are not retained by the parsed-program cache.
+
+## Partial v8: paragraph projection and pending PDF images
+
+The frozen paragraph/JSON/content integration uses `partial_v8`, still thirteen fields, eight
+canonical string counters, the existing profile meanings and
+`scope_retained_payload_upper_bound`. V1-v7 policies, units and profile groups
+remain independently strict. V8 leaves the v7 unmeasured string unchanged and
+adds these six exact coverage entries before `output_utf8_admission`:
+
+```text
+docx_paragraph_cursor_work
+docx_paragraph_selected_string_metadata
+docx_paragraph_cursor_and_raw_range_payload
+docx_paragraph_retained_string_payload
+pdf_pending_image_descriptor_and_reference_buffer_payload
+pdf_pending_image_scope_name_utf16_payload
+```
+
+The authoritative frozen literals and per-counter measurement scopes are in
+the local `budget-v8-policy-contract.json` evidence. ParseWork remains mixed
+modeled admission units: the shared XML cursor's deterministic UTF8 decode and
+markup/entity work now includes DOCX paragraphs and their synthetic roots.
+It does not measure all paragraph processing, lexer instructions or CPU time.
+
+| New scope | Admission and lifetime |
+| --- | --- |
+| DOCX raw paragraph | Validate Unicode and reserve exact UTF8 Working payload before encoding; scope lasts through semantic dispatch. Complete part/body Strings remain outside this added model. |
+| DOCX feed and retained fields | Reserve actual bounded feed-copy bytes, at most64KiB; the cursor separately accounts its decoded/carry/markup scratch. QName and selected field Strings held past `next()` reserve2Working bytes per UTF16 unit through dispatch. |
+| DOCX original inline interval | Reserve2Working bytes per raw UTF16 unit before copying the run's original lexical inner interval into the existing semantic helper. Downstream opaque helper allocations remain unmeasured. |
+| DOCX escaping selected fields | Selected style/alignment/numbering/run-style and retained raw tag fields charge actual UTF8 SourceMetadata plus2Cache bytes per UTF16 unit before domain retention. Resident credit stays through the outer input session; unused fields are not admitted. |
+| PDF pending image descriptors | Native64 field payload is56bytes per item: three8-byte pointers and four8-byte Doubles. The reference buffer charges actual capacity times8. Reserve the complete new buffer before growth, then release the old lease after growth; their temporary overlap is included. Each item is admitted before construction/append. |
+| PDF pending image names | Charge2Working bytes per alias UTF16 unit before queue retention, after the existing lexer has produced that name. Credit remains scope-held through the input session because names can escape to source metadata. This is not a guard on the lexer's initial allocation. |
+
+DOCX uses one paragraph-local batch projection with private unbound-prefix
+compatibility; a paragraph can approach the existing128MiB part boundary.
+There is no new finite depth/token/attribute default here. Complete package
+bytes/text, outer body/table scopes, retained domain runs/IR, arrays/Maps,
+headers, allocator/GC overhead and remaining semantic helpers remain outside
+this additional accounting. Metadata and resident encodings use different
+UTF8/UTF16 units; their observed values must not be combined as unique heap.
+
+PDF uses one root-content queue across reachable Forms. Text completes before
+actual image/SMask/colorspace IO or CRC checks, and image fulfillment retains
+the original depth-first order before the next root content. Item/buffer
+leases and references retire on success, failure or cancellation. Alias credit
+keeps the documented conservative session lifetime. Growth, length and byte
+arithmetic are checked before allocation; this model excludes object/enum/
+Array/GC headers, lexer/token and graphics stacks, allocator overhead, final
+image/IR payloads and unrelated parser scratch.
+
+Queue admission introduces one explicit error-order boundary: a Working limit
+hit during text interpretation terminates immediately, before a later bad Form
+CRC; no later reads are attempted. With sufficient queue budget, a text/Form
+failure still precedes an earlier queued image's CRC failure, as before.
+Neither case may be converted into successful syntax recovery. Removal of a
+second Form interpretation is reflected only by actual observed decode/read/
+inflate work; cache hits must not be replaced with invented saved charges.
+
+Fresh integrated source/executable, separately executed935 quality sidecars and
+1313 sampling have now passed independent v8 review. It recomputed10504 values
+and2488 maxima with actual witnesses, checked all1313 raw sidecars, and bound
+all1171 source files to the frozen tar and two independent copies. The nine
+missing benchmark candidates remain unverified. The accepted v7 measurements
+were not inherited by label or unchanged output. Source SHA256 is
+`3fa3fd531475f41a5f9d61b2977f0f5ac4152f64b5aa35a88559c8e544b8b058`;
+Native executable SHA256 is
+`23e5343a69869bde93f1e685995dc34e22995d3b50b1913799a6cc4099be1e3c`.
+
+The new global ParseWork maximum is355911 modeled units on the complex DOCX
+quality fixture; increased instrumentation coverage is not a measured timing
+regression. Other global maxima are read47586693B, inflate373376428B,
+Working373998986B, Cache8127767B, source metadata22296B and admitted/confirmed
+output179356432B. Exact values, units and all attaining samples are retained
+in `paragraph-json-content-v8-review-preparation/actual-review-v4/` local
+evidence. These added models establish neither numeric defaults, complete
+P2/P3/P4 budgets, RSS bounds nor timing gains.
+
+## Partial v9: local Ranged CMap retention
+
+The next combined candidate uses `partial_v9` with the same thirteen fields,
+eight decimal-string counters, profiles, unmeasured/resident policy and numeric
+defaults. Its one new coverage tag is
+`pdf_ranged_local_cmap_postparse_retained_payload`. Only the Cache measurement
+scope expands; the other seven scopes and ParseWork units remain unchanged.
+The proposed literal contract is the local `budget-v9-policy-contract.json`,
+SHA2569784f6fac5bbec71d40375be610b6e81e62bb8591c754b156a543fb26673930f.
+
+The cache stores local decode/parse Results before parent lookup, visited/depth
+handling or merge. Each full extraction owns a fresh cache; selected Ranged
+identity, complete dictionary/decode parameters and framing participate in the
+key. Empty successful results and recoverable errors are real hits. Existing
+hard CRC/IO/encoding/resource failures and cancellation do not become ordinary
+negative entries. Hits require the original live owner without a first hard
+failure. Loaded definitions remain outside this cache.
+
+Cache admission occurs after parsing and before publication. The Native64
+selected field model counts60B for the key (including an always-present8B
+packed Option[Int]),16B for the selected outer Entry's key/value references,
+8B for the Result value reference, and40B for successful Info references.
+It also counts actual inner-map capacities×8, widths capacity×4, live mapping
+key/value references16B or invalid-map key/Bool payload12B, and retained String
+contents2B per UTF16 unit by occurrence. Generated C and pinned SDK source
+prove these representations; the model does not use padded `sizeof` as a
+complete heap bound. Outer cache bucket growth, other map/wrapper bookkeeping,
+tags/headers/padding/allocator, and parse/merge scratch remain unmeasured.
+Leases conservatively remain through the outer input session.
+
+A finite Cache limit can now terminate immediately after the local parse,
+before a later bad parent CRC. This additional admission order is intentional;
+the first typed failure is preserved, no failed entry is published and no
+later parent read occurs. The model neither admits parser allocation in
+advance nor establishes RSS or CPU bounds.
+
+The isolated cache passed14 contracts, strict/info/fmt/release,935 regression
+and3329 equal stable outputs, with independent source/C-field review. Five
+real PDFs show no Read/Inflate/Working savings; only Cache peaks increase
+536B/4344B/842B for hello3/Arabic/images, with Loaded iw9/W4 unchanged. A
+separate shared construction demonstrates eight-to-one reads/inflation;
+neither result is a formal latency/RSS gain. The integrated main, new source/
+executable freeze,935 sidecars and1313 v9 sampling/review remain pending.
+Historical v8 observations are not relabeled or inherited.
+
 ## Default values and freeze gate
 
 Existing constraints provide reference points, not an invented aggregate

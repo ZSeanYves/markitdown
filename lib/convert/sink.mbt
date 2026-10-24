@@ -183,8 +183,9 @@ fn parser_pull_sink_candidate(
 
 ///|
 /// Use a parser pull stream when the selected route can preserve the line
-/// event contract. Complex formats and non-Markdown output intentionally
-/// return `None` and use the established buffered renderer above.
+/// event contract. Other routes return `None` and use the canonical parser
+/// and incremental output renderer above. Their parsed IR/chunks may still
+/// remain resident; renderer delivery does not make those parsers streaming.
 async fn try_convert_event_stream_to_sink(
   source : @input.InputSource,
   options : ConvertOptions,

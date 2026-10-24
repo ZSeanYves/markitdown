@@ -106,9 +106,19 @@ fn XmlCursor::resolve_name(
   let local_name = self.own_substring(raw, colon + 1, raw.length())
   self.check_qname_component(prefix)
   self.check_qname_component(local_name)
+  // Compatibility covers unknown application prefixes, never the reserved
+  // namespace-declaration prefix. Strict mode rejected it as unbound before.
+  if prefix == "xmlns" {
+    self.syntax(InvalidName, "reserved xmlns prefix cannot name an XML node")
+  }
   let namespace_uri = match self.namespace_uri(prefix) {
     Some(uri) => Some(uri)
-    None => self.syntax(InvalidName, "unbound XML namespace prefix")
+    None =>
+      if self.allow_unbound_prefixes {
+        None
+      } else {
+        self.syntax(InvalidName, "unbound XML namespace prefix")
+      }
   }
   { raw, local_name, namespace_uri, }
 }

@@ -62,6 +62,7 @@ fn pdf_extended_domain(result : Result[ConvertResult, ConvertError]) -> String {
     Err(ResourceLimitExceeded(..)) => "ResourceLimitExceeded"
     Err(UnsupportedCapability(_)) => "UnsupportedCapability"
     Err(RenderFailed(_)) => "RenderFailed"
+    Err(OutputAssetFailure(_)) => "OutputAssetFailure"
   }
 }
 

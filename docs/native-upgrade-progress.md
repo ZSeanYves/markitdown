@@ -1,16 +1,42 @@
 # Native 升级进度与未验收项
 
-记录日期：2026-10-23。范围以用户计划书同步的
+记录日期：2026-10-24（起始冻结于2026-10-23）。范围以用户计划书同步的
 [完整升级计划](architecture/native-performance-plan.md) 为准；原始计划、冻结源码和
 执行记录保留在本机 `.audit/2026-10-23-native-upgrade/`。
 
-**当前完成的是 P0 的主要质量证据、P1 的迁移与部分安装检查，以及 P2/P3 的若干基础
-实现。整个升级没有完成，P0/P1 尚有收尾验证，P2–P6 均未闭环。没有正式 PDF 优化收益、
-双平台 RC 或发布后交付通过结论。**
+2026-10-24按用户要求清理磁盘：已结束实验的生成缓存及旧测试/Wasm产物已移除；
+连同随后验收的新v8共七轮大型预算采样的27769个cases文件，经新解包逐一SHA256核对后
+无损压缩，原19.53GiB变为约958MiB。源码、冻结exe、日志和摘要保留；读取旧cases路径前，按相应目录的
+`CASES-ARCHIVE.md`还原。详情见本机`disk-cleanup-20261023.md`。后续Native构建串行，
+阶段验收后及时清生成中间物并归档大型输出，避免继续累积展开副本。
+
+**当前完成的是 P0 的主要质量证据、P1 基础候选的双平台 CI 与固定 Git 安装，以及
+P2/P3/P4 的若干基础实现。整个升级没有完成；后续本地源码仍须独立验收，P2–P6
+均未闭环。没有正式 PDF 性能收益、完整性能/持续负载 RC 或发布后交付通过结论。**
+
+最新本地冻结为 `mime-cmap-v9`：严格Native debug/release各1316/1316，info/fmt/check及
+release build通过；标准语料、独立预算侧车、实际安装后语料各935/935。安装产物与源码
+产物3329项输出全部相同；对v8的原始比较3328equal/1unexpected，唯一W4 provenance只改
+schema/coverage，八个counter及其余稳定字段精确相同，七项负控拒绝。新1313项采样0失败，
+独立复核10504值、2488组最大值及见证全部吻合；实际1177源码文件与tar及双副本精确绑定。
+本地工具链在安装结束后被升级；原日志支持v10安装与consumer先于替换完成，最终复核已用
+隔离固定093cb8f9c工具链通过。新候选远程双平台CI/固定Git RC待执行；详见
+[本地v9验收与待验项](native-upgrade-local-v9-acceptance.md)。
+
+最新远程基础候选为 `d1a7198896417a2ae5f439432d2e805facdef174`：Native CI
+`39964545691` 两平台成功，各自 debug/release 1138/1138；固定 Git RC
+`39964818181` 两平台成功，实际 `moon install URL . --rev SHA`、同 SHA 的全新
+库 consumer check/run、安装后二进制各935/935。两平台完整3329项持久化输出的原始
+比较为3285equal/44unexpected；独立审查逐叶证明363项变化：272个完整输入路径、
+84个chunk ID及7个boundary key按固定源码双向重算，0未解释，六类篡改负控均拒绝。
+报告为 `.audit/2026-10-23-native-upgrade/foundation-fixedgit-exact-path-review-v3/`。
+原始非零比较完整保留，不把它们称为跨平台字节相同。
+安装产物、日志与归档SHA均已保存。该结论覆盖远程基础候选；下述 v5 及后续本地
+SourcePath、custom cursor、字体缓存均不自动继承它。
 
 本报告把“已实施”“某次产物已验证”和“阶段退出条件完成”分开。首次 candidate 的
 935 条语料结果不覆盖随后全部 P2 编辑；历史某次全量测试通过不自动等于当前工作树
-通过。最新通过完整本地正确性与安装检查的是 `budget-empty-fixed` 冻结产物：
+通过。以下按时间保留各次冻结，早期 `budget-empty-fixed` 曾通过完整本地检查：
 Native debug/release 各 981/981，标准与带预算侧车语料各 935/935，本地安装 v5
 及全新公共库 consumer 通过。随后 `content-types-step` 完成首个 XML cursor 生产
 消费者：992/992 全仓 debug/release；预算 policy 更新后受影响 90/90、strict check、
@@ -29,7 +55,7 @@ RAG 索引、XML outline consumer/producer、TXT scalar 和 RFC 输出修复、�
 本地安装 v6 与全新库消费者通过，实际安装二进制另跑 935/935，对源码冻结的全部
 3329 持久化输出一致。新 v4 预算采样 benchmark 378/378 与 quality 935/935 有效。
 临时副本固定 Git 提交已成功检出，但安装器不识别 file:// 为 Git URL，该次实际安装
-失败；真实远程固定提交安装仍未验收。预算 policy 明确混合工作单位和未测量范围；
+失败；该历史尝试不构成真实远程固定提交安装证据。预算 policy 明确混合工作单位和未测量范围；
 预算覆盖仍不完整，P2/P3 未闭环。
 
 随后复刻 CI 的显式 `--warn-list +73 --deny-warn`，定位并机械移除85项冗余限定名，
@@ -37,6 +63,185 @@ RAG 索引、XML outline consumer/producer、TXT scalar 和 RFC 输出修复、�
 重建 Native 可执行文件 SHA 与上述冻结逐字相同，原935与采样证据仍对应同一二进制。
 用户已授权将该基础冻结推送独立候选分支，供远程Linux CI及固定提交安装验收；
 后续隔离候选不自动纳入该快照。
+
+远程基础候选已按用户授权推送至 `codex/native-performance-foundation`。首次
+`cb4c97b87838022928c654afb8e90eb8354cff7c` 的两平台 CI 在工具链下载阶段失败：
+误将 moon 构建日期作为官方归档版本，HTTP 403；编译和测试尚未执行。修复后提交
+`71d32b71713662dbd42cda437bc02ae067c97fe5` 将下载标识独立为
+`0.10.17+093cb8f9c`，保留 moon `0.1.20261021` 与完整 moonc 标识校验及原 CI
+门槛。官方精确归档的 macOS 17 个工具 SHA 均与本地相同，core 除本地 `_build`
+以外逐文件相同。重跑 Native CI `39961132743` 的 Linux/macOS 均已全部通过：
+版本校验、严格检查、接口、格式、验收脚本检查、各自 debug/release 1138/1138、
+两种构建、本地安装和独立库 consumer。安装证据已上传，Linux artifact12505433984、
+macOS12504404650，均绑定该完整SHA。这是基础候选的 hosted 验证，不覆盖后续本地改动。
+官方历史归档声明约60日删除期限；固定标识和本次指纹不等于永久可下载承诺。
+
+本地随后按全部 before/proposed SHA guard 集成 core/app XML cursor 13 文件及
+PDF indexed stream range 18 文件，受影响302项通过；再合入小 JSON 根数组子来源6文件
+及 partial_v5，冻结 `cursor-range-v5`：主仓严格检查、info/fmt、debug/release各
+1177/1177，标准和预算侧车各935/935；3328输出一致，唯一W4 provenance仅schema与
+coverage两个字段变化已精确审查，0未审定。v5采样378benchmark+935quality全部有效。
+源码SHA `6147ee34f4b979c0648aec7ec57bb1ca54aed54242e385309a7b3bee0848acd1`，
+exeSHA `8b661ac4988dcb98d369e178438d923544fd1571a5b8edd156013b389d339ad4`。
+该冻结尚未推送，也没有新的安装证据，不称完整P2–P5验收。
+
+随后 SourcePath 资产 v3 修复两处真实阻断：ENOTDIR/ELOOP/EACCES不再被当ENOENT，
+空extent不构造最少1B的Buffer。独立166/166、935/935、3329equal及12次真实CLI正负控
+通过。主仓10文件SHAguard恢复，execution刷新方法最小合并保留v5，统一改为待验收
+partial_v6；主仓strict/info/fmt及166项受影响测试通过。随后 custom properties
+10文件与嵌入字体缓存5文件均完成独立935/935及3329equal后按全部 before/proposed
+SHA guard 合入，runtime 统一为 partial_v7。新主仓 debug/release 各1220/1220，显式
+FD leak检查及+73严格规则通过；标准与预算侧车各935/935。新冻结
+`custom-font-assets-v7` 对照v5为3328equal/1unexpected；唯一W4 provenance仅三项
+policy字符串变化，八个counter及其它全部字段相同，三类负控均拒绝，0未审定。
+本地安装v7及新库consumer通过（8086688B），实际安装二进制另跑935/935，全部3329项
+持久化输出与源码冻结一致；新采样378benchmark+935quality共1313有效、0失败，独立
+重算八维10504数值、2488个maxima及见证全部吻合，九项缺失仍未验。source inventory
+有48项tar外既有文件，报告保留它们与后续工作树drift，不称整个checkout不可变。
+源码SHA825a1a89e1caf6d0528cb9b2b442027fbea8b47c47c133adaa26abd1392032aa、
+exeSHA39ee00ae5effb9d87345d6d6f579275d5085776b340302ee646e6aabd9c53b86；
+不称完整P2–P5验收。剩余Office原archive资产需求仍在独立迁移，未包含在此冻结。
+
+该冻结后，PPTX bounded custom projection 九文件已按完整SHAguard合入，主仓相关
+119/119通过；其独立全1076/1076、935/935和3329equal绑定自己的旧custom基底，
+不能代替当前主仓全测。明确保留原256候选/过滤顺序/qualified类型，完整尾部UTF8/CRC
+检查；修复注释/引号/结构值，并将语法恢复限定为错误前完成的属性，详见stage报告。
+它复用已有v7 custom预算单位，新增的PPTX收费须在下一冻结重新采样。
+HTML单次准备最终六文件已独立1224/1224、935/935、3329equal，独立复审后6/6SHAguard
+合入；原扫描/DOM/normalize入口3/2/4变为1/1/1仅是操作计数。多BOM时旧consumer
+二次规范化导致byte范围偏移，已单列真实stdin对照及1/2/3/4BOM×Text/Bytes×
+prepared/direct精确回归；四BOM样本由6..17修为其normalized UTF8视图的9..20。
+常规935没有这个边界，故不把3329equal外推为任意输入零变化。无正式延迟或RSS结论。
+
+PDF scalar literal成功解码复用3/3 guard已合入：隔离223/223、935/935、3329equal；
+主仓相关182/182。五PDF实际decoder入口13559→9672，移除3887个相同成功解码，
+15898个source/bbox叶值与五份完整stable Debug精确相等，W4八次未优化分支保留。
+Hex/TJ、BOM、ActualText和失败fallback未扩展；无正式性能倍率、几何改进或P4完成结论。
+
+几何before审计另生成五个自有PDF并实际运行Native与本地Poppler，均正常退出：
+identity/translation为对照，scale/rotate/shear共同复现现有四分量matrix和文字平移
+公式遗漏线性项的同一根因。报告为`pdf-affine-before-v1/review.md`，保留五份原件、
+Debug、oracle及命令；文字基线原点与字体bbox、双方Y坐标约定明确区分，未把Poppler
+所有box数值直接当golden。尚未修改几何生产代码，也不将此审计称作P4完成。
+
+Office原archive资产需求portable v3十六文件也已guard合入，主仓相关116/116。独立
+181/181、30次真实CLI及935/935；3317equal/12unexpected均精确限定为
+asset_payload_bytes由0改为对应最终logical资产字节数，其余字段及资产hash不变。
+CLI文件输出在原会话/原account关闭前补Bytes，删除path reopen fallback；库/stdout
+保持MetadataOnly，typed资源5/IO6分类保留。两处测试可移植性修正及root过时注释
+更新另有记录。上述四项合并已形成新冻结 `office-html-literal-v7`：主仓严格检查、
+info/fmt/build通过，显式FD leak及+73的debug/release各1256/1256；标准与预算侧车
+各935/935。对旧v7的原始比较为3317equal/12unexpected，单独精确审查将全部变化
+限定为上述资产字节计量，0未解释。实际本地安装v8及全新公共库消费通过，安装后的
+二进制另跑935/935，与源码冻结3329项输出全部相同。
+新采样从独立提取的冻结源码运行：378benchmark+935quality共1313项有效、0失败；
+独立重算10504个原始counter值、2488组最大值及见证全部吻合，1162项source inventory
+与新提取的archive逐文件相同，0tar外文件、0drift。source_metadata最大22296B，其余
+测量边界仍按partial_v7；九项缺失未验，混合ParseWork与payload模型不等于RSS或正式
+性能收益。源码SHA68905ab8e9b61713456c7d15b2292aa0f975830752f78b6b0461fdaa5bd5bdbe，
+exeSHAc8742c3fe83570d82ae35ee5d75c77fdf1f17df05b3b1d172a185383bb6f864a。
+这些是新本地冻结的独立证据，未推送，不继承远程基础候选的平台通过结论。
+
+后续DOCX段落cursor八文件已独立1270/1270、strict/info/fmt/release、935/935和3329equal，
+经root及独立复审后8/8 SHAguard合入。普通段落与cell段落共享一次cursor，重复属性与run
+发现扫描移除；保留raw lexical inline/opaque helper交接、空run索引、旧QName兼容。
+注释伪tag、quoted `>`、属性实体单次解码及语法错误后仅保完成prefix四项修复有真实before
+red，常规935不覆盖它们。新增工作和费用边界单列在`docx-paragraph-staging/README.md`，
+该单项先行结果没有继承旧预算采样；随后纳入下述partial_v8集成的独立全测与新采样，
+仍不称Office全面流式化。
+
+JSON小文档准备三文件也已独立复审、32/32定向、strict/info/fmt/release、935/935及3329equal，
+按3/3 before/ABSENT/proposed SHAguard合入。<=256000UTF16准备复用已验证事件建原有领域树，
+保持重复键/数字原词法/一次decode/来源及inspect，实际normalize/stream/DOM入口2/1/1→1/1/0；
+大文档、JSONL和独立DOM/profile/native API保持原路径。源码57b318028de777c928c0829a5fd06a2350efdea5cbcce8eef619f08ffc475842，
+exee3b980cc934980341cba11f41e3b192e263242ecf10662eb4536ff03d70bb58f。
+这是减少重复词法操作的证据，不是全JSON整合或正式性能收益。两个阶段已交付的隔离_build
+随后清理，保留stage、源码、冻结exe和验收记录。
+
+PDF单内容解释器五文件经独立复审与5/5 SHAguard合入：同一解释循环产出文字及延后处理的
+图像引用，Form文字/图像资源继承差异、原四分量CTM和错误优先级均有明确合同。14项新增
+合同、strict/info/fmt/release与935/935独立通过；原比较3328equal/1unexpected保留，精确审查
+仅W4的模型化Working峰值增加12B，其余字段/资产相同；18768个来源/几何叶值含数字原词法
+精确相同。实际内容扫描34+34→34、UTF16访问981494→490747；仅两份文件Form解压减少7734B，
+不据此声称延迟或RSS目标达标。队列56B/项及容量增长重叠、scope name保留有独立计费与清理
+合同，未覆盖全部lexer/页面/IR分配。已完成的292MiB隔离构建缓存清理，冻源/exe/诊断保留。
+
+上述DOCX/JSON/PDF合并已形成`paragraph-json-content-v8`本地候选，统一使用partial_v8政策；
+运行时和两验收工具已按独立before/proposed SHAguard合入，旧v1–v7工具分支逐段字节保持。
+新增六个覆盖标签只描述DOCX局部cursor/选中字段与PDF待处理引用的实际计量；既有未测范围、
+resident政策及数值默认值不变。新主仓strict/info/fmt/release build通过，显式FD leak及+73的
+debug/release各1287/1287；新标准与独立预算侧车各935/935。原始比较3328equal/1unexpected
+保留，精确审查只允许W4的schema/coverage更新及Working峰值1264895→1264907（+12B），其余
+稳定字段、数字词法、资产相同；五项负控拒绝，0未解释。实际本地安装v9及新公共库consumer
+通过，安装产物独立935/935、与源码冻结的3329项输出全部相同。公共façade与计划副本哈希不变。
+
+新冻结源码SHA3fa3fd531475f41a5f9d61b2977f0f5ac4152f64b5aa35a88559c8e544b8b058、
+exeSHA23e5343a69869bde93f1e685995dc34e22995d3b50b1913799a6cc4099be1e3c（8104192B）。
+独立冻源的新1313采样及独立复审均通过：10504计量值、2488组最大值/见证全部吻合；实际
+1171个source_file与两个独立副本及tar payload精确一致。126accepted×3view与935quality全数
+执行，九项缺失仍未验。ParseWork最大355911 modeled units（新增DOCX工作覆盖），其余全局
+最大值为Read47586693B、Inflate373376428B、Working373998986B、Cache8127767B、SourceMetadata
+22296B、admitted=confirmed179356432B；新计量不等于性能回退或收益。报告在
+`paragraph-json-content-v8-review-preparation/README.md`；旧v7/隔离通过没有自动继承。
+实际安装的已完成缓存随后清理1388个生成中间文件，三个保留二进制SHA前后相同；大输出
+在独立复审后进行逐文件核验的无损压缩。以上仍是本地候选阶段证据，P2–P5完整退出未完成。
+
+后续MIME range八路径、共享typed资源五路径、PDF局部CMap四路径及v9运行时/两工具已按
+21次before/ABSENT/proposed文件守卫（execution同文件分两阶段）恢复主仓，形成新本地冻结
+`mime-cmap-v9`。MIME隔离39合同、32实际CLI边界控制、935/935及3329equal已过；raw owned
+line/join/trim临时String移除，huge改181 compact ranges，但最终owned body仍31910415UTF16、
+inspect仍两次、normalize输入累计15972656→47909962UTF16，244bounded验证chunks是新增工作，
+不据此声明CPU/RSS改善或全流式。depth8/9、parts1024/1025默认不变，超限现在typed hard
+exit5且无输出/资产残留，迁移说明已更新；附件decode/bytes-only/eagerinspect未扩入本slice。
+
+局部CMap缓存只复用Ranged local Result，parent lookup/visited/depth/merge仍独立；14合同、
+strict/info/fmt/release、935/935和3329equal通过，18768来源/几何叶与全部五例debug/资产精确。
+真实五例Read/Inflate/Working无收益，仅Cache峰值hello3/Arabic/images增加536/4344/842B，
+iw9/W4为Loaded路径不变；构造例8次共享读取/解压→1次不等于真实语料性能收益。实际C确认
+key60B（packedOptionInt8常驻）、选中Entryrefs16B、Resultref8B、Info5refs40B及inner容量/String
+计量；这是postparse payload，外bucket/其它bookkeeping/headers/allocator/parse/merge未测。
+v9工具完整Native strict/selftest四项通过，旧v1–v8六段分支字节保持。新集成info/fmt/strict、
+release build及显式FD检查、+73/deny-warn的debug/release各1316/1316通过；已结束测试缓存
+随后清理，原始日志保留。冻结源码SHA为
+`b2ad6acb8cd27588b48c52510376d27adfdc502662b2ba44583932e0e36dc21e`，
+exeSHA为`45fb7433de513e44e896992d0a217d95079a6c63b359355f24eb5017a0612bc3`
+（8122608B）。标准及独立partial_v9侧车各935/935，原比较3328equal/1unexpected保留；精确
+审查仅允许W4 schema/coverage变化，全部八项counter和其它稳定字段不变，七项负控拒绝、
+0未审定。实际本地安装v10及新公共库consumer通过，安装exe8122832B，另跑935/935后全部
+3329输出与源码产物相同。126accepted×3view+935quality共1313项新采样已完成、0失败、
+九项缺失仍未验；独立重算10504值、2488组maxima与见证全部吻合，1177实际源码文件与
+完整tar及两个独立副本精确绑定，未继承v8的源码计数。结果JSON SHA为
+`13efb0e8cc1947be7bff14253fcd5a6070d4ae893c73a02bf0f900bdc6d5576d`，
+见`mime-cmap-v9-review-preparation/actual-review-v1/`；partial_v9仍为部分payload测量，
+不是正式性能或新默认值验收。
+
+本地全局SDK在11:17:07–08发生替换；v10首版本记录11:01:23为moon20261021/moonc093cb8f9c，
+所有安装/consumer阶段11:02:56前结束，现有证据未见中途混用。初始版本记录不能代替每阶段
+编译器SHA，详见`local-install-v10-toolchain-window-review.md`。11:19的新compiler对复核器
+发出新增导入语法Warning96，旧失败日志保留；隔离固定093工具链下的Native负控自测和
+完整review随后通过，checker源c3a603f...、exe cb135a811bf61c5b1b02d3c576342bb98c0281189229cba2e1056c051d5c7671。
+该阻断不改写已冻结exe及其执行记录。新v9远程CI/固定Git RC待执行；旧d1两平台通过只覆盖
+旧基础提交，未继承。主仓和计划副本仍无完整P2–P6退出、正式延迟/RSS或发布通过结论。
+
+两个已交付隔离Native缓存309MiB/237MiB及工具35.7MiB已清理，源码/exe/原始证据保留。
+v10另清理1388个已结束生成中间文件，三个保留exe路径的SHA前后相同。新v9的3969个cases文件
+在独立复核后完成fresh解包逐项SHA、打包前后原件及gzip完整性验证；原3033596KiB压为
+147656KiB，archiveSHA为`eaa860a74ea2384ca0d21e51bc8a3e19739258af2a8e6e6beaf7e0a52703aff8`。
+摘要、profile TSV和独立review保留，恢复位置见本轮`CASES-ARCHIVE.md`；不套用旧七轮结论。
+用户优先清理请求
+已完成：最后实测可用38GiB（初始9.6GiB），七轮27769文件经逐项SHA校验无损归档，大产物
+由19.53GiB降至约958MiB归档目录（含清单；gzip本体约950MiB）；详细范围、校验和恢复命令
+见disk-cleanup-20261023.md及各归档标记。
+
+固定Git RC首次run39961420763因语料commit未在远程而失败；用户另行授权后已将原有
+`eb80a4a3ccc8ca2fa6b39816789a854ba2c20d2c`推送到语料仓独立
+`codex/native-performance-corpus`，六项未提交删除不变。重跑取得语料后发现RC新runner
+未初始化registry，安装脚本尚未启动；保留失败日志，补`moon update`。远程产品分支
+当前`d1a7198896417a2ae5f439432d2e805facdef174`仅新增两workflow四行修复；
+固定该SHA的双平台RC run39964818181已通过：Linux/macOS实际固定Git安装、独立
+库消费和各935项安装产物语料。归档artifact为12506243825/12505944007；本地下载
+SHA核对通过。Linux executable8640968B、macOS7819744B，分别保留独立SHA，
+不以体积相同代替指纹相同；没有tag、正式发布或新本地优化的远程验收。
 
 ## 已有证据及其边界
 
@@ -123,8 +328,9 @@ RAG 索引、XML outline consumer/producer、TXT scalar 和 RFC 输出修复、�
 | `local-install-v4/summary.tsv` | `41ea7b52675d4416d219ce9b72d25aad1b9677e49ae7b902684cbb31d1249bf4` |
 | v4 安装的 `install/bin/markitdown` | `d1df32578f1cf3888d64b3cada20ee661e7eabcfb2dd4b731da0baffd27fcce9` |
 
-冻结可执行文件与安装后可执行文件各自有独立指纹，不能互相代替。以上都是本机单轮
-工程与质量证据；正式性能窗口、双平台 RC、固定 Git 安装和 P6 发布确认仍未验收。
+冻结可执行文件与安装后可执行文件各自有独立指纹，不能互相代替。以上历史对象都是
+本机单轮工程与质量证据；最新远程基础候选的双平台 CI/固定 Git 安装见前文。正式
+性能窗口、完整持续负载 RC 与 P6 发布确认仍未验收。
 
 最新预算步 executable SHA-256 为
 `9a3c44c201743323cfe9936cda8ee688a8030bc8e69a50f2115a7ee82abac6fb`；
@@ -156,7 +362,7 @@ timing 字段，并按各次实际 UTF8 输出计量；保留原失败与修复�
 - [ ] 建立可用于正式比较的无构建争用基线。已有工程 raw 数据只用于观察，不满足
   两个独立、同质量、baseline/candidate 交错窗口的要求。
 
-## P1：Native 工具链与安装——迁移已实施，安装/平台闭环未完成
+## P1：Native 工具链与安装——基础候选双平台与固定 Git 安装已通过
 
 - [x] 主模块默认/支持 Native，根及 `lib`/`internal` 产品包限定 Native；删除产品
   Wasm/JavaScript 分支、portable adapters 和未用的 `horideicom/encoding_sjis`。
@@ -174,9 +380,11 @@ timing 字段，并按各次实际 UTF8 输出计量；保留原失败与修复�
   记录保留。6,333,664 字节仅属于该冻结产物，不作为后续最终候选体积。
 - [x] async Input 冻结后的本地安装 v4 与独立 consumer 通过；该次安装产物为
   7,462,368 字节，保留外部 native archive 的 `watch_windows.o` 无符号构建告警。
-- [ ] 固定完整 Git SHA 的真实安装和绑定同 SHA 的独立库消费。
-- [ ] Linux x86_64 和 macOS arm64 各自完成全部安装/编译消费验证。当前只有本地
-  macOS 证据；Linux Docker daemon 不存在，未据此产生 Linux 通过记录，hosted CI 未验收。
+- [x] 基础候选d1a71988的固定完整Git SHA真实安装、同SHA独立库消费在Linux/macOS
+  通过，安装二进制分别执行935/935；run39964818181。后续本地候选须重新验证。
+- [x] 基础冻结71d32b7已在Linux x86_64/macOS arm64通过完整Native CI、本地安装及
+  独立consumer；run39961132743；d1a71988的run39964545691亦通过。完整性能及持续
+  负载RC仍待验，后续主仓候选不继承基础候选通过。
 - [ ] 检查安装后 executable/依赖及最终发布归档的体积与内容；实验、外部语料、调试
   产物不进入发布包。保留最小 FFI 必要性、所有权、传递依赖和移除条件。
 
@@ -309,6 +517,13 @@ W4 的普通 xref 修复仍会重复 42B 解压，实际产出再次收费；没
   Poppler/PDFium 仅作离线对照，不引入第二条转换链或 PDF 渲染器。
 
 ## P5：完整 RC——未验收
+
+公共库稳定调用的独立collect benchmark工具已建立：仅导入public lib的真实Native消费者，
+五种Input构造器×两lane×一次调用的10进程开发验收通过，完整Output Eq在每次计时后检查，
+保留诊断/来源/chunk/资产及数字词法。该工具单独冻结源码/依赖/编译产物和用例，严格绑定
+prepared用例、校准N及两窗口的不重叠顺序，空/错/缺失metric为inconclusive。process RSS
+包含oracle/校验，不称纯转换RSS；collect首次输出null、预算/阶段counter为API不可用。
+工具严格检查/纯工具负控通过，正式校准与两窗口尚未运行，P5仍未验收。详见tools/regression/README。
 
 - [ ] P2–P4 退出条件完成后，对最终候选执行全部日常/样例/935 有效合同和输出差分，
   零新增质量失败；正确性变化分类、审定并说明 golden 更新原因。

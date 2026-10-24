@@ -96,6 +96,7 @@ async fn pdf_parse_objects_via_cursor(
     },
     "cursor_xref",
     decode_context~,
+    range_cursor=Some(cursor),
   )
 }
 
@@ -226,7 +227,8 @@ async fn pdf_build_store_from_resolved_xref(
   input_access_mode : String,
   decode_context~ : PdfStreamDecodeContext? = None,
   prefetched~ : Map[Int32, PdfNativeObject] = Map([]),
-  object_streams~ : Map[Int32, Array[PdfNativeObject]] = Map([]),
+  object_streams~ : Map[(Int32, Int64, Int32), Array[PdfNativeObject]] = Map([]),
+  range_cursor~ : @input.SourceCursor? = None,
   locations~ : (
     Array[PdfXrefDirectObjectLocation],
     Array[PdfXrefCompressedObjectRef],
@@ -257,11 +259,33 @@ async fn pdf_build_store_from_resolved_xref(
     let object = match prefetched.get(location.object_id) {
       Some(value) => value
       None => {
+        let lease = if range_cursor is Some(_) {
+          pdf_reserve_decode_scratch(decode_context, window_length.to_int64())
+        } else {
+          None
+        }
+        defer pdf_release_decode_scratch(lease)
         let window = match read_range(location.offset, window_length) {
           Ok(value) => value
           Err(message) => return Err(ReadFailed(message))
         }
-        match pdf_parse_indirect_object_at(window, 0, decode_context~) {
+        let range_source = range_cursor.map(cursor => {
+          cursor,
+          window_start: location.offset.to_int64(),
+          definition_offset: location.offset.to_int64(),
+          generation: match resolved.entries.get(location.object_id) {
+            Some(InUse(_, generation)) => generation
+            _ => 0
+          },
+          metadata_prepaid: false,
+        })
+        match
+          pdf_parse_indirect_object_at(
+            window,
+            0,
+            decode_context~,
+            range_source~,
+          ) {
           Ok(value) => value
           Err(_err) => {
             location_index += 1
@@ -322,13 +346,10 @@ async fn pdf_build_store_from_resolved_xref(
         Some(value) => value
         None => continue
       }
-      let parsed = match object_streams.get(object_stream_id) {
-        Some(value) => value
-        None =>
-          match pdf_parse_object_stream_entries(object_stream) {
-            Ok(value) => value
-            Err(err) => return Err(err)
-          }
+      let parsed = match
+        pdf_parse_object_stream_entries(object_stream, cache=object_streams) {
+        Ok(value) => value
+        Err(error) => return Err(error)
       }
       for embedded in parsed {
         if !expected_compressed.get(embedded.object_id).unwrap_or(false) {
@@ -359,12 +380,12 @@ async fn pdf_build_store_from_resolved_xref(
 }
 
 ///|
-fn pdf_scan_object_store(
+async fn pdf_scan_object_store(
   bytes : Bytes,
   view : String,
   xref_mode : String,
   decode_context~ : PdfStreamDecodeContext? = None,
-) -> Result[PdfParsedObjectStore, PdfNativeError] raise PdfHardDecodeFailure {
+) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let objects : Array[PdfNativeObject] = []
   let mut cursor = 0
   while true {
@@ -427,7 +448,7 @@ fn pdf_build_parsed_object_store(
 ) -> PdfParsedObjectStore raise PdfHardDecodeFailure {
   for i in 0..<objects.length() {
     let object = objects[i]
-    let stream = match object.stream {
+    let reference = match object.stream {
       Some(value) => value
       None => continue
     }
@@ -439,18 +460,29 @@ fn pdf_build_parsed_object_store(
       Some(value) if value.stream is None => value
       _ => continue
     }
+    let available = match reference {
+      Loaded(stream) =>
+        stream.endstream_bytes.length() + stream.endstream_eol_length
+      Ranged(range) => range.endstream_length + range.endstream_eol_length
+    }
     let length = match
       pdf_parse_int(length_object.dict_text.trim().to_owned()) {
-      Some(value) if value >= 0 &&
-        value <= stream.endstream_bytes.length() + stream.endstream_eol_length =>
-        value
+      Some(value) if value >= 0 && value <= available => value
       _ => continue
     }
-    let primary_bytes = pdf_stream_precise_payload(stream, length)
-    let next = {
-      ..object,
-      stream: Some({ ..stream, primary_bytes, declared_length: Some(length), }),
+    let next_reference = match reference {
+      Loaded(stream) => {
+        let primary_bytes = pdf_stream_precise_payload(stream, length)
+        Loaded({ ..stream, primary_bytes, declared_length: Some(length), })
+      }
+      Ranged(range) =>
+        Ranged({
+          ..range,
+          primary_length: length,
+          declared_length: Some(length),
+        })
     }
+    let next = { ..object, stream: Some(next_reference), }
     objects[i] = next
     object_index.set(object.object_id, next)
   }
@@ -727,7 +759,8 @@ fn pdf_parse_xref_stream_section(
       ),
     )
   }
-  let raw_stream = match pdf_decode_stream_bytes(object, "xref stream") {
+  let raw_stream = match
+    pdf_decode_owned_object_stream_bytes(object, "xref stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
@@ -797,7 +830,8 @@ fn pdf_parse_indirect_object_at(
   bytes : Bytes,
   offset : Int32,
   decode_context~ : PdfStreamDecodeContext? = None,
-) -> Result[PdfNativeObject, PdfNativeError] {
+  range_source~ : PdfObjectRangeSource? = None,
+) -> Result[PdfNativeObject, PdfNativeError] raise PdfHardDecodeFailure {
   let header = match pdf_find_object_header_at(bytes, offset) {
     Some(value) => value
     None =>
@@ -818,13 +852,29 @@ fn pdf_parse_indirect_object_at(
   }
   let object_body = bytes[header.body_start:endobj]
   let stream_slice = match
-    pdf_extract_stream_slice(object_body, decode_context) {
+    pdf_extract_stream_slice(
+      object_body,
+      decode_context,
+      object_id=header.object_id,
+      range_source=range_source.map(source => {
+        ..source,
+        window_start: source.window_start + header.body_start.to_int64(),
+      }),
+    ) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   let dict_text = match stream_slice {
     Some(slice) => slice.0
-    None => pdf_byte_string(object_body).trim().to_owned()
+    None => {
+      pdf_retain_range_metadata(
+        range_source,
+        decode_context,
+        object_body.length(),
+        false,
+      )
+      pdf_byte_string(object_body).trim().to_owned()
+    }
   }
   let stream = match stream_slice {
     Some(slice) => Some(slice.1)
@@ -925,10 +975,13 @@ fn pdf_find_next_object_header_bytes(
 fn pdf_extract_stream_slice(
   object_body : BytesView,
   decode_context : PdfStreamDecodeContext?,
-) -> Result[(String, PdfNativeStreamSlice)?, PdfNativeError] {
+  object_id~ : Int32 = 0,
+  range_source~ : PdfObjectRangeSource? = None,
+) -> Result[(String, PdfNativeStreamRef)?, PdfNativeError] raise PdfHardDecodeFailure {
   match pdf_find_bytes(object_body, pdf_ascii_bytes("stream"), 0) {
     None => Ok(None)
     Some(stream_rel) => {
+      pdf_retain_range_metadata(range_source, decode_context, stream_rel, true)
       let dict_text = pdf_byte_string(object_body[:stream_rel])
         .trim()
         .to_owned()
@@ -971,7 +1024,6 @@ fn pdf_extract_stream_slice(
       if trimmed_end < raw_start {
         trimmed_end = raw_start
       }
-      let endstream_bytes = object_body[raw_start:trimmed_end].to_owned()
       // Preserve the exact bytes removed by syntax trimming. A payload's final
       // Adler byte may itself be CR immediately before a separator LF.
       let endstream_eol_length = endstream_rel - trimmed_end
@@ -985,26 +1037,43 @@ fn pdf_extract_stream_slice(
       } else {
         0
       }
-      let primary_bytes = match declared_length {
-        Some(length) if length <= object_body.length() - raw_start =>
-          object_body[raw_start:raw_start + length].to_owned()
-        _ => endstream_bytes
+      let primary_length = match declared_length {
+        Some(length) if length <= object_body.length() - raw_start => length
+        _ => trimmed_end - raw_start
       }
-      Ok(
-        Some(
-          (
-            dict_text,
-            {
-              primary_bytes,
-              endstream_bytes,
-              endstream_eol_suffix,
-              endstream_eol_length,
-              declared_length,
-              decode_context,
-            },
-          ),
-        ),
-      )
+      let reference = match range_source {
+        Some(source) =>
+          Ranged({
+            cursor: source.cursor,
+            definition_offset: source.definition_offset,
+            generation: source.generation,
+            object_id,
+            payload_start: source.window_start + raw_start.to_int64(),
+            primary_length,
+            endstream_length: trimmed_end - raw_start,
+            endstream_eol_suffix,
+            endstream_eol_length,
+            declared_length,
+            decode_context,
+          })
+        None => {
+          let endstream_bytes = object_body[raw_start:trimmed_end].to_owned()
+          let primary_bytes = match declared_length {
+            Some(length) if length <= object_body.length() - raw_start =>
+              object_body[raw_start:raw_start + length].to_owned()
+            _ => endstream_bytes
+          }
+          Loaded({
+            primary_bytes,
+            endstream_bytes,
+            endstream_eol_suffix,
+            endstream_eol_length,
+            declared_length,
+            decode_context,
+          })
+        }
+      }
+      Ok(Some((dict_text, reference)))
     }
   }
 }

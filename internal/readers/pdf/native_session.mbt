@@ -30,7 +30,7 @@ priv struct PdfIndexedProbe {
     Array[PdfXrefCompressedObjectRef],
   )
   objects : Map[Int32, PdfNativeObject]
-  object_streams : Map[Int32, Array[PdfNativeObject]]
+  object_streams : Map[(Int32, Int64, Int32), Array[PdfNativeObject]]
   loading : Map[Int32, Bool]
 }
 
@@ -240,12 +240,25 @@ async fn pdf_probe_load_object(
       // Existing parser scratch/maps and allocator overhead remain unmeasured.
       pdf_session_retain(context, length.to_int64() * 4L)
       pdf_session_work(context, length.to_int64())
+      let lease = pdf_reserve_decode_scratch(Some(context), length.to_int64())
+      defer pdf_release_decode_scratch(lease)
       let window = match pdf_cursor_read_exact(cursor, offset, length) {
         Ok(value) => value
         Err(error) => return Err(error)
       }
       match
-        pdf_parse_indirect_object_at(window, 0, decode_context=Some(context)) {
+        pdf_parse_indirect_object_at(
+          window,
+          0,
+          decode_context=Some(context),
+          range_source=Some({
+            cursor,
+            window_start: offset.to_int64(),
+            definition_offset: offset.to_int64(),
+            generation: _generation,
+            metadata_prepaid: true,
+          }),
+        ) {
         Ok(object) if object.object_id == object_id => {
           probe.objects.set(object_id, object)
           Ok(Some(object))
@@ -254,29 +267,20 @@ async fn pdf_probe_load_object(
       }
     }
     Some(Compressed(parent_id, _member_index)) => {
-      if !probe.object_streams.contains(parent_id) {
-        let parent = match
-          pdf_probe_load_object(probe, cursor, context, parent_id, depth + 1) {
-          Ok(Some(value)) => value
-          Ok(None) => return Ok(None)
-          Err(error) => return Err(error)
-        }
-        let text = match pdf_decode_stream_text(parent, "object stream") {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
-        pdf_session_retain(context, text.length().to_int64() * 4L)
-        pdf_session_work(context, text.length().to_int64())
-        let entries = match
-          pdf_parse_object_stream_entries_from_text(parent, text) {
-          Ok(value) => value
-          Err(error) => return Err(error)
-        }
-        probe.object_streams.set(parent_id, entries)
+      let parent = match
+        pdf_probe_load_object(probe, cursor, context, parent_id, depth + 1) {
+        Ok(Some(value)) => value
+        Ok(None) => return Ok(None)
+        Err(error) => return Err(error)
+      }
+      let entries = match
+        pdf_parse_object_stream_entries(parent, cache=probe.object_streams) {
+        Ok(value) => value
+        Err(error) => return Err(error)
       }
       // Preserve existing materializer's ID selection, including its current
       // tolerance of a mismatched xref member index; do not tighten semantics.
-      for object in probe.object_streams.get(parent_id).unwrap_or([]) {
+      for object in entries {
         if object.object_id == object_id {
           probe.objects.set(object_id, object)
           return Ok(Some(object))
@@ -426,6 +430,7 @@ async fn pdf_extract_native_session_impl(
           prefetched=probe.objects,
           object_streams=probe.object_streams,
           locations=Some(probe.locations),
+          range_cursor=Some(session.cursor),
         ) {
         Ok(Some(store)) => Ok(store)
         Err(ReadFailed(message)) => Err(ReadFailed(message))

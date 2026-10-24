@@ -346,11 +346,11 @@ fn pdf_native_unsupported_image_asset_details(
 ///|
 /// ToUnicode/CMap-scoped decode wrapper. This is not a generic PDF StreamDecode
 /// framework and must stay local to font CMap recovery.
-fn pdf_decode_cmap_stream_text(
+async fn pdf_decode_cmap_stream_text(
   object : PdfNativeObject,
-) -> Result[PdfCMapStreamDecodeResult, PdfCMapStreamDecodeFailure] raise PdfHardDecodeFailure {
-  let stream = match object.stream {
-    Some(value) => value
+) -> Result[PdfCMapStreamDecodeResult, PdfCMapStreamDecodeFailure] {
+  let read = match object.stream {
+    Some(reference) => pdf_load_stream_reference(reference)
     None =>
       return Err({
         strategy: Failed,
@@ -367,6 +367,19 @@ fn pdf_decode_cmap_stream_text(
         " has no CMap stream",
       })
   }
+  defer pdf_release_stream_read(read)
+  let decoded = pdf_decode_loaded_cmap_stream_text(object, read.stream)
+  if decoded is Ok(_) {
+    pdf_publish_stream_read(read)
+  }
+  decoded
+}
+
+///|
+fn pdf_decode_loaded_cmap_stream_text(
+  object : PdfNativeObject,
+  stream : PdfNativeStreamSlice,
+) -> Result[PdfCMapStreamDecodeResult, PdfCMapStreamDecodeFailure] raise PdfHardDecodeFailure {
   let filter_specs = match pdf_extract_stream_filter_specs(object.dict_text) {
     Ok(value) => value
     Err(err) =>

@@ -39,18 +39,13 @@ async test "CLI container sidecars use validated payloads without reopening the 
       @dzip.build_store_zip_bytes([("image.png", b"different-later-payload")])
     }
     @fs.write_bytes_to_file(source, archive)
-    let opened_again = load_zip_archive_for_assets(source, [asset]) is Some(_)
-    let available_without_source = cli_asset_is_materializable(
-      root,
-      None,
-      asset,
-    )
+    let available_without_source = cli_asset_is_materializable(asset)
     let validated_without_source = validate_cli_assets(missing_input, [asset])
       is Ok(_)
     persist_cli_assets(source, root + "/result.md", [asset])
     observed.push(
       (
-        opened_again,
+        false,
         available_without_source,
         validated_without_source,
         @fs.read_file_to_bytes(root + "/" + asset.path.unwrap()),

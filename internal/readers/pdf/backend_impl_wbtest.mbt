@@ -630,7 +630,7 @@ async test "pdf native backend extracts exportable image xobjects without empty 
 }
 
 ///|
-test "pdf image budget rejects oversized decoded dimensions before filters run" {
+async test "pdf image budget rejects oversized decoded dimensions before filters run" {
   let stream : PdfNativeStreamSlice = {
     primary_bytes: Bytes::from_array([(0).to_byte()]),
     endstream_bytes: Bytes::from_array([]),
@@ -642,12 +642,12 @@ test "pdf image budget rejects oversized decoded dimensions before filters run" 
   let oversized : PdfNativeObject = {
     object_id: 1,
     dict_text: "<< /Subtype /Image /Width 8192 /Height 4096 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 2 0 R >>",
-    stream: Some(stream),
+    stream: Some(Loaded(stream)),
   }
   let small : PdfNativeObject = {
     object_id: 2,
     dict_text: "<< /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 >>",
-    stream: Some(stream),
+    stream: Some(Loaded(stream)),
   }
   let object_index : Map[Int32, PdfNativeObject] = Map([])
   assert_true(pdf_image_decode_budget_exceeded(oversized, object_index, stream))
@@ -801,7 +801,7 @@ async test "pdf native backend diagnoses unsupported indirect image colorspaces 
 }
 
 ///|
-test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
+async test "pdf image colorspace resolver bounds indirect references and ICC fallbacks" {
   for component_count in [1, 3, 4] {
     let objects : Map[Int32, PdfNativeObject] = Map([])
     objects.set(7, {
@@ -1830,7 +1830,7 @@ test "pdf stream slicing covers absent malformed newline and length variants" {
   ]
   for body in cases {
     match pdf_extract_stream_slice(@utf8.encode(body), None) {
-      Ok(Some((dict_text, stream))) => {
+      Ok(Some((dict_text, Loaded(stream)))) => {
         assert_true(dict_text.contains("<<"))
         assert_eq(stream.primary_bytes.length(), 3)
         assert_eq(stream.endstream_bytes.length(), 3)

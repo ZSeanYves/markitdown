@@ -18,7 +18,7 @@ pub fn parse_context_with_remaining_asset_bytes(
   )
   @parser.parse_context_with_resource_failure_reporter(child, failure => {
     let translated = match failure.kind {
-      SingleAssetBytes => failure
+      SingleAssetBytes | MimeNestingDepth | MimeMultipartParts => failure
       TotalAssetBytes => {
         let observed = if failure.observed >
           9223372036854775807L - admitted_bytes {

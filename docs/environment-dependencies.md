@@ -10,6 +10,27 @@ Use MoonBit `0.1.20261021` with
 platform C toolchain. CI checks the actual Moon/compiler versions and runner
 architecture. Toolchain upgrades require a separate baseline.
 
+The official installer's archive label differs from the `moon` display version:
+use `0.10.17+093cb8f9c`, without the compiler display's leading `v`.
+
+```text
+curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- '0.10.17+093cb8f9c'
+moon version --all
+```
+
+The verified official archive SHA-256 values are:
+
+| Archive | SHA-256 |
+| --- | --- |
+| moonbit-linux-x86_64.tar.gz | e9a52300d137d43d122f26b78d307e08aaaaa644b9fad50ebfd709d7ae927cf6 |
+| moonbit-darwin-aarch64.tar.gz | b3155ff869e7feed98a316f0375e0500e0bf5173731a14de9038ca64e58f3e7e |
+| core-0.10.17+093cb8f9c.tar.gz | a83410b3e337edf275176291a4532604997f9180fd5ed7a5ba7cf521ff0898e0 |
+
+See the [official binary-verification instructions](https://www.moonbitlang.com/download#verifying-binaries).
+The historical archive responses currently declare a 60-day deletion rule;
+archiving exact verified downloads is separate from selecting a fixed label.
+An expired download must fail rather than silently switching to `latest`.
+
 The CLI is built and installed with `moon install`; the Native library is
 imported through `ZSeanYves/markitdown/lib`. Local source, fixed Git revision,
 and exact registry installation are different evidence lanes. Registry

@@ -23,6 +23,8 @@ pub struct XmlCursorSpan {
 pub extend XmlCursorSpan with Eq::{equal, not_equal}
 
 ///|
+/// Unbound prefixed names have namespace_uri=None only when the caller
+/// explicitly enabled compatibility; raw still preserves their QName.
 pub struct XmlCursorName {
   raw : String
   local_name : String
@@ -173,6 +175,7 @@ priv struct XmlCursorFrame {
 pub struct XmlCursor {
   priv limits : XmlCursorLimits
   priv budget : @budget.BudgetContext?
+  priv allow_unbound_prefixes : Bool
   priv mut input : Array[Char]
   priv mut input_index : Int32
   priv mut carry : Bytes

@@ -77,7 +77,22 @@ fn counter_keys(schema : String) -> Array[String] raise {
       result.append([
         "budget_zip_cache_payload_peak_bytes", "budget_zip_working_payload_peak_bytes",
       ])
-    "partial_v2" | "partial_v3" | "partial_v4" =>
+    "partial_v2"
+    | "partial_v3"
+    | "partial_v4"
+    | "partial_v5"
+    | "partial_v6"
+    | "partial_v7" =>
+      result.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+    "partial_v8" =>
+      result.append([
+        "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
+        "budget_source_metadata_bytes",
+      ])
+    "partial_v9" =>
       result.append([
         "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_parse_work",
         "budget_source_metadata_bytes",
@@ -95,6 +110,11 @@ fn budget_schema(value : Json) -> String raise {
     Some(String("partial_v2")) => "partial_v2"
     Some(String("partial_v3")) => "partial_v3"
     Some(String("partial_v4")) => "partial_v4"
+    Some(String("partial_v5")) => "partial_v5"
+    Some(String("partial_v6")) => "partial_v6"
+    Some(String("partial_v7")) => "partial_v7"
+    Some(String("partial_v8")) => "partial_v8"
+    Some(String("partial_v9")) => "partial_v9"
     _ => fail("unknown budget schema")
   }
 }
@@ -121,14 +141,60 @@ fn accounting_policy(schema : String) -> (String, String) raise {
         "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,output_utf8_admission",
         "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
       )
+    "partial_v5" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
+      )
+    "partial_v6" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
+      )
+    "partial_v7" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      )
+    "partial_v8" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      )
+    "partial_v9" =>
+      (
+        "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission",
+        "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+      )
     _ => fail("unknown budget schema")
   }
 }
 
 ///|
 fn counter_unit(schema : String, dimension : String) -> String {
+  if schema == "partial_v9" {
+    return if dimension == "budget_parse_work" {
+      "modeled_parse_work_units"
+    } else {
+      "bytes"
+    }
+  }
+  if schema == "partial_v8" {
+    return if dimension == "budget_parse_work" {
+      "modeled_parse_work_units"
+    } else {
+      "bytes"
+    }
+  }
   if dimension == "budget_parse_work" {
-    if schema == "partial_v4" { "modeled_parse_work_units" } else { "modeled_utf8_work_units" }
+    if schema == "partial_v4" ||
+      schema == "partial_v5" ||
+      schema == "partial_v6" ||
+      schema == "partial_v7" {
+      "modeled_parse_work_units"
+    } else {
+      "modeled_utf8_work_units"
+    }
   } else {
     "bytes"
   }
@@ -136,9 +202,53 @@ fn counter_unit(schema : String, dimension : String) -> String {
 
 ///|
 fn measurement_scope(schema : String, dimension : String) -> String {
+  if schema == "partial_v9" {
+    return match dimension {
+      "budget_read_traffic_bytes" =>
+        "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic"
+      "budget_inflate_bytes" =>
+        "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured"
+      "budget_output_admitted_utf8_bytes" => "output_write_admission"
+      "budget_output_confirmed_utf8_bytes" =>
+        "confirmed_successful_output_writes"
+      "budget_parse_work" =>
+        "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured"
+      "budget_source_metadata_bytes" =>
+        "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured"
+      "budget_cache_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_map_bookkeeping_parse_merge_and_other_cache_unmeasured"
+      "budget_working_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      _ => "unmeasured_unknown_dimension"
+    }
+  }
+  if schema == "partial_v8" {
+    return match dimension {
+      "budget_read_traffic_bytes" =>
+        "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic"
+      "budget_inflate_bytes" =>
+        "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured"
+      "budget_output_admitted_utf8_bytes" => "output_write_admission"
+      "budget_output_confirmed_utf8_bytes" =>
+        "confirmed_successful_output_writes"
+      "budget_parse_work" =>
+        "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured"
+      "budget_source_metadata_bytes" =>
+        "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured"
+      "budget_cache_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_native64_retained_payload_upper_bound;allocator_and_other_cache_unmeasured"
+      "budget_working_payload_peak_bytes" =>
+        "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      _ => "unmeasured_unknown_dimension"
+    }
+  }
   match dimension {
     "budget_inflate_bytes" =>
-      if schema == "partial_v3" || schema == "partial_v4" {
+      if schema == "partial_v3" ||
+        schema == "partial_v4" ||
+        schema == "partial_v5" ||
+        schema == "partial_v6" ||
+        schema == "partial_v7" {
         "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured"
       } else {
         "zip_entry_output_only;non_zip_inflate_unmeasured"
@@ -148,13 +258,25 @@ fn measurement_scope(schema : String, dimension : String) -> String {
     "budget_zip_working_payload_peak_bytes" =>
       "zip_payload_upper_bound;non_zip_working_unmeasured"
     "budget_cache_payload_peak_bytes" =>
-      if schema == "partial_v4" {
+      if schema == "partial_v7" {
+        "zip_ooxml_content_types_relationships_core_app_custom_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_native64_retained_payload_upper_bound;allocator_and_other_cache_unmeasured"
+      } else if schema == "partial_v6" {
+        "zip_ooxml_content_types_relationships_core_app_pdf_probe_indexed_dictionary_range_object_stream_and_cli_source_asset_payload_upper_bound;allocator_and_other_cache_unmeasured"
+      } else if schema == "partial_v5" {
+        "zip_ooxml_content_types_relationships_core_app_pdf_probe_indexed_dictionary_range_and_object_stream_payload_upper_bound;allocator_and_other_cache_unmeasured"
+      } else if schema == "partial_v4" {
         "zip_ooxml_content_types_relationships_and_pdf_probe_payload_upper_bound;allocator_and_other_cache_unmeasured"
       } else {
         "zip_cache_and_ooxml_content_types_map_payload_upper_bound;other_cache_unmeasured"
       }
     "budget_working_payload_peak_bytes" =>
-      if schema == "partial_v4" {
+      if schema == "partial_v7" {
+        "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_pdf_flate_indexed_stream_range_and_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      } else if schema == "partial_v6" {
+        "zip_ooxml_content_types_relationships_core_app_scalar_buffer_pdf_flate_indexed_stream_range_and_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      } else if schema == "partial_v5" {
+        "zip_ooxml_content_types_relationships_core_app_scalar_buffer_pdf_flate_and_indexed_stream_range_payload_modeled_scratch_upper_bound;other_working_unmeasured"
+      } else if schema == "partial_v4" {
         "zip_ooxml_content_types_relationships_and_pdf_flate_payload_modeled_scratch_upper_bound;other_working_unmeasured"
       } else if schema == "partial_v3" {
         "zip_ooxml_content_types_and_pdf_flate_payload_modeled_scratch_upper_bound;other_working_unmeasured"
@@ -162,20 +284,33 @@ fn measurement_scope(schema : String, dimension : String) -> String {
         "zip_and_ooxml_content_types_workspace_payload_upper_bound;other_working_unmeasured"
       }
     "budget_parse_work" =>
-      if schema == "partial_v4" {
+      if schema == "partial_v7" {
+        "ooxml_cursor_utf8_selected_core_app_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured"
+      } else if schema == "partial_v5" || schema == "partial_v6" {
+        "ooxml_cursor_utf8_selected_core_app_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured"
+      } else if schema == "partial_v4" {
         "ooxml_cursor_utf8_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons;other_parse_work_unmeasured"
       } else {
         "ooxml_content_types_xml_work_only;other_parse_work_unmeasured"
       }
     "budget_source_metadata_bytes" =>
-      if schema == "partial_v4" {
+      if schema == "partial_v7" {
+        "ooxml_content_types_relationships_row_index_selected_core_app_and_custom_name_type_value_string_utf8_payload_only;other_source_metadata_unmeasured"
+      } else if schema == "partial_v5" || schema == "partial_v6" {
+        "ooxml_content_types_relationships_row_index_and_selected_core_app_string_utf8_payload_only;other_source_metadata_unmeasured"
+      } else if schema == "partial_v4" {
         "ooxml_content_types_and_relationships_row_index_utf8_payload_only;other_source_metadata_unmeasured"
       } else {
         "ooxml_content_types_map_utf8_payload_only;other_source_metadata_unmeasured"
       }
     "budget_output_admitted_utf8_bytes" => "output_write_admission"
     "budget_output_confirmed_utf8_bytes" => "confirmed_successful_output_writes"
-    "budget_read_traffic_bytes" => "input_read_view_and_memory_payload_traffic"
+    "budget_read_traffic_bytes" =>
+      if schema == "partial_v6" || schema == "partial_v7" {
+        "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic"
+      } else {
+        "input_read_view_and_memory_payload_traffic"
+      }
     _ => "unmeasured_unknown_dimension"
   }
 }
@@ -383,8 +518,8 @@ async fn files(root : String, relative~ : String = "") -> Array[String] {
       fail("unsafe artifact filename")
     }
     match @fs.kind(root + "/" + path, follow_symlink=false) {
-      @fs.Regular => result.push(path)
-      @fs.Directory => result.append(files(root, relative=path))
+      Regular => result.push(path)
+      Directory => result.append(files(root, relative=path))
       _ => fail("nonregular artifact: " + path)
     }
   }
@@ -446,7 +581,7 @@ async fn inventory(report : Report, lab : String) -> Array[BenchCase] {
       if row[11] != "accepted" || row[8] == "disabled" || !@fs.exists(path) {
         fail("unknown status/disabled accepted/missing accepted input")
       }
-      if @fs.kind(path, follow_symlink=false) != @fs.Regular ||
+      if @fs.kind(path, follow_symlink=false) != Regular ||
         !@fs.realpath(path).has_prefix(@fs.realpath(base) + "/") {
         fail("input is not a regular file within external_bench")
       }
@@ -891,7 +1026,7 @@ async fn source_inventory(report : Report, root : String) -> Unit {
       fail("unsafe source filename")
     }
     let path = root + "/" + name
-    if @fs.exists(path) && @fs.kind(path, follow_symlink=false) == @fs.Regular {
+    if @fs.exists(path) && @fs.kind(path, follow_symlink=false) == Regular {
       ignore(fingerprint(report, "source_file", path))
     }
   }
@@ -1018,7 +1153,9 @@ async fn save(report : Report, status : String) -> Unit {
   )
   @fs.write_file(
     report.evidence + "/LIMITATIONS.md",
-    "# Measurement only\n\nCollecting Native CLI, one invocation per selected input/view. No timing, RSS, headroom/default freeze, formal performance or complete budget acceptance. Resident values are scope-retained payload upper bounds. Missing candidates and expected rejections have unavailable usage, never zero. Uninstrumented dimensions are explicitly unmeasured. Successful output admission equals confirmed bytes; partial failed-write commitment is unknown. Source checkout fingerprints do not alone prove a binary was built from that checkout; retain its independent freeze/build evidence. Quality evidence is linked and fingerprinted read-only, not rewritten or re-executed. Maxima never combine legacy_v1/partial_v2/partial_v3/partial_v4 schemas or measurement_only/explicit_enforced profiles. All-corpus maxima combine origins only within the same schema/profile; explicit_enforced observations can be censored by their configured limits. Historical v2/v3 ParseWork counts modeled UTF8 work units; v4 uses mixed modeled parse-work admission units for cursor UTF8 work, YAML logical nodes/merge copies and PDF probe bytes/code units/entries/visits/comparisons. Neither unit measures machine instructions, elapsed time or a complete parse cost.\n",
+    "# Measurement only\n\nCollecting Native CLI, one invocation per selected input/view. No timing, RSS, headroom/default freeze, formal performance or complete budget acceptance. Resident values are scope-retained payload upper bounds. Missing candidates and expected rejections have unavailable usage, never zero. Uninstrumented dimensions are explicitly unmeasured. Successful output admission equals confirmed bytes; partial failed-write commitment is unknown. Source checkout fingerprints do not alone prove a binary was built from that checkout; retain its independent freeze/build evidence. Quality evidence is linked and fingerprinted read-only, not rewritten or re-executed. Maxima never combine legacy_v1/partial_v2/partial_v3/partial_v4/partial_v5/partial_v6/partial_v7 schemas or measurement_only/explicit_enforced profiles. All-corpus maxima combine origins only within the same schema/profile; explicit_enforced observations can be censored by their configured limits. Historical v2/v3 ParseWork counts modeled UTF8 work units; v4/v5/v6/v7 use mixed modeled parse-work admission units for cursor UTF8 work, YAML logical nodes/merge copies and PDF probe bytes/code units/entries/visits/comparisons. V5 additionally admits selected core/app scalars and indexed ObjStm code units, and its resident scope adds admitted core/app buffers/strings and PDF indexed dictionaries/ranges/read scratch/member payloads. V6 preserves the v5 ParseWork and SourceMetadata scopes and adds CLI SourcePath actual opened-descriptor read traffic, scope-retained final Bytes and collection/bounded-read payload working. Empty extents use no content buffer; existing Bytes/Utf8 payloads are not recharged as new CLI cache. V7 adds custom emitted/serialized scalar work, final name/type/value UTF8 metadata, transient namespace/value workspace and retained strings, plus post-pure-parse Ranged font-program Native64 retained payload. The font cache adds no ParseWork/SourceMetadata and excludes preparse/parser scratch and allocator/Map headers. Extra CLI/font diagnostics are not budget_usage fields. No v7 profile window or numeric defaults follow from schema support. Neither unit measures machine instructions, elapsed time or a complete parse cost.\n" +
+    "V8 adds DOCX paragraph cursor work including synthetic roots, escaping string metadata/cache and raw UTF8/feed/token/range Working payloads, plus PDF pending-image descriptor/reference-buffer and scope-name UTF16 Working payloads. Other dimensions/scopes are unchanged. New integrated v8 sampling remains pending; historical observations are never relabeled or merged into v8. No numeric defaults, full-budget, RSS or performance acceptance follows.\n" +
+    "V9 adds only postparse Ranged local-CMap Native64 selected fields, slots and strings retained Cache payload. The 60B numeric/reference key, Info/Result/outer Entry selected references and actual inner-map/width capacities are a partial payload model, excluding outer buckets, hash/link/header bookkeeping, allocator, preparse, parsing and merge. Other seven measurement scopes and units are unchanged. A new v9 freeze and sampling remain pending; no v8 observation is relabeled. No new numeric defaults, complete-budget, RSS or performance acceptance follows.\n",
   )
 }
 
@@ -1041,6 +1178,224 @@ fn self_test_profile_fields(
     fields[key] = Json("0")
   }
   fields
+}
+
+///|
+fn self_test_v9_budget_policy() -> Unit raise {
+  let fields = self_test_profile_fields("partial_v9", "measurement_only")
+  let wrap = fn() {
+    Json::object({ "budget_usage": Json::object(fields) }).stringify()
+  }
+  let rejects = fn(value : String) {
+    try {
+      ignore(profile(value))
+      false
+    } catch {
+      _ => true
+    }
+  }
+  assert_eq(fields.length(), 13)
+  assert_eq(counter_keys("partial_v9"), counter_keys("partial_v8"))
+  assert_eq(counter_keys("partial_v9").length(), 8)
+  assert_eq(
+    accounting_policy("partial_v9").1,
+    accounting_policy("partial_v8").1,
+  )
+  ignore(profile(wrap()))
+  fields["budget_schema"] = Json("partial_v8")
+  assert_true(rejects(wrap()))
+  fields["budget_schema"] = Json("partial_v9")
+  fields["budget_coverage"] = Json(accounting_policy("partial_v8").0)
+  assert_true(rejects(wrap()))
+  fields["budget_coverage"] = Json(accounting_policy("partial_v9").0)
+  for dimension in counter_keys("partial_v9") {
+    for
+      bad in [
+        Json(0),
+        Json(-1),
+        Json(1.5),
+        Json(true),
+        Json::null(),
+        Json("-1"),
+        Json("01"),
+        Json("9223372036854775808"),
+      ] {
+      fields[dimension] = bad
+      assert_true(rejects(wrap()))
+    }
+    fields[dimension] = Json("0")
+  }
+  fields["pdf_local_cmap_cache_bytes"] = Json("1")
+  assert_true(rejects(wrap()))
+  fields.remove("pdf_local_cmap_cache_bytes")
+  fields["budget_profile"] = Json("explicit_enforced")
+  ignore(profile(wrap()))
+  fields["budget_resident_policy"] = Json("rss_bound")
+  assert_true(rejects(wrap()))
+  fields["budget_resident_policy"] = Json("scope_retained_payload_upper_bound")
+  let report = new_report("")
+  for
+    (schema, account_profile, count) in [
+      ("partial_v8", "measurement_only", 113L),
+      ("partial_v8", "explicit_enforced", 127L),
+      ("partial_v9", "measurement_only", 131L),
+      ("partial_v9", "explicit_enforced", 137L),
+    ] {
+    let row = self_test_profile_fields(schema, account_profile)
+    row["budget_cache_payload_peak_bytes"] = Json(count.to_string())
+    record_sample(
+      report,
+      "benchmark",
+      schema + account_profile,
+      "pdf",
+      "debug",
+      profile(Json::object({ "budget_usage": Json::object(row) }).stringify()),
+      "selftest",
+    )
+    assert_eq(
+      report.maxima["all\t" +
+      schema +
+      "\t" +
+      account_profile +
+      "\t*\t*\tbudget_cache_payload_peak_bytes"],
+      count,
+    )
+  }
+  assert_eq(
+    report.maxima["all\tpartial_v8\tmeasurement_only\t*\t*\tbudget_cache_payload_peak_bytes"],
+    113L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v8\texplicit_enforced\t*\t*\tbudget_cache_payload_peak_bytes"],
+    127L,
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_read_traffic_bytes"),
+    "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+  )
+  assert_eq(counter_unit("partial_v9", "budget_read_traffic_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v9", "budget_read_traffic_bytes"),
+    measurement_scope("partial_v8", "budget_read_traffic_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_inflate_bytes"),
+    "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+  )
+  assert_eq(counter_unit("partial_v9", "budget_inflate_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v9", "budget_inflate_bytes"),
+    measurement_scope("partial_v8", "budget_inflate_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_output_admitted_utf8_bytes"),
+    "output_write_admission",
+  )
+  assert_eq(
+    counter_unit("partial_v9", "budget_output_admitted_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_output_admitted_utf8_bytes"),
+    measurement_scope("partial_v8", "budget_output_admitted_utf8_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_output_confirmed_utf8_bytes"),
+    "confirmed_successful_output_writes",
+  )
+  assert_eq(
+    counter_unit("partial_v9", "budget_output_confirmed_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_output_confirmed_utf8_bytes"),
+    measurement_scope("partial_v8", "budget_output_confirmed_utf8_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_parse_work"),
+    "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v9", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_parse_work"),
+    measurement_scope("partial_v8", "budget_parse_work"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_source_metadata_bytes"),
+    "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured",
+  )
+  assert_eq(counter_unit("partial_v9", "budget_source_metadata_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v9", "budget_source_metadata_bytes"),
+    measurement_scope("partial_v8", "budget_source_metadata_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_cache_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_map_bookkeeping_parse_merge_and_other_cache_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v9", "budget_cache_payload_peak_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_working_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v9", "budget_working_payload_peak_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "budget_working_payload_peak_bytes"),
+    measurement_scope("partial_v8", "budget_working_payload_peak_bytes"),
+  )
+  assert_true(
+    measurement_scope("partial_v9", "budget_cache_payload_peak_bytes") !=
+    measurement_scope("partial_v8", "budget_cache_payload_peak_bytes"),
+  )
+  assert_eq(
+    measurement_scope("partial_v9", "unknown"),
+    "unmeasured_unknown_dimension",
+  )
+  let expected_scopes : Map[String, String] = {
+    "budget_read_traffic_bytes": "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+    "budget_inflate_bytes": "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+    "budget_output_admitted_utf8_bytes": "output_write_admission",
+    "budget_output_confirmed_utf8_bytes": "confirmed_successful_output_writes",
+    "budget_parse_work": "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured",
+    "budget_source_metadata_bytes": "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured",
+    "budget_cache_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_and_ranged_local_cmap_postparse_native64_selected_fields_slots_strings_retained_payload_upper_bound;allocator_outer_cmap_map_bookkeeping_parse_merge_and_other_cache_unmeasured",
+    "budget_working_payload_peak_bytes": "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured",
+  }
+  let valid_scope_row = fn(row : String) {
+    let columns = row.split("\t").to_array()
+    columns.length() == 10 &&
+    columns[1] == "partial_v9" &&
+    expected_scopes.get(columns[6].to_owned()) == Some(columns[9].to_owned())
+  }
+  let v9_rows = report.values.filter(row => {
+    row.split("\t").to_array()[1] == "partial_v9"
+  })
+  assert_eq(v9_rows.length(), 16)
+  for row in v9_rows {
+    assert_true(valid_scope_row(row))
+  }
+  let cache_rows = v9_rows.filter(row => {
+    row.split("\t").to_array()[6] == "budget_cache_payload_peak_bytes"
+  })
+  assert_eq(cache_rows.length(), 2)
+  for row in cache_rows {
+    let columns = row.split("\t").map(value => value.to_owned()).to_array()
+    columns[9] = measurement_scope(
+      "partial_v8", "budget_cache_payload_peak_bytes",
+    )
+    assert_false(valid_scope_row(columns.join("\t")))
+    columns[9] = "all_cache_and_rss_complete"
+    assert_false(valid_scope_row(columns.join("\t")))
+  }
 }
 
 ///|
@@ -1135,7 +1490,15 @@ fn self_test() -> Unit raise {
   let wrap = fn(fields : Map[String, Json]) {
     ({ "budget_usage": Json::object(fields) } : Json).stringify()
   }
-  for (schema, count) in [("partial_v2", "17"), ("partial_v3", "29"), ("partial_v4", "43")] {
+  for
+    (schema, count) in [
+      ("partial_v2", "17"),
+      ("partial_v3", "29"),
+      ("partial_v4", "43"),
+      ("partial_v5", "59"),
+      ("partial_v6", "71"),
+      ("partial_v7", "97"),
+    ] {
     let fields = self_test_profile_fields(schema, "measurement_only")
     fields["budget_inflate_bytes"] = Json(count)
     let value = profile(wrap(fields))
@@ -1168,6 +1531,28 @@ fn self_test() -> Unit raise {
     profile(wrap(enforced)),
     "selftest",
   )
+  let enforced_v6 = self_test_profile_fields("partial_v6", "explicit_enforced")
+  enforced_v6["budget_inflate_bytes"] = Json("83")
+  record_sample(
+    report,
+    "quality",
+    "enforced_v6",
+    "pdf",
+    "markdown",
+    profile(wrap(enforced_v6)),
+    "selftest",
+  )
+  let enforced_v7 = self_test_profile_fields("partial_v7", "explicit_enforced")
+  enforced_v7["budget_inflate_bytes"] = Json("101")
+  record_sample(
+    report,
+    "quality",
+    "enforced_v7",
+    "pdf",
+    "markdown",
+    profile(wrap(enforced_v7)),
+    "selftest",
+  )
   assert_eq(
     report.maxima["all\tpartial_v3\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
     29L,
@@ -1184,8 +1569,85 @@ fn self_test() -> Unit raise {
     report.maxima["all\tpartial_v4\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
     43L,
   )
-  assert_eq(report.benchmark_measured, 4)
-  assert_eq(report.quality_measured, 1)
+  assert_eq(
+    report.maxima["all\tpartial_v5\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    59L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v6\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    71L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v6\texplicit_enforced\t*\t*\tbudget_inflate_bytes"],
+    83L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v7\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    97L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v7\texplicit_enforced\t*\t*\tbudget_inflate_bytes"],
+    101L,
+  )
+  assert_eq(report.benchmark_measured, 7)
+  assert_eq(report.quality_measured, 3)
+  let mislabeled_v6 = self_test_profile_fields("partial_v5", "measurement_only")
+  mislabeled_v6["budget_schema"] = Json("partial_v6")
+  assert_true(rejects(wrap(mislabeled_v6)))
+  let (v5_coverage, v5_unmeasured) = accounting_policy("partial_v5")
+  let (v6_coverage, v6_unmeasured) = accounting_policy("partial_v6")
+  assert_eq(
+    v6_coverage,
+    v5_coverage.replace_all(
+      old="output_utf8_admission",
+      new="cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,output_utf8_admission",
+    ),
+  )
+  assert_eq(v6_unmeasured, v5_unmeasured)
+  mislabeled_v6["budget_coverage"] = Json(v6_coverage)
+  assert_eq(counter_keys("partial_v6"), counter_keys("partial_v5"))
+  guard profile(wrap(mislabeled_v6)) is Object(v6_fields) else {
+    fail("profile fields required")
+  }
+  assert_eq(v6_fields.length(), 13)
+  mislabeled_v6["budget_schema"] = Json("partial_v5")
+  assert_true(rejects(wrap(mislabeled_v6)))
+  mislabeled_v6["budget_schema"] = Json("partial_v6")
+  // Extra CLI diagnostic metrics must never appear as budget_usage fields.
+  mislabeled_v6["cli_source_asset_read_count"] = Json("1")
+  assert_true(rejects(wrap(mislabeled_v6)))
+  let mislabeled_v7 = self_test_profile_fields("partial_v6", "measurement_only")
+  mislabeled_v7["budget_schema"] = Json("partial_v7")
+  assert_true(rejects(wrap(mislabeled_v7)))
+  let (v7_coverage, v7_unmeasured) = accounting_policy("partial_v7")
+  assert_eq(
+    v7_coverage,
+    v6_coverage.replace_all(
+      old="output_utf8_admission",
+      new="ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,output_utf8_admission",
+    ),
+  )
+  assert_eq(
+    v7_unmeasured,
+    v6_unmeasured.replace_all(
+      old="ooxml_validation_issues_and_temporary_metadata",
+      new="ooxml_validation_issues_and_other_temporary_metadata",
+    ),
+  )
+  mislabeled_v7["budget_coverage"] = Json(v7_coverage)
+  // The renamed unmeasured scope is required independently of coverage.
+  assert_true(rejects(wrap(mislabeled_v7)))
+  mislabeled_v7["budget_unmeasured"] = Json(v7_unmeasured)
+  guard profile(wrap(mislabeled_v7)) is Object(v7_fields) else {
+    fail("profile fields required")
+  }
+  assert_eq(v7_fields.length(), 13)
+  assert_eq(counter_keys("partial_v7"), counter_keys("partial_v6"))
+  mislabeled_v7["budget_schema"] = Json("partial_v6")
+  assert_true(rejects(wrap(mislabeled_v7)))
+  mislabeled_v7["budget_schema"] = Json("partial_v7")
+  mislabeled_v7["pdf_font_program_cache_bytes"] = Json("1")
+  assert_true(rejects(wrap(mislabeled_v7)))
   let invalid_schema = self_test_profile_fields(
     "partial_v3", "measurement_only",
   )
@@ -1196,14 +1658,108 @@ fn self_test() -> Unit raise {
   invalid_schema["budget_schema"] = Json("partial_v3")
   invalid_schema["budget_coverage"] = Json(accounting_policy("partial_v2").0)
   assert_true(rejects(wrap(invalid_schema)))
-  assert_eq(counter_unit("partial_v3", "budget_parse_work"), "modeled_utf8_work_units")
-  assert_eq(counter_unit("partial_v4", "budget_parse_work"), "modeled_parse_work_units")
+  assert_eq(
+    counter_unit("partial_v3", "budget_parse_work"),
+    "modeled_utf8_work_units",
+  )
+  assert_eq(
+    counter_unit("partial_v4", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
   assert_eq(counter_unit("partial_v4", "budget_source_metadata_bytes"), "bytes")
+  assert_eq(
+    counter_unit("partial_v5", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(counter_unit("partial_v5", "budget_source_metadata_bytes"), "bytes")
+  assert_eq(
+    counter_unit("partial_v6", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(counter_unit("partial_v6", "budget_source_metadata_bytes"), "bytes")
+  assert_eq(
+    counter_unit("partial_v7", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(counter_unit("partial_v7", "budget_source_metadata_bytes"), "bytes")
+  for
+    dimension in [
+      "budget_inflate_bytes", "budget_read_traffic_bytes", "budget_output_admitted_utf8_bytes",
+      "budget_output_confirmed_utf8_bytes",
+    ] {
+    assert_eq(
+      measurement_scope("partial_v7", dimension),
+      measurement_scope("partial_v6", dimension),
+    )
+  }
+  assert_true(
+    measurement_scope("partial_v7", "budget_cache_payload_peak_bytes").contains(
+      "ranged_font_program_native64",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v7", "budget_working_payload_peak_bytes").contains(
+      "custom_namespace_and_scalar_buffers",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v7", "budget_parse_work").contains(
+      "emitted_custom_serialized_scalars",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v7", "budget_source_metadata_bytes").contains(
+      "custom_name_type_value",
+    ),
+  )
+  for
+    dimension in [
+      "budget_parse_work", "budget_source_metadata_bytes", "budget_working_payload_peak_bytes",
+    ] {
+    assert_true(
+      !measurement_scope("partial_v7", dimension).contains(
+        "ranged_font_program",
+      ),
+    )
+  }
+  for
+    dimension in [
+      "budget_parse_work", "budget_source_metadata_bytes", "budget_inflate_bytes",
+    ] {
+    assert_eq(
+      measurement_scope("partial_v6", dimension),
+      measurement_scope("partial_v5", dimension),
+    )
+  }
+  for
+    dimension in [
+      "budget_cache_payload_peak_bytes", "budget_working_payload_peak_bytes", "budget_read_traffic_bytes",
+    ] {
+    assert_true(measurement_scope("partial_v6", dimension).contains("cli_"))
+    assert_true(!measurement_scope("partial_v5", dimension).contains("cli_"))
+  }
+  assert_true(
+    measurement_scope("partial_v5", "budget_parse_work").contains(
+      "selected_core_app_scalars",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v5", "budget_cache_payload_peak_bytes").contains(
+      "indexed_dictionary_range_and_object_stream",
+    ),
+  )
+  assert_true(
+    measurement_scope("partial_v5", "budget_working_payload_peak_bytes").contains(
+      "indexed_stream_range",
+    ),
+  )
   invalid_schema["budget_schema"] = Json("partial_v4")
   invalid_schema["budget_coverage"] = Json(accounting_policy("partial_v3").0)
   assert_true(rejects(wrap(invalid_schema)))
   assert_true(
-    measurement_scope("partial_v4", "budget_parse_work").contains("yaml_logical_nodes"),
+    measurement_scope("partial_v4", "budget_parse_work").contains(
+      "yaml_logical_nodes",
+    ),
   )
   assert_true(
     measurement_scope("partial_v3", "budget_inflate_bytes").contains(
@@ -1215,6 +1771,122 @@ fn self_test() -> Unit raise {
       "non_zip_inflate_unmeasured",
     ),
   )
+  // V8 observations have their own schema/profile maxima and cannot inherit old samples.
+  let v8_fields = self_test_profile_fields("partial_v8", "measurement_only")
+  assert_eq(v8_fields.length(), 13)
+  assert_eq(counter_keys("partial_v8").length(), 8)
+  assert_eq(counter_keys("partial_v8"), counter_keys("partial_v7"))
+  assert_eq(
+    accounting_policy("partial_v8").1,
+    accounting_policy("partial_v7").1,
+  )
+  let old_as_v8 = self_test_profile_fields("partial_v7", "measurement_only")
+  old_as_v8["budget_schema"] = Json("partial_v8")
+  assert_true(rejects(wrap(old_as_v8)))
+  v8_fields["budget_inflate_bytes"] = Json("113")
+  record_sample(
+    report,
+    "benchmark",
+    "v8",
+    "docx",
+    "markdown",
+    profile(wrap(v8_fields)),
+    "selftest",
+  )
+  let enforced_v8 = self_test_profile_fields("partial_v8", "explicit_enforced")
+  enforced_v8["budget_inflate_bytes"] = Json("127")
+  record_sample(
+    report,
+    "quality",
+    "enforced_v8",
+    "pdf",
+    "debug",
+    profile(wrap(enforced_v8)),
+    "selftest",
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v8\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    113L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v8\texplicit_enforced\t*\t*\tbudget_inflate_bytes"],
+    127L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v7\tmeasurement_only\t*\t*\tbudget_inflate_bytes"],
+    97L,
+  )
+  assert_eq(
+    report.maxima["all\tpartial_v7\texplicit_enforced\t*\t*\tbudget_inflate_bytes"],
+    101L,
+  )
+  assert_eq(report.benchmark_measured, 8)
+  assert_eq(report.quality_measured, 4)
+  v8_fields["budget_schema"] = Json("partial_v7")
+  assert_true(rejects(wrap(v8_fields)))
+  v8_fields["budget_schema"] = Json("partial_v8")
+  v8_fields["pdf_pending_image_queue_capacity"] = Json("1")
+  assert_true(rejects(wrap(v8_fields)))
+  v8_fields.remove("pdf_pending_image_queue_capacity")
+  v8_fields["budget_working_payload_peak_bytes"] = Json(0)
+  assert_true(rejects(wrap(v8_fields)))
+  v8_fields["budget_working_payload_peak_bytes"] = Json("0")
+  assert_eq(
+    measurement_scope("partial_v8", "budget_read_traffic_bytes"),
+    "input_read_view_memory_payload_and_cli_admitted_opened_source_asset_read_traffic",
+  )
+  assert_eq(counter_unit("partial_v8", "budget_read_traffic_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v8", "budget_inflate_bytes"),
+    "zip_and_pdf_flate_output_only;other_inflate_and_pdf_non_flate_unmeasured",
+  )
+  assert_eq(counter_unit("partial_v8", "budget_inflate_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v8", "budget_output_admitted_utf8_bytes"),
+    "output_write_admission",
+  )
+  assert_eq(
+    counter_unit("partial_v8", "budget_output_admitted_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v8", "budget_output_confirmed_utf8_bytes"),
+    "confirmed_successful_output_writes",
+  )
+  assert_eq(
+    counter_unit("partial_v8", "budget_output_confirmed_utf8_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v8", "budget_parse_work"),
+    "ooxml_cursor_utf8_selected_core_app_docx_paragraph_with_synthetic_roots_and_emitted_custom_serialized_scalars_yaml_logical_nodes_merge_copies_pdf_probe_bytes_code_units_entries_visits_comparisons_and_object_stream_code_units;other_parse_work_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v8", "budget_parse_work"),
+    "modeled_parse_work_units",
+  )
+  assert_eq(
+    measurement_scope("partial_v8", "budget_source_metadata_bytes"),
+    "ooxml_content_types_relationships_row_index_selected_core_app_custom_name_type_value_and_docx_paragraph_escaping_string_utf8_payload_only;other_source_metadata_unmeasured",
+  )
+  assert_eq(counter_unit("partial_v8", "budget_source_metadata_bytes"), "bytes")
+  assert_eq(
+    measurement_scope("partial_v8", "budget_cache_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_docx_paragraph_escaping_strings_pdf_probe_indexed_dictionary_range_object_stream_cli_source_asset_and_ranged_font_program_native64_retained_payload_upper_bound;allocator_and_other_cache_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v8", "budget_cache_payload_peak_bytes"),
+    "bytes",
+  )
+  assert_eq(
+    measurement_scope("partial_v8", "budget_working_payload_peak_bytes"),
+    "zip_ooxml_content_types_relationships_core_app_custom_namespace_and_scalar_buffers_docx_paragraph_utf8_feed_token_fields_and_raw_inline_ranges_pdf_flate_indexed_stream_range_pending_image_descriptor_refbuffer_and_scope_name_utf16_cli_source_asset_collection_bounded_read_payload_modeled_scratch_upper_bound;other_working_unmeasured",
+  )
+  assert_eq(
+    counter_unit("partial_v8", "budget_working_payload_peak_bytes"),
+    "bytes",
+  )
+  self_test_v9_budget_policy()
   println("budget profile self-tests passed; no product run")
 }
 

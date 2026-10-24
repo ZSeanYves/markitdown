@@ -3,8 +3,15 @@ const DEFAULT_CONTENT_TYPE : String = "text/plain; charset=utf-8"
 
 ///|
 pub fn parse_eml_message(text : String) -> EmlMessage raise {
-  let normalized = eml_normalize_newlines(text)
-  let root = eml_parse_entity(normalized, 0, "/")
+  eml_parse_wire_message(eml_wire_from_text(text), eml_normalize_newlines(text))
+}
+
+///|
+fn eml_parse_wire_message(
+  owner : EmlWireOwner,
+  normalized : String,
+) -> EmlMessage raise {
+  let root = eml_parse_entity(eml_wire_whole(owner), 0, "/")
   let text_plain : Array[EmlPart] = []
   let text_html : Array[EmlPart] = []
   let attachments : Array[EmlAttachment] = []
@@ -30,14 +37,16 @@ pub fn parse_eml_message(text : String) -> EmlMessage raise {
 
 ///|
 fn eml_parse_entity(
-  raw : String,
+  raw : EmlWireRange,
   depth : Int32,
   pointer : String,
 ) -> EmlPart raise {
   if depth > 8 {
-    raise ParseError("maximum eml nesting depth exceeded")
+    raise LimitExceeded(NestingDepth, observed=depth.to_int64(), limit=8L)
   }
-  let (header_text, body_text) = eml_split_headers_and_body(raw)
+  let (header_range, body_range) = eml_wire_headers_body(raw)
+  let header_text = eml_wire_text(header_range)
+  let body_text = eml_wire_text(body_range)
   let headers = eml_parse_headers(header_text)
   let header_map = eml_header_map(headers)
   let content_type = header_map.content_type.unwrap_or(DEFAULT_CONTENT_TYPE)
@@ -80,25 +89,18 @@ fn eml_parse_entity(
     children: [],
     raw_body: body_text,
   }
-  eml_lower_entity_body(part, body_text, depth, pointer)
+  eml_lower_entity_body(part, body_range, body_text, depth, pointer)
 }
 
 ///|
 pub fn decode_eml_source_text(bytes : Bytes) -> String {
-  @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => {
-      let chars : Array[Char] = []
-      for byte in bytes.to_array() {
-        chars.push(Int32::unsafe_to_char(byte.to_int()))
-      }
-      String::from_array(chars)
-    }
-  }
+  eml_wire_text_and_owner(bytes).0
 }
 
 ///|
 fn eml_lower_entity_body(
   part : EmlPart,
+  body_range : EmlWireRange,
   body_text : String,
   depth : Int32,
   pointer : String,
@@ -108,23 +110,17 @@ fn eml_lower_entity_body(
       Some(value) if value.trim() != "" => value.trim().to_owned()
       _ => raise ParseError("multipart part missing boundary")
     }
-    let children = eml_split_multipart_parts(body_text, boundary)
-    if children.length() > 1_024 {
-      raise ParseError("maximum eml multipart child count exceeded")
-    }
+    // Discover bounded ranges before decoding any child: structural overflow
+    // keeps precedence over a malformed first child's supported charset.
+    let children = eml_multipart_ranges(body_range, boundary)
     let lowered : Array[EmlPart] = []
     for i in 0..<children.length() {
       let child_pointer = pointer + "/parts/" + i.to_string()
       let child = eml_parse_entity(children[i], depth + 1, child_pointer) catch {
         InvalidEncoding(message) => raise InvalidEncoding(message)
-        err => {
-          let message = err.to_string()
-          if message.contains("maximum eml nesting depth") ||
-            message.contains("maximum eml multipart child count") {
-            raise ParseError(message)
-          }
-          eml_recovered_raw_part(children[i], child_pointer)
-        }
+        LimitExceeded(kind, observed~, limit~) =>
+          raise LimitExceeded(kind, observed~, limit~)
+        _ => eml_recovered_raw_part(eml_wire_text(children[i]), child_pointer)
       }
       lowered.push({ ..child, index: i, })
     }
@@ -138,7 +134,7 @@ fn eml_lower_entity_body(
     )
     let normalized_child = eml_normalize_newlines(decoded.0)
     let child = eml_parse_entity(
-      normalized_child,
+      eml_wire_whole(eml_wire_from_text(decoded.0)),
       depth + 1,
       pointer + "/message",
     )
@@ -382,14 +378,6 @@ fn eml_disposition_filename_opt(
 }
 
 ///|
-fn eml_split_headers_and_body(raw : String) -> (String, String) {
-  match raw.split_once("\n\n") {
-    Some((headers, body)) => (headers.to_owned(), body.to_owned())
-    None => (raw, "")
-  }
-}
-
-///|
 fn eml_parse_headers(header_text : String) -> Array[EmlHeader] raise {
   let out : Array[EmlHeader] = []
   if header_text.trim() == "" {
@@ -603,40 +591,6 @@ fn eml_clean_angle_token(value : String?) -> String? {
 ///|
 fn eml_normalize_newlines(text : String) -> String {
   text.replace_all(old="\r\n", new="\n").replace_all(old="\r", new="\n")
-}
-
-///|
-fn eml_split_multipart_parts(body : String, boundary : String) -> Array[String] {
-  let lines = body.split("\n").to_array().map(line => line.to_owned())
-  let marker = "--" + boundary
-  let end_marker = marker + "--"
-  let current : Array[String] = []
-  let parts : Array[String] = []
-  let mut active = false
-  for line in lines {
-    if line == marker || line.trim() == marker {
-      if active && current.length() > 0 {
-        parts.push(current.join("\n").trim().to_owned())
-        current.clear()
-      }
-      active = true
-      continue
-    }
-    if line == end_marker || line.trim() == end_marker {
-      if active && current.length() > 0 {
-        parts.push(current.join("\n").trim().to_owned())
-      }
-      current.clear()
-      break
-    }
-    if active {
-      current.push(line)
-    }
-  }
-  if active && current.length() > 0 {
-    parts.push(current.join("\n").trim().to_owned())
-  }
-  parts.filter(part => part.trim() != "")
 }
 
 ///|

@@ -52,19 +52,51 @@ async fn run_cli_impl(
     @convert.default_resource_limits(),
     rag_options=opts.rag_options,
   )
+  let session = @input.begin_input_session(
+    cli_input_source(opts),
+    max_bytes=convert_options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
   if cli_atomic_stream_output_supported(opts, requested_format) {
     return cli_convert_to_atomic_stream_file(
-      opts, convert_options, emit_warnings,
+      opts,
+      convert_options,
+      emit_warnings,
+      session.source,
     )
   }
   let execution = match
     @convert.convert_input_with_provenance(
-      cli_input_source(opts),
+      session.source,
       convert_options,
+      output_assets=if opts.output is Some(_) {
+        ExistingOutputAssets
+      } else {
+        MetadataOnly
+      },
     ) {
     Ok(value) => value
     Err(err) => return Err(cli_failure_from_convert_error(opts, err))
   }
+  ignore(requested_format)
+  if emit_warnings {
+    cli_emit_conversion_warnings(execution.result)
+  }
+  let rendered = match
+    cli_render_convert_result(
+      opts,
+      execution.result,
+      session.source,
+      convert_options.limits,
+      emit_warnings~,
+    ) {
+    Ok(value) => value
+    Err(failure) => return Err(failure)
+  }
+  @convert.refresh_budget_diagnostics(
+    session.source,
+    execution.result.diagnostics,
+  )
   persist_cli_provenance(opts, execution) catch {
     err =>
       return Err(
@@ -74,11 +106,7 @@ async fn run_cli_impl(
         ),
       )
   }
-  ignore(requested_format)
-  if emit_warnings {
-    cli_emit_conversion_warnings(execution.result)
-  }
-  cli_render_convert_result(opts, execution.result, emit_warnings~)
+  Ok(rendered)
 }
 
 ///|
@@ -106,6 +134,7 @@ async fn cli_convert_to_atomic_stream_file(
   opts : CliOptions,
   convert_options : @convert.ConvertOptions,
   emit_warnings : Bool,
+  source : @input.InputSource,
 ) -> Result[String, CliFailure] {
   let output_path = opts.output.unwrap_or("")
   ensure_dir_tree(dirname_of_path(output_path)) catch {
@@ -143,11 +172,7 @@ async fn cli_convert_to_atomic_stream_file(
     },
   )
   let result = match
-    @convert.convert_input_to_sink_unbuffered(
-      cli_input_source(opts),
-      convert_options,
-      sink,
-    ) {
+    @convert.convert_input_to_sink_unbuffered(source, convert_options, sink) {
     Ok(value) => value
     Err(err) => {
       atomic_file_writer_abort(writer)
@@ -217,7 +242,7 @@ fn cli_failure_from_convert_error(
   let kind = match error {
     DetectFailed(_) | UnsupportedCapability(_) => DetectionFailure
     ParseFailed(_) => ConversionFailure
-    RenderFailed(_) => OutputFailure
+    RenderFailed(_) | OutputAssetFailure(_) => OutputFailure
     ResourceLimitExceeded(..) => ResourceFailure
   }
   cli_failure(kind, cli_convert_error_message(opts, error.to_string()))
@@ -234,6 +259,8 @@ async fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
 async fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
+  source : @input.InputSource,
+  limits : @convert.ResourceLimits,
   emit_warnings~ : Bool = false,
 ) -> Result[String, CliFailure] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
@@ -246,7 +273,18 @@ async fn cli_render_convert_result(
   }
   match opts.output {
     Some(path) => {
-      match validate_cli_assets(opts.input, result.assets) {
+      let prepared_assets = match
+        cli_prepare_source_assets(
+          opts.input,
+          source,
+          result.assets,
+          limits,
+          result.diagnostics,
+        ) {
+        Ok(value) => value
+        Err(failure) => return Err(failure)
+      }
+      match validate_cli_assets(opts.input, prepared_assets) {
         Err(message) =>
           return Err(
             cli_failure(
@@ -259,7 +297,7 @@ async fn cli_render_convert_result(
       let resolved = resolve_cli_assets(
         opts.input,
         result.content,
-        result.assets,
+        prepared_assets,
       )
       for warning in resolved.warnings {
         result.diagnostics.warnings.push(warning)

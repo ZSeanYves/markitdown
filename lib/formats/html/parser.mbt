@@ -35,6 +35,19 @@ pub fn html_parse_with_token_events(
   if context.requested_mode == Some(BlockStreaming) {
     return html_block_stream_parse_result_from_events(source, text, events)
   }
+  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
+    e => Err(e.to_string())
+  }
+  html_parse_with_dom_result(source, context, text, parsed)
+}
+
+///|
+fn html_parse_with_dom_result(
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  text : String,
+  parsed : Result[@dhtml.HtmlDocument, String],
+) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "html_parser",
     DomAstModel,
@@ -55,9 +68,6 @@ pub fn html_parse_with_token_events(
   diagnostics.metrics.set("ir_input_kind", "document")
   diagnostics.metrics.set("probe_artifact_reused", "true")
   @fshared.apply_product_metrics(diagnostics, "html")
-  let parsed = try @dhtml.parse_html_document(text) |> Ok catch {
-    e => Err(e.to_string())
-  }
   match parsed {
     Err(err) => malformed_html_parse_result(source, text, diagnostics, err)
     Ok(doc) => {
@@ -127,14 +137,14 @@ pub fn html_parse_with_prepared_document(
     }
   }
   match prepared.document {
-    Some(_) => {
+    Some(doc) => {
       let events = prepared.events
       if events is Some(_) {
-        let parsed = html_parse_with_token_events(
+        let parsed = html_parse_with_dom_result(
           source,
           context,
           prepared.normalized_text,
-          events.unwrap(),
+          Ok(doc),
         )
         parsed.diagnostics.metrics.set("probe_artifact_reused", "true")
         parsed

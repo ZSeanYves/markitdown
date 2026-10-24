@@ -7,19 +7,21 @@ fn pdf_product_wbtest_stream_object(
   {
     object_id,
     dict_text,
-    stream: Some({
-      primary_bytes: @utf8.encode(body),
-      endstream_bytes: @utf8.encode(body),
-      endstream_eol_suffix: 0,
-      endstream_eol_length: 0,
-      declared_length: Some(body.length()),
-      decode_context: None,
-    }),
+    stream: Some(
+      Loaded({
+        primary_bytes: @utf8.encode(body),
+        endstream_bytes: @utf8.encode(body),
+        endstream_eol_suffix: 0,
+        endstream_eol_length: 0,
+        declared_length: Some(body.length()),
+        decode_context: None,
+      }),
+    ),
   }
 }
 
 ///|
-test "pdf rich content stream covers graphics text positioning and marked content" {
+async test "pdf rich content stream covers graphics text positioning and marked content" {
   let source = @input.input_from_text("synthetic", source_name="content.pdf")
   let content = [
     "% a comment", "q 1 0 0 1 4 5 cm", "BT /F1 12 Tf 14 TL 1 Tc 2 Tw 90 Tz 3 Ts 1 0 0 1 20 180 Tm",
@@ -57,7 +59,7 @@ test "pdf rich content stream covers graphics text positioning and marked conten
 }
 
 ///|
-test "pdf form XObject recursively extracts text and obeys depth and subtype" {
+async test "pdf form XObject recursively extracts text and obeys depth and subtype" {
   let source = @input.input_from_text("synthetic", source_name="form.pdf")
   let objects : Map[Int32, PdfNativeObject] = Map([
     (

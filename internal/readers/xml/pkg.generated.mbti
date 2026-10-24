@@ -13,7 +13,7 @@ pub fn collect_xml_validation_issues(XmlDocument) -> Array[XmlValidationIssue]
 
 pub fn inspect_xml_document(XmlDocument) -> XmlInspectReport
 
-pub fn new_xml_cursor(XmlCursorLimits, budget_context? : @resource_budget.BudgetContext) -> Result[XmlCursor, XmlCursorError]
+pub fn new_xml_cursor(XmlCursorLimits, budget_context? : @resource_budget.BudgetContext, allow_unbound_prefixes? : Bool) -> Result[XmlCursor, XmlCursorError]
 
 pub fn parse_xml_document(String) -> XmlDocument raise
 

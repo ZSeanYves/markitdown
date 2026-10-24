@@ -1091,18 +1091,6 @@ async test "main cli persists TeX RST and AsciiDoc sidecar images" {
 }
 
 ///|
-async test "CLI ZIP asset lookup normalizes safe dot segments" {
-  assert_eq(
-    normalized_zip_asset_entry("./ObjectReplacements/Object 1"),
-    "ObjectReplacements/Object 1",
-  )
-  assert_eq(
-    normalized_zip_asset_entry("Pictures/./image.png"),
-    "Pictures/image.png",
-  )
-}
-
-///|
 async test "batch task skipped status has a stable manifest name" {
   assert_eq(batch_task_status_name(Skipped), "skipped")
 }

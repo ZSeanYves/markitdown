@@ -29,10 +29,14 @@ async test "native upgrade OOXML rejects invalid UTF8 instead of byte character 
 }
 
 ///|
-test "native upgrade OOXML tag scanning preserves non BMP text and following tags" {
-  let xml = "<root><title>😀</title><creator>A</creator></root>"
-  assert_eq(tag_text(xml, "title"), Some("😀"))
-  assert_eq(tag_text(xml, "creator"), Some("A"))
+async test "native upgrade OOXML property cursor preserves non BMP text and following tags" {
+  let pkg = native_upgrade_ooxml_package(
+    "docProps/core.xml",
+    @utf8.encode("<root><title>😀</title><creator>A</creator></root>"),
+  )
+  let value = read_core_properties(pkg)
+  assert_eq(value.title, Some("😀"))
+  assert_eq(value.creator, Some("A"))
 }
 
 ///|
@@ -101,10 +105,16 @@ async test "native upgrade OOXML absent metadata remains optional" {
 }
 
 ///|
-test "native upgrade OOXML scalar slices preserve attributes and part paths" {
-  let attributes = parse_tag_attributes("<a first=\"😀\" second=\"B\"/>")
-  assert_eq(attributes.get("first"), Some("😀"))
-  assert_eq(attributes.get("second"), Some("B"))
+async test "native upgrade OOXML property cursor preserves attribute scalars and part paths" {
+  let pkg = native_upgrade_ooxml_package(
+    "docProps/custom.xml",
+    @utf8.encode(
+      "<r><property name='😀'><vt:lpwstr>B</vt:lpwstr></property></r>",
+    ),
+  )
+  let properties = read_custom_properties(pkg)
+  assert_eq(properties[0].name, "😀")
+  assert_eq(properties[0].value, "B")
   assert_eq(split_dir_file("😀/子.xml"), ("😀", "子.xml"))
   assert_eq(extension_of_part("😀/子.xml"), "xml")
 }

@@ -32,6 +32,10 @@ pub async fn open_ooxml_archive(
     content_types_scan: content_types.stats,
     part_cache,
     relationship_cache,
+    core_properties_cache: Ref(None),
+    app_properties_cache: Ref(None),
+    custom_properties_cache: Ref(None),
+    custom_projections_cache: Map([]),
     sorted_parts_cache: Ref(None),
     inventory_cache: Ref(None),
   }

@@ -125,6 +125,7 @@ fn tokenize_normalized_html_document(
 ///|
 fn tokenize_normalized_html_event_scan(
   normalized : String,
+  emit_tokens~ : Bool = false,
 ) -> HtmlTokenEventScan raise {
   let tokenizer = HtmlTokenizer::{
     chars: [],
@@ -132,7 +133,7 @@ fn tokenize_normalized_html_event_scan(
     byte_pos: 0,
     line: 1,
     collect_events: true,
-    emit_tokens: false,
+    emit_tokens,
     events: [],
     field_visitor: None,
     text_source: Some(normalized),
@@ -415,6 +416,13 @@ fn HtmlTokenizer::push_event(
   span : HtmlSourceSpan,
 ) -> Unit {
   if self.collect_events {
+    // A combined scan feeds two owners. Strings and spans are immutable;
+    // the attribute array itself must remain independent as in two scans.
+    let attributes = if self.emit_tokens {
+      attributes.copy()
+    } else {
+      attributes
+    }
     self.events.push({
       kind,
       tag_name,

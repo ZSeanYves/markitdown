@@ -82,7 +82,7 @@ test "PDF range search agrees with frozen legacy matching on sliced binary data"
 }
 
 ///|
-test "PDF borrowed body parsing keeps first binary endobj and exact stream spans" {
+async test "PDF borrowed body parsing keeps first binary endobj and exact stream spans" {
   let compressed = @zlib.zlib_compress(b"\x0c")
   for separator in [b"\n", b"\r\n"] {
     let object = framing_test_object(
@@ -90,7 +90,7 @@ test "PDF borrowed body parsing keeps first binary endobj and exact stream spans
       "/Length " + compressed.length().to_string(),
       separator,
     )
-    let slice = object.stream.unwrap()
+    let slice = pdf_wbtest_loaded_stream(object.stream.unwrap())
     assert_eq(slice.primary_bytes, compressed)
     assert_eq(framing_test_decode(object).unwrap(), b"\x0c")
   }

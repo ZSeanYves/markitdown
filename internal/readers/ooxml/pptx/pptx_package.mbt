@@ -307,87 +307,27 @@ async fn parse_pptx_document_metadata(
 async fn parse_custom_properties(
   ctx : PptxSourceParseContext,
 ) -> Array[PptxCustomProperty] {
-  let xml = match read_source_part_bytes(ctx, "docProps/custom.xml") {
-    Some(bytes) => bytes
-    None => return []
+  let projection = @ox.read_custom_properties_projected(
+    ctx.pkg,
+    max_candidates=ctx.budget.max_custom_properties,
+    qualified_value_type=true,
+    omit_empty_scalar_values=true,
+  )
+  if projection.limit_exceeded {
+    push_over_budget_warning(
+      ctx,
+      "docProps/custom.xml",
+      "custom-properties",
+      None,
+      None,
+      "pptx custom document property budget exceeded",
+    )
   }
-  let out : Array[PptxCustomProperty] = []
-  let mut pos = 0
-  let mut count = 0
-  while true {
-    let p0 = find_bytes(xml, pat("<property"), pos)
-    match p0 {
-      None => break
-      Some(start) =>
-        match slice_full_element(xml, start, "property") {
-          Some((block, next_pos)) => {
-            count += 1
-            if count > ctx.budget.max_custom_properties {
-              if count == ctx.budget.max_custom_properties + 1 {
-                push_over_budget_warning(
-                  ctx,
-                  "docProps/custom.xml",
-                  "custom-properties",
-                  None,
-                  None,
-                  "pptx custom document property budget exceeded",
-                )
-              }
-              pos = next_pos
-              continue
-            }
-            let name = normalize_optional_attr(
-              read_attr_value_in_first_tag_bytes(block, "<property", "name"),
-            )
-            match name {
-              Some(n) => {
-                let (value_type, value) = read_custom_property_value(block)
-                if value.trim() != "" {
-                  out.push({ name: n, value, value_type, })
-                }
-              }
-              None => ()
-            }
-            pos = next_pos
-          }
-          None => break
-        }
-    }
-  }
-  out
-}
-
-///|
-fn read_custom_property_value(block : Bytes) -> (String?, String) raise {
-  let mut pos = 0
-  while pos < block.length() {
-    let lt = find_bytes(block, pat("<vt:"), pos)
-    match lt {
-      None => break
-      Some(start) =>
-        match read_open_tag_name(block, start) {
-          Some(name) => {
-            let close_tag = "</" + name + ">"
-            let gt = find_bytes(block, pat(">"), start).unwrap_or(-1)
-            if gt < 0 {
-              return (Some(name), "")
-            }
-            let end_ = find_bytes(block, pat(close_tag), gt + 1).unwrap_or(-1)
-            if end_ < 0 {
-              return (Some(name), "")
-            }
-            return (
-              Some(name),
-              xml_unescape(bytes_slice_to_string(block, gt + 1, end_))
-              .trim()
-              .to_owned(),
-            )
-          }
-          None => pos = start + 1
-        }
-    }
-  }
-  (None, "")
+  projection.properties.map(property => {
+    name: property.name,
+    value: property.value,
+    value_type: property.value_type,
+  })
 }
 
 ///|

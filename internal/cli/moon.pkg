@@ -1,10 +1,12 @@
 import {
+  "moonbitlang/core/buffer",
+  "moonbitlang/async/fs" @asset_fs,
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
   "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/lib/convert",
   "ZSeanYves/markitdown/lib",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
-  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
   "ZSeanYves/markitdown/lib/input",
   "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/lib/rag",
@@ -13,8 +15,11 @@ import {
 }
 
 import {
+  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
   "ZSeanYves/markitdown/internal/testsupport/hermetic" @therm,
   "moonbitlang/async",
+  "moonbitlang/core/json" @asset_json,
+  "ZSeanYves/markitdown/lib/product",
 } for "wbtest"
 
 supported_targets = "native"

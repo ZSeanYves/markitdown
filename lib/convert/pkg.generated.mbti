@@ -16,7 +16,7 @@ pub async fn convert_input_to_sink(@input.InputSource, ConvertOptions, OutputSin
 
 pub async fn convert_input_to_sink_unbuffered(@input.InputSource, ConvertOptions, OutputSink) -> Result[ConvertResult, ConvertError]
 
-pub async fn convert_input_with_provenance(@input.InputSource, ConvertOptions) -> Result[ConvertExecution, ConvertError]
+pub async fn convert_input_with_provenance(@input.InputSource, ConvertOptions, output_assets? : OutputAssetDemand) -> Result[ConvertExecution, ConvertError]
 
 pub fn convert_mode_name(@product.ConvertMode) -> String
 
@@ -44,6 +44,8 @@ pub fn output_mode_name(@product.OutputMode) -> String
 
 pub async fn plan_input(@input.InputSource, ConvertOptions) -> Result[RoutePlan, ConvertError]
 
+pub fn refresh_budget_diagnostics(@input.InputSource, @core.Diagnostics) -> Unit
+
 pub fn route_plan_to_json(RoutePlan) -> Json
 
 // Errors
@@ -54,6 +56,7 @@ pub(all) enum ConvertError {
   DetectFailed(String)
   ParseFailed(String)
   RenderFailed(String)
+  OutputAssetFailure(String)
   ResourceLimitExceeded(kind~ : String, observed~ : Int64, limit~ : Int64)
 } derive(Eq)
 pub fn ConvertError::equal(Self, Self) -> Bool
@@ -107,6 +110,11 @@ pub struct ConvertResult {
   source_map : @core.SourceMap?
   chunks : Array[@rag.RagChunk]?
   debug_ir : @core.DocumentIR?
+}
+
+pub(all) enum OutputAssetDemand {
+  MetadataOnly
+  ExistingOutputAssets
 }
 
 pub struct OutputSink {

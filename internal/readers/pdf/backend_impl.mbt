@@ -199,13 +199,16 @@ async fn extract_pdf_native_document_impl(
 }
 
 ///|
-fn pdf_extract_document_from_store(
+async fn pdf_extract_document_from_store(
   source : @input.InputSource,
   parsed_store : PdfParsedObjectStore,
-) -> Result[PdfNativeDocument, PdfNativeError] raise PdfHardDecodeFailure {
+) -> Result[PdfNativeDocument, PdfNativeError] {
   let objects = parsed_store.objects
   let object_index = parsed_store.object_index
-  let font_registry = match pdf_collect_font_infos(object_index) {
+  let program_cache = pdf_make_font_program_cache(source)
+  let local_cache = pdf_make_local_cmap_cache(source)
+  let font_registry = match
+    pdf_collect_font_infos(object_index, program_cache~, local_cache~) {
     Ok(parsed) => parsed
     Err(err) => return Err(err)
   }
@@ -586,7 +589,15 @@ fn pdf_extract_document_from_store(
 priv struct PdfNativeObject {
   object_id : Int32
   dict_text : String
-  stream : PdfNativeStreamSlice?
+  stream : PdfNativeStreamRef?
+}
+
+///|
+// A deferred payload is distinct from an absent or empty stream. Only the
+// shared async gateway can turn a source range into a loaded framing slice.
+priv enum PdfNativeStreamRef {
+  Loaded(PdfNativeStreamSlice)
+  Ranged(PdfNativeStreamRange)
 }
 
 ///|

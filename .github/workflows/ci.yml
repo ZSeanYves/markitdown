@@ -61,6 +61,8 @@ jobs:
         run: |
           moon check --target native tools/regression/run_native_regression.mbtx
           moon check --target native tools/regression/native_install.mbtx
+          moon check --target native --warn-list +73 --deny-warn tools/regression/native_library_benchmark.mbtx
+          moon run --target native tools/regression/native_library_benchmark.mbtx -- --self-test true
       - name: Native debug tests
         run: moon test --target native --no-parallelize
       - name: Native release tests

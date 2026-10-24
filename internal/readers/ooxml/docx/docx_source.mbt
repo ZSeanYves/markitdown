@@ -20,6 +20,7 @@ pub async fn parse_docx_source_from_package(
     Some(pkg),
     warnings,
   )
+  ensure_docx_package_integrity(pkg)
   let part : DocxSourcePart = { part_name: main_part, blocks, warnings, }
   let styles = parse_docx_styles_from_package(
     pkg, main_part, relationships, blocks, warnings,
@@ -113,6 +114,10 @@ async fn parse_docx_source_document_xml_with_relationships(
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
 ) -> DocxSourceDocument raise DocxError {
+  match @input.validated_text_utf8_size(xml) {
+    Ok(_) => ()
+    Err(message) => raise MalformedDocument(message)
+  }
   let warnings : Array[DocxSourceWarning] = []
   let blocks = parse_docx_body_blocks(
     part_name,

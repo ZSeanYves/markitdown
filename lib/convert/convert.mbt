@@ -40,6 +40,7 @@ pub async fn plan_input(
 pub async fn convert_input_with_provenance(
   source : @input.InputSource,
   options : ConvertOptions,
+  output_assets~ : OutputAssetDemand = MetadataOnly,
 ) -> Result[ConvertExecution, ConvertError] {
-  execute_conversion(source, options, None)
+  execute_conversion(source, options, None, output_assets~)
 }

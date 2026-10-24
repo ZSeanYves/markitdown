@@ -48,12 +48,13 @@ async fn parse_docx_body_inner(
             body, start, end_exclusive, "w:p",
           )
           let key = docx_source_key(part_name, block_index, "p")
-          let paragraph_style_id = read_docx_paragraph_style_id(inner)
-          let paragraph_alignment = read_docx_paragraph_alignment(inner)
-          let numbering_ref = read_docx_numbering_ref(inner)
-          let runs = parse_docx_paragraph_runs(
+          let projection = analyze_docx_paragraph(
             inner, key, relationships, pkg, warnings,
           )
+          let paragraph_style_id = projection.style_id
+          let paragraph_alignment = projection.alignment
+          let numbering_ref = projection.numbering
+          let runs = projection.runs
           let inlines = docx_source_run_inlines(runs)
           blocks.push({
             kind: Paragraph,
@@ -525,16 +526,17 @@ async fn parse_docx_table_cell_blocks(
             xml, start, end_exclusive, "w:p",
           )
           let key = docx_child_source_key(cell_key, "p", block_index)
-          let runs = parse_docx_paragraph_runs(
+          let projection = analyze_docx_paragraph(
             inner, key, relationships, pkg, warnings,
           )
+          let runs = projection.runs
           let inlines = docx_source_run_inlines(runs)
           blocks.push({
             kind: Paragraph,
             source_key: key,
-            paragraph_style_id: read_docx_paragraph_style_id(inner),
-            paragraph_alignment: read_docx_paragraph_alignment(inner),
-            numbering_ref: read_docx_numbering_ref(inner),
+            paragraph_style_id: projection.style_id,
+            paragraph_alignment: projection.alignment,
+            numbering_ref: projection.numbering,
             runs,
             table: None,
             content_control: None,

@@ -11,9 +11,9 @@ priv enum PdfNativeDictValue {
 }
 
 ///|
-fn pdf_expand_object_streams(
+async fn pdf_expand_object_streams(
   objects : Array[PdfNativeObject],
-) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
+) -> Result[Array[PdfNativeObject], PdfNativeError] {
   let expanded : Array[PdfNativeObject] = []
   for object in objects {
     match pdf_extract_name_after(object.dict_text, "/Type") {
@@ -31,21 +31,39 @@ fn pdf_expand_object_streams(
 }
 
 ///|
-fn pdf_parse_object_stream_entries(
+async fn pdf_parse_object_stream_entries(
   object : PdfNativeObject,
-) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
+  cache~ : Map[(Int32, Int64, Int32), Array[PdfNativeObject]] = Map([]),
+) -> Result[Array[PdfNativeObject], PdfNativeError] {
+  let key = object.stream.bind(pdf_stream_reference_key)
+  if key is Some(key) && cache.get(key) is Some(entries) {
+    pdf_check_stream_live(object.stream.bind(pdf_stream_context))
+    return Ok(entries)
+  }
   let stream_text = match pdf_decode_stream_text(object, "object stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  pdf_parse_object_stream_entries_from_text(object, stream_text)
+  if key is Some(_) && object.stream.bind(pdf_stream_context) is Some(context) {
+    pdf_session_retain(context, stream_text.length().to_int64() * 4L + 16L)
+    pdf_session_work(context, stream_text.length().to_int64())
+  }
+  let entries = match
+    pdf_parse_object_stream_entries_from_text(object, stream_text) {
+    Ok(value) => value
+    Err(error) => return Err(error)
+  }
+  if key is Some(key) {
+    cache.set(key, entries)
+  }
+  Ok(entries)
 }
 
 ///|
 fn pdf_parse_object_stream_entries_from_text(
   object : PdfNativeObject,
   stream_text : String,
-) -> Result[Array[PdfNativeObject], PdfNativeError] {
+) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
   let first = match pdf_extract_int_after(object.dict_text, "/First") {
     Some(value) if value >= 0 && value <= stream_text.length() => value
     _ =>
@@ -120,7 +138,7 @@ fn pdf_parse_object_stream_entries_from_text(
     let stream_slice = match
       pdf_extract_stream_slice(
         embedded_bytes,
-        object.stream.bind(stream => stream.decode_context),
+        object.stream.bind(pdf_stream_context),
       ) {
       Ok(value) => value
       Err(err) => return Err(err)

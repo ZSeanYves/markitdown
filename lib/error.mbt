@@ -75,6 +75,7 @@ fn convert_error_from_legacy(error : @convert.ConvertError) -> ConvertError {
     DetectFailed(message) => DetectionFailed(message)
     ParseFailed(message) => ParseFailed(message)
     RenderFailed(message) => RenderFailed(message)
+    OutputAssetFailure(message) => RenderFailed(message)
     ResourceLimitExceeded(kind~, observed~, limit~) =>
       ResourceLimitExceeded(kind~, observed~, limit~)
   }

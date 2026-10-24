@@ -6,6 +6,7 @@ async fn execute_conversion(
   source : @input.InputSource,
   options : ConvertOptions,
   sink : OutputSink?,
+  output_assets~ : OutputAssetDemand = MetadataOnly,
 ) -> Result[ConvertExecution, ConvertError] {
   let session = @input.begin_input_session(
     source,
@@ -107,6 +108,7 @@ async fn execute_conversion(
     execution_plan,
     execution_started,
     sink,
+    output_assets~,
   )
 }
 
@@ -127,6 +129,8 @@ fn input_failure_convert_error(
           kind=match failure.kind {
             SingleAssetBytes => "single_asset_bytes"
             TotalAssetBytes => "total_asset_bytes"
+            MimeNestingDepth => "mime_nesting_depth"
+            MimeMultipartParts => "mime_multipart_parts"
           },
           observed=failure.observed,
           limit=failure.limit,
@@ -159,11 +163,26 @@ fn record_budget_diagnostics(
   diagnostics : @core.Diagnostics,
   confirmed_output : Int64,
 ) -> Unit {
+  guard @input.input_source_budget_context(source) is Some(_) else { return }
+  refresh_budget_diagnostics(source, diagnostics)
+  diagnostics.metrics.set(
+    "budget_output_confirmed_utf8_bytes",
+    confirmed_output.to_string(),
+  )
+}
+
+///|
+/// Resample the same ledger after internal CLI asset materialization.
+/// Preserve the renderer's actual confirmation, independently of asset bytes.
+pub fn refresh_budget_diagnostics(
+  source : @input.InputSource,
+  diagnostics : @core.Diagnostics,
+) -> Unit {
   guard @input.input_source_budget_context(source) is Some(context) else {
     return
   }
   let snapshot = context.account.snapshot()
-  diagnostics.metrics.set("budget_schema", "partial_v4")
+  diagnostics.metrics.set("budget_schema", "partial_v9")
   diagnostics.metrics.set(
     "budget_profile",
     if snapshot.limits.profile == MeasurementOnly {
@@ -173,10 +192,10 @@ fn record_budget_diagnostics(
     },
   )
   diagnostics.metrics.set(
-    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,output_utf8_admission",
+    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,output_utf8_admission",
   )
   diagnostics.metrics.set(
-    "budget_unmeasured", "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_temporary_metadata,other_working_and_cache",
+    "budget_unmeasured", "other_parse_work,other_source_metadata,rag_metadata,ir,temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
   )
   diagnostics.metrics.set(
     "budget_resident_policy", "scope_retained_payload_upper_bound",
@@ -192,10 +211,6 @@ fn record_budget_diagnostics(
   diagnostics.metrics.set(
     "budget_output_admitted_utf8_bytes",
     snapshot.cumulative.output_utf8_bytes.to_string(),
-  )
-  diagnostics.metrics.set(
-    "budget_output_confirmed_utf8_bytes",
-    confirmed_output.to_string(),
   )
   diagnostics.metrics.set(
     "budget_cache_payload_peak_bytes",

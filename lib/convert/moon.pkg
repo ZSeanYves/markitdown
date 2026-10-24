@@ -1,4 +1,5 @@
 import {
+  "ZSeanYves/markitdown/internal/readers/zip" @asset_zip,
   "ZSeanYves/markitdown/internal/resource_budget" @budget,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",

@@ -8,6 +8,7 @@ async fn finalize_pipeline_execution(
   execution_plan : ResolvedExecutionPlan,
   execution_started : UInt64,
   sink : OutputSink?,
+  output_assets~ : OutputAssetDemand = MetadataOnly,
 ) -> Result[ConvertExecution, ConvertError] {
   let route_plan = route_plan_from_execution_plan(execution_plan)
   let effective_options = {
@@ -40,6 +41,21 @@ async fn finalize_pipeline_execution(
     @pipeline.run_default_pipeline(parsed_input, pass_context) {
     Ok(value) => value
     Err(err) => return Err(ParseFailed("pipeline failed: " + err.message))
+  }
+  match output_assets {
+    MetadataOnly => ()
+    ExistingOutputAssets =>
+      pass_context.assets.val = match
+        materialize_existing_output_assets(
+          source,
+          detected_format,
+          pass_context.assets.val,
+          execution_plan.probe_artifacts,
+          execution_plan.limits,
+        ) {
+        Ok(value) => value
+        Err(error) => return Err(error)
+      }
   }
   pass_context.assets.val = match
     apply_asset_payload_limits(

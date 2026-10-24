@@ -60,6 +60,19 @@ fn rag_location_metadata(
 }
 
 ///|
+/// Enrich an existing chunk's provenance without changing its established
+/// identity or body. Keep every source-derived metadata field in agreement.
+pub fn RagChunk::with_source_refs(
+  self : RagChunk,
+  source_refs : Array[@core.SourceRef],
+) -> RagChunk {
+  let metadata = self.metadata.copy()
+  metadata.set("source_count", Number(source_refs.length().to_string()))
+  metadata.set("location", Object(rag_location_metadata(source_refs)))
+  { ..self, source_refs, metadata, }
+}
+
+///|
 fn rag_metadata_fields(
   ordinal : Int32,
   text : String,

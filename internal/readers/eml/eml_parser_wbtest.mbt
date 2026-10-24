@@ -273,7 +273,8 @@ test "EML reader enforces nesting depth and preserves invalid UTF-8 bytes" {
     ignore(parse_eml_message(deeply_nested_eml(10)))
     false
   } catch {
-    ParseError(message) => message.contains("maximum eml nesting depth")
+    LimitExceeded(NestingDepth, observed~, limit~) =>
+      observed == 9L && limit == 8L
     _ => false
   }
   assert_true(depth_failed)
@@ -317,7 +318,8 @@ test "EML reader enforces multipart child count budget" {
     ignore(parse_eml_message(parts.join("\n")))
     false
   } catch {
-    ParseError(message) => message.contains("multipart child count")
+    LimitExceeded(MultipartParts, observed~, limit~) =>
+      observed == 1025L && limit == 1024L
     _ => false
   }
   assert_true(failed)

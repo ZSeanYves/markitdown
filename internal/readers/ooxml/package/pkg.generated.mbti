@@ -50,6 +50,8 @@ pub async fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties raise Oox
 
 pub async fn read_custom_properties(OoxmlPackage) -> Array[OoxmlCustomProperty] raise OoxmlError
 
+pub async fn read_custom_properties_projected(OoxmlPackage, max_candidates~ : Int32, qualified_value_type? : Bool, omit_empty_scalar_values? : Bool) -> OoxmlCustomPropertyProjection raise OoxmlError
+
 pub async fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
 
 pub async fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
@@ -141,6 +143,11 @@ pub struct OoxmlCustomProperty {
   name : String
   value : String
   value_type : String?
+}
+
+pub struct OoxmlCustomPropertyProjection {
+  properties : Array[OoxmlCustomProperty]
+  limit_exceeded : Bool
 }
 
 pub(all) enum OoxmlErrorKind {

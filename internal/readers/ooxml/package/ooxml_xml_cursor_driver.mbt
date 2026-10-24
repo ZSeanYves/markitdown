@@ -45,6 +45,7 @@ async fn visit_ooxml_xml_tokens(
   consume : (@xml.XmlCursorToken) -> Unit raise OoxmlError,
   chunk_size~ : Int32 = 64 * 1024,
   allow_syntax_recovery~ : Bool = false,
+  allow_unbound_prefixes~ : Bool = false,
 ) -> @xml.XmlCursorStats raise OoxmlError {
   let context = @zip.archive_budget_context(archive)
   if context is Some(context) && context.account.failure() is Some(error) {
@@ -72,7 +73,8 @@ async fn visit_ooxml_xml_tokens(
     Err(error) => raise ooxml_cursor_error(part, error)
   }
   let budget_context = context
-  let cursor = match @xml.new_xml_cursor(limits, budget_context?) {
+  let cursor = match
+    @xml.new_xml_cursor(limits, budget_context?, allow_unbound_prefixes~) {
     Ok(value) => value
     Err(error) =>
       raise ooxml_cursor_hard_failure(archive, ooxml_cursor_error(part, error))

@@ -2,6 +2,13 @@
 pub(all) suberror EmlError {
   ParseError(String)
   InvalidEncoding(String)
+  LimitExceeded(EmlStructuralLimitKind, observed~ : Int64, limit~ : Int64)
+}
+
+///|
+pub(all) enum EmlStructuralLimitKind {
+  NestingDepth
+  MultipartParts
 }
 
 ///|
@@ -130,6 +137,16 @@ pub impl Show for EmlError with fn to_string(self : EmlError) -> String {
   match self {
     ParseError(msg) => "eml parse error: " + msg
     InvalidEncoding(msg) => "eml encoding error: " + msg
+    LimitExceeded(kind, observed~, limit~) =>
+      "eml resource limit exceeded: " +
+      (match kind {
+        NestingDepth => "mime_nesting_depth"
+        MultipartParts => "mime_multipart_parts"
+      }) +
+      "; observed=" +
+      observed.to_string() +
+      "; limit=" +
+      limit.to_string()
   }
 }
 

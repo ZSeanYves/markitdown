@@ -1,11 +1,15 @@
 ///|
-/// Construct a repository-internal lexer. It has no I/O and no defaults.
+/// Construct a repository-internal lexer. It has no I/O; resource caps are
+/// explicit. Namespaces are strict by default. Only known legacy consumers
+/// may opt into unbound prefixes: retain raw/local names with no namespace
+/// URI, while declared bindings, reserved names and duplicate checks remain.
 /// ParseWork units are UTF8 bytes admitted for decoding, plus UTF8 bytes
 /// revisited by the atomic markup/name/entity parsers. This deterministic
 /// counter is not a claim to count machine instructions or allocator costs.
 pub fn new_xml_cursor(
   limits : XmlCursorLimits,
   budget_context? : @budget.BudgetContext,
+  allow_unbound_prefixes~ : Bool = false,
 ) -> Result[XmlCursor, XmlCursorError] {
   let position = cursor_position()
   let carry_lease = try cursor_reserve(budget_context, 3L) |> Ok catch {
@@ -17,6 +21,7 @@ pub fn new_xml_cursor(
       Ok({
         limits,
         budget: budget_context,
+        allow_unbound_prefixes,
         input: [],
         input_index: 0,
         carry: Bytes::new(0),

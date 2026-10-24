@@ -4,8 +4,8 @@ fn chunks_from_document(
   options : @rag.RagOptions,
   record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
-  if record_batching {
-    return batched_chunks_from_blocks(
+  let chunks = if record_batching {
+    batched_chunks_from_blocks(
       document.blocks,
       document.metadata,
       document.diagnostics,
@@ -14,8 +14,17 @@ fn chunks_from_document(
       document.assembly,
       options,
     )
+  } else {
+    @rag.chunks_from_document(document, options)
   }
-  @rag.chunks_from_document(document, options)
+  rag_json_root_list_with_child_sources(
+    document.blocks,
+    json_value_string(document.metadata.get("format")).unwrap_or(
+      document.diagnostics.detected_format.unwrap_or(""),
+    ),
+    chunks,
+    options,
+  )
 }
 
 ///|
@@ -30,8 +39,16 @@ fn chunks_from_blocks(
   record_batching~ : Bool = false,
 ) -> Array[@rag.RagChunk] {
   if record_batching {
-    return batched_chunks_from_blocks(
+    let chunks = batched_chunks_from_blocks(
       blocks, metadata, diagnostics, assets, source_map, assembly, options,
+    )
+    return rag_json_root_list_with_child_sources(
+      blocks,
+      json_value_string(metadata.get("format")).unwrap_or(
+        diagnostics.detected_format.unwrap_or(""),
+      ),
+      chunks,
+      options,
     )
   }
   let document = {
@@ -43,7 +60,14 @@ fn chunks_from_blocks(
     source_map,
     assembly,
   }
-  @rag.chunks_from_document(document, options)
+  rag_json_root_list_with_child_sources(
+    blocks,
+    json_value_string(metadata.get("format")).unwrap_or(
+      diagnostics.detected_format.unwrap_or(""),
+    ),
+    @rag.chunks_from_document(document, options),
+    options,
+  )
 }
 
 ///|

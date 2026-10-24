@@ -14,10 +14,11 @@ priv struct PdfSfntTableRecord {
 }
 
 ///|
-fn pdf_extract_embedded_font_program(
+async fn pdf_extract_embedded_font_program(
   font_dict_text : String,
   object_index : Map[Int32, PdfNativeObject],
-) -> PdfEmbeddedFontProgram? raise PdfHardDecodeFailure {
+  cache~ : PdfFontProgramCache? = None,
+) -> PdfEmbeddedFontProgram? {
   let descriptor_ref = match
     pdf_extract_object_reference_after(font_dict_text, "/FontDescriptor") {
     Some(value) => value
@@ -31,10 +32,12 @@ fn pdf_extract_embedded_font_program(
     Some(object_id) =>
       match object_index.get(object_id) {
         Some(object) =>
-          match pdf_decode_stream_bytes(object, "embedded FontFile2") {
-            Ok(bytes) => pdf_parse_embedded_sfnt_font_program(bytes)
-            Err(_) => None
-          }
+          pdf_font_program_for_object(
+            object,
+            "embedded FontFile2",
+            Some(0),
+            cache,
+          )
         None => None
       }
     None =>
@@ -44,19 +47,15 @@ fn pdf_extract_embedded_font_program(
           match object_index.get(object_id) {
             Some(object) => {
               let subtype = pdf_extract_name_after(object.dict_text, "/Subtype")
-              let bytes = match
-                pdf_decode_stream_bytes(object, "embedded FontFile3") {
-                Ok(value) => value
-                Err(_) => return None
-              }
-              match subtype {
-                Some("OpenType") => pdf_parse_embedded_sfnt_font_program(bytes)
-                Some("Type1C") =>
-                  pdf_parse_embedded_cff_font_program(bytes, false)
-                Some("CIDFontType0C") =>
-                  pdf_parse_embedded_cff_font_program(bytes, true)
+              let kind = match subtype {
+                Some("OpenType") => Some(0)
+                Some("Type1C") => Some(1)
+                Some("CIDFontType0C") => Some(2)
                 _ => None
               }
+              pdf_font_program_for_object(
+                object, "embedded FontFile3", kind, cache,
+              )
             }
             None => None
           }
@@ -66,10 +65,10 @@ fn pdf_extract_embedded_font_program(
 }
 
 ///|
-fn pdf_extract_cid_to_gid_map(
+async fn pdf_extract_cid_to_gid_map(
   cid_font_dict_text : String,
   object_index : Map[Int32, PdfNativeObject],
-) -> Array[Int32]? raise PdfHardDecodeFailure {
+) -> Array[Int32]? {
   match pdf_extract_dict_value(cid_font_dict_text, "/CIDToGIDMap") {
     Some(Name("Identity")) => None
     Some(Reference(object_id, generation)) => {

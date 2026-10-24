@@ -41,6 +41,7 @@ pub struct RagChunk {
   asset_refs : Array[String]
   metadata : Map[String, @core.JsonValue]
 }
+pub fn RagChunk::with_source_refs(Self, Array[@core.SourceRef]) -> Self
 
 pub struct RagOptions {
   chunk_size : Int32

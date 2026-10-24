@@ -7,10 +7,10 @@ priv enum PdfResolvedImageColorSpace {
 }
 
 ///|
-fn pdf_resolve_image_color_space(
+async fn pdf_resolve_image_color_space(
   object : PdfNativeObject,
   object_index : Map[Int32, PdfNativeObject],
-) -> PdfResolvedImageColorSpace? raise PdfHardDecodeFailure {
+) -> PdfResolvedImageColorSpace? {
   if object.dict_text.contains("/ImageMask true") {
     return Some(Gray)
   }
@@ -22,12 +22,12 @@ fn pdf_resolve_image_color_space(
 }
 
 ///|
-fn pdf_resolve_image_color_space_value(
+async fn pdf_resolve_image_color_space_value(
   value : PdfNativeDictValue,
   object_index : Map[Int32, PdfNativeObject],
   depth : Int32,
   visited : Array[Int32],
-) -> PdfResolvedImageColorSpace? raise PdfHardDecodeFailure {
+) -> PdfResolvedImageColorSpace? {
   if depth > 8 {
     return None
   }
@@ -69,12 +69,12 @@ fn pdf_resolve_image_color_space_value(
 }
 
 ///|
-fn pdf_resolve_image_color_space_array(
+async fn pdf_resolve_image_color_space_array(
   tokens : Array[PdfNativeContentToken],
   object_index : Map[Int32, PdfNativeObject],
   depth : Int32,
   visited : Array[Int32],
-) -> PdfResolvedImageColorSpace? raise PdfHardDecodeFailure {
+) -> PdfResolvedImageColorSpace? {
   if tokens.length() == 0 || depth > 8 {
     return None
   }
@@ -93,12 +93,12 @@ fn pdf_resolve_image_color_space_array(
 }
 
 ///|
-fn pdf_resolve_icc_image_color_space(
+async fn pdf_resolve_icc_image_color_space(
   tokens : Array[PdfNativeContentToken],
   object_index : Map[Int32, PdfNativeObject],
   depth : Int32,
   visited : Array[Int32],
-) -> PdfResolvedImageColorSpace? raise PdfHardDecodeFailure {
+) -> PdfResolvedImageColorSpace? {
   let (profile_value, _) = pdf_dict_value_from_tokens(tokens, 1)
   let profile_id = match profile_value {
     Reference(object_id, generation) => {
@@ -139,12 +139,12 @@ fn pdf_resolve_icc_image_color_space(
 }
 
 ///|
-fn pdf_resolve_indexed_image_color_space(
+async fn pdf_resolve_indexed_image_color_space(
   tokens : Array[PdfNativeContentToken],
   object_index : Map[Int32, PdfNativeObject],
   depth : Int32,
   visited : Array[Int32],
-) -> PdfResolvedImageColorSpace? raise PdfHardDecodeFailure {
+) -> PdfResolvedImageColorSpace? {
   let (base_value, after_base) = pdf_dict_value_from_tokens(tokens, 1)
   let base = match
     pdf_resolve_image_color_space_value(
@@ -178,12 +178,12 @@ fn pdf_resolve_indexed_image_color_space(
 }
 
 ///|
-fn pdf_image_lookup_bytes(
+async fn pdf_image_lookup_bytes(
   value : PdfNativeDictValue,
   object_index : Map[Int32, PdfNativeObject],
   depth : Int32,
   visited : Array[Int32],
-) -> Bytes? raise PdfHardDecodeFailure {
+) -> Bytes? {
   if depth > 8 {
     return None
   }

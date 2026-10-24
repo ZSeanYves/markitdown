@@ -200,13 +200,14 @@ fn pdf_find_cmap_object_id_by_name(
 }
 
 ///|
-fn pdf_parent_tounicode_cmap_info(
+async fn pdf_parent_tounicode_cmap_info(
   cmap_object : PdfNativeObject,
   local_usecmap_name : String?,
   object_index : Map[Int32, PdfNativeObject],
   visited : Map[Int32, Bool],
   remaining_depth : Int32,
-) -> PdfToUnicodeCMapInfo raise PdfHardDecodeFailure {
+  local_cache~ : PdfLocalCMapCache? = None,
+) -> PdfToUnicodeCMapInfo {
   if remaining_depth <= 0 {
     return pdf_empty_tounicode_cmap_info()
   }
@@ -219,6 +220,7 @@ fn pdf_parent_tounicode_cmap_info(
           object_index,
           visited,
           remaining_depth - 1,
+          local_cache~,
         ) {
         Ok(info) => info
         Err(_) => pdf_empty_tounicode_cmap_info()
@@ -233,6 +235,7 @@ fn pdf_parent_tounicode_cmap_info(
               object_index,
               visited,
               remaining_depth - 1,
+              local_cache~,
             ) {
             Ok(info) => info
             Err(_) => pdf_empty_tounicode_cmap_info()
@@ -254,6 +257,7 @@ fn pdf_parent_tounicode_cmap_info(
                   object_index,
                   visited,
                   remaining_depth - 1,
+                  local_cache~,
                 ) {
                 Ok(info) => info
                 Err(_) => pdf_empty_tounicode_cmap_info()
@@ -270,12 +274,13 @@ fn pdf_parent_tounicode_cmap_info(
 }
 
 ///|
-fn pdf_collect_tounicode_cmap_info(
+async fn pdf_collect_tounicode_cmap_info(
   cmap_object_id : Int32,
   object_index : Map[Int32, PdfNativeObject],
   visited : Map[Int32, Bool],
   remaining_depth : Int32,
-) -> Result[PdfToUnicodeCMapInfo, String] raise PdfHardDecodeFailure {
+  local_cache~ : PdfLocalCMapCache? = None,
+) -> Result[PdfToUnicodeCMapInfo, String] {
   if remaining_depth <= 0 {
     return Ok(pdf_empty_tounicode_cmap_info())
   }
@@ -287,20 +292,10 @@ fn pdf_collect_tounicode_cmap_info(
     Some(value) => value
     None => return Err("missing ToUnicode CMap object")
   }
-  let cmap_text = match pdf_decode_cmap_stream_text(cmap_object) {
-    Ok(result) => {
-      ignore(pdf_cmap_stream_decode_result_summary(result))
-      result.text
-    }
-    Err(failure) => {
-      ignore(pdf_cmap_stream_decode_failure_summary(failure))
-      return Err(failure.message)
-    }
-  }
-  let cmap_info = if cmap_text == "" {
-    pdf_empty_tounicode_cmap_info()
-  } else {
-    pdf_parse_tounicode_cmap_info(cmap_text)
+  let cmap_info = match
+    pdf_local_tounicode_cmap_info(cmap_object, local_cache) {
+    Ok(value) => value
+    Err(message) => return Err(message)
   }
   let parent = pdf_parent_tounicode_cmap_info(
     cmap_object,
@@ -308,6 +303,7 @@ fn pdf_collect_tounicode_cmap_info(
     object_index,
     visited,
     remaining_depth,
+    local_cache~,
   )
   let mapping : Map[String, String] = Map([])
   let invalid_keys : Map[String, Bool] = Map([])
@@ -343,9 +339,11 @@ fn pdf_collect_tounicode_cmap_info(
 }
 
 ///|
-fn pdf_collect_font_infos(
+async fn pdf_collect_font_infos(
   object_index : Map[Int32, PdfNativeObject],
-) -> Result[PdfFontRegistry, PdfNativeError] raise PdfHardDecodeFailure {
+  program_cache~ : PdfFontProgramCache? = None,
+  local_cache~ : PdfLocalCMapCache? = None,
+) -> Result[PdfFontRegistry, PdfNativeError] {
   let fonts : Map[Int32, PdfNativeFontInfo] = Map([])
   let inline_ids : Map[String, Int32] = Map([])
   let mut next_inline_id = -1
@@ -354,7 +352,14 @@ fn pdf_collect_font_infos(
     if !pdf_object_is_font(object) {
       continue
     }
-    match pdf_register_font_info(fonts, object, object_index) {
+    match
+      pdf_register_font_info(
+        fonts,
+        object,
+        object_index,
+        program_cache~,
+        local_cache~,
+      ) {
       Ok(_) => ()
       Err(err) => return Err(err)
     }
@@ -387,6 +392,8 @@ fn pdf_collect_font_infos(
                             stream: None,
                           },
                           object_index,
+                          program_cache~,
+                          local_cache~,
                         ) {
                         Ok(_) => ()
                         Err(err) => return Err(err)
@@ -406,11 +413,13 @@ fn pdf_collect_font_infos(
 }
 
 ///|
-fn pdf_register_font_info(
+async fn pdf_register_font_info(
   fonts : Map[Int32, PdfNativeFontInfo],
   object : PdfNativeObject,
   object_index : Map[Int32, PdfNativeObject],
-) -> Result[Unit, PdfNativeError] raise PdfHardDecodeFailure {
+  program_cache~ : PdfFontProgramCache? = None,
+  local_cache~ : PdfLocalCMapCache? = None,
+) -> Result[Unit, PdfNativeError] {
   if fonts.get(object.object_id) is Some(_) {
     return Ok(())
   }
@@ -430,7 +439,14 @@ fn pdf_register_font_info(
   let unicode_info = match to_unicode_ref {
     Some(ref_id) => {
       let visited : Map[Int32, Bool] = Map([])
-      match pdf_collect_tounicode_cmap_info(ref_id, object_index, visited, 8) {
+      match
+        pdf_collect_tounicode_cmap_info(
+          ref_id,
+          object_index,
+          visited,
+          8,
+          local_cache~,
+        ) {
         Ok(value) => value
         Err(_) => {
           tounicode_decode_failed = true
@@ -463,6 +479,7 @@ fn pdf_register_font_info(
   let embedded_font_program = pdf_extract_embedded_font_program(
     leaf_object.dict_text,
     object_index,
+    cache=program_cache,
   )
   let cid_to_gid_map = pdf_extract_cid_to_gid_map(
     leaf_object.dict_text,
@@ -577,14 +594,14 @@ fn pdf_font_combined_code_width_hints(
 }
 
 ///|
-fn pdf_build_native_pages(
+async fn pdf_build_native_pages(
   source : @input.InputSource,
   page_object_ids : Array[Int32],
   object_index : Map[Int32, PdfNativeObject],
   fonts : Map[Int32, PdfNativeFontInfo],
   inline_font_ids : Map[String, Int32],
   page_numbers : Map[Int32, Int32],
-) -> Result[Array[PdfNativePage], PdfNativeError] raise PdfHardDecodeFailure {
+) -> Result[Array[PdfNativePage], PdfNativeError] {
   let pages : Array[PdfNativePage] = []
   for page_object_id in page_object_ids {
     let object = match object_index.get(page_object_id) {
@@ -630,26 +647,16 @@ fn pdf_build_native_pages(
         Ok(text) => text
         Err(err) => return Err(err)
       }
-      let page_fragments = match
-        pdf_extract_text_fragments_from_stream(
-          source,
-          geometry,
-          font_aliases,
-          fonts,
-          inline_font_ids,
-          content_text,
-          object_index~,
-          resources_text~,
+      let observed = match
+        pdf_extract_content_fragments_and_images(
+          source, geometry, font_aliases, fonts, inline_font_ids, content_text, object_index,
+          resources_text,
         ) {
-        Ok(parsed) => parsed
-        Err(err) => return Err(err)
+        Ok(value) => value
+        Err(error) => return Err(error)
       }
-      fragments.append(page_fragments[:])
-      image_candidates.append(
-        pdf_extract_image_candidates_from_stream(
-          source, geometry, object_index, resources_text, content_text,
-        )[:],
-      )
+      fragments.append(observed.0[:])
+      image_candidates.append(observed.1[:])
     }
     let lines = pdf_group_text_fragments_into_lines(source, geometry, fragments)
     let text_blocks = pdf_group_lines_into_text_blocks(source, geometry, lines)

@@ -1,7 +1,7 @@
 ///|
 /// Render Markdown directly into a sink while retaining only the current
-/// block/row fragment. Debug and RAG renderers deliberately do not use this
-/// entry point because their JSON framing is not independently chunk-safe.
+/// block/row fragment. Debug and RAG use their own shared JSON fragment cursor
+/// through `render_json_input_to_sink`.
 pub async fn render_markdown_input_to_sink(
   input : RenderInput,
   context : RenderContext,

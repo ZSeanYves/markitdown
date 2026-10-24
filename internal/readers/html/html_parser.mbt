@@ -12,7 +12,14 @@ pub fn parse_html_document(text : String) -> HtmlDocument raise {
 ///|
 pub fn analyze_html_source(text : String) -> HtmlSourceAnalysis raise {
   let normalized = normalize_html_source(text)
-  let scan = tokenize_normalized_html_event_scan(normalized)
+  analyze_normalized_html_source(normalized)
+}
+
+///|
+fn analyze_normalized_html_source(
+  normalized : String,
+) -> HtmlSourceAnalysis raise {
+  let scan = tokenize_normalized_html_event_scan(normalized, emit_tokens=true)
   let parser = HtmlParser::{ tokens: scan.tokens, pos: 0, }
   {
     document: parser.parse_document(count_html_source_chars(normalized)),

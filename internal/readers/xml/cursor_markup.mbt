@@ -376,7 +376,19 @@ fn XmlCursor::parse_start_markup(
       self.resolve_name(attribute.name.raw, true)
     }
     if !attribute.namespace_declaration {
-      let key = (expanded.namespace_uri, expanded.local_name)
+      // Undeclared prefixes have no expanded URI in explicit compatibility
+      // mode. Their raw QNames remain distinct; real namespace aliases must
+      // still obey duplicate-expanded-attribute validation.
+      let key = (
+        expanded.namespace_uri,
+        if self.allow_unbound_prefixes &&
+          expanded.namespace_uri is None &&
+          expanded.raw.contains(":") {
+          expanded.raw
+        } else {
+          expanded.local_name
+        },
+      )
       if expanded_seen.contains(key) {
         self.syntax(DuplicateAttribute, "duplicate expanded XML attribute")
       }

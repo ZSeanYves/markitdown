@@ -229,6 +229,22 @@ pub struct OoxmlCustomProperty {
 }
 
 ///|
+/// One bounded custom-property projection. Candidate slots are consumed before
+/// name/value filtering; limit_exceeded means a further complete candidate was
+/// encountered, not that XML/ZIP validation stopped at the selection limit.
+pub struct OoxmlCustomPropertyProjection {
+  properties : Array[OoxmlCustomProperty]
+  limit_exceeded : Bool
+}
+
+///|
+priv struct CustomPropertyProjectionPolicy {
+  max_candidates : Int32?
+  qualified_value_type : Bool
+  omit_empty_scalar_values : Bool
+} derive(Eq, Hash)
+
+///|
 /// Read-only summary of an OOXML package inventory used by tests and debug
 /// inspection.
 pub struct OoxmlPackageInventory {
@@ -302,6 +318,13 @@ pub struct OoxmlPackage {
   priv content_types_scan : @xml.XmlCursorStats
   priv part_cache : OoxmlPartCache
   priv relationship_cache : OoxmlRelationshipCache
+  priv core_properties_cache : Ref[OoxmlCoreProperties?]
+  priv app_properties_cache : Ref[OoxmlAppProperties?]
+  priv custom_properties_cache : Ref[Array[OoxmlCustomProperty]?]
+  priv custom_projections_cache : Map[
+    CustomPropertyProjectionPolicy,
+    OoxmlCustomPropertyProjection,
+  ]
   priv sorted_parts_cache : Ref[Array[String]?]
   priv inventory_cache : Ref[OoxmlPackageInventory?]
 }
