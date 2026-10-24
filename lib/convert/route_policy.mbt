@@ -15,13 +15,16 @@ fn detect_effective_source(
 }
 
 ///|
-fn detect_input(
+async fn detect_input(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> Result[(@input.InputSource, @input.FormatDetectionResult), ConvertError] {
   let effective_source = detect_effective_source(source, options)
   let detector = @input.default_format_detector()
   let detected = (detector.detect)(effective_source)
+  if input_failure_convert_error(effective_source, detect=true) is Some(error) {
+    return Err(error)
+  }
   if detected.format == Unknown {
     Err(DetectFailed("unknown format"))
   } else {
@@ -115,7 +118,7 @@ fn matching_probe_signal(
 ///|
 fn exceeded_threshold_signals(
   signals : Array[ProbeSignal],
-  thresholds : Array[(ProbeSignalKind, Int)],
+  thresholds : Array[(ProbeSignalKind, Int32)],
 ) -> Array[ProbeSignal] {
   let matched : Array[ProbeSignal] = []
   for threshold in thresholds {
@@ -145,8 +148,8 @@ fn scanned_page_signal(signals : Array[ProbeSignal]) -> ProbeSignal? {
 ///|
 fn resolved_threshold_limit(
   signal : ProbeSignal,
-  configured_limit : Int,
-) -> Int? {
+  configured_limit : Int32,
+) -> Int32? {
   if configured_limit > 0 {
     Some(configured_limit)
   } else if configured_limit == 0 {
@@ -311,7 +314,7 @@ fn select_strategy_route(
 }
 
 ///|
-fn resolve_execution_plan(
+async fn resolve_execution_plan(
   source : @input.InputSource,
   detected_format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -414,7 +417,7 @@ fn resolve_execution_plan(
 }
 
 ///|
-fn detect_and_resolve_execution_plan(
+async fn detect_and_resolve_execution_plan(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> Result[

@@ -42,7 +42,7 @@ fn markdown_complex_contract_source() -> @input.InputSource {
 }
 
 ///|
-test "markdown complex lowering covers grouped DOM and block stream semantics" {
+async test "markdown complex lowering covers grouped DOM and block stream semantics" {
   let source = markdown_complex_contract_source()
   let parser = markdown_parser()
   let dom = (parser.parse)(source, @parser.new_parse_context(Markdown)).unwrap()
@@ -113,7 +113,7 @@ test "markdown large literal lowering preserves source and records strategy" {
 }
 
 ///|
-test "markdown lowering reports unclosed frontmatter and fences without crashing" {
+async test "markdown lowering reports unclosed frontmatter and fences without crashing" {
   let source = @input.input_from_text_with_format(
     "---\ntitle: open\nbody without closing marker",
     "unclosed.md",

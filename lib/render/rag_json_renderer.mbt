@@ -7,7 +7,40 @@ pub fn rag_json_renderer() -> Renderer {
     render: fn(
       document : @core.DocumentIR,
       context : RenderContext,
-    ) -> RenderResult {
+    ) -> RenderResult raise JsonEncodingError {
+      render_rag_json_input(Document(document), context)
+    },
+    render_input: fn(
+      input : RenderInput,
+      context : RenderContext,
+    ) -> RenderResult raise JsonEncodingError {
+      render_rag_json_input(input, context)
+    },
+  }
+}
+
+///|
+/// Render any public input shape as RAG JSON while keeping block/event direct
+/// paths available.
+fn render_rag_json_input(
+  input : RenderInput,
+  context : RenderContext,
+) -> RenderResult raise JsonEncodingError {
+  let plan = prepare_rag_json_input(input, context)
+  {
+    content: collect_json_fragments(plan.next),
+    diagnostics: plan.diagnostics,
+    chunks: plan.chunks,
+  }
+}
+
+///|
+fn prepare_rag_json_input(
+  input : RenderInput,
+  context : RenderContext,
+) -> JsonRenderPlan {
+  match input {
+    Document(document) => {
       document.diagnostics.metrics.set("renderer_name", "RagJsonRenderer")
       document.diagnostics.metrics.set(
         "applied_render_profile",
@@ -21,33 +54,15 @@ pub fn rag_json_renderer() -> Renderer {
       )
       apply_rag_chunk_metrics(document.diagnostics, chunks, context)
       {
-        content: render_rag_json_document(
-          profiled,
+        next: rag_json_cursor(
+          profiled.metadata,
           rag_payload(profiled, context, chunks),
+          profiled.diagnostics,
         ),
         diagnostics: document.diagnostics,
         chunks: Some(chunks),
       }
-    },
-    render_input: fn(
-      input : RenderInput,
-      context : RenderContext,
-    ) -> RenderResult {
-      render_rag_json_input(input, context)
-    },
-  }
-}
-
-///|
-/// Render any public input shape as RAG JSON while keeping block/event direct
-/// paths available.
-fn render_rag_json_input(
-  input : RenderInput,
-  context : RenderContext,
-) -> RenderResult {
-  let renderer = rag_json_renderer()
-  match input {
-    Document(document) => (renderer.render)(document, context)
+    }
     BlockStream(blocks) => {
       let profiled = profiled_blocks(blocks, context)
       let diagnostics = block_stream_input_diagnostics(context, profiled)
@@ -79,7 +94,7 @@ fn render_rag_json_input(
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
-        content: render_rag_json_events(
+        next: rag_json_cursor(
           metadata,
           rag_payload_for_direct_input(context, chunks),
           diagnostics,
@@ -116,7 +131,7 @@ fn render_rag_json_input(
       )
       apply_rag_chunk_metrics(diagnostics, chunks, context)
       {
-        content: render_rag_json_events(
+        next: rag_json_cursor(
           normalized_metadata,
           rag_payload_for_direct_input(context, chunks),
           diagnostics,
@@ -172,54 +187,4 @@ fn apply_rag_chunk_metrics(
       "false"
     },
   )
-}
-
-///|
-/// Render a fully-built document plus chunk payload as RAG JSON.
-fn render_rag_json_document(
-  document : @core.DocumentIR,
-  payload : RagRenderPayload,
-) -> String {
-  let asset_items : Array[String] = []
-  for asset in document.assets {
-    asset_items.push(render_asset_json(asset))
-  }
-  let chunk_items : Array[String] = []
-  for chunk in payload.chunks {
-    chunk_items.push(render_rag_chunk_json(chunk))
-  }
-  let fields : Array[String] = []
-  fields.push("\"output_format\": " + @core.json_string("rag_json"))
-  fields.push(
-    "\"detected_format\": " +
-    @core.json_string_opt(document.diagnostics.detected_format),
-  )
-  fields.push(
-    "\"parser_mode\": " +
-    @core.json_string_opt(document.diagnostics.parser_mode),
-  )
-  fields.push(
-    "\"convert_mode\": " +
-    @core.json_string_opt(document.diagnostics.convert_mode),
-  )
-  fields.push(
-    "\"fidelity_mode\": " +
-    @core.json_string_opt(document.diagnostics.fidelity_mode),
-  )
-  fields.push(
-    "\"output_mode\": " +
-    @core.json_string_opt(document.diagnostics.output_mode),
-  )
-  fields.push(
-    "\"metadata\": " + render_document_metadata_json(document.metadata),
-  )
-  fields.push("\"assets\": " + @core.array_json(asset_items))
-  fields.push(
-    "\"diagnostics\": " + render_diagnostics_json(document.diagnostics),
-  )
-  fields.push(
-    "\"source_map\": " + render_source_map_json(payload.public_source_map),
-  )
-  fields.push("\"chunks\": " + @core.array_json(chunk_items))
-  @core.object_json(fields)
 }

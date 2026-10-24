@@ -20,7 +20,7 @@ pub struct ProbeRegistration {
 fn probe_registration(
   format : @input.DetectedFormat,
   template : ProbeTemplate,
-  required? : Bool = true,
+  required~ : Bool = true,
 ) -> ProbeRegistration {
   { format, template, required, }
 }

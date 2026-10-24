@@ -203,9 +203,9 @@ fn parse_subtitle_document(
 
 ///|
 fn invalid_subtitle_block(
-  cue_index : Int,
-  line_start : Int,
-  line_end : Int,
+  cue_index : Int32,
+  line_start : Int32,
+  line_end : Int32,
   payload : Array[String],
 ) -> SubtitleCue {
   {

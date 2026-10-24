@@ -21,7 +21,7 @@ pub fn odt_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn odt_parser() -> @parser.Parser {
   let capability = odt_parser_capability()
-  @parser.make_parser(ODT_PARSER_NAME, PackageSinglePass, capability, fn(
+  @parser.make_parser(ODT_PARSER_NAME, PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -30,9 +30,9 @@ pub fn odt_parser() -> @parser.Parser {
 }
 
 ///|
-pub fn odt_route_preflight_summary(
+pub async fn odt_route_preflight_summary(
   source : @input.InputSource,
-) -> Result[OdtPreflightSummary, String] {
+) -> Result[OdtPreflightSummary, String] noraise {
   let prepared = match @dodf.prepare_odt_document_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -157,21 +157,21 @@ fn odt_prepare_failure_result(
 
 ///|
 pub struct OdtPreflightSummary {
-  block_count : Int
-  heading_count : Int
-  table_count : Int
-  image_count : Int
-  note_count : Int
-  comment_count : Int
-  max_heading_level : Int
+  block_count : Int32
+  heading_count : Int32
+  table_count : Int32
+  image_count : Int32
+  note_count : Int32
+  comment_count : Int32
+  max_heading_level : Int32
 }
 
 ///|
-fn parse_odt_document_result(
+async fn parse_odt_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @dodf.prepare_odt_document_from_source(source) {
     Ok(value) => value
     Err(err) =>
@@ -788,7 +788,7 @@ fn odt_image_block(
   assets : Array[@core.AssetRef],
   source_ref : @core.SourceRef,
   context : @parser.ParseContext,
-  diagnostics : @core.Diagnostics,
+  _diagnostics : @core.Diagnostics,
 ) -> @core.CoreBlock {
   match block.image {
     Some(image) => {
@@ -803,27 +803,12 @@ fn odt_image_block(
         return unavailable
       }
       let observed = image.bytes.unwrap().length().to_int64()
-      if !@parser.asset_payload_within_limits(
+      if !@parser.require_asset_payload_within_limits(
           context,
           observed,
           @parser.materialized_asset_payload_bytes(assets),
         ) {
-        @parser.record_asset_payload_budget_skip(
-          diagnostics,
-          "odt-image-" + assets.length().to_string(),
-          "single_or_total_asset_bytes",
-          observed,
-          @parser.max_asset_payload_bytes(context),
-        )
-        let unavailable = @core.make_block(
-          BlockQuote,
-          "Asset unavailable: " + image.href,
-          source_ref~,
-        )
-        unavailable.attrs.set("asset_missing", "true")
-        unavailable.attrs.set("asset_source_path", image.href)
-        unavailable.attrs.set("payload_skipped", "asset_limit")
-        return unavailable
+        return @core.make_block(BlockQuote, "", source_ref~)
       }
       let asset_id = odt_asset_output_path(image.href)
       let asset = @core.make_asset_ref(Image, asset_id, source_ref~)

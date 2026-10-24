@@ -1,26 +1,26 @@
 ///|
 pub struct PptxInspectReport {
-  slide_count : Int
-  object_count : Int
-  shape_count : Int
-  picture_count : Int
-  table_count : Int
-  unsupported_count : Int
-  media_count : Int
-  notes_count : Int
-  comment_count : Int
-  warning_count : Int
+  slide_count : Int32
+  object_count : Int32
+  shape_count : Int32
+  picture_count : Int32
+  table_count : Int32
+  unsupported_count : Int32
+  media_count : Int32
+  notes_count : Int32
+  comment_count : Int32
+  warning_count : Int32
 }
 
 ///|
 pub fn inspect_pptx_document(doc : PptxDocument) -> PptxInspectReport {
-  let object_count : Ref[Int] = { val: 0, }
-  let shape_count : Ref[Int] = { val: 0, }
-  let picture_count : Ref[Int] = { val: 0, }
-  let table_count : Ref[Int] = { val: 0, }
-  let unsupported_count : Ref[Int] = { val: 0, }
-  let notes_count : Ref[Int] = { val: 0, }
-  let comment_count : Ref[Int] = { val: 0, }
+  let object_count : Ref[Int32] = { val: 0, }
+  let shape_count : Ref[Int32] = { val: 0, }
+  let picture_count : Ref[Int32] = { val: 0, }
+  let table_count : Ref[Int32] = { val: 0, }
+  let unsupported_count : Ref[Int32] = { val: 0, }
+  let notes_count : Ref[Int32] = { val: 0, }
+  let comment_count : Ref[Int32] = { val: 0, }
   for slide in doc.slides {
     count_objects(
       slide.objects,
@@ -53,11 +53,11 @@ pub fn inspect_pptx_document(doc : PptxDocument) -> PptxInspectReport {
 ///|
 fn count_objects(
   objects : Array[PptxObject],
-  object_count : Ref[Int],
-  shape_count : Ref[Int],
-  picture_count : Ref[Int],
-  table_count : Ref[Int],
-  unsupported_count : Ref[Int],
+  object_count : Ref[Int32],
+  shape_count : Ref[Int32],
+  picture_count : Ref[Int32],
+  table_count : Ref[Int32],
+  unsupported_count : Ref[Int32],
 ) -> Unit {
   for obj in objects {
     object_count.val += 1

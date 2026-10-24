@@ -10,20 +10,20 @@ pub extend XmlStructureScanStatus with Eq::{equal, not_equal}
 ///|
 pub struct XmlStructureScan {
   status : XmlStructureScanStatus
-  node_count : Int
-  element_count : Int
-  attribute_count : Int
-  text_node_count : Int
-  comment_count : Int
-  cdata_count : Int
-  processing_instruction_count : Int
-  max_depth : Int
+  node_count : Int32
+  element_count : Int32
+  attribute_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  cdata_count : Int32
+  processing_instruction_count : Int32
+  max_depth : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
   has_complex_mixed_content : Bool
   has_markdown_fence_text : Bool
   has_default_namespace : Bool
-  error_code : Int
+  error_code : Int32
 }
 
 ///|
@@ -206,7 +206,7 @@ fn xml_scan_decode_bytes(xml_bytes : Bytes) -> String {
       for b in xml_bytes {
         let value = b.to_int()
         chars.push(
-          Int::unsafe_to_char(if value >= 0 { value } else { value + 256 }),
+          Int32::unsafe_to_char(if value >= 0 { value } else { value + 256 }),
         )
       }
       String::from_array(chars)

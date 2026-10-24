@@ -68,28 +68,12 @@ fn pptx_image_block_from_media(
     pptx_include_block_reading_order_hint(state),
   )
   let observed = media.data.unwrap().length().to_int64()
-  if !@parser.asset_payload_within_limits(
+  if !@parser.require_asset_payload_within_limits(
       state.context,
       observed,
       pptx_declared_asset_bytes(state.assets),
     ) {
-    @parser.record_asset_payload_budget_skip(
-      state.diagnostics,
-      "pptx:" + asset_key,
-      "single_or_total_asset_bytes",
-      observed,
-      @parser.max_asset_payload_bytes(state.context),
-    )
-    bump_metric(state.diagnostics, "skipped_asset_count")
-    let unavailable = @core.make_block(
-      BlockQuote,
-      "Asset unavailable: " + target_part,
-      source_ref~,
-    )
-    unavailable.attrs.set("asset_missing", "true")
-    unavailable.attrs.set("asset_source_path", target_part)
-    unavailable.attrs.set("payload_skipped", "asset_limit")
-    return unavailable
+    return @core.make_block(BlockQuote, "", source_ref~)
   }
   let asset = pptx_ensure_asset(
     state, media, asset_key, output_path, source_ref,
@@ -169,7 +153,7 @@ fn pptx_declared_asset_bytes(assets : Array[@core.AssetRef]) -> Int64 {
 }
 
 ///|
-fn metric_int(diagnostics : @core.Diagnostics, key : String) -> Int {
+fn metric_int(diagnostics : @core.Diagnostics, key : String) -> Int32 {
   @string.parse_int(diagnostics.metrics.get(key).unwrap_or("0")) catch {
     _ => 0
   }
@@ -219,7 +203,7 @@ fn pptx_picture_asset_key(
 fn pptx_media_ext(target_part : String) -> String {
   let lower = target_part.to_lower()
   let chars = lower.to_array()
-  let mut last_dot : Int? = None
+  let mut last_dot : Int32? = None
   for i in 0..<chars.length() {
     if chars[i] == '.' {
       last_dot = Some(i)
@@ -237,7 +221,7 @@ fn pptx_media_ext(target_part : String) -> String {
 }
 
 ///|
-fn pptx_two_digits(index : Int) -> String {
+fn pptx_two_digits(index : Int32) -> String {
   if index < 10 {
     "0" + index.to_string()
   } else {
@@ -250,7 +234,7 @@ fn pptx_image_alt_text(
   state : PptxState,
   pic : @pptxdoc.PptxPicture,
   media : @pptxdoc.PptxMediaRef,
-  slide_index : Int,
+  slide_index : Int32,
 ) -> String {
   let fallback = pptx_picture_synthetic_id(state, media, slide_index)
   match media.alt_text {
@@ -312,7 +296,7 @@ fn pptx_nonsemantic_picture_label(text : String) -> Bool {
 fn pptx_picture_synthetic_id(
   state : PptxState,
   media : @pptxdoc.PptxMediaRef,
-  slide_index : Int,
+  slide_index : Int32,
 ) -> String {
   let key = slide_index.to_string() +
     ":" +

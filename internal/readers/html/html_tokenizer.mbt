@@ -19,12 +19,12 @@ pub fn scan_normalized_html_string_event_fields(
     String,
     Array[HtmlAttribute],
     Bool,
-    Int,
-    Int,
-    Int,
-    Int,
-    Int,
-    Int,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
   ) -> Unit,
 ) -> Unit raise {
   let tokenizer = HtmlTokenizer::{
@@ -125,6 +125,7 @@ fn tokenize_normalized_html_document(
 ///|
 fn tokenize_normalized_html_event_scan(
   normalized : String,
+  emit_tokens~ : Bool = false,
 ) -> HtmlTokenEventScan raise {
   let tokenizer = HtmlTokenizer::{
     chars: [],
@@ -132,7 +133,7 @@ fn tokenize_normalized_html_event_scan(
     byte_pos: 0,
     line: 1,
     collect_events: true,
-    emit_tokens: false,
+    emit_tokens,
     events: [],
     field_visitor: None,
     text_source: Some(normalized),
@@ -150,9 +151,9 @@ priv struct HtmlTokenEventScan {
 ///|
 priv struct HtmlTokenizer {
   chars : Array[Char]
-  mut pos : Int
-  mut byte_pos : Int
-  mut line : Int
+  mut pos : Int32
+  mut byte_pos : Int32
+  mut line : Int32
   collect_events : Bool
   emit_tokens : Bool
   events : Array[HtmlTokenEvent]
@@ -161,18 +162,18 @@ priv struct HtmlTokenizer {
     String,
     Array[HtmlAttribute],
     Bool,
-    Int,
-    Int,
-    Int,
-    Int,
-    Int,
-    Int,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
+    Int32,
   ) -> Unit)?
   text_source : String?
 }
 
 ///|
-fn HtmlTokenizer::source_length(self : HtmlTokenizer) -> Int {
+fn HtmlTokenizer::source_length(self : HtmlTokenizer) -> Int32 {
   match self.text_source {
     Some(text) => text.length()
     None => self.chars.length()
@@ -180,19 +181,19 @@ fn HtmlTokenizer::source_length(self : HtmlTokenizer) -> Int {
 }
 
 ///|
-fn HtmlTokenizer::source_char_at(self : HtmlTokenizer, index : Int) -> Char {
+fn HtmlTokenizer::source_char_at(self : HtmlTokenizer, index : Int32) -> Char {
   match self.text_source {
     Some(text) => {
       let first = text[index].to_int()
       if first >= 0xD800 && first <= 0xDBFF && index + 1 < text.length() {
         let second = text[index + 1].to_int()
         if second >= 0xDC00 && second <= 0xDFFF {
-          return Int::unsafe_to_char(
+          return Int32::unsafe_to_char(
             0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00),
           )
         }
       }
-      Int::unsafe_to_char(first)
+      Int32::unsafe_to_char(first)
     }
     None => self.chars[index]
   }
@@ -201,8 +202,8 @@ fn HtmlTokenizer::source_char_at(self : HtmlTokenizer, index : Int) -> Char {
 ///|
 fn HtmlTokenizer::source_char_width_at(
   self : HtmlTokenizer,
-  index : Int,
-) -> Int {
+  index : Int32,
+) -> Int32 {
   match self.text_source {
     Some(text) => {
       let first = text[index].to_int()
@@ -410,11 +411,18 @@ fn HtmlTokenizer::push_event(
   tag_name : String,
   attributes : Array[HtmlAttribute],
   self_closing : Bool,
-  source_start : Int,
-  source_end : Int,
+  source_start : Int32,
+  source_end : Int32,
   span : HtmlSourceSpan,
 ) -> Unit {
   if self.collect_events {
+    // A combined scan feeds two owners. Strings and spans are immutable;
+    // the attribute array itself must remain independent as in two scans.
+    let attributes = if self.emit_tokens {
+      attributes.copy()
+    } else {
+      attributes
+    }
     self.events.push({
       kind,
       tag_name,
@@ -850,7 +858,7 @@ fn HtmlTokenizer::skip_spaces(self : HtmlTokenizer) -> Unit {
 }
 
 ///|
-fn HtmlTokenizer::advance_chars(self : HtmlTokenizer, count : Int) -> Unit {
+fn HtmlTokenizer::advance_chars(self : HtmlTokenizer, count : Int32) -> Unit {
   for _ in 0..<count {
     if self.pos >= self.source_length() {
       return
@@ -1103,8 +1111,8 @@ pub fn html_attributes_value(
 ///|
 pub fn html_tokens_find_matching_close(
   events : Array[HtmlTokenEvent],
-  open_index : Int,
-) -> Int? {
+  open_index : Int32,
+) -> Int32? {
   if open_index < 0 || open_index >= events.length() {
     return None
   }
@@ -1171,7 +1179,7 @@ fn html_tag_name_is_in(tag_name : String, names : Array[String]) -> Bool {
 }
 
 ///|
-fn html_attr_scan_start(chars : Array[Char]) -> Int {
+fn html_attr_scan_start(chars : Array[Char]) -> Int32 {
   let n = chars.length()
   let mut i = 0
   while i < n && chars[i] != '<' {
@@ -1210,11 +1218,11 @@ fn decode_html_entity_body(body : String) -> String? {
     _ =>
       if body.has_prefix("#x") || body.has_prefix("#X") {
         parse_html_hex_int(body[2:].to_owned()).map(fn(cp) {
-          String::from_array([Int::unsafe_to_char(cp)])
+          String::from_array([Int32::unsafe_to_char(cp)])
         })
       } else if body.has_prefix("#") {
         parse_html_dec_int(body[1:].to_owned()).map(fn(cp) {
-          String::from_array([Int::unsafe_to_char(cp)])
+          String::from_array([Int32::unsafe_to_char(cp)])
         })
       } else {
         None
@@ -1223,7 +1231,7 @@ fn decode_html_entity_body(body : String) -> String? {
 }
 
 ///|
-fn parse_html_dec_int(s : String) -> Int? {
+fn parse_html_dec_int(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -1243,7 +1251,7 @@ fn parse_html_dec_int(s : String) -> Int? {
 }
 
 ///|
-fn parse_html_hex_int(s : String) -> Int? {
+fn parse_html_hex_int(s : String) -> Int32? {
   if s == "" {
     return None
   }
@@ -1263,7 +1271,7 @@ fn parse_html_hex_int(s : String) -> Int? {
 }
 
 ///|
-fn html_hex_val(c : Char) -> Int? {
+fn html_hex_val(c : Char) -> Int32? {
   if c >= '0' && c <= '9' {
     Some(c.to_int() - '0'.to_int())
   } else if c >= 'a' && c <= 'f' {
@@ -1276,7 +1284,7 @@ fn html_hex_val(c : Char) -> Int? {
 }
 
 ///|
-fn slice_chars(chars : Array[Char], start : Int, end_ : Int) -> String {
+fn slice_chars(chars : Array[Char], start : Int32, end_ : Int32) -> String {
   let out : Array[Char] = []
   let mut i = start
   while i < end_ {
@@ -1324,7 +1332,7 @@ fn is_html_name_char(ch : Char) -> Bool {
 ///|
 fn lower_ascii_html_char(ch : Char) -> Char {
   if ch >= 'A' && ch <= 'Z' {
-    Int::unsafe_to_char(ch.to_int() + ('a'.to_int() - 'A'.to_int()))
+    Int32::unsafe_to_char(ch.to_int() + ('a'.to_int() - 'A'.to_int()))
   } else {
     ch
   }

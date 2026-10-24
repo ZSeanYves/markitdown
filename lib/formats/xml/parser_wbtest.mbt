@@ -1,5 +1,5 @@
 ///|
-test "XML parser lowers rich document and streaming structure routes" {
+async test "XML parser lowers rich document and streaming structure routes" {
   let xml = "<?xml version=\"1.0\"?><catalog><item id=\"1\"><name>Alpha</name><value>10</value></item><item id=\"2\"><name>Beta</name><value>20</value></item></catalog>"
   let source = @input.input_from_text_with_format(xml, "catalog.xml", Some(Xml))
   let document = (xml_parser().parse)(source, @parser.new_parse_context(Xml)).unwrap()
@@ -26,7 +26,7 @@ test "XML parser lowers rich document and streaming structure routes" {
 }
 
 ///|
-test "XML empty and malformed inputs return controlled document fallbacks" {
+async test "XML empty and malformed inputs return controlled document fallbacks" {
   let empty = (xml_parser().parse)(
     @input.input_from_text_with_format(" \n ", "empty.xml", Some(Xml)),
     @parser.new_parse_context(Xml),
@@ -49,7 +49,7 @@ test "XML empty and malformed inputs return controlled document fallbacks" {
     malformed.diagnostics.metrics.get("syntax_error_count") == Some("1"),
   )
   let invalid_utf8 = @input.input_from_bytes_with_format(
-    Bytes::from_array([0xC3, 0x28].map(Int::to_byte)),
+    Bytes::from_array([0xC3, 0x28].map(Int32::to_byte)),
     "invalid.xml",
     Some(Xml),
   )
@@ -59,7 +59,7 @@ test "XML empty and malformed inputs return controlled document fallbacks" {
 }
 
 ///|
-test "XML streaming policy rejects unsafe or ambiguous structural inputs" {
+async test "XML streaming policy rejects unsafe or ambiguous structural inputs" {
   let cases = [
     "<!DOCTYPE root [<!ENTITY x SYSTEM 'file:///etc/passwd'>]><root>&x;</root>",
     "<root xmlns=\"urn:default\"><child/></root>", "<root attr=\"line one\nline two\"><child/></root>",

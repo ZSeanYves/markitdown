@@ -60,8 +60,21 @@ fn rag_location_metadata(
 }
 
 ///|
+/// Enrich an existing chunk's provenance without changing its established
+/// identity or body. Keep every source-derived metadata field in agreement.
+pub fn RagChunk::with_source_refs(
+  self : RagChunk,
+  source_refs : Array[@core.SourceRef],
+) -> RagChunk {
+  let metadata = self.metadata.copy()
+  metadata.set("source_count", Number(source_refs.length().to_string()))
+  metadata.set("location", Object(rag_location_metadata(source_refs)))
+  { ..self, source_refs, metadata, }
+}
+
+///|
 fn rag_metadata_fields(
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   document_format : String,
@@ -160,7 +173,7 @@ fn json_value_string(value : @core.JsonValue?) -> String? {
 }
 
 ///|
-fn unicode_char_count(text : String) -> Int {
+fn unicode_char_count(text : String) -> Int32 {
   let bytes = @utf16.encode(text, bom=false, endianness=Little)
   bytes.length() / 2
 }
@@ -168,7 +181,7 @@ fn unicode_char_count(text : String) -> Int {
 ///|
 fn make_chunk_id(
   kind : ChunkKind,
-  ordinal : Int,
+  ordinal : Int32,
   text : String,
   heading_path : Array[String],
   source_refs : Array[@core.SourceRef],

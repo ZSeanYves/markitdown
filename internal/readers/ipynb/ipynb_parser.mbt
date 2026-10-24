@@ -40,7 +40,7 @@ fn lower_ipynb_notebook(root : @djson.JsonDocument) -> IpynbNotebook raise {
 }
 
 ///|
-fn lower_ipynb_cell(value : @djson.JsonValue, index : Int) -> IpynbCell raise {
+fn lower_ipynb_cell(value : @djson.JsonValue, index : Int32) -> IpynbCell raise {
   let members = match value {
     Object(items) => items
     _ =>
@@ -104,7 +104,7 @@ fn ipynb_lower_outputs(
 ///|
 fn ipynb_lower_output(
   value : @djson.JsonValue,
-  index : Int,
+  index : Int32,
   pointer : String,
 ) -> IpynbOutput raise {
   let members = match value {
@@ -276,7 +276,10 @@ fn ipynb_optional_string(
 }
 
 ///|
-fn ipynb_optional_int(members : Array[@djson.JsonMember], key : String) -> Int? {
+fn ipynb_optional_int(
+  members : Array[@djson.JsonMember],
+  key : String,
+) -> Int32? {
   match ipynb_optional_member_from_members(members, key) {
     Some(Number(text)) =>
       Some(@string.parse_int(text.trim().to_owned()) catch { _ => return None })

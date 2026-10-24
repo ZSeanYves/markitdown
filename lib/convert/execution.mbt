@@ -6,31 +6,43 @@ async fn execute_conversion(
   source : @input.InputSource,
   options : ConvertOptions,
   sink : OutputSink?,
+  output_assets~ : OutputAssetDemand = MetadataOnly,
 ) -> Result[ConvertExecution, ConvertError] {
-  let execution_started = @env.now()
-  let source = match
-    normalize_async_reader_source(source, options.limits.max_input_bytes) {
-    Ok(value) => value
-    Err(err) => return Err(err)
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
+  let source = session.source
+  match apply_conversion_temporary_limit(source, options.limits) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
   }
+  let execution_started = @env.now()
   let detect_started = execution_started
   let (effective_source, detected, execution_plan) = match
     detect_and_resolve_execution_plan(source, options) {
     Ok(value) => value
-    Err(err) => return Err(err)
+    Err(err) =>
+      return Err(
+        input_failure_convert_error(source, detect=true).unwrap_or(err),
+      )
+  }
+  if input_failure_convert_error(source, detect=true) is Some(error) {
+    return Err(error)
   }
   let detect_elapsed_ms = @env.now() - detect_started
   let detect_trace = format_detection_trace(detected)
   let prepared_source = execution_plan.prepared_source
-  let parse_context = parse_context_from_execution_plan(
-    detected.format,
-    execution_plan,
+  let parse_context = @parser.parse_context_with_input_source(
+    parse_context_from_execution_plan(detected.format, execution_plan),
+    prepared_source,
   )
   let parse_started = @env.now()
   let parsed = {
-    let probe_registry = @parser.unified_registry_sync_projection(
-      @formats.builtin_unified_registry(),
-    )
+    let registry = @formats.builtin_registry()
     match
       parse_prepared_request(
         {
@@ -47,10 +59,18 @@ async fn execute_conversion(
           probe_artifact: None,
         },
         parse_context,
-        probe_registry,
+        registry,
       ) {
       Some(Ok(result)) => result
-      Some(Err(err)) => return Err(ParseFailed(err))
+      Some(Err(err)) =>
+        return Err(
+          // PDF probing previously performed complete extraction. Preserve its
+          // public hard-input error category when interpretation moves later;
+          // typed budgets keep their concrete mapping in either phase.
+          input_failure_convert_error(source, detect=detected.format == Pdf).unwrap_or(
+            ParseFailed(err),
+          ),
+        )
       None if heavy_probe_artifact_required(detected.format) =>
         return Err(
           ParseFailed(
@@ -59,16 +79,17 @@ async fn execute_conversion(
           ),
         )
       None =>
-        match
-          @parser.unified_registry_parse(
-            @formats.builtin_unified_registry(),
-            prepared_source,
-            parse_context,
-          ) {
+        match @parser.registry_parse(registry, prepared_source, parse_context) {
           Ok(result) => result
-          Err(err) => return Err(ParseFailed(err))
+          Err(err) =>
+            return Err(
+              input_failure_convert_error(source).unwrap_or(ParseFailed(err)),
+            )
         }
     }
+  }
+  if input_failure_convert_error(source) is Some(error) {
+    return Err(error)
   }
   let diagnostics = inject_preparse_diagnostics(
     parsed.diagnostics,
@@ -84,7 +105,7 @@ async fn execute_conversion(
     "timing_parse_lower_ms",
     (@env.now() - parse_started).to_string(),
   )
-  finalize_pipeline_execution(
+  let result = finalize_pipeline_execution(
     effective_source,
     detected.format,
     options,
@@ -93,28 +114,165 @@ async fn execute_conversion(
     execution_plan,
     execution_started,
     sink,
+    output_assets~,
+  )
+  let cleaned = finish_conversion_cleanup(cleanup, source)
+  match (result, cleaned) {
+    (Err(error), _) => Err(error)
+    (_, Err(error)) => Err(error)
+    (Ok(value), Ok(_)) => Ok(value)
+  }
+}
+
+///|
+/// Preserve concrete resource failures across parser helpers whose local
+/// contract still returns String. The session remains the single first-error
+/// owner; no error text is inspected to choose a domain error.
+fn input_failure_convert_error(
+  source : @input.InputSource,
+  detect~ : Bool = false,
+) -> ConvertError? {
+  match @input.input_source_failure(source) {
+    Some(InputError(message)) =>
+      Some(if detect { DetectFailed(message) } else { ParseFailed(message) })
+    Some(ResourceLimit(failure)) =>
+      Some(
+        ResourceLimitExceeded(
+          kind=match failure.kind {
+            SingleAssetBytes => "single_asset_bytes"
+            TotalAssetBytes => "total_asset_bytes"
+            MimeNestingDepth => "mime_nesting_depth"
+            MimeMultipartParts => "mime_multipart_parts"
+          },
+          observed=failure.observed,
+          limit=failure.limit,
+        ),
+      )
+    Some(BudgetFailure(error)) => Some(budget_convert_error(error))
+    None => None
+  }
+}
+
+///|
+fn budget_convert_error(error : @budget.BudgetError) -> ConvertError {
+  match error {
+    LimitExceeded(dimension, used~, requested~, limit~) =>
+      ResourceLimitExceeded(
+        kind=@budget.budget_dimension_name(dimension),
+        observed=used + requested,
+        limit~,
+      )
+    _ => ParseFailed(@budget.budget_error_message(error))
+  }
+}
+
+///|
+/// The first consumers provide a partial measurement profile. Values describe
+/// payload accounting, not process RSS; uninstrumented dimensions are named
+/// rather than reported as complete zero-cost measurements.
+fn record_budget_diagnostics(
+  source : @input.InputSource,
+  diagnostics : @core.Diagnostics,
+  confirmed_output : Int64,
+) -> Unit {
+  guard @input.input_source_budget_context(source) is Some(_) else { return }
+  refresh_budget_diagnostics(source, diagnostics)
+  diagnostics.metrics.set(
+    "budget_output_confirmed_utf8_bytes",
+    confirmed_output.to_string(),
   )
 }
 
 ///|
-/// Materialize only the new async-reader contract before the shared detector
-/// and parser chain. Existing synchronous readers continue to use bounded
-/// random access, while async readers are prevented from falling through to a
-/// blocking callback that cannot preserve their ownership model. This is a
-/// transitional adapter until individual random-access parsers consume
-/// `source_cursor_read_at_async` directly.
-async fn normalize_async_reader_source(
+/// Resample the same ledger after internal CLI asset materialization.
+/// Preserve the renderer's actual confirmation, independently of asset bytes.
+pub fn refresh_budget_diagnostics(
   source : @input.InputSource,
-  max_input_bytes : Int64,
-) -> Result[@input.InputSource, ConvertError] {
-  if @input.input_source_is_async_reader(source) {
-    let bounded = @input.input_source_with_reader_limit(source, max_input_bytes)
-    match @input.read_input_bytes_async(bounded) {
-      Ok(bytes) => Ok(@input.with_bytes_payload(source, bytes))
-      Err(message) => Err(DetectFailed("async reader: " + message))
-    }
-  } else {
-    Ok(source)
+  diagnostics : @core.Diagnostics,
+) -> Unit {
+  guard @input.input_source_budget_context(source) is Some(context) else {
+    return
+  }
+  let snapshot = context.account.snapshot()
+  diagnostics.metrics.set("budget_schema", "partial_v13")
+  diagnostics.metrics.set(
+    "budget_profile",
+    if snapshot.limits.profile == MeasurementOnly {
+      "measurement_only"
+    } else {
+      "explicit_enforced"
+    },
+  )
+  diagnostics.metrics.set(
+    "budget_coverage", "source_read_traffic,zip_inflate,pdf_flate_inflate,zip_payload_resident,pdf_flate_payload_and_modeled_scratch,ooxml_content_types_xml_work,ooxml_content_types_map_metadata,ooxml_content_types_resident,ooxml_relationships_xml_work,ooxml_relationships_row_and_index_string_metadata,ooxml_relationships_resident,yaml_reference_logical_work,pdf_structural_probe_work,pdf_structural_probe_payload_cache,ooxml_core_app_cursor_and_scalar_work,ooxml_core_app_selected_string_metadata,ooxml_core_app_buffer_and_retained_string_payload,pdf_indexed_stream_range_payload_and_scratch,pdf_indexed_dictionary_and_range_metadata,pdf_object_stream_member_work_and_cache,cli_source_asset_read_traffic,cli_source_asset_scope_cache,cli_source_asset_collection_working,ooxml_custom_cursor_and_serialized_value_work,ooxml_custom_name_type_value_metadata,ooxml_custom_namespace_and_value_buffer_payload,ooxml_custom_retained_string_payload,pdf_ranged_font_program_retained_payload,docx_paragraph_cursor_work,docx_paragraph_selected_string_metadata,docx_paragraph_cursor_and_raw_range_payload,docx_paragraph_retained_string_payload,pdf_pending_image_descriptor_and_reference_buffer_payload,pdf_pending_image_scope_name_utf16_payload,pdf_ranged_local_cmap_postparse_retained_payload,pdf_ranged_font_local_result_postparse_retained_payload,xlsx_worksheet_cursor_work,xlsx_worksheet_cursor_workspace,pdf_ranged_objstm_local_result_postparse_retained_payload,pdf_loaded_objstm_decoded_text_parse_work,pdf_loaded_objstm_decoded_text_logical_retention,pptx_presentation_cursor_work,pptx_presentation_cursor_workspace,pptx_presentation_reference_string_metadata,pptx_presentation_reference_retained_string_payload,output_utf8_admission,pdf_loaded_snapshot_selected_definition_native64_field_payload,pdf_loaded_font_local_result_postparse_retained_payload,pdf_loaded_cmap_local_result_postparse_retained_payload,cli_atomic_output_temporary_payload,cli_atomic_output_encoding_working_payload,cli_file_final_lf_output_admission_and_confirmation,epub_container_cursor_work,epub_container_cursor_workspace,epub_container_rootfile_selected_string_metadata,epub_container_rootfile_selected_string_payload",
+  )
+  diagnostics.metrics.set(
+    "budget_unmeasured", "other_parse_work,other_source_metadata,rag_metadata,ir,other_temporary_storage,other_inflate,pdf_non_flate_filters_predictors_and_text,pdf_full_xref_parser_and_scratch,yaml_lexing_events_and_weight_storage,ooxml_validation_issues_and_other_temporary_metadata,other_working_and_cache",
+  )
+  diagnostics.metrics.set(
+    "budget_resident_policy", "scope_retained_payload_plus_owned_temporary_leases",
+  )
+  diagnostics.metrics.set(
+    "budget_read_traffic_bytes",
+    snapshot.cumulative.read_traffic_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_inflate_bytes",
+    snapshot.cumulative.inflate_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_output_admitted_utf8_bytes",
+    snapshot.cumulative.output_utf8_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_cache_payload_peak_bytes",
+    snapshot.resident_peak.cache_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_working_payload_peak_bytes",
+    snapshot.resident_peak.working_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_parse_work",
+    snapshot.cumulative.parse_work.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_source_metadata_bytes",
+    snapshot.cumulative.source_metadata_bytes.to_string(),
+  )
+  // Shared-ledger lifetime values also exist without a finite temporary cap.
+  // They may include borrowed history, outstanding owners or uncertain close.
+  diagnostics.metrics.set(
+    "budget_temporary_payload_peak_bytes",
+    snapshot.resident_peak.temporary_bytes.to_string(),
+  )
+  diagnostics.metrics.set(
+    "budget_temporary_current_bytes",
+    snapshot.resident.temporary_bytes.to_string(),
+  )
+  if snapshot.limits.temporary_bytes is Some(limit) {
+    // Finite temporary admission is a distinct profile: its effective cap is
+    // part of the measurement group. Other dimensions may remain unbounded.
+    // The effective account cap selects the finite profile, including a
+    // borrowed parent cap when the public option itself is None.
+    diagnostics.metrics.set("budget_schema", "partial_v13")
+    diagnostics.metrics.set(
+      "budget_profile",
+      if snapshot.limits.profile == MeasurementOnly {
+        "measurement_with_temporary_limit"
+      } else {
+        "explicit_enforced"
+      },
+    )
+    diagnostics.metrics.set("budget_temporary_limit_bytes", limit.to_string())
+    diagnostics.metrics.set(
+      "budget_resident_policy", "scope_retained_payload_plus_owned_temporary_leases",
+    )
+    diagnostics.metrics.set(
+      "budget_coverage",
+      diagnostics.metrics.get("budget_coverage").unwrap_or("") +
+      ",jsonl_spool_codec_wire_work,jsonl_spool_read_traffic,jsonl_spool_temporary_payload,jsonl_spool_codec_working,jsonl_spool_event_utf16_payload",
+    )
   }
 }
 

@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/session_temp"
+
+import {
+  "ZSeanYves/markitdown/internal/resource_budget",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum TempFailure {
+  Budget(@resource_budget.BudgetError)
+  Io(stage~ : String, message~ : String)
+  State(String)
+} derive(Eq)
+pub fn TempFailure::equal(Self, Self) -> Bool
+pub fn TempFailure::not_equal(Self, Self) -> Bool
+
+pub struct TempOwner {
+  // private fields
+}
+pub async fn TempOwner::append(Self, BytesView) -> Result[Unit, TempFailure] noraise
+pub fn TempOwner::cleanup_complete(Self) -> Bool
+pub async fn TempOwner::close(Self) -> Result[Unit, TempFailure] noraise + nocancel
+pub async fn TempOwner::create(@resource_budget.Budget, capacity~ : Int64, report_failure? : (TempFailure) -> Unit) -> Result[Self, TempFailure] noraise
+pub fn TempOwner::failure(Self) -> TempFailure?
+pub fn TempOwner::length(Self) -> Int64
+pub fn TempOwner::range(Self, Int64, Int64) -> Result[TempRange, TempFailure]
+pub async fn TempOwner::read_at(Self, TempRange, Int64, FixedArray[Byte], offset? : Int32, length? : Int32) -> Result[Int32, TempFailure] noraise
+pub async fn TempOwner::seal(Self) -> Result[Unit, TempFailure] noraise
+
+pub struct TempRange {
+  length : Int64
+  // private fields
+}
+
+// Type aliases
+
+// Traits

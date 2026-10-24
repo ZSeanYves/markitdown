@@ -8,29 +8,26 @@ pub struct PreparedTextSourceDocument {
 }
 
 ///|
-pub fn prepare_text_document_from_source(
+pub async fn prepare_text_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextSourceDocument, String] {
-  let text_payload = match @sourceio.read_source_text_with_utf16_bom(source) {
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let text_payload = match
+    @sourceio.read_source_text_with_utf16_bom(session.source) {
     Ok(payload) => payload
-    Err(err) => {
-      if @input.input_error_is_fatal_reader_error(err) {
-        return Err(err)
-      }
-      return Ok({
-        prepared_source: source,
-        original_text: None,
-        document: None,
-        inspect: None,
-        parse_error: Some(err),
-      })
-    }
+    // Invalid supported encodings are hard failures, like failed reads. A
+    // successful placeholder would discard the caller's original content.
+    Err(err) => return Err(err)
   }
   let document = parse_text_document_from_normalized_text(
     normalize_text_source(text_payload.text),
   )
   Ok({
-    prepared_source: text_payload.prepared_source,
+    prepared_source: @input.rebind_prepared_source(
+      source,
+      text_payload.prepared_source,
+    ),
     original_text: Some(text_payload.text),
     document: Some(document),
     inspect: Some(inspect_text_document(document)),

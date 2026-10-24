@@ -29,13 +29,13 @@ fn bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -43,12 +43,12 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -58,18 +58,18 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : String,
 ) -> Unit {
@@ -100,7 +100,7 @@ fn add_store_entry(
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
   for entry in entries {
     let (name, data) = entry
     add_store_entry(out, central, name, data)
@@ -143,7 +143,7 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 }
 
 ///|
-fn xlsx_wbtest_preflight_package() -> @ox.OoxmlPackage raise {
+async fn xlsx_wbtest_preflight_package() -> @ox.OoxmlPackage {
   @ox.open_ooxml_package(
     build_store_zip([
       (
@@ -186,7 +186,7 @@ test "xlsx parser capability and preflight budget helpers cover boundaries" {
 }
 
 ///|
-test "xlsx compact worksheet stream keeps budgeted rows and trailing metadata" {
+async test "xlsx compact worksheet stream keeps budgeted rows and trailing metadata" {
   let xml = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
     "<worksheet><dimension ref=\"A1:B3\"/><sheetData>" +
     "<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>Cäsar</t></is></c></row>" +
@@ -195,20 +195,15 @@ test "xlsx compact worksheet stream keeps budgeted rows and trailing metadata" {
     "</sheetData><mergeCells><mergeCell ref=\"A1:B1\"/></mergeCells>" +
     "<hyperlinks><hyperlink ref=\"A2\" r:id=\"rIdLink\"/></hyperlinks>" +
     "</worksheet>"
-  let pkg = @ox.open_ooxml_package(
-    build_store_zip([
-      (
-        "[Content_Types].xml", "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"xml\" ContentType=\"application/xml\"/></Types>",
-      ),
-      ("xl/worksheets/sheet1.xml", xml),
-    ]),
-  ) catch {
-    err => fail("open compact stream fixture failed: " + err.to_string())
-  }
+  // This valid Unicode fixture must contain UTF8 bytes. The legacy STORE
+  // helper maps one scalar to one byte and otherwise writes ä as raw 0xE4.
+  let pkg = xlsx_encoding_wbtest_package(@utf8.encode(xml))
   let compact = match
     xlsx_compact_sheet_xml_stream(pkg, "xl/worksheets/sheet1.xml", 2) {
     Ok(value) => xlsx_decode_sheet_xml(value)
-    Err(err) => fail("compact stream failed: " + err)
+    Err(BudgetExceeded(error)) => fail(@budget.budget_error_message(error))
+    Err(ReadFailed(err) | UnsupportedShape(err) | InvalidEncoding(err)) =>
+      fail("compact stream failed: " + err)
   }
   assert_true(compact.contains("Cäsar"))
   assert_true(compact.contains("r=\"A2\""))
@@ -218,7 +213,7 @@ test "xlsx compact worksheet stream keeps budgeted rows and trailing metadata" {
 }
 
 ///|
-test "xlsx preflight counts visibility dimensions and route estimates" {
+async test "xlsx preflight counts visibility dimensions and route estimates" {
   let pkg = xlsx_wbtest_preflight_package()
   match xlsx_preflight_summary_with_package(pkg) {
     Ok(summary) => {
@@ -242,7 +237,7 @@ test "xlsx preflight counts visibility dimensions and route estimates" {
 }
 
 ///|
-test "xlsx parser invalid package paths return controlled diagnostics" {
+async test "xlsx parser invalid package paths return controlled diagnostics" {
   let source = @input.input_from_bytes_with_format(
     @utf8.encode("not-a-zip"),
     "broken.xlsx",
@@ -262,7 +257,7 @@ test "xlsx parser invalid package paths return controlled diagnostics" {
 }
 
 ///|
-test "xlsx prepared package parses document and block stream routes" {
+async test "xlsx prepared package parses document and block stream routes" {
   let pkg = xlsx_wbtest_preflight_package()
   let source = @input.input_from_bytes_with_format(
     Bytes::new(0),
@@ -303,14 +298,23 @@ test "xlsx prepared package parses document and block stream routes" {
 }
 
 ///|
-test "xlsx parser lowers repository formula hidden table merge and hyperlink fixtures" {
+async test "xlsx parser lowers repository formula hidden table merge and hyperlink fixtures" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/xlsx/xlsx_formula_missing_cache.xlsx", "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
     "samples/fixtures/contracts/xlsx/xlsx_multi_sheet_mixed.xlsx", "samples/fixtures/contracts/xlsx/sheet_simple.xlsx",
   ]
   for path in fixtures {
     let result = (xlsx_parser().parse)(
-      @input.input_from_path(path),
+      owned_input_path(path),
       @parser.new_parse_context(Xlsx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -320,8 +324,17 @@ test "xlsx parser lowers repository formula hidden table merge and hyperlink fix
 }
 
 ///|
-test "xlsx advanced synthetic contract covers shared styles formulas comments tables drawings and streams" {
-  let source = @input.input_from_path(
+async test "xlsx advanced synthetic contract covers shared styles formulas comments tables drawings and streams" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
+  let source = owned_input_path(
     "samples/fixtures/contracts/xlsx/xlsx_advanced_synthetic.xlsx",
   )
   let balanced = (xlsx_parser().parse)(source, @parser.new_parse_context(Xlsx)).unwrap()
@@ -354,22 +367,28 @@ test "xlsx advanced synthetic contract covers shared styles formulas comments ta
 }
 
 ///|
-test "xlsx parser rejects lazy media references over the request asset budget" {
+async test "xlsx parser rejects lazy media references over the request asset budget" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let context = @parser.parse_context_with_asset_limits(
     @parser.new_parse_context(Xlsx),
     1L,
     1L,
   )
   let result = (xlsx_parser().parse)(
-    @input.input_from_path(
+    owned_input_path(
       "samples/fixtures/contracts/xlsx/xlsx_advanced_synthetic.xlsx",
     ),
     context,
-  ).unwrap()
-  assert_eq(result.document.unwrap().assets.length(), 0)
-  assert_true(
-    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
   )
+  assert_true(result is Err(_))
 }
 
 ///|
@@ -497,7 +516,7 @@ test "xlsx parser keeps visible cells and formulas from being reclassified empty
 }
 
 ///|
-test "xlsx parser expands hyperlink ranges onto covered cells" {
+async test "xlsx parser expands hyperlink ranges onto covered cells" {
   let sheet_xml = "<worksheet><hyperlinks><hyperlink ref=\"A1:A3\" r:id=\"rIdLink\"/></hyperlinks></worksheet>"
   let pkg = @ox.open_ooxml_package(
     build_store_zip([
@@ -554,7 +573,7 @@ test "xlsx effective bounds can include hidden-row semantic cells for accurate f
       source_ref: None,
     },
   ]
-  let hidden_rows : Map[Int, Bool] = Map([(8, true)])
+  let hidden_rows : Map[Int32, Bool] = Map([(8, true)])
   let balanced = xlsx_effective_bounds(
     None,
     cells,

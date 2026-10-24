@@ -19,18 +19,18 @@ fn assemble_document_sections(
     ..@core.empty_document_assembly(),
     root_block_ids: blocks.map(block => block.block_id),
   }
-  let heading_stack : Array[(Int, String)] = []
+  let heading_stack : Array[(Int32, String)] = []
   let current_section_ids : Array[String] = []
-  let section_index_by_id : Map[String, Int] = Map([])
+  let section_index_by_id : Map[String, Int32] = Map([])
 
   fn visit(
     blocks : Array[@core.CoreBlock],
     assembly : @core.DocumentAssembly,
-    heading_stack : Array[(Int, String)],
+    heading_stack : Array[(Int32, String)],
     current_section_ids : Array[String],
-    section_index_by_id : Map[String, Int],
-    ordinal : Int,
-  ) -> Int {
+    section_index_by_id : Map[String, Int32],
+    ordinal : Int32,
+  ) -> Int32 {
     let mut local_ordinal = ordinal
     for block in blocks {
       local_ordinal += 1
@@ -129,7 +129,7 @@ fn assemble_document_sections_from_prior(
 ///|
 fn append_child_section_id(
   assembly : @core.DocumentAssembly,
-  section_index_by_id : Map[String, Int],
+  section_index_by_id : Map[String, Int32],
   parent_id : String,
   child_id : String,
 ) -> Unit {
@@ -142,7 +142,7 @@ fn append_child_section_id(
 ///|
 fn append_section_block_id(
   assembly : @core.DocumentAssembly,
-  section_index_by_id : Map[String, Int],
+  section_index_by_id : Map[String, Int32],
   section_id : String,
   block_id : String,
 ) -> Unit {
@@ -156,7 +156,7 @@ fn append_section_block_id(
 fn push_reading_order_entry(
   assembly : @core.DocumentAssembly,
   block : @core.CoreBlock,
-  ordinal : Int,
+  ordinal : Int32,
 ) -> Unit {
   let source_ref = @core.block_source_ref(block).unwrap_or(
     @core.empty_source_ref(),

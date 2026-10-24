@@ -50,7 +50,7 @@ fn line_delimited_code_event_source_ref(
   source : @input.InputSource,
   format_name : String,
   pointer : String,
-  line_no : Int,
+  line_no : Int32,
 ) -> @core.SourceRef {
   let source_ref = @core.source_ref_with_lines(
     json_pointer_source_ref(source, format_name, pointer),
@@ -64,7 +64,7 @@ fn line_delimited_code_event_source_ref(
 
 ///|
 pub fn json_parser() -> @parser.Parser {
-  @parser.make_parser("json_parser", DomAstModel, json_parser_capability(), fn(
+  @parser.make_parser("json_parser", DomAstModel, json_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -78,13 +78,13 @@ pub fn jsonl_parser() -> @parser.Parser {
     "jsonl_parser",
     StreamingEvent,
     jsonl_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
       parse_line_delimited_json_result("jsonl_parser", "jsonl", source, context)
     },
-    stream_events=Some(fn(source, context) {
+    open_stream=Some(async fn(source, context) {
       open_line_json_event_stream(
         "jsonl_parser",
         "jsonl",
@@ -102,7 +102,7 @@ pub fn ndjson_parser() -> @parser.Parser {
     "ndjson_parser",
     StreamingEvent,
     ndjson_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -110,7 +110,7 @@ pub fn ndjson_parser() -> @parser.Parser {
         "ndjson_parser", "ndjson", source, context,
       )
     },
-    stream_events=Some(fn(source, context) {
+    open_stream=Some(async fn(source, context) {
       open_line_json_event_stream(
         "ndjson_parser",
         "ndjson",
@@ -250,7 +250,7 @@ pub fn json_parse_with_prepared_document(
       }
     }
   } else {
-    match parse_json_document_result(source, context) {
+    match parse_prepared_json_document_result(context, prepared) {
       Ok(result) => result
       Err(err) => {
         let diagnostics = @fshared.empty_parser_diagnostics(
@@ -274,7 +274,7 @@ pub fn json_parse_with_prepared_document(
 }
 
 ///|
-fn parse_json_document_result(
+async fn parse_json_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
@@ -282,6 +282,14 @@ fn parse_json_document_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  parse_prepared_json_document_result(context, prepared)
+}
+
+///|
+fn parse_prepared_json_document_result(
+  context : @parser.ParseContext,
+  prepared : PreparedJsonText,
+) -> Result[@parser.ParseResult, String] {
   let source = prepared.prepared_source
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(
@@ -451,12 +459,58 @@ fn parse_json_document_result(
 }
 
 ///|
-fn parse_line_delimited_json_result(
+async fn parse_line_delimited_json_result(
   parser_name : String,
   format_name : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
+  if context.limits.max_temporary_bytes is Some(_) {
+    let capability = if format_name == "jsonl" {
+      jsonl_parser_capability()
+    } else {
+      ndjson_parser_capability()
+    }
+    match
+      open_spooled_line_json_event_stream(
+        parser_name,
+        format_name,
+        source,
+        context,
+        capability,
+        collected_contract=true,
+      ) {
+      Err(message) => return Err(message)
+      Ok(Some(stream)) => {
+        defer ignore(stream.close())
+        let events : Array[@core.CoreEvent] = []
+        while true {
+          match (stream.next)() {
+            Ok(Some(event)) => events.push(event)
+            Ok(None) => break
+            Err(message) => return Err(message)
+          }
+        }
+        let summary = match (stream.finish)() {
+          Ok(summary) => summary
+          Err(message) => return Err(message)
+        }
+        return Ok(
+          @parser.parse_result_with_events_capability(
+            parser_name,
+            StreamingEvent,
+            events,
+            summary.diagnostics,
+            capability,
+          ),
+        )
+      }
+      Ok(None) =>
+        if @input.input_source_error(source) is Some(message) {
+          return Err(message)
+        }
+    }
+  }
   let prepared = match prepare_json_document_from_source(source) {
     Ok(payload) => payload
     Err(err) => return Err(err)

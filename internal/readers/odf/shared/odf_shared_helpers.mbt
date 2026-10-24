@@ -1,10 +1,10 @@
 ///|
-fn odf_repeated_count(element : @dxml.XmlElement, name : String) -> Int raise {
+fn odf_repeated_count(element : @dxml.XmlElement, name : String) -> Int32 raise {
   odf_parse_repeated_count(odf_attr(element, name), name)
 }
 
 ///|
-fn odf_parse_repeated_count(raw_value : String?, name : String) -> Int raise {
+fn odf_parse_repeated_count(raw_value : String?, name : String) -> Int32 raise {
   match raw_value {
     Some(raw) => {
       let count = @string.parse_int(raw.trim().to_owned()) catch {
@@ -38,8 +38,8 @@ fn odf_attr(element : @dxml.XmlElement, name : String) -> String? {
 fn odf_bounded_repeat_count(
   element : @dxml.XmlElement,
   name : String,
-  limit : Int,
-) -> Int {
+  limit : Int32,
+) -> Int32 {
   let count = match odf_attr(element, name) {
     Some(raw) => @string.parse_int(raw.trim().to_owned()) catch { _ => 1 }
     None => 1
@@ -400,7 +400,13 @@ fn odf_media_type_for_href(
 }
 
 ///|
-fn odf_read_entry_optional(archive : @dzip.ZipArchive, path : String) -> Bytes? {
+async fn odf_read_entry_optional(
+  archive : @dzip.ZipArchive,
+  path : String,
+) -> Bytes? noraise {
+  if @dzip.archive_hard_failure(archive) is Some(_) {
+    return None
+  }
   let normalized = path.trim().to_owned()
   if normalized == "" || !@dzip.has_entry(archive, normalized) {
     return None
@@ -447,7 +453,7 @@ fn odf_paragraph_is_code_like(
 fn odf_paragraph_heading_level(
   element : @dxml.XmlElement,
   styles : Map[String, OdfTextStyle],
-) -> Int? {
+) -> Int32? {
   match odf_attr(element, "text:style-name") {
     Some(name) => {
       let mut heading_seen = false
@@ -502,12 +508,15 @@ fn odf_resolved_style_names(
 }
 
 ///|
-fn odf_collect_text_styles(
+async fn odf_collect_text_styles(
   archive : @dzip.ZipArchive,
   package_info : OdfPackageInfo,
   content : @dxml.XmlDocument,
-) -> Map[String, OdfTextStyle] {
+) -> Map[String, OdfTextStyle] noraise {
   let styles : Map[String, OdfTextStyle] = Map([])
+  if @dzip.archive_hard_failure(archive) is Some(_) {
+    return styles
+  }
   match content.root {
     Some(root) => odf_collect_text_styles_from_element(root, styles)
     None => ()

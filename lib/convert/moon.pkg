@@ -1,4 +1,6 @@
 import {
+  "ZSeanYves/markitdown/internal/readers/zip" @asset_zip,
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "ZSeanYves/markitdown/internal/formats/meta" @fmeta,
@@ -46,7 +48,10 @@ import {
 
 import {
   "moonbitlang/async",
+  "moonbitlang/core/json",
 } for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

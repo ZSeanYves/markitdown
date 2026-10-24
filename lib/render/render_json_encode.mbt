@@ -1,45 +1,78 @@
 ///|
-fn render_debug_json_events(
+fn debug_event_json_cursor(
   events : Array[@core.CoreEvent],
   diagnostics : @core.Diagnostics,
-) -> String {
-  let items : Array[String] = []
-  for event in events {
-    items.push(render_event_json(event))
+) -> () -> String? raise JsonEncodingError {
+  let position = Ref(-1)
+  fn() raise JsonEncodingError {
+    let index = position.val
+    position.val += 1
+    if index == -1 {
+      Some(
+        "{\"event_count\": " + events.length().to_string() + ", \"events\": [",
+      )
+    } else if index < events.length() {
+      Some(
+        (if index == 0 { "" } else { ", " }) + render_event_json(events[index]),
+      )
+    } else if index == events.length() {
+      Some("], \"diagnostics\": " + render_diagnostics_json(diagnostics) + "}")
+    } else {
+      None
+    }
   }
-  let fields : Array[String] = []
-  fields.push("\"event_count\": " + events.length().to_string())
-  fields.push("\"events\": " + @core.array_json(items))
-  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
-  @core.object_json(fields)
 }
 
 ///|
-fn render_debug_json_blocks(
+fn debug_block_json_cursor(
   blocks : Array[@core.CoreBlock],
+  assets : Array[@core.AssetRef],
   diagnostics : @core.Diagnostics,
-  context : RenderContext,
-) -> String {
-  let block_items : Array[String] = []
-  for block in blocks {
-    block_items.push(render_block_json(block))
+) -> () -> String? raise JsonEncodingError {
+  let phase = Ref(0)
+  let position = Ref(0)
+  fn() raise JsonEncodingError {
+    if phase.val == 0 {
+      phase.val = 1
+      return Some(
+        "{\"block_count\": " + blocks.length().to_string() + ", \"blocks\": [",
+      )
+    }
+    if phase.val == 1 {
+      if position.val < blocks.length() {
+        let index = position.val
+        position.val += 1
+        return Some(
+          (if index == 0 { "" } else { ", " }) +
+          render_block_json(blocks[index]),
+        )
+      }
+      phase.val = 2
+      position.val = 0
+      return Some(
+        "], \"asset_count\": " + assets.length().to_string() + ", \"assets\": [",
+      )
+    }
+    if phase.val == 2 {
+      if position.val < assets.length() {
+        let index = position.val
+        position.val += 1
+        return Some(
+          (if index == 0 { "" } else { ", " }) +
+          render_asset_json(assets[index]),
+        )
+      }
+      phase.val = 3
+      return Some(
+        "], \"diagnostics\": " + render_diagnostics_json(diagnostics) + "}",
+      )
+    }
+    None
   }
-  let asset_items : Array[String] = []
-  let assets = context.assets.unwrap_or([])
-  for asset in assets {
-    asset_items.push(render_asset_json(asset))
-  }
-  let fields : Array[String] = []
-  fields.push("\"block_count\": " + blocks.length().to_string())
-  fields.push("\"blocks\": " + @core.array_json(block_items))
-  fields.push("\"asset_count\": " + assets.length().to_string())
-  fields.push("\"assets\": " + @core.array_json(asset_items))
-  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
-  @core.object_json(fields)
 }
 
 ///|
-fn render_event_json(event : @core.CoreEvent) -> String {
+fn render_event_json(event : @core.CoreEvent) -> String raise JsonEncodingError {
   let fields : Array[String] = []
   fields.push("\"kind\": " + @core.json_string(event_kind_name(event.kind)))
   fields.push("\"text\": " + @core.json_string(event.text))
@@ -67,7 +100,7 @@ fn event_kind_name(kind : @core.EventKind) -> String {
 }
 
 ///|
-fn render_block_json(block : @core.CoreBlock) -> String {
+fn render_block_json(block : @core.CoreBlock) -> String raise JsonEncodingError {
   let fields : Array[String] = []
   fields.push(
     "\"kind\": " + @core.json_string(@core.block_kind_name(block.kind)),
@@ -100,9 +133,83 @@ fn render_string_map_json(entries : Map[String, String]) -> String {
 }
 
 ///|
-fn render_source_ref_json(source_ref : @core.SourceRef?) -> String {
+fn render_source_ref_json(
+  source_ref : @core.SourceRef?,
+) -> String raise JsonEncodingError {
+  match source_ref {
+    Some(value) if value.page is None &&
+      value.bbox is None &&
+      value.byte_start is None &&
+      value.byte_end is None &&
+      value.time_start is None &&
+      value.time_end is None =>
+      return legacy_source_ref_identity_json(source_ref)
+    _ => ()
+  }
+  let fields = legacy_source_ref_json_fields(source_ref)
   match source_ref {
     None => "null"
+    Some(value) => {
+      match value.page {
+        Some(page) => fields.push("\"page\": " + page.to_string())
+        None => ()
+      }
+      match value.bbox {
+        Some(box) => {
+          let coordinates : Array[(String, Double)] = [
+            ("x0", box.x0),
+            ("y0", box.y0),
+            ("x1", box.x1),
+            ("y1", box.y1),
+          ]
+          let encoded : Array[String] = []
+          for (name, number) in coordinates {
+            if number.is_nan() || number.is_inf() {
+              raise NonFiniteSourceBBox(name)
+            }
+            encoded.push(@core.json_string(name) + ": " + number.to_string())
+          }
+          fields.push("\"bbox\": " + @core.object_json(encoded))
+        }
+        None => ()
+      }
+      match value.byte_start {
+        Some(offset) => fields.push("\"byte_start\": " + offset.to_string())
+        None => ()
+      }
+      match value.byte_end {
+        Some(offset) => fields.push("\"byte_end\": " + offset.to_string())
+        None => ()
+      }
+      match value.time_start {
+        Some(time) => fields.push("\"time_start\": " + @core.json_string(time))
+        None => ()
+      }
+      match value.time_end {
+        Some(time) => fields.push("\"time_end\": " + @core.json_string(time))
+        None => ()
+      }
+      @core.object_json(fields)
+    }
+  }
+}
+
+///|
+// The XML outline's stable identity predates the added serialized positions.
+// Both encoders share exactly one legacy field projection.
+fn legacy_source_ref_identity_json(source_ref : @core.SourceRef?) -> String {
+  match source_ref {
+    None => "null"
+    Some(_) => @core.object_json(legacy_source_ref_json_fields(source_ref))
+  }
+}
+
+///|
+fn legacy_source_ref_json_fields(
+  source_ref : @core.SourceRef?,
+) -> Array[String] {
+  match source_ref {
+    None => []
     Some(value) => {
       let fields : Array[String] = []
       fields.push("\"file_id\": " + @core.json_string_opt(value.file_id))
@@ -157,13 +264,15 @@ fn render_source_ref_json(source_ref : @core.SourceRef?) -> String {
         )
       }
       fields.push("\"extra\": " + @core.object_json(extra_fields))
-      @core.object_json(fields)
+      fields
     }
   }
 }
 
 ///|
-fn render_source_map_json(source_map : @core.SourceMap?) -> String {
+fn render_source_map_json(
+  source_map : @core.SourceMap?,
+) -> String raise JsonEncodingError {
   match source_map {
     None => "null"
     Some(value) => {
@@ -187,7 +296,9 @@ fn render_source_map_json(source_map : @core.SourceMap?) -> String {
 }
 
 ///|
-fn render_source_map_entry_json(entry : @core.SourceMapEntry) -> String {
+fn render_source_map_entry_json(
+  entry : @core.SourceMapEntry,
+) -> String raise JsonEncodingError {
   let refs : Array[String] = []
   for source_ref in entry.refs {
     refs.push(render_source_ref_json(Some(source_ref)))
@@ -209,7 +320,9 @@ fn render_source_map_entry_json(entry : @core.SourceMapEntry) -> String {
 }
 
 ///|
-fn render_rich_inlines_json(rich_inlines : Array[@core.CoreInline]?) -> String {
+fn render_rich_inlines_json(
+  rich_inlines : Array[@core.CoreInline]?,
+) -> String raise JsonEncodingError {
   match rich_inlines {
     None => "null"
     Some(inlines) => {
@@ -233,7 +346,7 @@ fn render_rich_inlines_json(rich_inlines : Array[@core.CoreInline]?) -> String {
 }
 
 ///|
-fn render_asset_json(asset : @core.AssetRef) -> String {
+fn render_asset_json(asset : @core.AssetRef) -> String raise JsonEncodingError {
   let fields : Array[String] = []
   fields.push(
     "\"asset_kind\": " +

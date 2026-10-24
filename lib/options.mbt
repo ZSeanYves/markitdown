@@ -10,6 +10,7 @@ pub fn ResourceLimits::default() -> ResourceLimits {
     max_input_bytes: limits.max_input_bytes,
     max_asset_bytes: limits.max_asset_bytes,
     max_total_asset_bytes: limits.max_total_asset_bytes,
+    max_temporary_bytes: limits.max_temporary_bytes,
   }
 }
 
@@ -17,7 +18,7 @@ pub fn ResourceLimits::default() -> ResourceLimits {
 /// Return a copy with a new maximum row count.
 pub fn ResourceLimits::with_max_rows(
   self : ResourceLimits,
-  max_rows : Int,
+  max_rows : Int32,
 ) -> ResourceLimits {
   { ..self, max_rows, }
 }
@@ -26,7 +27,7 @@ pub fn ResourceLimits::with_max_rows(
 /// Return a copy with a new maximum column count.
 pub fn ResourceLimits::with_max_cols(
   self : ResourceLimits,
-  max_cols : Int,
+  max_cols : Int32,
 ) -> ResourceLimits {
   { ..self, max_cols, }
 }
@@ -35,7 +36,7 @@ pub fn ResourceLimits::with_max_cols(
 /// Return a copy with a new maximum cell count.
 pub fn ResourceLimits::with_max_cells(
   self : ResourceLimits,
-  max_cells : Int,
+  max_cells : Int32,
 ) -> ResourceLimits {
   { ..self, max_cells, }
 }
@@ -44,7 +45,7 @@ pub fn ResourceLimits::with_max_cells(
 /// Return a copy with a new maximum rendered line length.
 pub fn ResourceLimits::with_max_line_chars(
   self : ResourceLimits,
-  max_line_chars : Int,
+  max_line_chars : Int32,
 ) -> ResourceLimits {
   { ..self, max_line_chars, }
 }
@@ -77,6 +78,17 @@ pub fn ResourceLimits::with_max_total_asset_bytes(
 }
 
 ///|
+/// Set an optional conversion-owned spool payload ceiling. None keeps the
+/// compatibility route; zero permits empty storage but forbids payload growth.
+/// It cannot relax a smaller cap already installed on a shared account.
+pub fn ResourceLimits::with_max_temporary_bytes(
+  self : ResourceLimits,
+  max_temporary_bytes : Int64?,
+) -> ResourceLimits {
+  { ..self, max_temporary_bytes, }
+}
+
+///|
 /// Return the default RAG chunking policy.
 pub fn RagOptions::default() -> RagOptions {
   let options = @rag.default_rag_options()
@@ -94,7 +106,7 @@ pub fn RagOptions::default() -> RagOptions {
 /// Return a copy with a new target chunk size.
 pub fn RagOptions::with_chunk_size(
   self : RagOptions,
-  chunk_size : Int,
+  chunk_size : Int32,
 ) -> RagOptions {
   { ..self, chunk_size, }
 }
@@ -103,7 +115,7 @@ pub fn RagOptions::with_chunk_size(
 /// Return a copy with a new chunk overlap.
 pub fn RagOptions::with_chunk_overlap(
   self : RagOptions,
-  chunk_overlap : Int,
+  chunk_overlap : Int32,
 ) -> RagOptions {
   { ..self, chunk_overlap, }
 }

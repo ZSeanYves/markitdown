@@ -11,8 +11,8 @@ priv struct ZipSkipReason {
 fn zip_skip_reason(
   info : @dzip.ZipEntryInfo,
   report : @dzip.ZipArchiveInspectReport,
-  selected_entry_count : Int,
-  decoded_total : Int,
+  selected_entry_count : Int32,
+  decoded_total : Int32,
 ) -> ZipSkipReason? {
   if info.is_unsafe_path {
     return Some({
@@ -171,7 +171,7 @@ fn zip_record_skip_diagnostic(
 }
 
 ///|
-fn zip_parse_inner_document(
+async fn zip_parse_inner_document(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -181,8 +181,9 @@ fn zip_parse_inner_document(
 }
 
 ///|
-fn zip_collect_referenced_asset_entries(
+async fn zip_collect_referenced_asset_entries(
   archive : @dzip.ZipArchive,
+  parent : @input.InputSource,
   infos : Array[@dzip.ZipEntryInfo],
   registry : @parser.ParserRegistry,
   context : @parser.ParseContext,
@@ -190,6 +191,9 @@ fn zip_collect_referenced_asset_entries(
 ) -> Map[String, Bool] {
   let referenced : Map[String, Bool] = Map([])
   for info in infos {
+    if @input.input_source_error(parent) is Some(_) {
+      break
+    }
     if info.is_unsafe_path || info.is_encrypted {
       continue
     }
@@ -203,7 +207,9 @@ fn zip_collect_referenced_asset_entries(
       Ok(value) => value
       Err(_) => continue
     }
-    let source = zip_inner_source(container_path, entry_path, format, bytes)
+    let source = zip_inner_source(
+      parent, container_path, entry_path, format, bytes,
+    )
     let child = match
       zip_parse_inner_document(registry, source, format, context) {
       Ok(value) => value
@@ -323,7 +329,10 @@ fn zip_absorb_child_metric(
 }
 
 ///|
-fn zip_rewrite_child_assets(
+async fn zip_rewrite_child_assets(
+  archive : @dzip.ZipArchive,
+  context : @parser.ParseContext,
+  child_source : @input.InputSource,
   assets : Array[@core.AssetRef],
   entry : @core.ContainerEntry,
   asset_entry_infos : Map[String, @dzip.ZipEntryInfo],
@@ -331,10 +340,49 @@ fn zip_rewrite_child_assets(
   diagnostics : @core.Diagnostics,
 ) -> Array[ZipAssetRewrite] {
   let rewrites : Array[ZipAssetRewrite] = []
+  let nested_archive : Ref[@dzip.ZipArchive?] = Ref(None)
   let entry_path = entry.entry_path
   for asset in assets {
+    if context.input_source is Some(source) &&
+      @input.input_source_error(source) is Some(_) {
+      break
+    }
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
+    if !zip_asset_is_remote(asset) &&
+      merged_assets.length() >= ZIP_MAX_MATERIALIZED_ASSETS {
+      diagnostics.warnings.push(
+        "zip asset materialization limit reached at entry `" + entry_path + "`",
+      )
+      diagnostics.degraded_features.push("zip_asset_limit_skip")
+      diagnostics.fallback_trace.push(
+        "zip asset skip -> materialization limit exceeded",
+      )
+      continue
+    }
+    let owns_payload = match asset.payload {
+      Some(Bytes(_)) | Some(Utf8(_)) => true
+      _ => false
+    }
+    // Owned payloads and package-local ZIP references already identify their
+    // child source. An unrelated outer entry must not shadow that identity.
+    if owns_payload || asset.attrs.contains("zip_entry_path") {
+      let asset = match
+        zip_materialize_nested_child_asset(
+          asset, child_source, context, merged_assets, nested_archive,
+        ) {
+        Some(value) => value
+        None => continue
+      }
+      match zip_preserve_nested_child_asset(asset, entry, old_path) {
+        Some((next_asset, rewrite)) => {
+          merged_assets.push(next_asset)
+          rewrites.push(rewrite)
+        }
+        None => ()
+      }
+      continue
+    }
     let source_path = match asset.payload {
       Some(SourcePath(path)) => Some(path)
       _ => asset.attrs.get("source_path")
@@ -354,18 +402,6 @@ fn zip_rewrite_child_assets(
             continue
           }
         }
-        if merged_assets.length() >= ZIP_MAX_MATERIALIZED_ASSETS {
-          diagnostics.warnings.push(
-            "zip asset materialization limit reached at entry `" +
-            entry_path +
-            "`",
-          )
-          diagnostics.degraded_features.push("zip_asset_limit_skip")
-          diagnostics.fallback_trace.push(
-            "zip asset skip -> materialization limit exceeded",
-          )
-          continue
-        }
         match asset_entry_infos.get(resolved_entry) {
           Some(asset_info) => {
             if asset_info.is_unsafe_path {
@@ -373,6 +409,23 @@ fn zip_rewrite_child_assets(
                 "zip asset entry is unsafe and was skipped: " + resolved_entry,
               )
               continue
+            }
+            if !@parser.require_asset_payload_within_limits(
+                context,
+                asset_info.uncompressed_size.to_int64(),
+                @parser.materialized_asset_payload_bytes(merged_assets),
+              ) {
+              break
+            }
+            let payload = match
+              zip_read_entry_bytes(archive, asset_info.raw_name) {
+              Ok(bytes) => bytes
+              Err(message) => {
+                diagnostics.warnings.push(
+                  "zip asset read failed: " + resolved_entry + ": " + message,
+                )
+                continue
+              }
             }
             let output_relative_path = zip_asset_output_path(
               entry_path, old_path,
@@ -390,6 +443,7 @@ fn zip_rewrite_child_assets(
               asset_id: new_asset_id,
               path: Some(output_relative_path),
               source_ref: Some(next_source_ref),
+              payload: Some(Bytes(payload)),
             }
             next_asset.attrs.set("zip_entry_path", resolved_entry)
             next_asset.attrs.set("zip_container_format", "zip")
@@ -408,22 +462,15 @@ fn zip_rewrite_child_assets(
             })
           }
           None =>
-            match zip_preserve_nested_child_asset(asset, entry, old_path) {
-              Some((next_asset, rewrite)) => {
-                merged_assets.push(next_asset)
-                rewrites.push(rewrite)
-              }
-              None =>
-                diagnostics.warnings.push(
-                  "zip asset entry missing for `" +
-                  entry_path +
-                  "`: " +
-                  resolved_entry,
-                )
-            }
+            diagnostics.warnings.push(
+              "zip asset entry missing for `" +
+              entry_path +
+              "`: " +
+              resolved_entry,
+            )
         }
       }
-      None => {
+      None =>
         if zip_asset_is_remote(asset) {
           let next_source_ref = zip_rewrite_source_ref(
             asset.source_ref.unwrap_or(
@@ -435,17 +482,72 @@ fn zip_rewrite_child_assets(
           merged_assets.push({ ..asset, source_ref: Some(next_source_ref), })
           continue
         }
-        match zip_preserve_nested_child_asset(asset, entry, old_path) {
-          Some((next_asset, rewrite)) => {
-            merged_assets.push(next_asset)
-            rewrites.push(rewrite)
-          }
-          None => ()
-        }
-      }
     }
   }
   rewrites
+}
+
+///|
+// Package parsers can return a validated path/declared-size reference. Keep
+// that asset in this conversion's input/budget session rather than asking the
+// CLI to reopen the outer file after conversion has already succeeded.
+async fn zip_materialize_nested_child_asset(
+  asset : @core.AssetRef,
+  child_source : @input.InputSource,
+  context : @parser.ParseContext,
+  merged_assets : Array[@core.AssetRef],
+  nested_archive : Ref[@dzip.ZipArchive?],
+) -> @core.AssetRef? {
+  match asset.payload {
+    Some(Bytes(_)) | Some(Utf8(_)) => {
+      if !@parser.require_asset_payload_within_limits(
+          context,
+          @parser.materialized_asset_payload_bytes([asset]),
+          @parser.materialized_asset_payload_bytes(merged_assets),
+        ) {
+        return None
+      }
+      return Some(asset)
+    }
+    _ => ()
+  }
+  let path = match asset.attrs.get("zip_entry_path") {
+    Some(path) => path
+    None => return Some(asset)
+  }
+  let archive = match nested_archive.val {
+    Some(value) => value
+    None => {
+      let prepared = match @dzipsource.prepare_zip_from_source(child_source) {
+        Ok(value) => value
+        Err(message) => {
+          @input.record_input_failure(child_source, message)
+          return None
+        }
+      }
+      nested_archive.val = Some(prepared.archive)
+      prepared.archive
+    }
+  }
+  let info = match @dzip.find_entry_info(archive, path) {
+    Some(value) => value
+    None => return None
+  }
+  if info.is_unsafe_path {
+    return None
+  }
+  if !@parser.require_asset_payload_within_limits(
+      context,
+      info.uncompressed_size.to_int64(),
+      @parser.materialized_asset_payload_bytes(merged_assets),
+    ) {
+    return None
+  }
+  let payload = match zip_read_entry_bytes(archive, info.raw_name) {
+    Ok(bytes) => bytes
+    Err(_) => return None
+  }
+  Some({ ..asset, payload: Some(Bytes(payload)), })
 }
 
 ///|
@@ -679,7 +781,7 @@ fn zip_find_asset_rewrite(
 fn zip_rewrite_source_ref(
   source_ref : @core.SourceRef,
   entry : @core.ContainerEntry,
-  inner_path? : String? = None,
+  inner_path~ : String? = None,
 ) -> @core.SourceRef {
   let resolved_inner_path = match inner_path {
     Some(value) => Some(value)
@@ -821,7 +923,7 @@ fn zip_dirname(path : String) -> String {
 fn zip_entry_source_ref(
   container_path : String,
   entry_path : String,
-  entry_index : Int,
+  entry_index : Int32,
   entry_format : String?,
 ) -> @core.SourceRef {
   @core.source_ref_with_container_entry(
@@ -877,51 +979,20 @@ fn zip_inner_source_name(
 
 ///|
 fn zip_inner_source(
+  parent : @input.InputSource,
   container_path : String,
   entry_path : String,
   detected_format : @input.DetectedFormat,
   entry_bytes : Bytes,
 ) -> @input.InputSource {
   let source_name = zip_inner_source_name(container_path, entry_path)
-  if zip_child_prefers_text_source(detected_format) {
-    match
-      (try @utf8.decode(entry_bytes, ignore_bom=false) |> Ok catch {
-        _ => Err(())
-      }) {
-      Ok(text) =>
-        @input.with_bytes_payload(
-          @input.input_from_text_with_format(
-            text,
-            source_name,
-            Some(detected_format),
-          ),
-          entry_bytes,
-        )
-      Err(_) =>
-        @input.input_from_bytes_with_format(
-          entry_bytes,
-          source_name,
-          Some(detected_format),
-        )
-    }
-  } else {
-    @input.input_from_bytes_with_format(
-      entry_bytes,
-      source_name,
-      Some(detected_format),
-    )
-  }
-}
-
-///|
-fn zip_child_prefers_text_source(
-  detected_format : @input.DetectedFormat,
-) -> Bool {
-  match detected_format {
-    Html => true
-    Markdown => true
-    _ => false
-  }
+  @input.input_from_container_entry_bytes(
+    parent,
+    entry_bytes,
+    source_name,
+    entry_limit=ZIP_MAX_SINGLE_ENTRY_BYTES.to_int64(),
+    explicit_format=Some(detected_format),
+  )
 }
 
 ///|
@@ -1058,7 +1129,7 @@ fn zip_entry_info_index(
 }
 
 ///|
-fn zip_max_compression_ratio(infos : Array[@dzip.ZipEntryInfo]) -> Int {
+fn zip_max_compression_ratio(infos : Array[@dzip.ZipEntryInfo]) -> Int32 {
   let mut max_ratio = 1
   for info in infos {
     let ratio = zip_entry_compression_ratio(info)
@@ -1070,7 +1141,7 @@ fn zip_max_compression_ratio(infos : Array[@dzip.ZipEntryInfo]) -> Int {
 }
 
 ///|
-fn zip_entry_compression_ratio(info : @dzip.ZipEntryInfo) -> Int {
+fn zip_entry_compression_ratio(info : @dzip.ZipEntryInfo) -> Int32 {
   if zip_inventory_uses_unknown_compressed_size(info) {
     return 1
   }

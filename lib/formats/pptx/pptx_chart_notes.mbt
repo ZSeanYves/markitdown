@@ -101,7 +101,7 @@ fn pptx_table_has_visible_cells(table : @pptxdoc.PptxTable) -> Bool {
 }
 
 ///|
-fn pptx_table_column_count(table : @pptxdoc.PptxTable) -> Int {
+fn pptx_table_column_count(table : @pptxdoc.PptxTable) -> Int32 {
   let mut width = 0
   for row in table.rows {
     let mut row_width = 0
@@ -826,7 +826,7 @@ fn pptx_chart_excel_serial_date(value : String) -> String? {
 }
 
 ///|
-fn pptx_parse_chart_serial_int(value : String) -> Int? {
+fn pptx_parse_chart_serial_int(value : String) -> Int32? {
   let trimmed = value.trim().to_owned()
   if trimmed == "" {
     return None
@@ -861,7 +861,7 @@ fn pptx_parse_chart_serial_int(value : String) -> Int? {
 }
 
 ///|
-fn pptx_excel_date_components(serial : Int) -> (Int, Int, Int) {
+fn pptx_excel_date_components(serial : Int32) -> (Int32, Int32, Int32) {
   let mut days = serial
   if days > 59 {
     days -= 1
@@ -894,7 +894,7 @@ fn pptx_excel_date_components(serial : Int) -> (Int, Int, Int) {
 }
 
 ///|
-fn pptx_is_leap_year(year : Int) -> Bool {
+fn pptx_is_leap_year(year : Int32) -> Bool {
   if year % 400 == 0 {
     return true
   }
@@ -905,7 +905,7 @@ fn pptx_is_leap_year(year : Int) -> Bool {
 }
 
 ///|
-fn pptx_month_day_table(year : Int) -> Array[Int] {
+fn pptx_month_day_table(year : Int32) -> Array[Int32] {
   if pptx_is_leap_year(year) {
     [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
   } else {

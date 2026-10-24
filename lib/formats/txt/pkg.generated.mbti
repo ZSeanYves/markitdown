@@ -17,7 +17,7 @@ pub fn parse_text_document(String) -> TextDocument
 
 pub fn parse_text_document_from_normalized_text(String) -> TextDocument
 
-pub fn prepare_text_document_from_source(@input.InputSource) -> Result[PreparedTextSourceDocument, String]
+pub async fn prepare_text_document_from_source(@input.InputSource) -> Result[PreparedTextSourceDocument, String]
 
 pub fn profile_text_document(String) -> TextProfiledDocument
 
@@ -44,7 +44,7 @@ pub struct PreparedTextSourceDocument {
 
 pub struct TextDocument {
   text : String
-  byte_count : Int?
+  byte_count : Int32?
   newline_style : TextNewlineStyle
   lines : Array[TextLine]
   paragraphs : Array[TextParagraph]
@@ -63,11 +63,11 @@ pub fn TextErrorKind::equal(Self, Self) -> Bool
 pub fn TextErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct TextInspectReport {
-  byte_count : Int?
-  char_count : Int
-  line_count : Int
-  paragraph_count : Int
-  empty_line_count : Int
+  byte_count : Int32?
+  char_count : Int32
+  line_count : Int32
+  paragraph_count : Int32
+  empty_line_count : Int32
   newline_style : TextNewlineStyle
   is_empty : Bool
   is_low_signal : Bool
@@ -75,7 +75,7 @@ pub struct TextInspectReport {
 
 pub struct TextLine {
   text : String
-  line_no : Int
+  line_no : Int32
 }
 
 pub(all) enum TextNewlineStyle {
@@ -90,8 +90,8 @@ pub fn TextNewlineStyle::not_equal(Self, Self) -> Bool
 
 pub struct TextParagraph {
   text : String
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 pub struct TextParseProfileReport {

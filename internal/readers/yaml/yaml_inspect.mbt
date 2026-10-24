@@ -105,15 +105,15 @@ pub fn inspect_yaml_structure_events(
 
 ///|
 priv struct YamlInspectStats {
-  node_count : Int
-  mapping_count : Int
-  sequence_count : Int
-  scalar_count : Int
-  max_depth : Int
+  node_count : Int32
+  mapping_count : Int32
+  sequence_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
 }
 
 ///|
-fn inspect_yaml_value(value : YamlValue, depth : Int) -> YamlInspectStats {
+fn inspect_yaml_value(value : YamlValue, depth : Int32) -> YamlInspectStats {
   match value {
     Mapping(members) => {
       let mut node_count = 1

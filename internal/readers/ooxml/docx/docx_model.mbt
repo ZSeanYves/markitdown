@@ -1,8 +1,10 @@
 ///|
-pub fn parse_docx_document_from_package(
+pub async fn parse_docx_document_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> DocxDocument raise DocxError {
-  normalize_docx_source(parse_docx_source_from_package(pkg))
+  let document = normalize_docx_source(parse_docx_source_from_package(pkg))
+  ensure_docx_package_integrity(pkg)
+  document
 }
 
 ///|

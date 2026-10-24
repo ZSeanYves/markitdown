@@ -1,22 +1,27 @@
 ///|
 fn pdf_product_wbtest_stream_object(
-  object_id : Int,
+  object_id : Int32,
   dict_text : String,
   body : String,
 ) -> PdfNativeObject {
   {
     object_id,
     dict_text,
-    stream: Some({
-      primary_bytes: @utf8.encode(body),
-      endstream_bytes: @utf8.encode(body),
-      declared_length: Some(body.length()),
-    }),
+    stream: Some(
+      Loaded({
+        primary_bytes: @utf8.encode(body),
+        endstream_bytes: @utf8.encode(body),
+        endstream_eol_suffix: 0,
+        endstream_eol_length: 0,
+        declared_length: Some(body.length()),
+        decode_context: None,
+      }),
+    ),
   }
 }
 
 ///|
-test "pdf rich content stream covers graphics text positioning and marked content" {
+async test "pdf rich content stream covers graphics text positioning and marked content" {
   let source = @input.input_from_text("synthetic", source_name="content.pdf")
   let content = [
     "% a comment", "q 1 0 0 1 4 5 cm", "BT /F1 12 Tf 14 TL 1 Tc 2 Tw 90 Tz 3 Ts 1 0 0 1 20 180 Tm",
@@ -54,9 +59,9 @@ test "pdf rich content stream covers graphics text positioning and marked conten
 }
 
 ///|
-test "pdf form XObject recursively extracts text and obeys depth and subtype" {
+async test "pdf form XObject recursively extracts text and obeys depth and subtype" {
   let source = @input.input_from_text("synthetic", source_name="form.pdf")
-  let objects : Map[Int, PdfNativeObject] = Map([
+  let objects : Map[Int32, PdfNativeObject] = Map([
     (
       40,
       pdf_product_wbtest_stream_object(
@@ -142,7 +147,7 @@ test "pdf page tree geometry resources metadata and annotation indexes are deter
     catalog, pages, page_one, page_two, font, resources, annotation, annotation_array,
     info,
   ]
-  let index : Map[Int, PdfNativeObject] = Map([])
+  let index : Map[Int32, PdfNativeObject] = Map([])
   for object in objects {
     index.set(object.object_id, object)
   }
@@ -228,7 +233,7 @@ test "pdf dictionary extraction helpers cover scalar array string and fallback f
 
 ///|
 test "pdf byte decoders exercise complete PDFDoc and WinAnsi code pages" {
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   for byte in 0..<256 {
     bytes.push(byte)
     ignore(pdf_pdfdoc_byte_char(byte))
@@ -248,7 +253,7 @@ test "pdf page annotations create only visible actionable link candidates" {
   let page = pdf_product_wbtest_object(
     3, "<< /Type /Page /Annots [8 0 R 9 0 R 10 0 R 99 0 R] >>",
   )
-  let objects : Map[Int, PdfNativeObject] = Map([
+  let objects : Map[Int32, PdfNativeObject] = Map([
     (3, page),
     (
       8,
@@ -302,8 +307,8 @@ fn pdf_product_wbtest_fragment(
   text : String,
   x : Double,
   y : Double,
-  size? : Double? = Some(12.0),
-  vertical? : Bool = false,
+  size~ : Double? = Some(12.0),
+  vertical~ : Bool = false,
 ) -> PdfNativeTextFragment {
   {
     text,
@@ -322,7 +327,7 @@ fn pdf_product_wbtest_line(
   text : String,
   x : Double,
   y : Double,
-  size? : Double? = Some(12.0),
+  size~ : Double? = Some(12.0),
 ) -> PdfNativeTextLine {
   make_pdf_native_text_line(
     [

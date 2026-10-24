@@ -16,7 +16,7 @@ pub fn has_relationships_part(pkg : OoxmlPackage, source_part : String) -> Bool 
 
 ///|
 /// Find a relationship by id for the package root or a source part.
-pub fn find_relationship_by_id(
+pub async fn find_relationship_by_id(
   pkg : OoxmlPackage,
   source_part : String,
   rel_id : String,
@@ -27,7 +27,7 @@ pub fn find_relationship_by_id(
 
 ///|
 /// Find relationships whose type equals or ends with `rel_type_suffix`.
-pub fn find_relationships_by_type(
+pub async fn find_relationships_by_type(
   pkg : OoxmlPackage,
   source_part : String,
   rel_type_suffix : String,
@@ -40,7 +40,7 @@ pub fn find_relationships_by_type(
 
 ///|
 /// Read package-root relationships from `_rels/.rels`.
-pub fn read_package_relationships(
+pub async fn read_package_relationships(
   pkg : OoxmlPackage,
 ) -> Array[OoxmlRelationship] raise OoxmlError {
   let index = read_relationship_index_from_rels_part(pkg, "", "_rels/.rels")
@@ -51,10 +51,11 @@ pub fn read_package_relationships(
 /// Read relationships for a source part.
 ///
 /// Missing `.rels` parts are treated as an empty relationship list.
-pub fn read_part_relationships(
+pub async fn read_part_relationships(
   pkg : OoxmlPackage,
   source_part : String,
 ) -> Array[OoxmlRelationship] raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
   let normalized = normalize_part_name(source_part)
   let rels_part = rels_part_name_for_source(normalized)
 
@@ -68,7 +69,7 @@ pub fn read_part_relationships(
 
 ///|
 /// Resolve a relationship target by id for the package root or a source part.
-pub fn resolve_relationship(
+pub async fn resolve_relationship(
   pkg : OoxmlPackage,
   source_part : String,
   rel_id : String,
@@ -84,7 +85,7 @@ pub fn resolve_relationship(
 }
 
 ///|
-fn find_relationship_by_id_from_normalized_source(
+async fn find_relationship_by_id_from_normalized_source(
   pkg : OoxmlPackage,
   source : String,
   rel_id : String,
@@ -109,7 +110,7 @@ fn find_relationship_by_id_from_normalized_source(
 }
 
 ///|
-fn find_relationships_by_type_from_normalized_source(
+async fn find_relationships_by_type_from_normalized_source(
   pkg : OoxmlPackage,
   source : String,
   rel_type_suffix : String,
@@ -126,10 +127,11 @@ fn find_relationships_by_type_from_normalized_source(
 }
 
 ///|
-fn read_relationship_index_from_normalized_source(
+async fn read_relationship_index_from_normalized_source(
   pkg : OoxmlPackage,
   source : String,
 ) -> OoxmlRelationshipIndex? raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
   let rels_part = if source == "" {
     "_rels/.rels"
   } else {
@@ -142,11 +144,12 @@ fn read_relationship_index_from_normalized_source(
 }
 
 ///|
-fn read_relationship_index_from_rels_part(
+async fn read_relationship_index_from_rels_part(
   pkg : OoxmlPackage,
   source_part : String,
   rels_part : String,
 ) -> OoxmlRelationshipIndex raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
   let key = normalize_part_name(rels_part)
   match pkg.relationship_cache.index_by_rels_part.get(key) {
     Some(index) => {
@@ -156,8 +159,22 @@ fn read_relationship_index_from_rels_part(
     None => ()
   }
 
-  let rels_payload = read_xml_part_payload(pkg, key)
-  let rels = parse_relationships_xml(rels_payload.text, source_part, key)
+  // Reader callers include optional-part and package-metrics recovery. Do not
+  // infer a terminal boundary from an empty source part: every public relation
+  // reader must validate unread integrity before returning recoverable syntax.
+  let scanned = read_relationship_rows_from_rels_part(
+    pkg,
+    key,
+    allow_syntax_recovery=true,
+  )
+  let rels = parse_relationship_rows(
+    scanned.rows,
+    source_part,
+    key,
+    @zip.archive_budget_context(pkg.archive),
+  ) catch {
+    error => raise ooxml_cursor_hard_failure(pkg.archive, error)
+  }
   let index = build_ooxml_relationship_index(rels)
   pkg.relationship_cache.relationships_miss_count.val += 1
   pkg.relationship_cache.index_by_rels_part.set(key, index)
@@ -210,41 +227,48 @@ fn find_relationships_by_type_suffix(
 }
 
 ///|
-fn parse_relationships_xml(
-  xml : String,
+fn parse_relationship_rows(
+  rows : Array[OoxmlRelationshipRow],
   source_part : String,
   rels_part_name : String,
+  context : @budget.BudgetContext?,
 ) -> Array[OoxmlRelationship] raise OoxmlError {
   let rels : Array[OoxmlRelationship] = []
 
-  for tag in collect_start_tags(xml, "Relationship") {
-    let attrs = parse_tag_attributes(tag)
-    let id = get_required_attr(attrs, "Id") catch {
-      _ =>
-        raise InvalidXml(
-          malformed_relationships_detail(
-            rels_part_name, source_part, "missing attribute: Id",
-          ),
-        )
+  for row in rows {
+    if row.id.trim() == "" {
+      raise InvalidXml(
+        malformed_relationships_detail(
+          rels_part_name, source_part, "missing attribute: Id",
+        ),
+      )
     }
-    let rel_type = get_required_attr(attrs, "Type") catch {
-      _ =>
-        raise InvalidXml(
-          malformed_relationships_detail(
-            rels_part_name, source_part, "missing attribute: Type",
-          ),
-        )
+    if row.rel_type.trim() == "" {
+      raise InvalidXml(
+        malformed_relationships_detail(
+          rels_part_name, source_part, "missing attribute: Type",
+        ),
+      )
     }
-    let target = get_required_attr(attrs, "Target") catch {
-      _ =>
-        raise InvalidXml(
-          malformed_relationships_detail(
-            rels_part_name, source_part, "missing attribute: Target",
-          ),
-        )
+    if row.target.trim() == "" {
+      raise InvalidXml(
+        malformed_relationships_detail(
+          rels_part_name, source_part, "missing attribute: Target",
+        ),
+      )
     }
-    let target_mode_raw = get_optional_attr(attrs, "TargetMode")
-    let target_mode = parse_target_mode(target_mode_raw)
+    let id = row.id
+    let rel_type = row.rel_type
+    let target = row.target
+    let target_mode = row.target_mode
+    // Existing normalization allocates trim/segments/join/concatenation
+    // payloads; admit a conservative UTF16 capacity before those temporaries.
+    let scratch = if target_mode == Internal {
+      relationship_normalization_scratch(context, source_part, target)
+    } else {
+      None
+    }
+    defer (if scratch is Some(lease) { lease.release() })
     let resolved_target = resolve_target(source_part, target, target_mode) catch {
       InvalidPartPath(path) =>
         raise InvalidPartPath(
@@ -252,6 +276,12 @@ fn parse_relationships_xml(
           malformed_relationships_detail(rels_part_name, source_part, path),
         )
       e => raise e
+    }
+
+    // External targets reuse the raw String; only a normalized internal
+    // target adds another retained payload. Index/row arrays share raw values.
+    if target_mode == Internal {
+      retain_relationship_payload(context, [resolved_target])
     }
 
     rels.push({ id, rel_type, target, target_mode, resolved_target, })

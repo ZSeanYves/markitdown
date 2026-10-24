@@ -49,22 +49,54 @@ async fn run_cli_impl(
     opts.convert_mode,
     opts.output_mode,
     opts.explicit_format,
-    @convert.default_resource_limits(),
+    cli_resource_limits(opts),
     rag_options=opts.rag_options,
   )
+  let session = @input.begin_input_session(
+    cli_input_source(opts),
+    max_bytes=convert_options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
   if cli_atomic_stream_output_supported(opts, requested_format) {
     return cli_convert_to_atomic_stream_file(
-      opts, convert_options, emit_warnings,
+      opts,
+      convert_options,
+      emit_warnings,
+      session.source,
     )
   }
   let execution = match
     @convert.convert_input_with_provenance(
-      cli_input_source(opts),
+      session.source,
       convert_options,
+      output_assets=if opts.output is Some(_) {
+        ExistingOutputAssets
+      } else {
+        MetadataOnly
+      },
     ) {
     Ok(value) => value
     Err(err) => return Err(cli_failure_from_convert_error(opts, err))
   }
+  ignore(requested_format)
+  if emit_warnings {
+    cli_emit_conversion_warnings(execution.result)
+  }
+  let rendered = match
+    cli_render_convert_result(
+      opts,
+      execution.result,
+      session.source,
+      convert_options.limits,
+      emit_warnings~,
+    ) {
+    Ok(value) => value
+    Err(failure) => return Err(failure)
+  }
+  @convert.refresh_budget_diagnostics(
+    session.source,
+    execution.result.diagnostics,
+  )
   persist_cli_provenance(opts, execution) catch {
     err =>
       return Err(
@@ -74,11 +106,7 @@ async fn run_cli_impl(
         ),
       )
   }
-  ignore(requested_format)
-  if emit_warnings {
-    cli_emit_conversion_warnings(execution.result)
-  }
-  cli_render_convert_result(opts, execution.result, emit_warnings~)
+  Ok(rendered)
 }
 
 ///|
@@ -97,7 +125,7 @@ fn cli_atomic_stream_output_supported(
 }
 
 ///|
-fn atomic_sink_should_abort(wrote_any : Bool, error_count : Int) -> Bool {
+fn atomic_sink_should_abort(wrote_any : Bool, error_count : Int32) -> Bool {
   !wrote_any && error_count > 0
 }
 
@@ -106,7 +134,16 @@ async fn cli_convert_to_atomic_stream_file(
   opts : CliOptions,
   convert_options : @convert.ConvertOptions,
   emit_warnings : Bool,
+  source : @input.InputSource,
 ) -> Result[String, CliFailure] {
+  // Public CLI already owns a synchronous session. Direct internal calls need
+  // the same bridge; nested begin borrows it, never a second budget account.
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=convert_options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let source = session.source
   let output_path = opts.output.unwrap_or("")
   ensure_dir_tree(dirname_of_path(output_path)) catch {
     error =>
@@ -117,67 +154,95 @@ async fn cli_convert_to_atomic_stream_file(
         ),
       )
   }
-  let writer = match open_atomic_file_writer(output_path) {
+  let owner = match
+    open_budgeted_atomic_writer(source, convert_options.limits, output_path) {
     Ok(value) => value
-    Err(message) => return Err(cli_failure(OutputFailure, message))
+    Err(failure) => return Err(failure)
   }
-  let wrote_any = Ref(false)
-  let ends_with_newline = Ref(false)
-  let sink = @convert.make_output_sink(
-    fn(chunk) {
-      match atomic_file_writer_write(writer, chunk) {
-        Ok(_) => {
-          wrote_any.val = wrote_any.val || chunk != ""
-          ends_with_newline.val = chunk.has_suffix("\n")
-          Ok(())
+  let writer = owner.writer
+  let cleanup_reported = Ref(false)
+  // No await occurs in this checked C cleanup, so cancellation cannot skip
+  // it. A failed explicit cleanup is retried once here without reclosing a
+  // consumed FILE. Cancellation has no Result to attach an error to: report
+  // that cleanup failure explicitly without replacing the cancel channel.
+  defer (if !atomic_writer_cleanup_complete_ffi(writer) ||
+    owner.credit.val is Some(_) {
+    match budgeted_atomic_abort(owner) {
+      Err(message) if !cleanup_reported.val =>
+        if cli_console_enabled.val {
+          @host.write_stderr("error: " + message + "\n")
         }
-        Err(message) => Err(message)
-      }
-    },
-    fn() {
-      if wrote_any.val && !ends_with_newline.val {
-        atomic_file_writer_write(writer, "\n")
-      } else {
-        Ok(())
-      }
-    },
-  )
+      _ => ()
+    }
+  })
+  let output = open_cli_atomic_output(owner)
   let result = match
     @convert.convert_input_to_sink_unbuffered(
-      cli_input_source(opts),
+      source,
       convert_options,
-      sink,
+      output.sink,
     ) {
     Ok(value) => value
     Err(err) => {
-      atomic_file_writer_abort(writer)
-      return Err(cli_failure_from_convert_error(opts, err))
+      cleanup_reported.val = true
+      return Err(
+        cli_abort_budgeted_atomic_failure(
+          owner,
+          match @input.input_source_failure(source) {
+            Some(BudgetFailure(_) | ResourceLimit(_)) =>
+              cli_atomic_failure(source, err.to_string())
+            _ => cli_failure_from_convert_error(opts, err)
+          },
+        ),
+      )
     }
   }
   if result.assets.length() > 0 {
-    atomic_file_writer_abort(writer)
+    cleanup_reported.val = true
     return Err(
-      cli_failure(
-        OutputFailure,
-        "streaming file output produced unexpected assets",
+      cli_abort_budgeted_atomic_failure(
+        owner,
+        cli_failure(
+          OutputFailure,
+          "streaming file output produced unexpected assets",
+        ),
       ),
     )
   }
-  if atomic_sink_should_abort(wrote_any.val, result.diagnostics.errors.length()) {
-    atomic_file_writer_abort(writer)
+  if atomic_sink_should_abort(
+      output.wrote_any.val,
+      result.diagnostics.errors.length(),
+    ) {
+    cleanup_reported.val = true
     return Err(
-      cli_failure(
-        ConversionFailure,
-        "conversion failed: " + result.diagnostics.errors.join("; "),
+      cli_abort_budgeted_atomic_failure(
+        owner,
+        cli_failure(
+          ConversionFailure,
+          "conversion failed: " + result.diagnostics.errors.join("; "),
+        ),
       ),
     )
   }
-  match atomic_file_writer_commit(writer) {
+  match budgeted_atomic_commit(owner) {
     Ok(_) => ()
     Err(message) => {
-      atomic_file_writer_abort(writer)
-      return Err(cli_failure(OutputFailure, message))
+      cleanup_reported.val = true
+      return Err(
+        cli_abort_budgeted_atomic_failure(
+          owner,
+          cli_atomic_failure(source, message),
+        ),
+      )
     }
+  }
+  if output.tail.val is Some(tail) {
+    match apply_cli_file_tail(tail, result.diagnostics) {
+      Ok(_) => ()
+      Err(failure) => return Err(failure)
+    }
+  } else {
+    @convert.refresh_budget_diagnostics(source, result.diagnostics)
   }
   if emit_warnings {
     cli_emit_conversion_warnings(result)
@@ -193,6 +258,26 @@ async fn cli_convert_to_atomic_stream_file(
         )
     }
     Ok(persisted)
+  }
+}
+
+///|
+/// Error class belongs to the original known phase. Cleanup details cannot
+/// turn a resource/input error into a successful or differently classified run.
+fn cli_abort_atomic_failure(
+  writer : AtomicFileWriter,
+  original : CliFailure,
+) -> CliFailure {
+  match atomic_file_writer_abort(writer) {
+    Ok(_) => original
+    Err(_) => {
+      let cleanup = atomic_file_writer_cleanup_details(writer)
+      if cleanup == "" {
+        original
+      } else {
+        cli_failure(original.kind, original.message + "; " + cleanup)
+      }
+    }
   }
 }
 
@@ -217,7 +302,7 @@ fn cli_failure_from_convert_error(
   let kind = match error {
     DetectFailed(_) | UnsupportedCapability(_) => DetectionFailure
     ParseFailed(_) => ConversionFailure
-    RenderFailed(_) => OutputFailure
+    RenderFailed(_) | OutputAssetFailure(_) => OutputFailure
     ResourceLimitExceeded(..) => ResourceFailure
   }
   cli_failure(kind, cli_convert_error_message(opts, error.to_string()))
@@ -234,7 +319,9 @@ async fn cli_emit_conversion_warnings(result : @convert.ConvertResult) -> Unit {
 async fn cli_render_convert_result(
   opts : CliOptions,
   result : @convert.ConvertResult,
-  emit_warnings? : Bool = false,
+  source : @input.InputSource,
+  limits : @convert.ResourceLimits,
+  emit_warnings~ : Bool = false,
 ) -> Result[String, CliFailure] {
   if result.content.trim() == "" && result.diagnostics.errors.length() > 0 {
     return Err(
@@ -246,7 +333,18 @@ async fn cli_render_convert_result(
   }
   match opts.output {
     Some(path) => {
-      match validate_cli_assets(opts.input, result.assets) {
+      let prepared_assets = match
+        cli_prepare_source_assets(
+          opts.input,
+          source,
+          result.assets,
+          limits,
+          result.diagnostics,
+        ) {
+        Ok(value) => value
+        Err(failure) => return Err(failure)
+      }
+      match validate_cli_assets(opts.input, prepared_assets) {
         Err(message) =>
           return Err(
             cli_failure(
@@ -259,13 +357,24 @@ async fn cli_render_convert_result(
       let resolved = resolve_cli_assets(
         opts.input,
         result.content,
-        result.assets,
+        prepared_assets,
       )
       for warning in resolved.warnings {
         result.diagnostics.warnings.push(warning)
         if emit_warnings {
           cli_write_stderr("warning: " + warning + "\n")
         }
+      }
+      let tail = match
+        admit_cli_file_tail(
+          source,
+          cli_file_needs_lf(
+            resolved.content != "",
+            resolved.content.has_suffix("\n"),
+          ),
+        ) {
+        Ok(tail) => tail
+        Err(failure) => return Err(failure)
       }
       let persisted_content = normalized_written_content(resolved.content)
       let parent = dirname_of_path(path)
@@ -286,6 +395,11 @@ async fn cli_render_convert_result(
               "write output failed: " + (e : Error).to_string(),
             ),
           )
+      }
+      confirm_cli_file_tail(tail)
+      match apply_cli_file_tail(tail, result.diagnostics) {
+        Ok(_) => ()
+        Err(failure) => return Err(failure)
       }
       persist_cli_assets(opts.input, path, resolved.assets) catch {
         e =>
@@ -317,7 +431,7 @@ async fn cli_render_convert_result(
 ///|
 /// Top-level CLI app entry that parses raw argv and exits with a process-style
 /// status code.
-pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int {
+pub async fn run_cli_app(raw_cli_args : Array[String]) -> Int32 {
   let first = match first_user_cli_arg(raw_cli_args) {
     Some(value) => value.to_lower()
     None => {

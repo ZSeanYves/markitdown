@@ -21,7 +21,7 @@ pub fn markdown_parser() -> @parser.Parser {
     "markdown_parser",
     DomAstModel,
     markdown_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -191,7 +191,7 @@ pub fn markdown_parse_large_literal(
   source : @input.InputSource,
   context : @parser.ParseContext,
   text : String,
-  line_count : Int,
+  line_count : Int32,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "markdown_parser",

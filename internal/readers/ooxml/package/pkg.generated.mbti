@@ -4,22 +4,27 @@ package "ZSeanYves/markitdown/internal/readers/ooxml/package"
 import {
   "ZSeanYves/markitdown/internal/readers/xml",
   "ZSeanYves/markitdown/internal/readers/zip",
+  "ZSeanYves/markitdown/internal/resource_budget",
 }
 
 // Values
-pub fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
+pub async fn find_relationship_by_id(OoxmlPackage, String, String) -> OoxmlRelationship? raise OoxmlError
 
-pub fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
+pub async fn find_relationships_by_type(OoxmlPackage, String, String) -> Array[OoxmlRelationship] raise OoxmlError
 
 pub fn has_part(OoxmlPackage, String) -> Bool
 
 pub fn has_relationships_part(OoxmlPackage, String) -> Bool
 
-pub fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory
+pub fn inspect_content_types_cursor(OoxmlPackage) -> @xml.XmlCursorStats
 
-pub fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
+pub async fn inspect_ooxml_inventory(OoxmlPackage) -> OoxmlPackageInventory noraise
 
-pub fn list_part_infos(OoxmlPackage) -> Array[OoxmlPartInfo]
+pub fn inspect_relationship_cursor(OoxmlPackage, String) -> @xml.XmlCursorStats? raise OoxmlError
+
+pub async fn list_media_assets(OoxmlPackage) -> Array[OoxmlAsset] raise OoxmlError
+
+pub async fn list_part_infos(OoxmlPackage) -> Array[OoxmlPartInfo] noraise
 
 pub fn list_parts(OoxmlPackage) -> Array[String]
 
@@ -33,45 +38,51 @@ pub fn lookup_content_type_default(OoxmlPackage, String) -> String?
 
 pub fn lookup_content_type_override(OoxmlPackage, String) -> String? raise OoxmlError
 
-pub fn open_ooxml_archive(@zip.ZipArchive) -> OoxmlPackage raise OoxmlError
+pub async fn open_ooxml_archive(@zip.ZipArchive) -> OoxmlPackage raise OoxmlError
 
-pub fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
+pub async fn open_ooxml_package(Bytes) -> OoxmlPackage raise OoxmlError
 
-pub fn part_declared_size(OoxmlPackage, String) -> Int?
+pub fn part_declared_size(OoxmlPackage, String) -> Int32?
 
-pub fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties
+pub async fn read_app_properties(OoxmlPackage) -> OoxmlAppProperties raise OoxmlError
 
-pub fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties
+pub async fn read_core_properties(OoxmlPackage) -> OoxmlCoreProperties raise OoxmlError
 
-pub fn read_custom_properties(OoxmlPackage) -> Array[OoxmlCustomProperty]
+pub async fn read_custom_properties(OoxmlPackage) -> Array[OoxmlCustomProperty] raise OoxmlError
 
-pub fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
+pub async fn read_custom_properties_projected(OoxmlPackage, max_candidates~ : Int32, qualified_value_type? : Bool, omit_empty_scalar_values? : Bool) -> OoxmlCustomPropertyProjection raise OoxmlError
 
-pub fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
+pub async fn read_package_relationships(OoxmlPackage) -> Array[OoxmlRelationship] raise OoxmlError
 
-pub fn read_part_bytes_transient(OoxmlPackage, String) -> Bytes raise OoxmlError
+pub async fn read_part_bytes(OoxmlPackage, String) -> Bytes raise OoxmlError
 
-pub fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
+pub async fn read_part_bytes_transient(OoxmlPackage, String) -> Bytes raise OoxmlError
 
-pub fn read_part_text(OoxmlPackage, String) -> String raise OoxmlError
+pub async fn read_part_relationships(OoxmlPackage, String) -> Array[OoxmlRelationship] raise OoxmlError
 
-pub fn read_part_text_transient(OoxmlPackage, String) -> String raise OoxmlError
+pub async fn read_part_text(OoxmlPackage, String) -> String raise OoxmlError
 
-pub fn read_xml_part_payload(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
+pub async fn read_part_text_transient(OoxmlPackage, String) -> String raise OoxmlError
 
-pub fn read_xml_part_payload_transient(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
+pub async fn read_xml_part_payload(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
 
-pub fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
+pub async fn read_xml_part_payload_transient(OoxmlPackage, String) -> OoxmlXmlPartPayload raise OoxmlError
 
-pub fn validate_ooxml_package(OoxmlPackage, mode? : OoxmlValidationMode) -> OoxmlValidationReport
+pub async fn resolve_relationship(OoxmlPackage, String, String) -> String raise OoxmlError
 
-pub fn visit_part_inflated_chunks(OoxmlPackage, String, chunk_size? : Int, (Bytes) -> Result[Unit, String]) -> Result[Unit, String]
+pub async fn validate_ooxml_package(OoxmlPackage, mode? : OoxmlValidationMode) -> OoxmlValidationReport noraise
+
+pub async fn visit_part_inflated_chunks(OoxmlPackage, String, chunk_size? : Int32, async (Bytes) -> Result[Unit, String]) -> Result[Unit, String] noraise
+
+pub async fn visit_part_xml_tokens(OoxmlPackage, String, (@xml.XmlCursorToken) -> Unit raise OoxmlError, allow_syntax_recovery? : Bool, allow_unbound_prefixes? : Bool) -> @xml.XmlCursorStats raise OoxmlError
 
 // Errors
 pub(all) suberror OoxmlError {
   ZipError(String)
   MissingPart(String)
   InvalidXml(String)
+  InvalidEncoding(String)
+  BudgetExceeded(@resource_budget.BudgetError)
   InvalidPartPath(String)
   RelationshipNotFound(String, String)
 }
@@ -94,7 +105,7 @@ pub struct OoxmlAsset {
   part_name : String
   content_type : String?
   ext : String
-  size : Int
+  size : Int32
   referenced_by : Array[OoxmlAssetRef]
 }
 
@@ -136,8 +147,14 @@ pub struct OoxmlCustomProperty {
   value_type : String?
 }
 
+pub struct OoxmlCustomPropertyProjection {
+  properties : Array[OoxmlCustomProperty]
+  limit_exceeded : Bool
+}
+
 pub(all) enum OoxmlErrorKind {
   ZipFailure
+  ResourceLimit
   MissingPart
   MalformedContentTypes
   MalformedRelationships
@@ -154,7 +171,7 @@ pub fn OoxmlErrorKind::not_equal(Self, Self) -> Bool
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, String]
-  part_size_index : Map[String, Int]
+  part_size_index : Map[String, Int32]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
   // private fields
@@ -165,10 +182,10 @@ pub struct OoxmlPackageInventory {
   content_types : Array[OoxmlContentTypeInfo]
   relationship_source_parts : Array[String]
   relationship_parts : Array[String]
-  part_count : Int
-  relationship_part_count : Int
-  content_type_entry_count : Int
-  media_asset_count : Int
+  part_count : Int32
+  relationship_part_count : Int32
+  content_type_entry_count : Int32
+  media_asset_count : Int32
   has_core_properties : Bool
   has_app_properties : Bool
 }
@@ -176,7 +193,7 @@ pub struct OoxmlPackageInventory {
 pub struct OoxmlPartInfo {
   part_name : String
   content_type : String?
-  size : Int
+  size : Int32
   is_relationships_part : Bool
   has_relationships : Bool
 }
@@ -227,11 +244,11 @@ pub fn OoxmlValidationMode::not_equal(Self, Self) -> Bool
 
 pub struct OoxmlValidationReport {
   mode : OoxmlValidationMode
-  part_count : Int
-  relationship_part_count : Int
-  issue_count : Int
-  error_count : Int
-  warning_count : Int
+  part_count : Int32
+  relationship_part_count : Int32
+  issue_count : Int32
+  error_count : Int32
+  warning_count : Int32
   issues : Array[OoxmlValidationIssue]
 }
 

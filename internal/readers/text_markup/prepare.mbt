@@ -7,28 +7,28 @@ pub struct PreparedTextMarkupDocument {
 }
 
 ///|
-pub fn prepare_tex_document_from_source(
+pub async fn prepare_tex_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
   prepare_text_markup_from_source(source, Tex)
 }
 
 ///|
-pub fn prepare_rst_document_from_source(
+pub async fn prepare_rst_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
   prepare_text_markup_from_source(source, Rst)
 }
 
 ///|
-pub fn prepare_asciidoc_document_from_source(
+pub async fn prepare_asciidoc_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedTextMarkupDocument, String] {
   prepare_text_markup_from_source(source, Asciidoc)
 }
 
 ///|
-fn prepare_text_markup_from_source(
+async fn prepare_text_markup_from_source(
   source : @input.InputSource,
   format : TextMarkupFormat,
 ) -> Result[PreparedTextMarkupDocument, String] {

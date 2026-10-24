@@ -81,7 +81,7 @@ let pdf_native_gb2312_blob_base64 : String = "eNrtuVVsWw0QqJk0LjNzm6RxGU7KzAzHdG
   "+f8AtcHELA=="
 
 ///|
-let pdf_native_gb2312_entry_count : Int = 8178
+let pdf_native_gb2312_entry_count : Int32 = 8178
 
 ///|
 let pdf_native_gb2312_blob : @lazy.Lazy[Bytes] = Lazy(() => {
@@ -91,7 +91,7 @@ let pdf_native_gb2312_blob : @lazy.Lazy[Bytes] = Lazy(() => {
 })
 
 ///|
-fn pdf_native_gb2312_lookup_codepoint(lead : Int, trail : Int) -> Int? {
+fn pdf_native_gb2312_lookup_codepoint(lead : Int32, trail : Int32) -> Int32? {
   if lead < 0xA1 || lead > 0xF7 || trail < 0xA1 || trail > 0xFE {
     return None
   }

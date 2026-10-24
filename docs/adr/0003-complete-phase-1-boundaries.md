@@ -1,5 +1,10 @@
 # ADR 0003: Complete Phase 1 Boundaries and Consolidate Packages
 
+> Historical record. Current product targets, delivery and acceptance
+> instructions are superseded by the [Native upgrade plan](../architecture/native-performance-plan.md)
+> and [ADR 0008](0008-native-only-delivery-and-acceptance.md).
+> Original evidence below is preserved and does not certify P2–P6 completion.
+
 > Historical record. Governance scripts referenced by this ADR were retired;
 > current source checks are the MoonBit commands in `CONTRIBUTING.md`.
 

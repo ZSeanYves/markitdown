@@ -1,5 +1,5 @@
 ///|
-async fn run_cli_app_silent(raw_cli_args : Array[String]) -> Int {
+async fn run_cli_app_silent(raw_cli_args : Array[String]) -> Int32 {
   let was_enabled = cli_console_enabled.val
   cli_console_enabled.val = false
   defer {

@@ -233,7 +233,7 @@ async fn inprocess_smoke_directory(
   directory : String,
   suffix : String,
   format : @input.DetectedFormat,
-) -> (Int, Int) {
+) -> (Int32, Int32) {
   let mut succeeded = 0
   let mut failed = 0
   for path in inprocess_contract_files(directory, suffix) {

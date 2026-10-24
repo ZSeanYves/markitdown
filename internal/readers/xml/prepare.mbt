@@ -8,7 +8,7 @@ pub struct PreparedXmlText {
 }
 
 ///|
-pub fn prepare_xml_from_source(
+pub async fn prepare_xml_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedXmlText, String] {
   let text_payload = match @sourceio.read_xml_source_text(source) {

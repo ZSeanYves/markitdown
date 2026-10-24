@@ -13,7 +13,7 @@ fn resolve_sample_path(path : String) -> String raise {
 }
 
 ///|
-fn open_sample_package(path : String) -> @epub.EpubPackage raise {
+async fn open_sample_package(path : String) -> @epub.EpubPackage {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + (e : Error).to_string())
@@ -24,10 +24,10 @@ fn open_sample_package(path : String) -> @epub.EpubPackage raise {
 }
 
 ///|
-fn assert_open_epub_fails(
+async fn assert_open_epub_fails(
   path : String,
   expected_substr : String,
-) -> Unit raise {
+) -> Unit {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + (e : Error).to_string())
@@ -52,10 +52,10 @@ fn assert_open_epub_fails(
 }
 
 ///|
-fn assert_epub_error_kind(
+async fn assert_epub_error_kind(
   path : String,
   expected_kind : @epub.EpubErrorKind,
-) -> Unit raise {
+) -> Unit {
   let sample = resolve_sample_path(path)
   let bytes = @fs.read_file_to_bytes(sample) catch {
     e => fail("read sample failed: " + (e : Error).to_string())
@@ -93,13 +93,13 @@ fn sample_basename(path : String) -> String {
 }
 
 ///|
-fn append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -107,21 +107,21 @@ fn append_u32_le(out : Array[Byte], value : Int) -> Unit {
 }
 
 ///|
-fn crc32_of_string(s : String) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn crc32_of_string(s : String) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for ch in s.to_array() {
     crc = crc32_update_uint(crc, ch.to_int().reinterpret_as_uint())
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
-fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -133,7 +133,7 @@ fn crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 ///|
 fn add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : String,
 ) -> Unit {
@@ -166,7 +166,7 @@ fn add_store_entry(
 ///|
 fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data) = entry
@@ -213,10 +213,10 @@ fn build_store_zip(entries : Array[(String, String)]) -> Bytes {
 }
 
 ///|
-fn open_inline_epub(
+async fn open_inline_epub(
   entries : Array[(String, String)],
-  name? : String = "inline.epub",
-) -> @epub.EpubPackage raise {
+  name~ : String = "inline.epub",
+) -> @epub.EpubPackage {
   @epub.open_epub_package(build_store_zip(entries), name) catch {
     e => fail("open inline epub failed: " + e.to_string())
   }
@@ -252,7 +252,7 @@ fn minimal_epub_entries() -> Array[(String, String)] {
 }
 
 ///|
-test "epub package cache reuses inspect inventory and decoded xml parts" {
+async test "epub package cache reuses inspect inventory and decoded xml parts" {
   let pkg = open_inline_epub(minimal_epub_entries())
 
   let first_inventory = @epub.inspect_epub_inventory(pkg)
@@ -295,7 +295,7 @@ fn minimal_container(rootfiles : Array[(String, String?)]) -> String {
 fn minimal_opf(
   manifest_items : Array[(String, String, String, String?)],
   spine_items : Array[(String, String?)],
-  toc? : String? = None,
+  toc~ : String? = None,
 ) -> String {
   let manifest_xml : Array[String] = []
   for entry in manifest_items {
@@ -344,7 +344,7 @@ fn minimal_opf(
 }
 
 ///|
-test "epub package parses basic spine in OPF order" {
+async test "epub package parses basic spine in OPF order" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_basic_spine.epub",
   )
@@ -406,7 +406,7 @@ test "epub package parses basic spine in OPF order" {
 }
 
 ///|
-test "epub package parses metadata basic" {
+async test "epub package parses metadata basic" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_metadata_basic.epub",
   )
@@ -429,7 +429,7 @@ test "epub package parses metadata basic" {
 }
 
 ///|
-test "epub package parses linear no spine flag" {
+async test "epub package parses linear no spine flag" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_linear_no_current_behavior.epub",
   )
@@ -439,7 +439,7 @@ test "epub package parses linear no spine flag" {
 }
 
 ///|
-test "epub package rejects missing container" {
+async test "epub package rejects missing container" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_missing_container.epub", "missing EPUB part: META-INF/container.xml",
   )
@@ -450,7 +450,7 @@ test "epub package rejects missing container" {
 }
 
 ///|
-test "epub package rejects rootfile parent escape" {
+async test "epub package rejects rootfile parent escape" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_rootfile_parent_escape.epub", "container.xml has no usable rootfile",
   )
@@ -461,7 +461,7 @@ test "epub package rejects rootfile parent escape" {
 }
 
 ///|
-test "epub package rejects manifest href parent escape" {
+async test "epub package rejects manifest href parent escape" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_manifest_href_parent_escape.epub", "invalid EPUB path: ../text/chapter.xhtml",
   )
@@ -472,7 +472,7 @@ test "epub package rejects manifest href parent escape" {
 }
 
 ///|
-test "epub package rejects normalized collisions" {
+async test "epub package rejects normalized collisions" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_normalized_collision.epub", "normalized path collision",
   )
@@ -483,7 +483,7 @@ test "epub package rejects normalized collisions" {
 }
 
 ///|
-test "epub package rejects encryption xml" {
+async test "epub package rejects encryption xml" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_encryption_xml.epub", "DRM/encryption is not supported",
   )
@@ -494,7 +494,7 @@ test "epub package rejects encryption xml" {
 }
 
 ///|
-test "epub package keeps missing manifest spine item" {
+async test "epub package keeps missing manifest spine item" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_missing_manifest_item.epub",
   )
@@ -542,14 +542,14 @@ test "epub package keeps missing manifest spine item" {
 }
 
 ///|
-test "epub package rejects duplicate manifest id" {
+async test "epub package rejects duplicate manifest id" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_duplicate_manifest_id.epub", "duplicate manifest id",
   )
 }
 
 ///|
-test "epub package detects nav cover and richer metadata" {
+async test "epub package detects nav cover and richer metadata" {
   let nav_pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_nav_toc.epub",
   )
@@ -616,7 +616,7 @@ test "epub package detects nav cover and richer metadata" {
 }
 
 ///|
-test "epub package detects guide cover image fallback" {
+async test "epub package detects guide cover image fallback" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_guide_cover_image.epub",
   )
@@ -646,7 +646,7 @@ test "epub package detects guide cover image fallback" {
 }
 
 ///|
-test "epub package cover priority keeps manifest cover image over guide" {
+async test "epub package cover priority keeps manifest cover image over guide" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_guide_cover_priority.epub",
   )
@@ -666,7 +666,7 @@ test "epub package cover priority keeps manifest cover image over guide" {
 }
 
 ///|
-test "epub package keeps guide cover page without forcing cover image" {
+async test "epub package keeps guide cover page without forcing cover image" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_guide_cover_page.epub",
   )
@@ -688,7 +688,7 @@ test "epub package keeps guide cover page without forcing cover image" {
 }
 
 ///|
-test "epub package rejects unsafe guide cover href" {
+async test "epub package rejects unsafe guide cover href" {
   assert_open_epub_fails(
     "samples/fixtures/rejections/epub/epub_guide_cover_unsafe.epub", "invalid EPUB path: ../cover.png",
   )
@@ -699,7 +699,7 @@ test "epub package rejects unsafe guide cover href" {
 }
 
 ///|
-test "epub package discovers ncx nav points from spine toc" {
+async test "epub package discovers ncx nav points from spine toc" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_ncx_basic.epub",
   )
@@ -738,7 +738,7 @@ test "epub package discovers ncx nav points from spine toc" {
 }
 
 ///|
-test "epub package keeps current ncx nested boundary stable" {
+async test "epub package keeps current ncx nested boundary stable" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_ncx_nested.epub",
   )
@@ -748,7 +748,7 @@ test "epub package keeps current ncx nested boundary stable" {
 }
 
 ///|
-test "epub package prefers epub3 nav over ncx" {
+async test "epub package prefers epub3 nav over ncx" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_ncx_nav_priority.epub",
   )
@@ -769,7 +769,7 @@ test "epub package prefers epub3 nav over ncx" {
 }
 
 ///|
-test "epub package skips unsafe ncx href and keeps safe points" {
+async test "epub package skips unsafe ncx href and keeps safe points" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_ncx_unsafe_href.epub",
   )
@@ -779,7 +779,7 @@ test "epub package skips unsafe ncx href and keeps safe points" {
 }
 
 ///|
-test "epub package inventory preserves deterministic manifest and part ordering" {
+async test "epub package inventory preserves deterministic manifest and part ordering" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_basic_package.epub",
   )
@@ -800,7 +800,7 @@ test "epub package inventory preserves deterministic manifest and part ordering"
 }
 
 ///|
-test "epub package metadata entries expose non-empty fields only" {
+async test "epub package metadata entries expose non-empty fields only" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_metadata_basic.epub",
   )
@@ -813,7 +813,7 @@ test "epub package metadata entries expose non-empty fields only" {
 }
 
 ///|
-test "epub package selects first usable rootfile deterministically" {
+async test "epub package selects first usable rootfile deterministically" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -862,7 +862,7 @@ test "epub package selects first usable rootfile deterministically" {
 }
 
 ///|
-test "epub package validation reports duplicate spine idref deterministically" {
+async test "epub package validation reports duplicate spine idref deterministically" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -900,7 +900,7 @@ test "epub package validation reports duplicate spine idref deterministically" {
 }
 
 ///|
-test "epub package missing nav and ncx is validation warning not fatal" {
+async test "epub package missing nav and ncx is validation warning not fatal" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -932,7 +932,7 @@ test "epub package missing nav and ncx is validation warning not fatal" {
 }
 
 ///|
-test "epub package nav outranks missing ncx without validation noise" {
+async test "epub package nav outranks missing ncx without validation noise" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -964,7 +964,7 @@ test "epub package nav outranks missing ncx without validation noise" {
 }
 
 ///|
-test "epub package validation warns on unsupported spine item" {
+async test "epub package validation warns on unsupported spine item" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_unsupported_spine_media.epub",
   )
@@ -987,7 +987,7 @@ test "epub package validation warns on unsupported spine item" {
 }
 
 ///|
-test "epub package keeps remote-resource handling above lower-layer package open" {
+async test "epub package keeps remote-resource handling above lower-layer package open" {
   let pkg = open_sample_package(
     "samples/fixtures/contracts/epub/epub_remote_image.epub",
   )
@@ -999,7 +999,7 @@ test "epub package keeps remote-resource handling above lower-layer package open
 }
 
 ///|
-test "epub package xml helpers ignore doctype and custom entity declarations without loading externals" {
+async test "epub package xml helpers ignore doctype and custom entity declarations without loading externals" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -1042,7 +1042,7 @@ test "epub package xml helpers ignore doctype and custom entity declarations wit
 }
 
 ///|
-test "epub package keeps remote manifest resources without aborting open" {
+async test "epub package keeps remote manifest resources without aborting open" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -1079,7 +1079,7 @@ test "epub package keeps remote manifest resources without aborting open" {
 }
 
 ///|
-test "epub package ignores commented-out manifest items" {
+async test "epub package ignores commented-out manifest items" {
   let pkg = open_inline_epub([
     ("mimetype", "application/epub+zip"),
     (
@@ -1120,7 +1120,7 @@ test "epub package ignores commented-out manifest items" {
 }
 
 ///|
-test "epub package duplicate manifest id classifier stays additive" {
+async test "epub package duplicate manifest id classifier stays additive" {
   let sample = resolve_sample_path(
     "samples/fixtures/rejections/epub/epub_duplicate_manifest_id.epub",
   )

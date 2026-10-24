@@ -31,6 +31,6 @@ pub fn inspect_ods_document(document : OdsDocument) -> OdsInspectReport {
 }
 
 ///|
-pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
+pub async fn open_ods_document(bytes : Bytes) -> OdsDocument {
   @shared.open_ods_document(bytes)
 }

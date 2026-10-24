@@ -237,7 +237,7 @@ fn html_inline_facts_to_core_inlines(
   semantic : @dhtml.HtmlSemanticDocument,
   source : @input.InputSource,
   facts : Array[@dhtml.HtmlInlineFact],
-  trim_edges? : Bool = false,
+  trim_edges~ : Bool = false,
   index : HtmlLoweringIndex,
 ) -> Array[@core.CoreInline] {
   let keys = facts.map(inline => inline.source_key)

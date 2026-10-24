@@ -35,12 +35,12 @@ pub fn office_asset_copy_policy_name(policy : OfficeAssetCopyPolicy) -> String {
 ///|
 pub fn make_office_part(
   part_name : String,
-  normalized_part_name? : String? = None,
-  content_type? : String? = None,
-  relationship_type? : String? = None,
-  size? : Int? = None,
-  source_ref? : @core.SourceRef? = None,
-  security_findings? : Array[OfficeSecurityFinding] = [],
+  normalized_part_name~ : String? = None,
+  content_type~ : String? = None,
+  relationship_type~ : String? = None,
+  size~ : Int32? = None,
+  source_ref~ : @core.SourceRef? = None,
+  security_findings~ : Array[OfficeSecurityFinding] = [],
 ) -> OfficePart {
   {
     part_name,
@@ -59,11 +59,11 @@ pub fn make_office_relationship(
   relationship_id : String,
   relationship_type : String,
   target : String,
-  target_mode? : String = "Internal",
-  normalized_target? : String? = None,
-  is_external? : Bool = false,
-  source_ref? : @core.SourceRef? = None,
-  security_findings? : Array[OfficeSecurityFinding] = [],
+  target_mode~ : String = "Internal",
+  normalized_target~ : String? = None,
+  is_external~ : Bool = false,
+  source_ref~ : @core.SourceRef? = None,
+  security_findings~ : Array[OfficeSecurityFinding] = [],
 ) -> OfficeRelationship {
   {
     source_part,
@@ -81,9 +81,9 @@ pub fn make_office_relationship(
 ///|
 pub fn make_office_content_type(
   content_type : String,
-  extension? : String? = None,
-  part_name? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  extension~ : String? = None,
+  part_name~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> OfficeContentType {
   { extension, part_name, content_type, source_ref, }
 }
@@ -91,11 +91,11 @@ pub fn make_office_content_type(
 ///|
 pub fn make_office_media_asset(
   part_name : String,
-  content_type? : String? = None,
-  relationship_id? : String? = None,
-  source_part? : String? = None,
-  size? : Int? = None,
-  source_ref? : @core.SourceRef? = None,
+  content_type~ : String? = None,
+  relationship_id~ : String? = None,
+  source_part~ : String? = None,
+  size~ : Int32? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> OfficeMediaAsset {
   { part_name, content_type, relationship_id, source_part, size, source_ref, }
 }
@@ -104,8 +104,8 @@ pub fn make_office_media_asset(
 pub fn make_office_asset_plan(
   media_part : String,
   output_relative_path : String,
-  copy_policy? : OfficeAssetCopyPolicy = MaterializeAtOutputBoundary,
-  source_ref? : @core.SourceRef? = None,
+  copy_policy~ : OfficeAssetCopyPolicy = MaterializeAtOutputBoundary,
+  source_ref~ : @core.SourceRef? = None,
 ) -> OfficeAssetPlan {
   { media_part, output_relative_path, copy_policy, source_ref, }
 }
@@ -117,10 +117,10 @@ pub fn make_office_package(
   relationships : Array[OfficeRelationship],
   content_types : Array[OfficeContentType],
   media_assets : Array[OfficeMediaAsset],
-  container_path? : String? = None,
-  source_id? : String? = None,
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  source_ref? : @core.SourceRef? = None,
+  container_path~ : String? = None,
+  source_id~ : String? = None,
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  source_ref~ : @core.SourceRef? = None,
 ) -> OfficePackage {
   {
     document_kind,
@@ -142,7 +142,7 @@ pub fn make_office_semantic_plan(
   semantic_model_kind : String,
   ordered_units : Array[String],
   asset_plans : Array[OfficeAssetPlan],
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> OfficeSemanticPlan {
   {
     document_kind,
@@ -209,34 +209,34 @@ pub fn pptx_reading_order_strategy_name(
 
 ///|
 pub fn make_pptx_theme_model(
-  theme_name? : String? = None,
-  part_name? : String? = None,
-  color_scheme_name? : String? = None,
-  font_scheme_name? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  theme_name~ : String? = None,
+  part_name~ : String? = None,
+  color_scheme_name~ : String? = None,
+  font_scheme_name~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxThemeModel {
   { theme_name, part_name, color_scheme_name, font_scheme_name, source_ref, }
 }
 
 ///|
 pub fn make_pptx_master_model(
-  master_name? : String? = None,
-  part_name? : String? = None,
-  theme_part? : String? = None,
-  placeholder_count? : Int = 0,
-  source_ref? : @core.SourceRef? = None,
+  master_name~ : String? = None,
+  part_name~ : String? = None,
+  theme_part~ : String? = None,
+  placeholder_count~ : Int32 = 0,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxMasterModel {
   { master_name, part_name, theme_part, placeholder_count, source_ref, }
 }
 
 ///|
 pub fn make_pptx_layout_model(
-  layout_name? : String? = None,
-  part_name? : String? = None,
-  master_part? : String? = None,
-  theme_part? : String? = None,
-  placeholder_count? : Int = 0,
-  source_ref? : @core.SourceRef? = None,
+  layout_name~ : String? = None,
+  part_name~ : String? = None,
+  master_part~ : String? = None,
+  theme_part~ : String? = None,
+  placeholder_count~ : Int32 = 0,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxLayoutModel {
   {
     layout_name,
@@ -251,10 +251,10 @@ pub fn make_pptx_layout_model(
 ///|
 pub fn make_pptx_placeholder_model(
   placeholder_type : String,
-  placeholder_index? : String? = None,
-  placeholder_name? : String? = None,
-  resolved_from? : PptxPlaceholderOrigin = Unresolved,
-  source_ref? : @core.SourceRef? = None,
+  placeholder_index~ : String? = None,
+  placeholder_name~ : String? = None,
+  resolved_from~ : PptxPlaceholderOrigin = Unresolved,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxPlaceholderModel {
   {
     placeholder_type,
@@ -268,45 +268,45 @@ pub fn make_pptx_placeholder_model(
 ///|
 pub fn make_pptx_text_run_model(
   text : String,
-  hyperlink_target? : String? = None,
-  relationship_id? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  hyperlink_target~ : String? = None,
+  relationship_id~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxTextRunModel {
   { text, hyperlink_target, relationship_id, source_ref, }
 }
 
 ///|
 pub fn make_pptx_paragraph_model(
-  paragraph_index : Int,
+  paragraph_index : Int32,
   runs : Array[PptxTextRunModel],
-  level? : Int? = None,
-  bullet_kind? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  level~ : Int32? = None,
+  bullet_kind~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxParagraphModel {
   { paragraph_index, runs, level, bullet_kind, source_ref, }
 }
 
 ///|
 pub fn make_pptx_image_model(
-  asset_part? : String? = None,
-  content_type? : String? = None,
-  alt_text? : String? = None,
-  title? : String? = None,
-  relationship_id? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  asset_part~ : String? = None,
+  content_type~ : String? = None,
+  alt_text~ : String? = None,
+  title~ : String? = None,
+  relationship_id~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxImageModel {
   { asset_part, content_type, alt_text, title, relationship_id, source_ref, }
 }
 
 ///|
 pub fn make_pptx_table_cell_model(
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
   text : String,
-  rich_runs? : Array[PptxTextRunModel] = [],
-  row_span? : Int? = None,
-  column_span? : Int? = None,
-  source_ref? : @core.SourceRef? = None,
+  rich_runs~ : Array[PptxTextRunModel] = [],
+  row_span~ : Int32? = None,
+  column_span~ : Int32? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxTableCellModel {
   {
     row_index,
@@ -321,9 +321,9 @@ pub fn make_pptx_table_cell_model(
 
 ///|
 pub fn make_pptx_table_row_model(
-  row_index : Int,
+  row_index : Int32,
   cells : Array[PptxTableCellModel],
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxTableRowModel {
   { row_index, cells, source_ref, }
 }
@@ -331,7 +331,7 @@ pub fn make_pptx_table_row_model(
 ///|
 pub fn make_pptx_table_model(
   rows : Array[PptxTableRowModel],
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxTableModel {
   { rows, source_ref, }
 }
@@ -339,15 +339,15 @@ pub fn make_pptx_table_model(
 ///|
 pub fn make_pptx_shape_model(
   shape_type : PptxShapeType,
-  text_paragraphs? : Array[PptxParagraphModel] = [],
-  shape_id? : String? = None,
-  shape_name? : String? = None,
-  bbox? : @core.BBox? = None,
-  table? : PptxTableModel? = None,
-  image? : PptxImageModel? = None,
-  placeholder? : PptxPlaceholderModel? = None,
-  source_ref? : @core.SourceRef? = None,
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
+  text_paragraphs~ : Array[PptxParagraphModel] = [],
+  shape_id~ : String? = None,
+  shape_name~ : String? = None,
+  bbox~ : @core.BBox? = None,
+  table~ : PptxTableModel? = None,
+  image~ : PptxImageModel? = None,
+  placeholder~ : PptxPlaceholderModel? = None,
+  source_ref~ : @core.SourceRef? = None,
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> PptxShapeModel {
   {
     shape_id,
@@ -366,8 +366,8 @@ pub fn make_pptx_shape_model(
 ///|
 pub fn make_pptx_notes_model(
   text_blocks : Array[String],
-  notes_part? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  notes_part~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxNotesModel {
   { notes_part, text_blocks, source_ref, }
 }
@@ -376,20 +376,20 @@ pub fn make_pptx_notes_model(
 pub fn make_pptx_comment_model(
   comment_id : String,
   text : String,
-  author? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  author~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxCommentModel {
   { comment_id, author, text, source_ref, }
 }
 
 ///|
 pub fn make_pptx_reading_order_item(
-  reading_order_index : Int,
-  slide_index : Int,
+  reading_order_index : Int32,
+  slide_index : Int32,
   strategy : PptxReadingOrderStrategy,
-  shape_id? : String? = None,
-  confidence? : String? = None,
-  source_ref? : @core.SourceRef? = None,
+  shape_id~ : String? = None,
+  confidence~ : String? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxReadingOrderItem {
   {
     reading_order_index,
@@ -403,19 +403,19 @@ pub fn make_pptx_reading_order_item(
 
 ///|
 pub fn make_pptx_slide_model(
-  slide_index : Int,
+  slide_index : Int32,
   shapes : Array[PptxShapeModel],
-  slide_id? : String? = None,
-  slide_part? : String? = None,
-  visibility? : PptxSlideVisibility = Visible,
-  layout_part? : String? = None,
-  master_part? : String? = None,
-  theme_part? : String? = None,
-  notes? : PptxNotesModel? = None,
-  comments? : Array[PptxCommentModel] = [],
-  reading_order? : Array[PptxReadingOrderItem] = [],
-  source_ref? : @core.SourceRef? = None,
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
+  slide_id~ : String? = None,
+  slide_part~ : String? = None,
+  visibility~ : PptxSlideVisibility = Visible,
+  layout_part~ : String? = None,
+  master_part~ : String? = None,
+  theme_part~ : String? = None,
+  notes~ : PptxNotesModel? = None,
+  comments~ : Array[PptxCommentModel] = [],
+  reading_order~ : Array[PptxReadingOrderItem] = [],
+  source_ref~ : @core.SourceRef? = None,
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> PptxSlideModel {
   {
     slide_index,
@@ -437,11 +437,11 @@ pub fn make_pptx_slide_model(
 ///|
 pub fn make_pptx_presentation_model(
   slides : Array[PptxSlideModel],
-  themes? : Array[PptxThemeModel] = [],
-  masters? : Array[PptxMasterModel] = [],
-  layouts? : Array[PptxLayoutModel] = [],
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  source_ref? : @core.SourceRef? = None,
+  themes~ : Array[PptxThemeModel] = [],
+  masters~ : Array[PptxMasterModel] = [],
+  layouts~ : Array[PptxLayoutModel] = [],
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxPresentationModel {
   { slides, themes, masters, layouts, diagnostics, source_ref, }
 }
@@ -450,9 +450,9 @@ pub fn make_pptx_presentation_model(
 pub fn make_pptx_presentation_plan(
   presentation : PptxPresentationModel,
   ordered_slide_ids : Array[String],
-  hidden_slide_ids? : Array[String] = [],
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  source_ref? : @core.SourceRef? = None,
+  hidden_slide_ids~ : Array[String] = [],
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  source_ref~ : @core.SourceRef? = None,
 ) -> PptxPresentationPlan {
   {
     presentation,
@@ -489,9 +489,9 @@ pub fn xlsx_cell_type_name(cell_type : XlsxCellType) -> String {
 
 ///|
 pub fn make_xlsx_shared_string(
-  string_index : Int,
+  string_index : Int32,
   value : String,
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxSharedString {
   { string_index, value, source_ref, }
 }
@@ -499,11 +499,11 @@ pub fn make_xlsx_shared_string(
 ///|
 pub fn make_xlsx_formula(
   formula_text : String,
-  cached_value? : String? = None,
-  formula_ref? : String? = None,
-  is_array_formula? : Bool = false,
-  is_shared_formula? : Bool = false,
-  source_ref? : @core.SourceRef? = None,
+  cached_value~ : String? = None,
+  formula_ref~ : String? = None,
+  is_array_formula~ : Bool = false,
+  is_shared_formula~ : Bool = false,
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxFormula {
   {
     formula_text,
@@ -520,7 +520,7 @@ pub fn make_xlsx_merged_range(
   range_ref : String,
   start_cell : String,
   end_cell : String,
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxMergedRange {
   { range_ref, start_cell, end_cell, source_ref, }
 }
@@ -528,16 +528,16 @@ pub fn make_xlsx_merged_range(
 ///|
 pub fn make_xlsx_cell_model(
   cell_ref : String,
-  row_index : Int,
-  column_index : Int,
+  row_index : Int32,
+  column_index : Int32,
   cell_type : XlsxCellType,
-  raw_value? : String? = None,
-  display_value? : String? = None,
-  shared_string_index? : Int? = None,
-  style_ref? : @core.StyleRef? = None,
-  formula? : XlsxFormula? = None,
-  source_ref? : @core.SourceRef? = None,
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
+  raw_value~ : String? = None,
+  display_value~ : String? = None,
+  shared_string_index~ : Int32? = None,
+  style_ref~ : @core.StyleRef? = None,
+  formula~ : XlsxFormula? = None,
+  source_ref~ : @core.SourceRef? = None,
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> XlsxCellModel {
   {
     cell_ref,
@@ -556,9 +556,9 @@ pub fn make_xlsx_cell_model(
 
 ///|
 pub fn make_xlsx_row_model(
-  row_index : Int,
+  row_index : Int32,
   cells : Array[XlsxCellModel],
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxRowModel {
   { row_index, cells, source_ref, }
 }
@@ -567,14 +567,14 @@ pub fn make_xlsx_row_model(
 pub fn make_xlsx_sheet_model(
   sheet_name : String,
   rows : Array[XlsxRowModel],
-  sheet_id? : String? = None,
-  relationship_id? : String? = None,
-  part_name? : String? = None,
-  visibility? : XlsxSheetVisibility = Visible,
-  dimension_ref? : String? = None,
-  merged_ranges? : Array[XlsxMergedRange] = [],
-  source_ref? : @core.SourceRef? = None,
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
+  sheet_id~ : String? = None,
+  relationship_id~ : String? = None,
+  part_name~ : String? = None,
+  visibility~ : XlsxSheetVisibility = Visible,
+  dimension_ref~ : String? = None,
+  merged_ranges~ : Array[XlsxMergedRange] = [],
+  source_ref~ : @core.SourceRef? = None,
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
 ) -> XlsxSheetModel {
   {
     sheet_name,
@@ -593,11 +593,11 @@ pub fn make_xlsx_sheet_model(
 ///|
 pub fn make_xlsx_workbook_model(
   sheets : Array[XlsxSheetModel],
-  shared_strings? : Array[XlsxSharedString] = [],
-  styles_summary? : Map[String, @core.JsonValue] = Map([]),
-  defined_names? : Array[String] = [],
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  source_ref? : @core.SourceRef? = None,
+  shared_strings~ : Array[XlsxSharedString] = [],
+  styles_summary~ : Map[String, @core.JsonValue] = Map([]),
+  defined_names~ : Array[String] = [],
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxWorkbookModel {
   {
     sheets,
@@ -613,9 +613,9 @@ pub fn make_xlsx_workbook_model(
 pub fn make_xlsx_workbook_plan(
   workbook : XlsxWorkbookModel,
   included_sheet_names : Array[String],
-  skipped_sheet_names? : Array[String] = [],
-  diagnostics? : @core.Diagnostics = @core.empty_diagnostics(),
-  source_ref? : @core.SourceRef? = None,
+  skipped_sheet_names~ : Array[String] = [],
+  diagnostics~ : @core.Diagnostics = @core.empty_diagnostics(),
+  source_ref~ : @core.SourceRef? = None,
 ) -> XlsxWorkbookPlan {
   {
     workbook,

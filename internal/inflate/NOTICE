@@ -1,0 +1,13 @@
+Local attribution notice
+
+This package contains the streaming inflate subset of moonbit-community/flate
+0.8.5, from revision 3cbcb5c8bde0b34117fd7980b9f41719f2b8f3d7:
+https://github.com/moonbit-community/flate
+
+The upstream package is licensed under Apache License 2.0; see LICENSE.
+The inspected upstream source package contained no separate NOTICE file.
+
+Local modification: preserve failed-step consumed/produced positions before
+releasing call-owned views, so actual scratch output can be accounted without
+being delivered. Encoder-only and whole-buffer decoder code is not included.
+See UPSTREAM.md for the exact source-block inventory and original hashes.

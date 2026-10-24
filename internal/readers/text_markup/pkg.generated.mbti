@@ -18,11 +18,11 @@ pub fn parse_text_markup_inlines(String, TextMarkupFormat) -> Array[TextMarkupIn
 
 pub fn parse_text_markup_table(TextMarkupBlock, TextMarkupFormat) -> TextMarkupTable?
 
-pub fn prepare_asciidoc_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+pub async fn prepare_asciidoc_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
 
-pub fn prepare_rst_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+pub async fn prepare_rst_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
 
-pub fn prepare_tex_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
+pub async fn prepare_tex_document_from_source(@input.InputSource) -> Result[PreparedTextMarkupDocument, String]
 
 // Errors
 
@@ -37,10 +37,10 @@ pub struct PreparedTextMarkupDocument {
 pub struct TextMarkupBlock {
   kind : TextMarkupBlockKind
   text : String
-  level : Int
+  level : Int32
   ordered : Bool
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   meta : Map[String, String]
 }
 
@@ -86,16 +86,16 @@ pub fn TextMarkupInlineKind::equal(Self, Self) -> Bool
 pub fn TextMarkupInlineKind::not_equal(Self, Self) -> Bool
 
 pub struct TextMarkupInspectReport {
-  block_count : Int
-  heading_count : Int
-  list_item_count : Int
-  code_count : Int
-  table_count : Int
-  blockquote_count : Int
-  raw_count : Int
-  paragraph_count : Int
-  line_count : Int
-  char_count : Int
+  block_count : Int32
+  heading_count : Int32
+  list_item_count : Int32
+  code_count : Int32
+  table_count : Int32
+  blockquote_count : Int32
+  raw_count : Int32
+  paragraph_count : Int32
+  line_count : Int32
+  char_count : Int32
 }
 
 pub struct TextMarkupTable {

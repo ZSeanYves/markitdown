@@ -10,6 +10,7 @@ fn pdf_decode_literal_pdf_text(value : String) -> String {
 fn pdf_decode_content_literal_pdf_text(
   value : String,
   font_info : PdfNativeFontInfo?,
+  successful_literal~ : Ref[PdfDecodedFontBytes?]? = None,
 ) -> String {
   match pdf_decode_utf16_literal_string(value) {
     Some(decoded) => decoded
@@ -20,7 +21,8 @@ fn pdf_decode_content_literal_pdf_text(
           let invalid_tounicode_bytes = pdf_bytes_hit_invalid_tounicode(
             bytes, info,
           )
-          match pdf_decode_literal_bytes_with_font(bytes, info) {
+          match
+            pdf_decode_literal_bytes_with_font(bytes, info, successful_literal~) {
             Some(decoded) => decoded
             None =>
               if invalid_tounicode_bytes ||
@@ -78,11 +80,17 @@ fn pdf_decode_utf16_literal_string(value : String) -> String? {
 
 ///|
 fn pdf_decode_literal_bytes_with_font(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
+  successful_literal~ : Ref[PdfDecodedFontBytes?]? = None,
 ) -> String? {
   match pdf_decode_literal_bytes_with_font_result(bytes, info) {
-    Some(decoded) => Some(decoded.text)
+    Some(decoded) => {
+      if successful_literal is Some(receipt) {
+        receipt.val = Some(decoded)
+      }
+      Some(decoded.text)
+    }
     None =>
       match pdf_decode_raw_cjk_bytes_for_font(bytes, info) {
         Some(decoded) => Some(decoded)
@@ -115,7 +123,7 @@ fn pdf_decode_hex_pdf_text_result(
 
 ///|
 fn pdf_decode_literal_bytes_with_font_result(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
 ) -> PdfDecodedFontBytes? {
   let invalid_tounicode_bytes = pdf_bytes_hit_invalid_tounicode(bytes, info)
@@ -167,7 +175,7 @@ fn pdf_decode_literal_bytes_with_font_result(
 
 ///|
 fn pdf_decode_bytes_with_unicode_map(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
 ) -> PdfDecodedFontBytes? {
   if !info.has_tounicode &&
@@ -253,7 +261,7 @@ fn pdf_decode_bytes_with_unicode_map(
 
 ///|
 fn pdf_bytes_hit_invalid_tounicode(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
 ) -> Bool {
   if !info.has_tounicode || info.tounicode_invalid_keys.length() == 0 {
@@ -285,9 +293,9 @@ fn pdf_bytes_hit_invalid_tounicode(
 ///|
 fn pdf_font_unit_cid_hint(
   info : PdfNativeFontInfo,
-  byte_width : Int,
-  charcode : Int,
-) -> Int? {
+  byte_width : Int32,
+  charcode : Int32,
+) -> Int32? {
   if byte_width > 1 ||
     pdf_font_is_identity_h(info) ||
     pdf_font_is_identity_v(info) ||
@@ -301,7 +309,9 @@ fn pdf_font_unit_cid_hint(
 }
 
 ///|
-fn pdf_identity_ascii_decoded_units(bytes : Array[Int]) -> PdfDecodedFontBytes? {
+fn pdf_identity_ascii_decoded_units(
+  bytes : Array[Int32],
+) -> PdfDecodedFontBytes? {
   let units : Array[PdfDecodedFontUnit] = []
   let parts : Array[String] = []
   let mut index = 0
@@ -329,8 +339,8 @@ fn pdf_identity_ascii_decoded_units(bytes : Array[Int]) -> PdfDecodedFontBytes? 
 }
 
 ///|
-fn pdf_string_byte_values(text : String) -> Array[Int] {
-  let bytes : Array[Int] = []
+fn pdf_string_byte_values(text : String) -> Array[Int32] {
+  let bytes : Array[Int32] = []
   for ch in text.to_array() {
     bytes.push(ch.to_int() & 0xFF)
   }
@@ -338,7 +348,11 @@ fn pdf_string_byte_values(text : String) -> Array[Int] {
 }
 
 ///|
-fn pdf_hex_from_bytes(bytes : Array[Int], start : Int, width : Int) -> String {
+fn pdf_hex_from_bytes(
+  bytes : Array[Int32],
+  start : Int32,
+  width : Int32,
+) -> String {
   let parts : Array[String] = []
   let mut index = start
   while index < start + width && index < bytes.length() {
@@ -354,7 +368,7 @@ fn pdf_decode_pdfdoc_byte_string(value : String) -> String {
 }
 
 ///|
-fn pdf_decode_pdfdoc_bytes(bytes : Array[Int]) -> String {
+fn pdf_decode_pdfdoc_bytes(bytes : Array[Int32]) -> String {
   let chars : Array[Char] = []
   for byte in bytes {
     chars.push(pdf_pdfdoc_byte_char(byte & 0xFF))
@@ -363,7 +377,7 @@ fn pdf_decode_pdfdoc_bytes(bytes : Array[Int]) -> String {
 }
 
 ///|
-fn pdf_decode_winansi_bytes(bytes : Array[Int]) -> String {
+fn pdf_decode_winansi_bytes(bytes : Array[Int32]) -> String {
   let chars : Array[Char] = []
   for byte in bytes {
     chars.push(pdf_winansi_byte_char(byte & 0xFF))
@@ -372,7 +386,7 @@ fn pdf_decode_winansi_bytes(bytes : Array[Int]) -> String {
 }
 
 ///|
-fn pdf_pdfdoc_byte_char(byte : Int) -> Char {
+fn pdf_pdfdoc_byte_char(byte : Int32) -> Char {
   match byte {
     0x18 => '\u{02D8}'
     0x19 => '\u{02C7}'
@@ -414,12 +428,12 @@ fn pdf_pdfdoc_byte_char(byte : Int) -> Char {
     0x9D => '\u{0161}'
     0x9E => '\u{017E}'
     0xA0 => '\u{20AC}'
-    _ => Int::unsafe_to_char(byte)
+    _ => Int32::unsafe_to_char(byte)
   }
 }
 
 ///|
-fn pdf_winansi_byte_char(byte : Int) -> Char {
+fn pdf_winansi_byte_char(byte : Int32) -> Char {
   match byte {
     0x80 => '\u{20AC}'
     0x82 => '\u{201A}'
@@ -449,6 +463,6 @@ fn pdf_winansi_byte_char(byte : Int) -> Char {
     0x9C => '\u{0153}'
     0x9E => '\u{017E}'
     0x9F => '\u{0178}'
-    _ => Int::unsafe_to_char(byte)
+    _ => Int32::unsafe_to_char(byte)
   }
 }

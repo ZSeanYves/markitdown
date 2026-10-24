@@ -1,7 +1,7 @@
 ///|
 priv struct JsonStreamCursor {
   events : Array[JsonStreamEvent]
-  mut index : Int
+  mut index : Int32
 }
 
 ///|
@@ -136,7 +136,7 @@ fn json_append_value_events(
 fn json_stream_scalar_or_summary_text(
   cursor : JsonStreamCursor,
   source : @input.InputSource,
-  pointer? : String = "/",
+  pointer~ : String = "/",
 ) -> (String, @core.SourceRef) {
   json_stream_value_preview_text(cursor, source, pointer, 2)
 }
@@ -146,7 +146,7 @@ fn json_stream_value_preview_text(
   cursor : JsonStreamCursor,
   source : @input.InputSource,
   pointer : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let event = cursor.events[cursor.index]
   match event.kind {
@@ -188,7 +188,7 @@ fn json_stream_object_preview_text(
   cursor : JsonStreamCursor,
   source : @input.InputSource,
   pointer : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let start = cursor.events[cursor.index]
   let root_depth = start.depth
@@ -263,7 +263,7 @@ fn json_stream_array_preview_text(
   cursor : JsonStreamCursor,
   source : @input.InputSource,
   pointer : String,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> (String, @core.SourceRef) {
   let start = cursor.events[cursor.index]
   let root_depth = start.depth
@@ -326,7 +326,7 @@ fn json_stream_array_preview_text(
 }
 
 ///|
-fn json_preview_member_limit(preview_depth : Int) -> Int {
+fn json_preview_member_limit(preview_depth : Int32) -> Int32 {
   if preview_depth <= 0 {
     0
   } else {
@@ -335,7 +335,7 @@ fn json_preview_member_limit(preview_depth : Int) -> Int {
 }
 
 ///|
-fn json_preview_sample_limit(preview_depth : Int) -> Int {
+fn json_preview_sample_limit(preview_depth : Int32) -> Int32 {
   if preview_depth <= 0 {
     0
   } else if preview_depth == 1 {
@@ -346,7 +346,7 @@ fn json_preview_sample_limit(preview_depth : Int) -> Int {
 }
 
 ///|
-fn json_clip_preview_text(text : String, max_chars : Int) -> String {
+fn json_clip_preview_text(text : String, max_chars : Int32) -> String {
   if !text.contains("\n") && !text.contains("\r") {
     let trimmed = text.trim()
     if trimmed.length() == text.length() {
@@ -380,7 +380,7 @@ fn json_stream_scalar_text(event : JsonStreamEvent) -> String {
 
 ///|
 fn json_object_summary_text(
-  member_count : Int,
+  member_count : Int32,
   sample_keys : Array[String],
 ) -> String {
   let out = StringBuilder()
@@ -405,7 +405,7 @@ fn json_object_summary_text(
 
 ///|
 fn json_array_summary_text(
-  item_count : Int,
+  item_count : Int32,
   sample_values : Array[String],
 ) -> String {
   let out = StringBuilder()
@@ -517,9 +517,9 @@ fn json_code_block_event(
   text : String,
   source : @input.InputSource,
   pointer : String,
-  line : Int,
-  byte_start : Int,
-  byte_end : Int,
+  line : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
 ) -> @core.CoreEvent {
   {
     kind: StartBlock(Code),
@@ -550,7 +550,7 @@ fn generic_event_source_ref(
 }
 
 ///|
-fn count_event_tables(events : Array[@core.CoreEvent]) -> Int {
+fn count_event_tables(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     if event.kind == StartBlock(Table) {
@@ -561,7 +561,7 @@ fn count_event_tables(events : Array[@core.CoreEvent]) -> Int {
 }
 
 ///|
-fn count_event_blocks(events : Array[@core.CoreEvent]) -> Int {
+fn count_event_blocks(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     match event.kind {
@@ -573,7 +573,7 @@ fn count_event_blocks(events : Array[@core.CoreEvent]) -> Int {
 }
 
 ///|
-fn infer_line_json_table_count(events : Array[@core.CoreEvent]) -> Int {
+fn infer_line_json_table_count(events : Array[@core.CoreEvent]) -> Int32 {
   let mut cell_count = 0
   for event in events {
     if event.kind == Cell {
@@ -751,8 +751,9 @@ fn table_events_from_rows(
   rows : Array[Array[String]],
   source : @input.InputSource,
   format_name : String,
-  record_line_numbers : Array[Int],
+  record_line_numbers : Array[Int32],
   record_pointers : Array[String],
+  record_ordinals : Array[Int32],
 ) -> Array[@core.CoreEvent] {
   let events : Array[@core.CoreEvent] = []
   for row_index in 0..<rows.length() {
@@ -789,7 +790,10 @@ fn table_events_from_rows(
     if row_index == 0 {
       row_ref.extra.set("synthetic_header", "true")
     } else {
-      row_ref.extra.set("record_index", (row_index - 1).to_string())
+      row_ref.extra.set(
+        "record_index",
+        record_ordinals[row_index - 1].to_string(),
+      )
     }
     for col_index in 0..<row.length() {
       let cell_ref = @core.source_ref_with_cell_range(
@@ -803,7 +807,10 @@ fn table_events_from_rows(
       if row_index == 0 {
         cell_ref.extra.set("synthetic_header", "true")
       } else {
-        cell_ref.extra.set("record_index", (row_index - 1).to_string())
+        cell_ref.extra.set(
+          "record_index",
+          record_ordinals[row_index - 1].to_string(),
+        )
       }
       events.push({
         kind: Cell,
@@ -819,14 +826,14 @@ fn table_events_from_rows(
 }
 
 ///|
-fn count_json_tables(document : @core.DocumentIR) -> Int {
+fn count_json_tables(document : @core.DocumentIR) -> Int32 {
   @fshared.count_blocks_by_kind(document.blocks, Table)
 }
 
 ///|
 fn json_array_object_rows(values : Array[JsonValue]) -> Array[Array[String]]? {
   let mut keys : Array[String] = []
-  let key_index : Map[String, Int] = Map([])
+  let key_index : Map[String, Int32] = Map([])
   let mut has_key_index = false
   let rows : Array[Array[String]] = []
   for i in 0..<values.length() {
@@ -861,7 +868,7 @@ fn json_members_to_row(
   members : Array[JsonMember],
   keys : Array[String],
 ) -> Array[String] {
-  let member_index : Map[String, Int] = Map([])
+  let member_index : Map[String, Int32] = Map([])
   for i in 0..<members.length() {
     member_index.set(members[i].key, i)
   }

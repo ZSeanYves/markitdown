@@ -2,11 +2,11 @@
 fn pdf_annotation_from_object(
   source : @input.InputSource,
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
-  page_index : Int,
-  annotation_index : Int,
-  object_id : Int,
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_index : Int32,
+  annotation_index : Int32,
+  object_id : Int32,
+  page_numbers : Map[Int32, Int32],
 ) -> PdfNativeAnnotation? {
   let subtype = match pdf_extract_name_after(object.dict_text, "/Subtype") {
     Some(value) => value
@@ -107,7 +107,7 @@ fn pdf_annotation_normalized_text(value : String) -> String {
 }
 
 ///|
-fn pdf_annotation_should_surface(subtype : String, flags : Int?) -> Bool {
+fn pdf_annotation_should_surface(subtype : String, flags : Int32?) -> Bool {
   if subtype == "Widget" {
     return true
   }
@@ -125,14 +125,14 @@ fn pdf_annotation_should_surface(subtype : String, flags : Int?) -> Bool {
 }
 
 ///|
-fn pdf_annotation_flag_is_set(flags : Int, bit_index : Int) -> Bool {
+fn pdf_annotation_flag_is_set(flags : Int32, bit_index : Int32) -> Bool {
   (flags & (1 << bit_index)) != 0
 }
 
 ///|
 fn pdf_annotation_file_name(
   dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> String? {
   let file_spec = match
     pdf_inline_or_referenced_dict_text(dict_text, "/FS", object_index) {
@@ -152,7 +152,7 @@ fn pdf_annotation_file_name(
 fn pdf_file_spec_display_name(
   dict_text : String,
   key : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> String? {
   match pdf_extract_string_after(dict_text, key) {
     Some(value) if value.trim() != "" => return Some(value.trim().to_owned())
@@ -175,8 +175,8 @@ fn pdf_file_spec_display_name(
 ///|
 fn pdf_action_external_target_text(
   action_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
 ) -> String? {
   let file_name = pdf_file_spec_display_name(action_text, "/F", object_index)
   let destination = pdf_destination_from_key(
@@ -214,7 +214,7 @@ fn pdf_action_external_target_text(
 ///|
 fn pdf_native_backend_annotation_json(
   annotation : PdfNativeAnnotation,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   payload.set("subtype", String(annotation.subtype))
@@ -340,10 +340,10 @@ fn pdf_native_backend_bbox_json_value(bbox : PdfBBox) -> @core.JsonValue {
 ///|
 fn pdf_annotation_action_summary(
   dict_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_index : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  page_index : Int32,
   source_ref : @core.SourceRef?,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> (String?, String?, PdfNativeDestination?) {
   let action_text = match
     pdf_inline_or_referenced_dict_text(dict_text, "/A", object_index) {
@@ -405,10 +405,10 @@ fn pdf_annotation_action_summary(
 fn pdf_destination_from_key(
   dict_text : String,
   key : String,
-  object_index : Map[Int, PdfNativeObject],
-  page_index : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  page_index : Int32,
   source_ref : @core.SourceRef?,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> PdfNativeDestination? {
   match pdf_extract_dict_value(dict_text, key) {
     Some(value) =>
@@ -422,10 +422,10 @@ fn pdf_destination_from_key(
 ///|
 fn pdf_destination_from_value(
   value : PdfNativeDictValue,
-  object_index : Map[Int, PdfNativeObject],
-  page_index : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  page_index : Int32,
   source_ref : @core.SourceRef?,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> PdfNativeDestination? {
   match value {
     Reference(object_id, generation) => {
@@ -505,9 +505,9 @@ fn pdf_destination_from_value(
 ///|
 fn pdf_destination_from_tokens(
   tokens : Array[PdfNativeContentToken],
-  page_index : Int,
+  page_index : Int32,
   source_ref : @core.SourceRef?,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> PdfNativeDestination? {
   let target_page_object_id = pdf_collect_reference_ids_from_tokens(tokens).get(
     0,
@@ -596,7 +596,7 @@ fn pdf_destination_has_visible_hint(destination : PdfNativeDestination) -> Bool 
 fn pdf_inline_or_referenced_dict_text(
   dict_text : String,
   key : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> String? {
   match pdf_extract_dict_value(dict_text, key) {
     Some(Dict(value)) => Some(value)
@@ -615,9 +615,9 @@ fn pdf_inline_or_referenced_dict_text(
 fn pdf_extract_form_fields(
   source : @input.InputSource,
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
-  annotation_pages : Map[Int, Int],
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
+  annotation_pages : Map[Int32, Int32],
 ) -> Array[PdfNativeFormField] {
   let catalog = match pdf_catalog_object(trailer_hints, object_index) {
     Some(value) => value
@@ -634,7 +634,7 @@ fn pdf_extract_form_fields(
   }
   let refs = pdf_extract_object_references_after(acroform, "/Fields")
   let out : Array[PdfNativeFormField] = []
-  let visited : Map[Int, Bool] = Map([])
+  let visited : Map[Int32, Bool] = Map([])
   let seen : Map[String, Bool] = Map([])
   for ref_id in refs {
     match object_index.get(ref_id) {
@@ -670,21 +670,21 @@ fn pdf_extract_form_fields(
 fn pdf_form_fields_from_object(
   source : @input.InputSource,
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
-  object_id : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  object_id : Int32,
   inherited_type : String?,
   inherited_name : String?,
   inherited_alt_name : String?,
   inherited_value : String?,
   inherited_default_value : String?,
   inherited_options : Array[String],
-  inherited_flags : Int?,
-  page_numbers : Map[Int, Int],
-  annotation_pages : Map[Int, Int],
-  inherited_page_index : Int?,
-  visited : Map[Int, Bool],
+  inherited_flags : Int32?,
+  page_numbers : Map[Int32, Int32],
+  annotation_pages : Map[Int32, Int32],
+  inherited_page_index : Int32?,
+  visited : Map[Int32, Bool],
   seen : Map[String, Bool],
-  depth : Int,
+  depth : Int32,
 ) -> Array[PdfNativeFormField] {
   if depth >= 32 || visited.get(object_id).unwrap_or(false) {
     return []

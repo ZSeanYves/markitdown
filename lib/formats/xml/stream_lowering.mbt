@@ -1,12 +1,12 @@
 ///|
 priv struct XmlStreamSummary {
-  element_count : Int
-  attribute_count : Int
-  text_node_count : Int
-  comment_count : Int
-  cdata_count : Int
-  processing_instruction_count : Int
-  max_depth : Int
+  element_count : Int32
+  attribute_count : Int32
+  text_node_count : Int32
+  comment_count : Int32
+  cdata_count : Int32
+  processing_instruction_count : Int32
+  max_depth : Int32
   has_doctype : Bool
   has_unsupported_doctype : Bool
   has_complex_mixed_content : Bool
@@ -19,7 +19,7 @@ fn xml_fill_stream_metrics(
   diagnostics : @core.Diagnostics,
   summary : XmlStreamSummary,
   text : String,
-  event_count : Int,
+  event_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("element_count", summary.element_count.to_string())
   diagnostics.metrics.set(
@@ -82,7 +82,7 @@ fn xml_fill_common_metrics(
   inspect : @dxml.XmlInspectReport,
   validation : @dxml.XmlValidationReport,
   text : String,
-  event_count : Int,
+  event_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("element_count", inspect.element_count.to_string())
   diagnostics.metrics.set(
@@ -197,10 +197,32 @@ fn xml_generic_block_events_from_tokens(
 priv struct XmlCompactOutlineFrame {
   element_name : String
   element_path : String
-  event_index : Int
-  attribute_count : Int
-  mut has_children : Bool
-  text_values : Array[String]
+  event_index : Int32
+  mut coalesce_leaf_text : Bool
+  pending_text : Array[(String, @dxml.XmlSourceSpan)]
+}
+
+///|
+// Keep simple leaf labels compact, as the DOM outline does. Text preceding a
+// first child cannot be classified as leaf text until that child arrives.
+// Flush those existing token values before emitting the child, not at EndTag.
+fn xml_compact_flush_pending_text(
+  events : Array[@core.CoreEvent],
+  frame : XmlCompactOutlineFrame,
+  source : @input.InputSource,
+  depth : Int32,
+) -> Unit {
+  for (text, span) in frame.pending_text {
+    events.push(
+      xml_compact_outline_event(
+        ListItem,
+        text,
+        xml_stream_element_source_ref(source, span, frame.element_path),
+        depth,
+      ),
+    )
+  }
+  frame.pending_text.clear()
 }
 
 ///|
@@ -210,25 +232,36 @@ fn xml_compact_outline_events_from_tokens(
 ) -> Array[@core.CoreEvent] {
   let stack : Array[XmlCompactOutlineFrame] = []
   let roots : Array[@core.CoreEvent] = []
-  let sibling_counts : Array[Map[String, Int]] = []
+  let sibling_counts : Array[Map[String, Int32]] = []
   for token in tokens {
     match token {
-      Text(text, _) | CData(text, _) =>
+      Text(text, span) | CData(text, span) =>
         if text.trim() != "" && stack.length() > 0 {
-          stack[stack.length() - 1].text_values.push(text.trim().to_owned())
+          let depth = stack.length() - 1
+          let frame = stack[depth]
+          // Tokenizer Text is already entity-decoded once; CDATA is literal.
+          // Match the DOM outline's trimming without decoding either again.
+          let text = text.trim().to_owned()
+          if frame.coalesce_leaf_text {
+            frame.pending_text.push((text, span))
+          } else {
+            roots.push(
+              xml_compact_outline_event(
+                ListItem,
+                text,
+                xml_stream_element_source_ref(source, span, frame.element_path),
+                depth,
+              ),
+            )
+          }
         }
       StartTag(name, attrs, self_closing, span) => {
         let depth = stack.length()
         if depth > 0 {
           let parent = stack[depth - 1]
-          parent.has_children = true
-          if depth == 2 &&
-            parent.attribute_count == 0 &&
-            roots[parent.event_index].text == parent.element_name {
-            roots[parent.event_index] = {
-              ..roots[parent.event_index],
-              text: "<" + parent.element_name + ">",
-            }
+          if parent.coalesce_leaf_text {
+            parent.coalesce_leaf_text = false
+            xml_compact_flush_pending_text(roots, parent, source, depth - 1)
           }
         }
         let path = if depth == 0 {
@@ -253,7 +286,7 @@ fn xml_compact_outline_events_from_tokens(
             } else {
               ListItem
             },
-            if depth == 0 {
+            if depth <= 1 {
               "<" + name + ">"
             } else {
               name
@@ -284,9 +317,10 @@ fn xml_compact_outline_events_from_tokens(
           element_name: name,
           element_path: path,
           event_index,
-          attribute_count: attrs.length(),
-          has_children: false,
-          text_values: [],
+          // The root remains a heading; attributes and child elements make
+          // a node structural rather than the DOM's simple text-value case.
+          coalesce_leaf_text: depth > 0 && attrs.length() == 0,
+          pending_text: [],
         }
         if !self_closing {
           stack.push(frame)
@@ -297,12 +331,12 @@ fn xml_compact_outline_events_from_tokens(
         match stack.pop() {
           Some(frame) => {
             ignore(sibling_counts.pop())
-            if frame.attribute_count == 0 &&
-              !frame.has_children &&
-              frame.text_values.length() > 0 {
+            if frame.coalesce_leaf_text && frame.pending_text.length() > 0 {
               roots[frame.event_index] = {
                 ..roots[frame.event_index],
-                text: frame.element_name + ": " + frame.text_values.join(" "),
+                text: frame.element_name +
+                ": " +
+                frame.pending_text.map(value => value.0).join(" "),
               }
             }
           }
@@ -319,7 +353,7 @@ fn xml_compact_outline_event(
   kind : @core.BlockKind,
   text : String,
   source_ref : @core.SourceRef,
-  depth : Int,
+  depth : Int32,
 ) -> @core.CoreEvent {
   source_ref.extra.set("ir_event_encoding", "xml_outline_v1")
   source_ref.extra.set("xml_outline_depth", depth.to_string())
@@ -343,7 +377,7 @@ fn xml_outline_blocks_from_tokens(
 ) -> Array[@core.CoreBlock] {
   let stack : Array[XmlOutlineFrame] = []
   let roots : Array[@core.CoreBlock] = []
-  let sibling_counts : Array[Map[String, Int]] = []
+  let sibling_counts : Array[Map[String, Int32]] = []
   for token in tokens {
     match token {
       Declaration(_, _) => ()
@@ -433,8 +467,8 @@ fn xml_outline_blocks_from_tokens(
 fn xml_outline_push_path(
   name : String,
   stack : Array[XmlOutlineFrame],
-  sibling_counts : Array[Map[String, Int]],
-) -> (String, Int) {
+  sibling_counts : Array[Map[String, Int32]],
+) -> (String, Int32) {
   let depth = stack.length()
   let path = if depth == 0 {
     "/" + name
@@ -456,7 +490,7 @@ fn xml_outline_push_path(
 fn xml_outline_frame_to_block(
   frame : XmlOutlineFrame,
   source : @input.InputSource,
-  depth : Int,
+  depth : Int32,
 ) -> @core.CoreBlock {
   let label = if depth == 0 {
     "<" + frame.element_name + ">"
@@ -715,7 +749,7 @@ fn xml_generic_block_ref(
 }
 
 ///|
-fn count_xml_event_blocks(events : Array[@core.CoreEvent]) -> Int {
+fn count_xml_event_blocks(events : Array[@core.CoreEvent]) -> Int32 {
   let mut count = 0
   for event in events {
     match event.kind {
@@ -845,7 +879,7 @@ fn append_xml_element_outline(
   element : @dxml.XmlElement,
   source : @input.InputSource,
   path : String,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   for attr in element.attributes {
     list.children.push(
@@ -869,7 +903,7 @@ fn append_xml_element_outline(
     )
   }
 
-  let child_element_counts : Map[String, Int] = Map([], capacity=8)
+  let child_element_counts : Map[String, Int32] = Map([], capacity=8)
   for child in element.children {
     match child {
       Element(child_element) => {
@@ -1019,16 +1053,11 @@ fn malformed_xml_parse_result(
   text : String,
   diagnostics : @core.Diagnostics,
   err : @dxml.XmlError,
+  byte_normalization~ : String = "provided_normalized_text",
 ) -> @parser.ParseResult {
   let info = @dxml.classify_xml_error(err)
   let source_ref = @core.source_ref_with_lines(
-    @core.source_ref_with_bytes(
-      @core.empty_source_ref(),
-      Some(source.source_name),
-      Some("xml"),
-      Some(0),
-      Some(text.length()),
-    ),
+    xml_malformed_utf8_source_ref(source, text, byte_normalization),
     Some(source.source_name),
     Some("xml"),
     Some(1),
@@ -1119,15 +1148,10 @@ fn malformed_xml_text_parse_result(
   text : String,
   diagnostics : @core.Diagnostics,
   detail : String,
+  byte_normalization~ : String = "provided_normalized_text",
 ) -> @parser.ParseResult {
   let source_ref = @core.source_ref_with_lines(
-    @core.source_ref_with_bytes(
-      @core.empty_source_ref(),
-      Some(source.source_name),
-      Some("xml"),
-      Some(0),
-      Some(text.length()),
-    ),
+    xml_malformed_utf8_source_ref(source, text, byte_normalization),
     Some(source.source_name),
     Some("xml"),
     Some(1),
@@ -1281,6 +1305,42 @@ fn xml_cdata_source_ref(
       Some(cdata.span.line_end),
     ),
     xpath: Some(path),
+  }
+}
+
+///|
+fn xml_malformed_utf8_source_ref(
+  source : @input.InputSource,
+  text : String,
+  normalization : String,
+) -> @core.SourceRef {
+  let mut size = 0L
+  for ch in text {
+    let code = ch.to_int()
+    size += if code <= 0x7F {
+      1L
+    } else if code <= 0x7FF {
+      2L
+    } else if code <= 0xFFFF {
+      3L
+    } else {
+      4L
+    }
+  }
+  let reference = @core.empty_source_ref()
+  if size <= 2147483647L {
+    reference.extra.set("byte_basis", "normalized_decoded_utf8")
+    reference.extra.set("byte_normalization", normalization)
+    @core.source_ref_with_bytes(
+      reference,
+      Some(source.source_name),
+      Some("xml"),
+      Some(0),
+      Some(size.to_int()),
+    )
+  } else {
+    reference.extra.set("byte_range_unavailable", "utf8_extent_exceeds_int32")
+    reference
   }
 }
 

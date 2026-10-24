@@ -53,8 +53,8 @@ fn pdf_parser_test_core_bbox(
 ///|
 fn pdf_parser_test_source_ref(
   file_id : String,
-  page : Int,
-  line : Int,
+  page : Int32,
+  line : Int32,
   bbox : @core.BBox,
 ) -> @core.SourceRef {
   {
@@ -75,12 +75,12 @@ fn pdf_parser_test_line(
   text : String,
   x : Double,
   y : Double,
-  width? : Double = 90.0,
-  height? : Double = 12.0,
-  file_id? : String = "synthetic.pdf",
-  page? : Int = 1,
-  line? : Int = 1,
-  reading_order_index? : Int? = None,
+  width~ : Double = 90.0,
+  height~ : Double = 12.0,
+  file_id~ : String = "synthetic.pdf",
+  page~ : Int32 = 1,
+  line~ : Int32 = 1,
+  reading_order_index~ : Int32? = None,
 ) -> @dpdfnative.PdfNativeTextLine {
   let bbox = @dpdfnative.make_pdf_bbox(x, y, width, height)
   @dpdfnative.make_pdf_native_text_line(
@@ -99,7 +99,7 @@ fn pdf_parser_test_line(
 }
 
 ///|
-test "pdf native parser lowers exportable image xobjects into image assets" {
+async test "pdf native parser lowers exportable image xobjects into image assets" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Pdf),
     Some(PageSinglePass),
@@ -128,7 +128,7 @@ test "pdf native parser lowers exportable image xobjects into image assets" {
 }
 
 ///|
-test "pdf native parser scanned-like inputs stay fail closed with stable diagnostics" {
+async test "pdf native parser scanned-like inputs stay fail closed with stable diagnostics" {
   let context = @parser.parse_context_with_pdf_native_runtime_policy(
     @parser.new_parse_context(Pdf),
     EnableTextRestore,
@@ -191,7 +191,7 @@ test "pdf native parser scanned-like inputs stay fail closed with stable diagnos
 test "pdf native parser internal header footer filtering removes repeated high confidence lines only when enabled" {
   let header = "Monthly Summary"
   let footer = "Page footer repeated"
-  let make_page = fn(page_no : Int, body : String) {
+  let make_page = fn(page_no : Int32, body : String) {
     @dpdfnative.make_pdf_native_page(
       @dpdfnative.make_pdf_page_geometry(page_no, 612.0, 792.0),
       text_blocks=[
@@ -270,7 +270,7 @@ test "pdf native parser internal header footer filtering removes repeated high c
 }
 
 ///|
-test "pdf native parser default product path can return document ir" {
+async test "pdf native parser default product path can return document ir" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Pdf),
     Some(PageSinglePass),

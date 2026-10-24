@@ -6,9 +6,9 @@ pub struct PreparedOdtDocument {
 }
 
 ///|
-pub fn prepare_odt_document_from_source(
+pub async fn prepare_odt_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedOdtDocument, String] {
+) -> Result[PreparedOdtDocument, String] noraise {
   let prepared = match @zsource.prepare_zip_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)

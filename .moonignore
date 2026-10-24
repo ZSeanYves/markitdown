@@ -1,0 +1,10 @@
+# Native distribution contains product sources and documentation.
+# Experiment modules, corpus data and acceptance tooling remain in Git only.
+/experiments/
+/samples/
+/tools/
+/markitdown-quality-lab/
+*.trace
+*.profraw
+*.profdata
+*.dSYM/

@@ -1,12 +1,12 @@
 ///|
 fn pdf_native_source_ref(
   source : @input.InputSource,
-  page_no : Int,
+  page_no : Int32,
   bbox : PdfBBox,
-  line_index : Int?,
+  line_index : Int32?,
   font_name : String?,
   font_size : Double,
-  reading_order_index? : Int? = None,
+  reading_order_index~ : Int32? = None,
 ) -> @core.SourceRef {
   let source_id = pdf_native_source_id(source)
   let base = @core.source_ref_with_lines(
@@ -141,7 +141,7 @@ fn pdf_prepare_line_text_fragment(
   text : String,
   gap : Double?,
   font_size : Double?,
-  preserve_outer_space? : Bool = false,
+  preserve_outer_space~ : Bool = false,
 ) -> String {
   let normalized = if preserve_outer_space {
     pdf_normalize_pdf_fragment_text(text)
@@ -378,7 +378,7 @@ fn pdf_hex_to_string(hex : String) -> String? {
             pdf_codepoint_is_noncharacter(codepoint) {
             return None
           } else {
-            chars.push(Int::unsafe_to_char(codepoint))
+            chars.push(Int32::unsafe_to_char(codepoint))
           }
         None => ()
       }
@@ -399,7 +399,7 @@ fn pdf_hex_to_string(hex : String) -> String? {
             pdf_codepoint_is_noncharacter(codepoint) {
             return None
           } else {
-            chars.push(Int::unsafe_to_char(codepoint))
+            chars.push(Int32::unsafe_to_char(codepoint))
           }
         None => ()
       }
@@ -414,7 +414,7 @@ fn pdf_hex_to_string(hex : String) -> String? {
 }
 
 ///|
-fn pdf_first_codepoint_from_hex(hex : String) -> Int? {
+fn pdf_first_codepoint_from_hex(hex : String) -> Int32? {
   if hex.length() % 4 == 0 && hex.length() >= 4 {
     pdf_parse_hex_int(hex[0:4].to_owned())
   } else if hex.length() % 2 == 0 && hex.length() >= 2 {
@@ -425,7 +425,7 @@ fn pdf_first_codepoint_from_hex(hex : String) -> Int? {
 }
 
 ///|
-fn pdf_hex_upper(value : Int, width : Int) -> String {
+fn pdf_hex_upper(value : Int32, width : Int32) -> String {
   let hex = pdf_int_to_hex(value).to_upper()
   if hex.length() >= width {
     hex
@@ -435,7 +435,7 @@ fn pdf_hex_upper(value : Int, width : Int) -> String {
 }
 
 ///|
-fn pdf_int_to_hex(value : Int) -> String {
+fn pdf_int_to_hex(value : Int32) -> String {
   if value == 0 {
     return "0"
   }
@@ -444,9 +444,9 @@ fn pdf_int_to_hex(value : Int) -> String {
   while n > 0 {
     let rem = n % 16
     let ch = if rem < 10 {
-      Int::unsafe_to_char('0'.to_int() + rem)
+      Int32::unsafe_to_char('0'.to_int() + rem)
     } else {
-      Int::unsafe_to_char('A'.to_int() + rem - 10)
+      Int32::unsafe_to_char('A'.to_int() + rem - 10)
     }
     rev_digits.push(ch)
     n = n / 16
@@ -461,7 +461,7 @@ fn pdf_int_to_hex(value : Int) -> String {
 }
 
 ///|
-fn pdf_collect_octal_escape(content : String, start : Int) -> (String, Int) {
+fn pdf_collect_octal_escape(content : String, start : Int32) -> (String, Int32) {
   let out : Array[Char] = []
   let mut index = start
   let mut count = 0
@@ -476,7 +476,7 @@ fn pdf_collect_octal_escape(content : String, start : Int) -> (String, Int) {
 }
 
 ///|
-fn pdf_parse_octal(value : String) -> Int? {
+fn pdf_parse_octal(value : String) -> Int32? {
   let mut out = 0
   for ch in value.to_array() {
     if !pdf_is_octal_digit(ch) {
@@ -488,7 +488,7 @@ fn pdf_parse_octal(value : String) -> Int? {
 }
 
 ///|
-fn pdf_parse_int(text : String) -> Int? {
+fn pdf_parse_int(text : String) -> Int32? {
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     return None
@@ -506,7 +506,7 @@ fn pdf_parse_double(text : String) -> Double? {
 }
 
 ///|
-fn pdf_parse_hex_int(hex : String) -> Int? {
+fn pdf_parse_hex_int(hex : String) -> Int32? {
   let trimmed = hex.trim().to_upper()
   if trimmed == "" {
     return None
@@ -527,9 +527,9 @@ fn pdf_parse_hex_int(hex : String) -> Int? {
 
 ///|
 fn pdf_first_matching_code_width(
-  widths : Array[Int],
-  remaining_hex_chars : Int,
-) -> Int? {
+  widths : Array[Int32],
+  remaining_hex_chars : Int32,
+) -> Int32? {
   for width in widths {
     if width > 0 && width * 2 <= remaining_hex_chars {
       return Some(width)
@@ -541,7 +541,7 @@ fn pdf_first_matching_code_width(
 ///|
 fn pdf_split_ascii_whitespace(text : String) -> Array[String] {
   let out : Array[String] = []
-  let mut start : Int? = None
+  let mut start : Int32? = None
   for index in 0..<text.length() {
     if pdf_is_ascii_whitespace_char(pdf_char_at(text, index)) {
       match start {
@@ -561,16 +561,20 @@ fn pdf_split_ascii_whitespace(text : String) -> Array[String] {
 }
 
 ///|
-fn pdf_byte_string(bytes : Bytes) -> String {
+fn pdf_byte_string(bytes : BytesView) -> String {
   let chars : Array[Char] = []
-  for byte in bytes.to_array() {
-    chars.push(Int::unsafe_to_char(byte.to_int()))
+  for byte in bytes {
+    chars.push(Int32::unsafe_to_char(byte.to_int()))
   }
   String::from_array(chars)
 }
 
 ///|
-fn pdf_decode_big_endian_int(bytes : Bytes, start : Int, width : Int) -> Int {
+fn pdf_decode_big_endian_int(
+  bytes : Bytes,
+  start : Int32,
+  width : Int32,
+) -> Int32 {
   if width <= 0 {
     return 0
   }

@@ -1,0 +1,23 @@
+PDF bounded zlib adapter
+
+RFC1950 admission, exact raw-body/trailing-data policy and diagnostic taxonomy
+are adapted from moonbit-community/flate@0.8.5, revision
+3cbcb5c8bde0b34117fd7980b9f41719f2b8f3d7, flate/zlib/zlib.mbt.
+Upstream repository: https://github.com/moonbit-community/flate
+Upstream license: Apache License, Version 2.0; the complete license is retained
+in ../../inflate/LICENSE. Upstream has no separate NOTICE file.
+
+Local changes: shared patched Inflater, explicit conversion budget admission,
+physical failed-step output accounting, scope-owned Bytes reservations,
+operation-owned scratch leases, incremental Adler32, and a private hard-error
+effect that cannot be swallowed by optional PDF resource recovery.
+
+This adapter does not include an upstream compressor, streaming dictionary API,
+new backend, or PDF algorithm/lifetime optimization. The existing immutable
+compiled-in PDF tables retain their separate initialization path.
+
+Separate local PDF syntax correction: lossless marker EOL preservation,
+scalar indirect Length binding and strict source-backed EOL framing selection.
+This logic is local project code, not an upstream zlib-wrapper fragment. Every
+candidate still uses the unchanged strict bounded RFC1950 adapter and shared
+actual-output account; successful repaired data is used by the normal reader.

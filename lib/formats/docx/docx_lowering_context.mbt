@@ -91,7 +91,7 @@ fn bump_metric(diagnostics : @core.Diagnostics, key : String) -> Unit {
 }
 
 ///|
-fn count_docx_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn count_docx_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     match part.content_type {
@@ -103,7 +103,7 @@ fn count_docx_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
 }
 
 ///|
-fn count_docx_ole_object_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn count_docx_ole_object_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     if part.part_name.contains("/embeddings/") ||
@@ -223,7 +223,6 @@ fn docx_materialize_companion_assets(
       continue
     }
     if !docx_asset_within_budget(state, target_part) {
-      docx_record_asset_budget_skip(state, "docx:" + target_part, target_part)
       continue
     }
     let source_ref = docx_source_ref_from_key(
@@ -250,7 +249,7 @@ fn docx_asset_within_budget(
     Some(value) => value.to_int64()
     None => return false
   }
-  @parser.asset_payload_within_limits(
+  @parser.require_asset_payload_within_limits(
     state.context,
     declared,
     docx_declared_asset_bytes(state.assets),
@@ -270,24 +269,7 @@ fn docx_declared_asset_bytes(assets : Array[@core.AssetRef]) -> Int64 {
 }
 
 ///|
-fn docx_record_asset_budget_skip(
-  state : DocxLoweringState,
-  asset_id : String,
-  target_part : String,
-) -> Unit {
-  let observed = @ox.part_declared_size(state.pkg, target_part).unwrap_or(-1)
-  @parser.record_asset_payload_budget_skip(
-    state.diagnostics,
-    asset_id,
-    "single_or_total_asset_bytes",
-    observed.to_int64(),
-    @parser.max_asset_payload_bytes(state.context),
-  )
-  bump_metric(state.diagnostics, "skipped_asset_count")
-}
-
-///|
-fn docx_two_digits(value : Int) -> String {
+fn docx_two_digits(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {
@@ -358,7 +340,7 @@ fn docx_inline_spacing_source_ref(
 fn docx_paragraph_heading_level(
   style : @ddocx.DocxStyle?,
   p : @ddocx.DocxParagraph,
-) -> Int? {
+) -> Int32? {
   ignore(p)
   match style {
     Some(value) => docx_style_heading_level(value)
@@ -367,7 +349,7 @@ fn docx_paragraph_heading_level(
 }
 
 ///|
-fn docx_style_heading_level(style : @ddocx.DocxStyle) -> Int? {
+fn docx_style_heading_level(style : @ddocx.DocxStyle) -> Int32? {
   match docx_heading_level_from_label(style.style_id) {
     Some(level) => Some(level)
     None =>
@@ -379,7 +361,7 @@ fn docx_style_heading_level(style : @ddocx.DocxStyle) -> Int? {
 }
 
 ///|
-fn docx_heading_level_from_label(label : String) -> Int? {
+fn docx_heading_level_from_label(label : String) -> Int32? {
   let normalized = docx_normalize_style_label(label)
   if normalized == "heading1" {
     Some(1)
@@ -402,7 +384,7 @@ fn docx_heading_level_from_label(label : String) -> Int? {
 fn docx_paragraph_list_lowering(
   docx : @ddocx.DocxDocument,
   p : @ddocx.DocxParagraph,
-) -> (Bool, Int)? {
+) -> (Bool, Int32)? {
   match docx_resolve_paragraph_list_level(docx, p) {
     Some(level) =>
       match level.num_fmt {
@@ -473,7 +455,7 @@ fn docx_numbering_level_style_matches(
 }
 
 ///|
-fn docx_numbering_level_index(ilvl : String) -> Int {
+fn docx_numbering_level_index(ilvl : String) -> Int32 {
   match docx_parse_nonnegative_int(ilvl) {
     Some(value) => value
     None => 0
@@ -766,7 +748,7 @@ fn render_docx_symbol_text(symbol : @ddocx.DocxSymbol) -> String {
   match parse_docx_hex_codepoint(symbol.char_hex) {
     Some(codepoint) =>
       if codepoint >= 0x20 && codepoint <= 0x7E {
-        String::from_array([Int::unsafe_to_char(codepoint)])
+        String::from_array([Int32::unsafe_to_char(codepoint)])
       } else {
         ""
       }
@@ -783,7 +765,7 @@ fn render_docx_hyphen_text(hyphen : @ddocx.DocxHyphen) -> String {
 }
 
 ///|
-fn parse_docx_hex_codepoint(value : String?) -> Int? {
+fn parse_docx_hex_codepoint(value : String?) -> Int32? {
   match value {
     Some(text) => {
       let trimmed = text.trim().to_owned()
@@ -850,7 +832,7 @@ fn docx_part_body_slot_label_from_text(value : String) -> String {
 ///|
 fn docx_textbox_appendix_title(
   textbox : @ddocx.DocxTextBox,
-  display_index : Int,
+  display_index : Int32,
 ) -> String {
   let prefix = if textbox.owner_part.has_prefix("word/header") {
     "Header Text Box "
@@ -1136,7 +1118,7 @@ fn docx_inline_text_ends_with_space(text : String) -> Bool {
 ///|
 fn docx_next_inline_needs_leading_space(
   inlines : Array[@core.CoreInline],
-  start : Int,
+  start : Int32,
 ) -> Bool {
   let mut index = start
   while index < inlines.length() {
@@ -1200,7 +1182,7 @@ fn docx_marker_space_char(ch : Char) -> Bool {
 ///|
 fn docx_chars_has_literal_at(
   chars : Array[Char],
-  index : Int,
+  index : Int32,
   literal : String,
 ) -> Bool {
   let target = literal.to_array()
@@ -1218,7 +1200,7 @@ fn docx_chars_has_literal_at(
 }
 
 ///|
-fn docx_marker_end(chars : Array[Char], index : Int) -> Int? {
+fn docx_marker_end(chars : Array[Char], index : Int32) -> Int32? {
   let mut i = index
   while i < chars.length() {
     if chars[i] == ']' {
@@ -1253,7 +1235,7 @@ fn docx_normalize_style_label(label : String) -> String {
 }
 
 ///|
-fn docx_parse_nonnegative_int(text : String) -> Int? {
+fn docx_parse_nonnegative_int(text : String) -> Int32? {
   let trimmed = text.trim().to_owned()
   if trimmed == "" {
     return None

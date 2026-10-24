@@ -24,8 +24,8 @@ pub struct PptxSourceKey {
 pub struct PptxSourceSpan {
   part_name : String
   node_key : String
-  start_offset : Int?
-  end_offset : Int?
+  start_offset : Int32?
+  end_offset : Int32?
 }
 
 ///|
@@ -113,7 +113,7 @@ pub struct PptxRelationship {
 pub struct PptxPartInfo {
   part_name : String
   content_type : String?
-  size : Int
+  size : Int32
   is_relationships_part : Bool
   has_relationships : Bool
 }
@@ -135,7 +135,7 @@ pub struct PptxPartGraph {
 ///|
 pub struct PptxSlideRef {
   slide_id : String?
-  slide_index : Int
+  slide_index : Int32
   part_name : String
   relationship_id : String?
   hidden : Bool
@@ -243,11 +243,11 @@ pub struct PptxResolvedPlaceholderHint {
 
 ///|
 pub struct PptxGeometry {
-  x : Int?
-  y : Int?
-  width : Int?
-  height : Int?
-  rotation : Int?
+  x : Int32?
+  y : Int32?
+  width : Int32?
+  height : Int32?
+  rotation : Int32?
 }
 
 ///|
@@ -270,7 +270,7 @@ pub extend PptxReadingBucket with Eq::{equal, not_equal}
 ///|
 pub struct PptxReadingOrderHint {
   bucket : PptxReadingBucket
-  priority : Int
+  priority : Int32
   order_key : String
   confidence : PptxConfidence
   reason : String
@@ -329,7 +329,7 @@ pub extend PptxBulletKind with Eq::{equal, not_equal}
 
 ///|
 pub struct PptxListHint {
-  level : Int
+  level : Int32
   bullet : PptxBulletKind?
   source : String
   confidence : PptxConfidence
@@ -406,18 +406,18 @@ pub struct PptxMediaRef {
 
 ///|
 pub struct PptxTableCell {
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   paragraphs : Array[PptxParagraph]
-  grid_span : Int?
-  row_span : Int?
+  grid_span : Int32?
+  row_span : Int32?
   merge_hint : String?
   source_key : PptxSourceKey
 }
 
 ///|
 pub struct PptxTableRow {
-  row_index : Int
+  row_index : Int32
   cells : Array[PptxTableCell]
   source_key : PptxSourceKey
 }
@@ -592,7 +592,7 @@ pub struct PptxSourceDocument {
 ///|
 pub struct PptxSlide {
   slide_id : String?
-  slide_index : Int
+  slide_index : Int32
   part_name : String
   relationship_id : String?
   hidden : Bool
@@ -648,24 +648,24 @@ pub struct PptxComment {
 
 ///|
 priv struct PptxParseBudget {
-  max_slides : Int
-  max_shapes_per_slide : Int
-  max_group_depth : Int
-  max_child_shapes_per_group : Int
-  max_table_cells : Int
-  max_table_text_runs : Int
-  max_table_grid_span : Int
-  max_table_row_output_cells : Int
-  max_table_output_cells : Int
-  max_notes_comments_per_slide : Int
-  max_relationships_per_part : Int
-  max_media_exports_per_deck : Int
-  max_media_bytes_per_asset : Int
-  max_media_bytes_total : Int
-  max_layout_master_candidates : Int
-  max_geometry_comparisons : Int
-  max_custom_properties : Int
-  max_total_source_nodes : Int
+  max_slides : Int32
+  max_shapes_per_slide : Int32
+  max_group_depth : Int32
+  max_child_shapes_per_group : Int32
+  max_table_cells : Int32
+  max_table_text_runs : Int32
+  max_table_grid_span : Int32
+  max_table_row_output_cells : Int32
+  max_table_output_cells : Int32
+  max_notes_comments_per_slide : Int32
+  max_relationships_per_part : Int32
+  max_media_exports_per_deck : Int32
+  max_media_bytes_per_asset : Int32
+  max_media_bytes_total : Int32
+  max_layout_master_candidates : Int32
+  max_geometry_comparisons : Int32
+  max_custom_properties : Int32
+  max_total_source_nodes : Int32
 }
 
 ///|

@@ -3,6 +3,8 @@ import {
   "ZSeanYves/markitdown/lib/rag",
 }
 
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

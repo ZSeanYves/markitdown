@@ -3,8 +3,15 @@ const DEFAULT_CONTENT_TYPE : String = "text/plain; charset=utf-8"
 
 ///|
 pub fn parse_eml_message(text : String) -> EmlMessage raise {
-  let normalized = eml_normalize_newlines(text)
-  let root = eml_parse_entity(normalized, 0, "/")
+  eml_parse_wire_message(eml_wire_from_text(text), eml_normalize_newlines(text))
+}
+
+///|
+fn eml_parse_wire_message(
+  owner : EmlWireOwner,
+  normalized : String,
+) -> EmlMessage raise {
+  let root = eml_parse_entity(eml_wire_whole(owner), 0, "/")
   let text_plain : Array[EmlPart] = []
   let text_html : Array[EmlPart] = []
   let attachments : Array[EmlAttachment] = []
@@ -30,14 +37,16 @@ pub fn parse_eml_message(text : String) -> EmlMessage raise {
 
 ///|
 fn eml_parse_entity(
-  raw : String,
-  depth : Int,
+  raw : EmlWireRange,
+  depth : Int32,
   pointer : String,
 ) -> EmlPart raise {
   if depth > 8 {
-    raise ParseError("maximum eml nesting depth exceeded")
+    raise LimitExceeded(NestingDepth, observed=depth.to_int64(), limit=8L)
   }
-  let (header_text, body_text) = eml_split_headers_and_body(raw)
+  let (header_range, body_range) = eml_wire_headers_body(raw)
+  let header_text = eml_wire_text(header_range)
+  let body_text = eml_wire_text(body_range)
   let headers = eml_parse_headers(header_text)
   let header_map = eml_header_map(headers)
   let content_type = header_map.content_type.unwrap_or(DEFAULT_CONTENT_TYPE)
@@ -80,27 +89,20 @@ fn eml_parse_entity(
     children: [],
     raw_body: body_text,
   }
-  eml_lower_entity_body(part, body_text, depth, pointer)
+  eml_lower_entity_body(part, body_range, body_text, depth, pointer)
 }
 
 ///|
 pub fn decode_eml_source_text(bytes : Bytes) -> String {
-  @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => {
-      let chars : Array[Char] = []
-      for byte in bytes.to_array() {
-        chars.push(Int::unsafe_to_char(byte.to_int()))
-      }
-      String::from_array(chars)
-    }
-  }
+  eml_wire_text_and_owner(bytes).0
 }
 
 ///|
 fn eml_lower_entity_body(
   part : EmlPart,
+  body_range : EmlWireRange,
   body_text : String,
-  depth : Int,
+  depth : Int32,
   pointer : String,
 ) -> EmlPart raise {
   if part.summary.media_type == "multipart" {
@@ -108,22 +110,17 @@ fn eml_lower_entity_body(
       Some(value) if value.trim() != "" => value.trim().to_owned()
       _ => raise ParseError("multipart part missing boundary")
     }
-    let children = eml_split_multipart_parts(body_text, boundary)
-    if children.length() > 1_024 {
-      raise ParseError("maximum eml multipart child count exceeded")
-    }
+    // Discover bounded ranges before decoding any child: structural overflow
+    // keeps precedence over a malformed first child's supported charset.
+    let children = eml_multipart_ranges(body_range, boundary)
     let lowered : Array[EmlPart] = []
     for i in 0..<children.length() {
       let child_pointer = pointer + "/parts/" + i.to_string()
       let child = eml_parse_entity(children[i], depth + 1, child_pointer) catch {
-        err => {
-          let message = err.to_string()
-          if message.contains("maximum eml nesting depth") ||
-            message.contains("maximum eml multipart child count") {
-            raise ParseError(message)
-          }
-          eml_recovered_raw_part(children[i], child_pointer)
-        }
+        InvalidEncoding(message) => raise InvalidEncoding(message)
+        LimitExceeded(kind, observed~, limit~) =>
+          raise LimitExceeded(kind, observed~, limit~)
+        _ => eml_recovered_raw_part(eml_wire_text(children[i]), child_pointer)
       }
       lowered.push({ ..child, index: i, })
     }
@@ -133,10 +130,11 @@ fn eml_lower_entity_body(
       body_text,
       part.summary.transfer_encoding,
       part.summary.charset,
+      strict_text=false,
     )
     let normalized_child = eml_normalize_newlines(decoded.0)
     let child = eml_parse_entity(
-      normalized_child,
+      eml_wire_whole(eml_wire_from_text(decoded.0)),
       depth + 1,
       pointer + "/message",
     )
@@ -183,6 +181,7 @@ fn eml_lower_entity_body(
           body_text,
           part.summary.transfer_encoding,
           part.summary.charset,
+          strict_text=eml_is_textual_mime(part.summary.mime_type),
         )
         let body = {
           text: decoded.0,
@@ -268,7 +267,7 @@ pub fn materialize_attachment_payload(
   attachment : EmlAttachment,
   want_text : Bool,
   want_bytes : Bool,
-) -> EmlAttachment {
+) -> EmlAttachment raise {
   if !want_text && !want_bytes {
     return attachment
   }
@@ -281,6 +280,9 @@ pub fn materialize_attachment_payload(
     attachment.raw_text,
     attachment.transfer_encoding,
     attachment.summary.charset,
+    // Binary attachments preserve the established byte materialization
+    // policy; strict charset validation applies when text is requested.
+    strict_text=want_text,
   )
   {
     file_name: attachment.file_name,
@@ -376,14 +378,6 @@ fn eml_disposition_filename_opt(
 }
 
 ///|
-fn eml_split_headers_and_body(raw : String) -> (String, String) {
-  match raw.split_once("\n\n") {
-    Some((headers, body)) => (headers.to_owned(), body.to_owned())
-    None => (raw, "")
-  }
-}
-
-///|
 fn eml_parse_headers(header_text : String) -> Array[EmlHeader] raise {
   let out : Array[EmlHeader] = []
   if header_text.trim() == "" {
@@ -433,7 +427,7 @@ fn eml_parse_headers(header_text : String) -> Array[EmlHeader] raise {
 }
 
 ///|
-fn eml_header_map(headers : Array[EmlHeader]) -> EmlHeaderMap {
+fn eml_header_map(headers : Array[EmlHeader]) -> EmlHeaderMap raise {
   {
     subject: eml_decoded_header_value(headers, "Subject"),
     from: eml_decoded_header_value(headers, "From"),
@@ -455,8 +449,11 @@ fn eml_header_map(headers : Array[EmlHeader]) -> EmlHeaderMap {
 fn eml_decoded_header_value(
   headers : Array[EmlHeader],
   name : String,
-) -> String? {
-  eml_header_value(headers, name).map(eml_decode_encoded_words)
+) -> String? raise {
+  match eml_header_value(headers, name) {
+    Some(value) => Some(eml_decode_encoded_words(value))
+    None => None
+  }
 }
 
 ///|
@@ -488,7 +485,7 @@ fn eml_transfer_encoding(raw : String?) -> EmlTransferEncoding {
 }
 
 ///|
-fn eml_parse_disposition(raw : String?) -> (EmlDispositionKind, String?)? {
+fn eml_parse_disposition(raw : String?) -> (EmlDispositionKind, String?)? raise {
   let value = match raw {
     Some(v) if v.trim() != "" => v.trim().to_owned()
     _ => return None
@@ -519,12 +516,12 @@ fn eml_media_type(mime_type : String) -> String {
 }
 
 ///|
-fn eml_content_type_param(content_type : String, key : String) -> String? {
+fn eml_content_type_param(content_type : String, key : String) -> String? raise {
   eml_header_param(content_type, key)
 }
 
 ///|
-fn eml_header_param(value : String, key : String) -> String? {
+fn eml_header_param(value : String, key : String) -> String? raise {
   let target = key.trim().to_lower().to_owned()
   let parts = value.split(";").to_array()
   let continuation : Array[String] = []
@@ -597,45 +594,12 @@ fn eml_normalize_newlines(text : String) -> String {
 }
 
 ///|
-fn eml_split_multipart_parts(body : String, boundary : String) -> Array[String] {
-  let lines = body.split("\n").to_array().map(line => line.to_owned())
-  let marker = "--" + boundary
-  let end_marker = marker + "--"
-  let current : Array[String] = []
-  let parts : Array[String] = []
-  let mut active = false
-  for line in lines {
-    if line == marker || line.trim() == marker {
-      if active && current.length() > 0 {
-        parts.push(current.join("\n").trim().to_owned())
-        current.clear()
-      }
-      active = true
-      continue
-    }
-    if line == end_marker || line.trim() == end_marker {
-      if active && current.length() > 0 {
-        parts.push(current.join("\n").trim().to_owned())
-      }
-      current.clear()
-      break
-    }
-    if active {
-      current.push(line)
-    }
-  }
-  if active && current.length() > 0 {
-    parts.push(current.join("\n").trim().to_owned())
-  }
-  parts.filter(part => part.trim() != "")
-}
-
-///|
 fn eml_decode_body_text(
   raw : String,
   encoding : EmlTransferEncoding,
   charset : String?,
-) -> (String, Bool, Bytes?) {
+  strict_text~ : Bool = true,
+) -> (String, Bool, Bytes?) raise {
   match encoding {
     Base64 => {
       let compact = raw
@@ -646,7 +610,11 @@ fn eml_decode_body_text(
       }
       match decoded {
         Some(bytes) => {
-          let decoded_text = eml_decode_text_bytes_with_charset(bytes, charset)
+          let decoded_text = eml_decode_text_bytes_with_charset(
+            bytes,
+            charset,
+            strict=strict_text,
+          )
           (decoded_text.0, decoded_text.1, Some(bytes))
         }
         None => (raw, false, None)
@@ -654,7 +622,11 @@ fn eml_decode_body_text(
     }
     QuotedPrintable => {
       let bytes = eml_decode_quoted_printable(raw)
-      let decoded_text = eml_decode_text_bytes_with_charset(bytes, charset)
+      let decoded_text = eml_decode_text_bytes_with_charset(
+        bytes,
+        charset,
+        strict=strict_text,
+      )
       (decoded_text.0, decoded_text.1, Some(bytes))
     }
     _ => {
@@ -668,7 +640,10 @@ fn eml_decode_body_text(
 fn eml_decode_text_bytes_with_charset(
   bytes : Bytes,
   charset : String?,
-) -> (String, Bool) {
+  strict~ : Bool = true,
+) -> (String, Bool) raise {
+  // Charset selection may preserve an explicitly unsupported charset, but a
+  // malformed payload in a supported textual charset is a hard failure.
   let normalized = charset
     .map(value => {
       value.trim().to_lower().replace_all(old="_", new="-").to_owned()
@@ -681,7 +656,12 @@ fn eml_decode_text_bytes_with_charset(
           _ => None
         }) {
         Some(text) => (text, true)
-        None => (eml_decode_text_bytes(bytes), false)
+        None =>
+          if strict {
+            raise InvalidEncoding("invalid utf-8 text payload")
+          } else {
+            (eml_decode_text_bytes(bytes), false)
+          }
       }
     "us-ascii" | "ascii" =>
       match
@@ -689,14 +669,20 @@ fn eml_decode_text_bytes_with_charset(
           _ => None
         }) {
         Some(text) => (text, true)
-        None => (eml_decode_single_byte_text(bytes, false), false)
+        None =>
+          if strict {
+            raise InvalidEncoding("invalid us-ascii text payload")
+          } else {
+            (eml_decode_single_byte_text(bytes, false), false)
+          }
       }
     "iso-8859-1" | "iso8859-1" | "latin1" | "latin-1" =>
       (eml_decode_single_byte_text(bytes, false), true)
     "windows-1252" | "cp1252" =>
       (eml_decode_single_byte_text(bytes, true), true)
-    "utf-16" | "utf-16le" => (eml_decode_utf16_text(bytes, false), true)
-    "utf-16be" => (eml_decode_utf16_text(bytes, true), true)
+    "utf-16" | "utf-16le" =>
+      (eml_decode_utf16_text(bytes, false, strict~), true)
+    "utf-16be" => (eml_decode_utf16_text(bytes, true, strict~), true)
     _ => (eml_decode_text_bytes(bytes), false)
   }
 }
@@ -711,13 +697,13 @@ fn eml_decode_single_byte_text(bytes : Bytes, windows_1252 : Bool) -> String {
     } else {
       value
     }
-    chars.push(Int::unsafe_to_char(codepoint))
+    chars.push(Int32::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
 }
 
 ///|
-fn eml_windows_1252_codepoint(value : Int) -> Int {
+fn eml_windows_1252_codepoint(value : Int32) -> Int32 {
   let table = [
     0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030,
     0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C,
@@ -728,7 +714,11 @@ fn eml_windows_1252_codepoint(value : Int) -> Int {
 }
 
 ///|
-fn eml_decode_utf16_text(bytes : Bytes, big_endian : Bool) -> String {
+fn eml_decode_utf16_text(
+  bytes : Bytes,
+  big_endian : Bool,
+  strict~ : Bool,
+) -> String raise {
   let values = bytes.to_array()
   let chars : Array[Char] = []
   let mut i = 0
@@ -761,19 +751,25 @@ fn eml_decode_utf16_text(bytes : Bytes, big_endian : Bool) -> String {
       }
       if low >= 0xDC00 && low <= 0xDFFF {
         chars.push(
-          Int::unsafe_to_char(0x10000 + (unit - 0xD800) * 1024 + low - 0xDC00),
+          Int32::unsafe_to_char(0x10000 + (unit - 0xD800) * 1024 + low - 0xDC00),
         )
         i += 2
         continue
       }
     }
     if unit >= 0xD800 && unit <= 0xDFFF {
+      if strict {
+        raise InvalidEncoding("invalid utf-16 surrogate in text payload")
+      }
       chars.push('\u{FFFD}')
     } else {
-      chars.push(Int::unsafe_to_char(unit))
+      chars.push(Int32::unsafe_to_char(unit))
     }
   }
   if i < values.length() {
+    if strict {
+      raise InvalidEncoding("odd utf-16 text payload byte count")
+    }
     chars.push('\u{FFFD}')
   }
   String::from_array(chars)
@@ -787,7 +783,7 @@ fn eml_decode_text_bytes(bytes : Bytes) -> String {
         _ => {
           let chars : Array[Char] = []
           for byte in bytes.to_array() {
-            chars.push(Int::unsafe_to_char(byte.to_int()))
+            chars.push(Int32::unsafe_to_char(byte.to_int()))
           }
           String::from_array(chars)
         }
@@ -796,7 +792,7 @@ fn eml_decode_text_bytes(bytes : Bytes) -> String {
 }
 
 ///|
-fn eml_decode_encoded_words(value : String) -> String {
+fn eml_decode_encoded_words(value : String) -> String raise {
   let pieces : Array[String] = []
   let mut rest = value
   while true {
@@ -870,7 +866,7 @@ fn eml_decode_encoded_words(value : String) -> String {
 }
 
 ///|
-fn eml_decode_rfc2231_value(value : String) -> String {
+fn eml_decode_rfc2231_value(value : String) -> String raise {
   let stripped = eml_strip_quotes(value)
   let (charset, encoded) = match stripped.split_once("''") {
     Some((left, right)) => (Some(left.to_owned()), right.to_owned())
@@ -944,7 +940,7 @@ fn eml_decode_quoted_printable(raw : String) -> Bytes {
 }
 
 ///|
-fn eml_hex_value(ch : Char) -> Int? {
+fn eml_hex_value(ch : Char) -> Int32? {
   let code = ch.to_int()
   if code >= '0'.to_int() && code <= '9'.to_int() {
     Some(code - '0'.to_int())

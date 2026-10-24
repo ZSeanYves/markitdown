@@ -40,6 +40,6 @@ pub fn inspect_odp_document(document : OdpDocument) -> OdpInspectReport {
 }
 
 ///|
-pub fn open_odp_document(bytes : Bytes) -> OdpDocument raise {
+pub async fn open_odp_document(bytes : Bytes) -> OdpDocument {
   @shared.open_odp_document(bytes)
 }

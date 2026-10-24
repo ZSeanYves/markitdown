@@ -41,13 +41,13 @@ pub fn chunks_from_document(
     text_source_refs : Array[@core.SourceRef],
     text_asset_refs : Array[String],
     text_heading_path : Array[String],
-    text_char_count : Int,
+    text_char_count : Int32,
     text_contains_raw : Bool,
-    ordinal : Int,
+    ordinal : Int32,
     document_format : String,
     document_title : String?,
     options : RagOptions,
-  ) -> Int {
+  ) -> Int32 {
     if text_units.length() == 0 || text_char_count <= 0 {
       return ordinal
     }
@@ -75,12 +75,12 @@ pub fn chunks_from_document(
     chunks : Array[RagChunk],
     block : @core.CoreBlock,
     heading_path : Array[String],
-    ordinal : Int,
+    ordinal : Int32,
     document_format : String,
     document_title : String?,
     options : RagOptions,
     assets : Array[@core.AssetRef],
-  ) -> Int {
+  ) -> Int32 {
     let special_chunks = block_to_special_chunks(
       block, heading_path, ordinal, document_format, document_title, options, assets,
     )
@@ -232,7 +232,7 @@ pub fn chunks_from_document(
 ///|
 priv struct ChunkUnit {
   text : String
-  char_count : Int
+  char_count : Int32
   block_kind : String
   force_single_chunk : Bool
 }
@@ -241,7 +241,7 @@ priv struct ChunkUnit {
 fn metadata_chunk(
   document : @core.DocumentIR,
   options : RagOptions,
-  ordinal : Int,
+  ordinal : Int32,
   document_format : String,
   document_title : String?,
 ) -> RagChunk? {
@@ -427,7 +427,7 @@ fn block_to_text_unit(block : @core.CoreBlock) -> ChunkUnit? {
 fn block_to_special_chunks(
   block : @core.CoreBlock,
   heading_path : Array[String],
-  ordinal_start : Int,
+  ordinal_start : Int32,
   document_format : String,
   document_title : String?,
   options : RagOptions,
@@ -458,7 +458,7 @@ fn build_text_chunks(
   asset_refs : Array[String],
   heading_path : Array[String],
   contains_raw : Bool,
-  ordinal_start : Int,
+  ordinal_start : Int32,
   document_format : String,
   document_title : String?,
   options : RagOptions,
@@ -519,8 +519,8 @@ fn build_text_chunks(
 ///|
 fn split_text_units(
   units : Array[ChunkUnit],
-  chunk_size : Int,
-  chunk_overlap : Int,
+  chunk_size : Int32,
+  chunk_overlap : Int32,
 ) -> Array[Array[ChunkUnit]] {
   let slices : Array[Array[ChunkUnit]] = []
   let mut i = 0
@@ -571,7 +571,7 @@ fn split_text_units(
 fn table_chunks_from_block(
   block : @core.CoreBlock,
   heading_path : Array[String],
-  ordinal_start : Int,
+  ordinal_start : Int32,
   document_format : String,
   document_title : String?,
   options : RagOptions,
@@ -715,7 +715,7 @@ fn render_sparse_table_row(block : @core.CoreBlock) -> String {
 }
 
 ///|
-fn sparse_table_row_width_for_rag(block : @core.CoreBlock) -> Int {
+fn sparse_table_row_width_for_rag(block : @core.CoreBlock) -> Int32 {
   if block.children.length() == 0 {
     return sparse_table_declared_width_for_rag(block)
   }
@@ -730,7 +730,7 @@ fn sparse_table_row_width_for_rag(block : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn sparse_table_cell_column_index_for_rag(cell : @core.CoreBlock) -> Int {
+fn sparse_table_cell_column_index_for_rag(cell : @core.CoreBlock) -> Int32 {
   match cell.column_index {
     Some(value) => value
     None =>
@@ -742,7 +742,7 @@ fn sparse_table_cell_column_index_for_rag(cell : @core.CoreBlock) -> Int {
 }
 
 ///|
-fn sparse_table_declared_width_for_rag(block : @core.CoreBlock) -> Int {
+fn sparse_table_declared_width_for_rag(block : @core.CoreBlock) -> Int32 {
   match block.attrs.get("declared_column_count") {
     Some(raw) => @string.parse_int(raw.trim()) catch { _ => 0 }
     None => 0
@@ -753,7 +753,7 @@ fn sparse_table_declared_width_for_rag(block : @core.CoreBlock) -> Int {
 fn code_chunks_from_block(
   block : @core.CoreBlock,
   heading_path : Array[String],
-  ordinal_start : Int,
+  ordinal_start : Int32,
   document_format : String,
   document_title : String?,
   options : RagOptions,
@@ -831,7 +831,7 @@ fn code_chunks_from_block(
 fn image_chunks_from_block(
   block : @core.CoreBlock,
   heading_path : Array[String],
-  ordinal_start : Int,
+  ordinal_start : Int32,
   document_format : String,
   document_title : String?,
   options : RagOptions,
@@ -959,7 +959,7 @@ fn inline_text(inlines : Array[@core.CoreInline]) -> String {
 }
 
 ///|
-fn list_block_text(block : @core.CoreBlock, depth : Int) -> String {
+fn list_block_text(block : @core.CoreBlock, depth : Int32) -> String {
   if block.children.length() == 0 {
     return list_item_text(block, 1, false, depth)
   }
@@ -974,9 +974,9 @@ fn list_block_text(block : @core.CoreBlock, depth : Int) -> String {
 ///|
 fn list_item_text(
   block : @core.CoreBlock,
-  index : Int,
+  index : Int32,
   ordered : Bool,
-  depth : Int,
+  depth : Int32,
 ) -> String {
   let is_ordered = ordered ||
     block.attrs.get("ordered").unwrap_or("false") == "true"

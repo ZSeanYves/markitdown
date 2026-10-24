@@ -32,9 +32,9 @@ fn lower_docx_inlines(
     rich_inlines : Array[@core.CoreInline],
     nested : DocxInlineLowering,
     has_link : Ref[Bool],
-    image_count : Ref[Int],
-    hyperlink_count : Ref[Int],
-    tracked_change_count : Ref[Int],
+    image_count : Ref[Int32],
+    hyperlink_count : Ref[Int32],
+    tracked_change_count : Ref[Int32],
   ) -> Unit {
     if nested.plain_text != "" {
       plain.write_string(nested.plain_text)
@@ -54,9 +54,9 @@ fn lower_docx_inlines(
     plain : StringBuilder,
     rich_inlines : Array[@core.CoreInline],
     has_link : Ref[Bool],
-    image_count : Ref[Int],
-    hyperlink_count : Ref[Int],
-    tracked_change_count : Ref[Int],
+    image_count : Ref[Int32],
+    hyperlink_count : Ref[Int32],
+    tracked_change_count : Ref[Int32],
   ) -> Bool {
     if !@product.accurate_feature_enabled(
         state.accurate_features,
@@ -126,9 +126,9 @@ fn lower_docx_inlines(
   }
 
   let has_link_ref : Ref[Bool] = { val: false, }
-  let image_count_ref : Ref[Int] = { val: 0, }
-  let hyperlink_count_ref : Ref[Int] = { val: 0, }
-  let tracked_change_count_ref : Ref[Int] = { val: 0, }
+  let image_count_ref : Ref[Int32] = { val: 0, }
+  let hyperlink_count_ref : Ref[Int32] = { val: 0, }
+  let tracked_change_count_ref : Ref[Int32] = { val: 0, }
 
   for inline in inlines {
     match inline {
@@ -440,7 +440,7 @@ fn lower_docx_media_inline(
   media : @ddocx.DocxMediaRef,
   shape_id : String?,
   alternate_media : Array[@ddocx.DocxMediaRef],
-) -> Int {
+) -> Int32 {
   match media.target_mode {
     Some(External) => {
       state.diagnostics.warnings.push(
@@ -496,16 +496,6 @@ fn lower_docx_media_inline(
     return 0
   }
   if !docx_asset_within_budget(state, target_part) {
-    docx_record_asset_budget_skip(state, "docx:" + target_part, target_part)
-    let placeholder = "[image: " + alt + "]"
-    plain.write_string(placeholder)
-    rich_inlines.push(
-      @core.inline_with_attr(
-        @core.make_inline_text(placeholder, source_ref~),
-        "render_literal",
-        "true",
-      ),
-    )
     return 0
   }
   let output_path = docx_asset_output_path(state, target_part, media)

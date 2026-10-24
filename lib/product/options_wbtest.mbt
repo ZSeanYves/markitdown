@@ -28,7 +28,7 @@ test "product accurate feature registry covers every feature and format" {
     assert_true(accurate_feature_enabled(profile, entry.0))
   }
   assert_eq(empty_accurate_feature_profile().features.length(), 0)
-  let expected_counts : Array[(@input.DetectedFormat, Int)] = [
+  let expected_counts : Array[(@input.DetectedFormat, Int32)] = [
     (Pdf, 2),
     (Docx, 3),
     (Xlsx, 3),

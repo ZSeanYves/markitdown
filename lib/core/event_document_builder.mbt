@@ -118,7 +118,7 @@ fn simple_event_table_row(
 }
 
 ///|
-fn simple_event_table_width(rows : Array[CoreBlock]) -> Int {
+fn simple_event_table_width(rows : Array[CoreBlock]) -> Int32 {
   let mut width = 0
   for row in rows {
     if row.children.length() > width {
@@ -208,7 +208,7 @@ fn build_document_from_generic_block_events(
 ///|
 priv struct GenericEventCursor {
   events : Array[CoreEvent]
-  mut index : Int
+  mut index : Int32
 }
 
 ///|

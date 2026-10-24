@@ -1,19 +1,20 @@
 ///|
-fn detect_container_format_from_source(
+async fn detect_container_format_from_source(
   source : InputSource,
 ) -> (DetectedFormat, Array[String])? {
   let cursor = match open_source_cursor(source) {
     Ok(value) => value
     Err(_) => return None
   }
-  let size = match cursor.size {
-    Some(value) => value
-    None => return None
+  defer close_cursor_if_unowned(source, cursor)
+  let size = match discover_source_size(cursor) {
+    Ok(value) => value
+    Err(_) => return None
   }
   let tail_length = if size > 65557L { 65557 } else { size.to_int() }
   let tail_offset = size - tail_length.to_int64()
   let tail = match
-    source_cursor_read_at(cursor, tail_offset, length=tail_length) {
+    source_cursor_read_exact_at(cursor, tail_offset, tail_length) {
     Ok(value) => value
     Err(_) => return None
   }
@@ -31,10 +32,10 @@ fn detect_container_format_from_source(
     return None
   }
   let directory = match
-    source_cursor_read_at(
+    source_cursor_read_exact_at(
       cursor,
       directory_offset.to_int64(),
-      length=directory_size,
+      directory_size,
     ) {
     Ok(value) => value
     Err(_) => return None
@@ -43,7 +44,7 @@ fn detect_container_format_from_source(
   let mut has_pptx = false
   let mut has_xlsx = false
   let mut has_epub_container = false
-  let mut mimetype_offset : Int? = None
+  let mut mimetype_offset : Int32? = None
   let mut position = 0
   while position + 46 <= directory.length() {
     if zip_u32(directory, position) != 0x02014B50 {
@@ -134,7 +135,7 @@ fn detect_container_format_from_source(
 }
 
 ///|
-fn find_zip_eocd(tail : Bytes) -> Int? {
+fn find_zip_eocd(tail : Bytes) -> Int32? {
   let mut index = tail.length() - 22
   while index >= 0 {
     if zip_u32(tail, index) == 0x06054B50 {
@@ -146,12 +147,15 @@ fn find_zip_eocd(tail : Bytes) -> Int? {
 }
 
 ///|
-fn read_zip_stored_mimetype(cursor : SourceCursor, offset : Int) -> String? {
+async fn read_zip_stored_mimetype(
+  cursor : SourceCursor,
+  offset : Int32,
+) -> String? {
   if offset < 0 {
     return None
   }
   let header = match
-    source_cursor_read_at(cursor, offset.to_int64(), length=30) {
+    source_cursor_read_exact_at(cursor, offset.to_int64(), 30) {
     Ok(value) => value
     Err(_) => return None
   }
@@ -167,7 +171,7 @@ fn read_zip_stored_mimetype(cursor : SourceCursor, offset : Int) -> String? {
   }
   let data_offset = offset + 30 + name_length + extra_length
   let payload = match
-    source_cursor_read_at(cursor, data_offset.to_int64(), length=payload_size) {
+    source_cursor_read_exact_at(cursor, data_offset.to_int64(), payload_size) {
     Ok(value) => value
     Err(_) => return None
   }
@@ -177,7 +181,7 @@ fn read_zip_stored_mimetype(cursor : SourceCursor, offset : Int) -> String? {
 }
 
 ///|
-fn zip_u16(bytes : Bytes, offset : Int) -> Int {
+fn zip_u16(bytes : Bytes, offset : Int32) -> Int32 {
   if offset < 0 || offset + 2 > bytes.length() {
     return -1
   }
@@ -185,7 +189,7 @@ fn zip_u16(bytes : Bytes, offset : Int) -> Int {
 }
 
 ///|
-fn zip_u32(bytes : Bytes, offset : Int) -> Int {
+fn zip_u32(bytes : Bytes, offset : Int32) -> Int32 {
   if offset < 0 || offset + 4 > bytes.length() {
     return -1
   }
@@ -253,7 +257,7 @@ fn detect_format_from_mime(
 }
 
 ///|
-fn detect_format_from_magic_or_container(
+async fn detect_format_from_magic_or_container(
   bytes : Bytes,
 ) -> (DetectedFormat, Array[String])? {
   let arr = bytes.to_array()
@@ -377,7 +381,7 @@ fn detect_format_from_text_magic(
 }
 
 ///|
-fn detect_container_format_from_zip(
+async fn detect_container_format_from_zip(
   bytes : Bytes,
 ) -> (DetectedFormat, Array[String])? {
   let archive = try @zip.open_zip(bytes) |> Ok catch {
@@ -495,20 +499,24 @@ fn decode_utf8_trimmed(bytes : Bytes) -> String? {
 }
 
 ///|
-fn bytes_prefix_ascii(arr : Array[Byte], start : Int, length : Int) -> String {
+fn bytes_prefix_ascii(
+  arr : Array[Byte],
+  start : Int32,
+  length : Int32,
+) -> String {
   let chars : Array[Char] = []
   let end_index = start + length
   if arr.length() < end_index {
     return ""
   }
   for i in start..<end_index {
-    chars.push(Int::unsafe_to_char(byte_to_int(arr[i])))
+    chars.push(Int32::unsafe_to_char(byte_to_int(arr[i])))
   }
   String::from_array(chars)
 }
 
 ///|
-fn byte_to_int(b : Byte) -> Int {
+fn byte_to_int(b : Byte) -> Int32 {
   let v = b.to_int()
   if v >= 0 {
     v

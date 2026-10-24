@@ -99,7 +99,7 @@ pub fn with_unset_env_var(name : String, body : () -> Unit raise) -> Unit raise 
 ///|
 priv suberror HermeticProcessError {
   SpawnFailed(String)
-  NonZeroExit(Int, String)
+  NonZeroExit(Int32, String)
 }
 
 ///|

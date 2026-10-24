@@ -21,7 +21,7 @@ async test "atomic file writer abort does not publish a partial target" {
   let path = root + "/output.md"
   let writer = open_atomic_file_writer(path).unwrap()
   atomic_file_writer_write(writer, "partial").unwrap()
-  atomic_file_writer_abort(writer)
+  atomic_file_writer_abort(writer).unwrap()
   assert_false(@fs.path_exists(path))
 }
 

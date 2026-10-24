@@ -1,5 +1,5 @@
 ///|
-fn xlsx_preflight_probe(
+async fn xlsx_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -53,7 +53,7 @@ fn xlsx_preflight_probe(
 }
 
 ///|
-fn docx_probe_block_count(blocks : Array[@ddocx.DocxBlock]) -> Int {
+fn docx_probe_block_count(blocks : Array[@ddocx.DocxBlock]) -> Int32 {
   let mut count = 0
   for block in blocks {
     count += 1
@@ -66,7 +66,7 @@ fn docx_probe_block_count(blocks : Array[@ddocx.DocxBlock]) -> Int {
 }
 
 ///|
-fn docx_probe_image_count_inlines(inlines : Array[@ddocx.DocxInline]) -> Int {
+fn docx_probe_image_count_inlines(inlines : Array[@ddocx.DocxInline]) -> Int32 {
   let mut count = 0
   for inline in inlines {
     match inline {
@@ -100,7 +100,7 @@ fn docx_probe_image_count_inlines(inlines : Array[@ddocx.DocxInline]) -> Int {
 }
 
 ///|
-fn docx_probe_image_count_blocks(blocks : Array[@ddocx.DocxBlock]) -> Int {
+fn docx_probe_image_count_blocks(blocks : Array[@ddocx.DocxBlock]) -> Int32 {
   let mut count = 0
   for block in blocks {
     match block {
@@ -123,7 +123,7 @@ fn docx_probe_image_count_blocks(blocks : Array[@ddocx.DocxBlock]) -> Int {
 }
 
 ///|
-fn docx_preflight_probe(
+async fn docx_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -169,7 +169,7 @@ fn docx_preflight_probe(
 }
 
 ///|
-fn pptx_probe_text_block_count(presentation : @pptxdoc.PptxDocument) -> Int {
+fn pptx_probe_text_block_count(presentation : @pptxdoc.PptxDocument) -> Int32 {
   let mut count = 0
   for slide in presentation.slides {
     for obj in slide.objects {
@@ -193,16 +193,20 @@ fn pptx_probe_text_block_count(presentation : @pptxdoc.PptxDocument) -> Int {
 }
 
 ///|
-fn pptx_preflight_probe(
+async fn pptx_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
   let prepared = match @pptxdoc.prepare_pptx_document_from_source(source) {
     Ok(value) => value
-    Err(_) =>
-      return probe_outcome("pptx", ["probe_failed"], source, probe_failures=[
-        make_probe_failure("pptx", "probe_failed"),
-      ])
+    Err(message) =>
+      return probe_outcome(
+        "pptx",
+        ["probe_failed"],
+        source,
+        probe_failures=[make_probe_failure("pptx", message)],
+        probe_artifacts=[PptxPreparationFailed(message)],
+      )
   }
   let presentation = prepared.document
   let inspect = @pptxdoc.inspect_pptx_document(presentation)
@@ -243,7 +247,7 @@ fn pptx_preflight_probe(
 }
 
 ///|
-fn odt_preflight_probe(
+async fn odt_preflight_probe(
   source : @input.InputSource,
   _options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -274,7 +278,7 @@ fn odt_preflight_probe(
 }
 
 ///|
-fn ods_preflight_probe(
+async fn ods_preflight_probe(
   source : @input.InputSource,
   _options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -308,7 +312,7 @@ fn ods_preflight_probe(
 }
 
 ///|
-fn odp_preflight_probe(
+async fn odp_preflight_probe(
   source : @input.InputSource,
   _options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -336,7 +340,7 @@ fn odp_preflight_probe(
 }
 
 ///|
-fn zip_preflight_probe(
+async fn zip_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -367,7 +371,7 @@ fn zip_preflight_probe(
 }
 
 ///|
-fn epub_preflight_probe(
+async fn epub_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {

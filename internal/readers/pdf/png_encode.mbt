@@ -1,13 +1,13 @@
 ///|
-const PDF_PNG_MAX_PIXELS : Int = 32 * 1024 * 1024
+const PDF_PNG_MAX_PIXELS : Int32 = 32 * 1024 * 1024
 
 ///|
-fn pdf_png_u32be_byte(value : UInt, offset : Int) -> Byte {
+fn pdf_png_u32be_byte(value : UInt32, offset : Int32) -> Byte {
   ((value >> ((3 - offset) * 8)) & 0xFF).reinterpret_as_int().to_byte()
 }
 
 ///|
-fn pdf_png_crc32_update(crc : UInt, byte : Byte) -> UInt {
+fn pdf_png_crc32_update(crc : UInt32, byte : Byte) -> UInt32 {
   let mut next = crc ^ byte.to_int().reinterpret_as_uint()
   for _ in 0..<8 {
     next = if (next & 1) != 0 { (next >> 1) ^ 0xEDB88320 } else { next >> 1 }
@@ -16,8 +16,8 @@ fn pdf_png_crc32_update(crc : UInt, byte : Byte) -> UInt {
 }
 
 ///|
-fn pdf_png_crc32(kind : Bytes, data : Bytes) -> UInt {
-  let mut crc : UInt = 0xFFFFFFFF
+fn pdf_png_crc32(kind : Bytes, data : Bytes) -> UInt32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for byte in kind {
     crc = pdf_png_crc32_update(crc, byte)
   }
@@ -47,9 +47,9 @@ fn pdf_png_chunk(kind : String, data : Bytes) -> Bytes {
 ///|
 fn pdf_encode_png_8bit(
   pixels : Bytes,
-  width : Int,
-  height : Int,
-  channels : Int,
+  width : Int32,
+  height : Int32,
+  channels : Int32,
 ) -> Bytes? {
   if width <= 0 ||
     height <= 0 ||
@@ -110,8 +110,8 @@ fn pdf_encode_png_8bit(
 ///|
 fn pdf_expand_1bit_grayscale(
   packed : Bytes,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
   invert : Bool,
 ) -> Bytes? {
   if width <= 0 ||

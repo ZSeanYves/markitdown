@@ -32,7 +32,7 @@ test "ODF repeated row and column counts enforce bounded positive values" {
 }
 
 ///|
-test "ODS extracts sheet-local drawing images and package bytes" {
+async test "ODS extracts sheet-local drawing images and package bytes" {
   let content =
     #|<office:document-content><office:body><office:spreadsheet>
     #|  <table:table table:name="Images">
@@ -60,7 +60,7 @@ test "ODS extracts sheet-local drawing images and package bytes" {
 }
 
 ///|
-test "ODP groups preserve nested frame reading order and depth" {
+async test "ODP groups preserve nested frame reading order and depth" {
   let content =
     #|<?xml version="1.0" encoding="UTF-8"?>
     #|<office:document-content>
@@ -99,7 +99,7 @@ test "ODP groups preserve nested frame reading order and depth" {
 }
 
 ///|
-test "ODT repeated spaces rows and cells expand within materialization limits" {
+async test "ODT repeated spaces rows and cells expand within materialization limits" {
   let content =
     #|<office:document-content><office:body><office:text>
     #|  <text:p>A<text:s text:c="3"/>B</text:p>
@@ -121,7 +121,7 @@ test "ODT repeated spaces rows and cells expand within materialization limits" {
 }
 
 ///|
-test "ODT paragraph styles inherit heading and code semantics" {
+async test "ODT paragraph styles inherit heading and code semantics" {
   let content =
     #|<office:document-content><office:automatic-styles>
     #|  <style:style style:name="ChildHeading" style:family="paragraph" style:parent-style-name="HeadingBase"/>

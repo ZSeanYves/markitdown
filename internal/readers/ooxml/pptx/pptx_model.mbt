@@ -85,7 +85,7 @@ fn normalize_object(
   master_ref : PptxMasterRef?,
   layouts : Array[PptxSourceLayout],
   masters : Array[PptxSourceMaster],
-  source_order : Int,
+  source_order : Int32,
 ) -> PptxObject {
   match obj {
     Shape(shape) => {
@@ -433,7 +433,7 @@ fn reading_reason_for_shape(
 ///|
 fn reading_hint(
   bucket : PptxReadingBucket,
-  source_order : Int,
+  source_order : Int32,
   source_key : PptxSourceKey,
   geometry : PptxGeometry?,
   confidence : PptxConfidence,
@@ -470,7 +470,7 @@ fn reading_hint(
 }
 
 ///|
-fn geometry_sort_pair(geometry : PptxGeometry?) -> (Int, Int) {
+fn geometry_sort_pair(geometry : PptxGeometry?) -> (Int32, Int32) {
   match geometry {
     Some(g) => (normalize_sort_coord(g.y), normalize_sort_coord(g.x))
     None => (999999999, 999999999)
@@ -478,7 +478,7 @@ fn geometry_sort_pair(geometry : PptxGeometry?) -> (Int, Int) {
 }
 
 ///|
-fn normalize_sort_coord(value : Int?) -> Int {
+fn normalize_sort_coord(value : Int32?) -> Int32 {
   let v = value.unwrap_or(999999999)
   if v < 0 {
     0
@@ -490,7 +490,7 @@ fn normalize_sort_coord(value : Int?) -> Int {
 }
 
 ///|
-fn pad_int(value : Int, width : Int) -> String {
+fn pad_int(value : Int32, width : Int32) -> String {
   let mut s = value.to_string()
   while s.length() < width {
     s = "0" + s
@@ -507,7 +507,7 @@ priv struct PptxSlideLayoutInference {
 ///|
 priv struct PptxLayoutObjectInfo {
   source_key : PptxSourceKey
-  object_index : Int
+  object_index : Int32
   kind : PptxObjectKind
   text : String
   name : String?
@@ -524,7 +524,7 @@ fn infer_slide_layout_regions(
   budget : PptxParseBudget,
 ) -> PptxSlideLayoutInference {
   let infos : Array[PptxLayoutObjectInfo] = []
-  let order_ref : Ref[Int] = { val: 0, }
+  let order_ref : Ref[Int32] = { val: 0, }
   collect_layout_object_infos(infos, objects, order_ref)
   let pairs = infer_image_caption_pairs(slide_part, infos, budget)
   let regions = layout_regions_from_pairs(pairs)
@@ -536,7 +536,7 @@ fn infer_slide_layout_regions(
 fn collect_layout_object_infos(
   out : Array[PptxLayoutObjectInfo],
   objects : Array[PptxObject],
-  order_ref : Ref[Int],
+  order_ref : Ref[Int32],
 ) -> Unit {
   for obj in objects {
     order_ref.val += 1
@@ -715,7 +715,7 @@ fn infer_image_caption_pairs(
 fn caption_pair_score(
   image : PptxLayoutObjectInfo,
   caption : PptxLayoutObjectInfo,
-) -> Int {
+) -> Int32 {
   let prefix = caption_prefix_score(caption.text)
   let geom = caption_geometry_score(image.geometry, caption.geometry)
   let order = if caption.object_index >= image.object_index &&
@@ -732,7 +732,7 @@ fn caption_pair_score(
 }
 
 ///|
-fn caption_prefix_score(text : String) -> Int {
+fn caption_prefix_score(text : String) -> Int32 {
   let lower = text.trim().to_lower()
   if lower.has_prefix("figure") ||
     lower.has_prefix("fig.") ||
@@ -747,7 +747,7 @@ fn caption_prefix_score(text : String) -> Int {
 fn caption_geometry_score(
   image_geometry : PptxGeometry?,
   caption_geometry : PptxGeometry?,
-) -> Int {
+) -> Int32 {
   match (image_geometry, caption_geometry) {
     (Some(img), Some(cap)) => {
       let ix = img.x.unwrap_or(0)
@@ -777,7 +777,7 @@ fn caption_geometry_score(
 }
 
 ///|
-fn caption_pair_reason(score : Int, caption : PptxLayoutObjectInfo) -> String {
+fn caption_pair_reason(score : Int32, caption : PptxLayoutObjectInfo) -> String {
   if caption_prefix_score(caption.text) > 0 && score >= 70 {
     "caption-like text near image geometry"
   } else if score >= 70 {
@@ -969,8 +969,8 @@ fn append_card_like_region(
 fn unique_geometry_buckets(
   infos : Array[PptxLayoutObjectInfo],
   use_x : Bool,
-) -> Array[Int] {
-  let buckets : Array[Int] = []
+) -> Array[Int32] {
+  let buckets : Array[Int32] = []
   for info in infos {
     match info.geometry {
       Some(g) => {
@@ -1061,7 +1061,7 @@ fn apply_caption_reading_hints(
 fn apply_caption_reading_hint(
   obj : PptxObject,
   pairs : Array[PptxImageCaptionPair],
-  source_order : Int,
+  source_order : Int32,
 ) -> PptxObject {
   match obj {
     Shape(shape) =>
@@ -1153,7 +1153,7 @@ fn source_key_array_contains(
 }
 
 ///|
-fn int_array_contains(values : Array[Int], target : Int) -> Bool {
+fn int_array_contains(values : Array[Int32], target : Int32) -> Bool {
   for value in values {
     if value == target {
       return true
@@ -1163,7 +1163,7 @@ fn int_array_contains(values : Array[Int], target : Int) -> Bool {
 }
 
 ///|
-fn int_min(a : Int, b : Int) -> Int {
+fn int_min(a : Int32, b : Int32) -> Int32 {
   if a < b {
     a
   } else {
@@ -1172,7 +1172,7 @@ fn int_min(a : Int, b : Int) -> Int {
 }
 
 ///|
-fn int_max(a : Int, b : Int) -> Int {
+fn int_max(a : Int32, b : Int32) -> Int32 {
   if a > b {
     a
   } else {

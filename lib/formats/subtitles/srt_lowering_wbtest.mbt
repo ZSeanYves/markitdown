@@ -25,7 +25,7 @@ test "large SRT record lowering preserves cue metadata and recovery" {
 }
 
 ///|
-test "standard SRT event lowering preserves BOM CRLF identifiers settings and bad cues" {
+async test "standard SRT event lowering preserves BOM CRLF identifiers settings and bad cues" {
   let source = @input.input_from_text_with_format(
     "\u{FEFF}cue-a\r\n00:00:00,000 --> 00:00:02,000 align:start\r\n<b>Hello</b>\r\n<i>Second</i>\r\n\r\nbad\r\nnot a time\r\nraw text\r\n",
     "features.srt",
@@ -132,7 +132,7 @@ test "SRT raw fallback and large scanner edge branches retain source bytes" {
 }
 
 ///|
-test "SRT pull stream reports malformed and truncated records" {
+async test "SRT pull stream reports malformed and truncated records" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Srt),
     None,

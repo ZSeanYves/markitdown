@@ -100,3 +100,27 @@ test "RAG JSON chunk encoding and metrics cover all chunk kinds" {
   assert_true(diagnostics.metrics.get("code_chunk_split_count") == Some("1"))
   assert_true(diagnostics.metrics.get("metadata_chunk_emitted") == Some("true"))
 }
+
+///|
+test "RAG serializers retain identical empty asset output for direct and document inputs" {
+  let document = @core.empty_document_ir()
+  let context = make_render_context(false)
+  let expected = collect_json_fragments(
+    rag_json_cursor(
+      document.metadata,
+      rag_payload(document, context, []),
+      document.diagnostics,
+    ),
+  )
+  for assets in [None, Some([])] {
+    let context = make_render_context(false, assets~)
+    let direct = collect_json_fragments(
+      rag_json_cursor(
+        document.metadata,
+        rag_payload_for_direct_input(context, []),
+        document.diagnostics,
+      ),
+    )
+    assert_eq(direct, expected)
+  }
+}

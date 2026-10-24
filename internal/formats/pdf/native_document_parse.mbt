@@ -3,7 +3,7 @@ pub fn pdf_parse_with_native_document(
   source : @input.InputSource,
   context : @parser.ParseContext,
   native_document : @dpdfnative.PdfNativeDocument,
-  probe_artifact_reused? : Bool = false,
+  probe_artifact_reused~ : Bool = false,
 ) -> @parser.ParseResult {
   let document = @pdfroot.pdf_native_document_to_ir_with_policies(
     native_document,

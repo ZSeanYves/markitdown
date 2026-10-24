@@ -25,10 +25,10 @@ pub fn text_markup_asset_output_path(
 }
 
 ///|
-fn asset_hex_digit(value : Int) -> Char {
+fn asset_hex_digit(value : Int32) -> Char {
   if value < 10 {
-    Int::unsafe_to_char('0'.to_int() + value)
+    Int32::unsafe_to_char('0'.to_int() + value)
   } else {
-    Int::unsafe_to_char('a'.to_int() + value - 10)
+    Int32::unsafe_to_char('a'.to_int() + value - 10)
   }
 }

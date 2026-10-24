@@ -1,5 +1,5 @@
 ///|
-test "IPYNB parser lowers every supported MIME payload independently" {
+async test "IPYNB parser lowers every supported MIME payload independently" {
   let notebook =
     #|{
     #| "nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[

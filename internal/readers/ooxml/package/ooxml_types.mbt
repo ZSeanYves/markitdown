@@ -4,6 +4,8 @@ pub(all) suberror OoxmlError {
   ZipError(String)
   MissingPart(String)
   InvalidXml(String)
+  InvalidEncoding(String)
+  BudgetExceeded(@budget.BudgetError)
   InvalidPartPath(String)
   RelationshipNotFound(String, String)
 }
@@ -12,6 +14,7 @@ pub(all) suberror OoxmlError {
 /// Coarse error kinds used for diagnostics and validation summaries.
 pub(all) enum OoxmlErrorKind {
   ZipFailure
+  ResourceLimit
   MissingPart
   MalformedContentTypes
   MalformedRelationships
@@ -66,6 +69,9 @@ pub impl Show for OoxmlError with fn to_string(self : OoxmlError) -> String {
     ZipError(msg) => "zip error: " + msg
     MissingPart(path) => "missing OOXML part: " + path
     InvalidXml(msg) => "invalid OOXML xml: " + msg
+    InvalidEncoding(msg) => "invalid OOXML encoding: " + msg
+    BudgetExceeded(error) =>
+      "OOXML resource limit: " + @budget.budget_error_message(error)
     InvalidPartPath(path) => "invalid OOXML part path: " + path
     RelationshipNotFound(source_part, rel_id) =>
       "relationship not found: source=" + source_part + ", rel_id=" + rel_id
@@ -97,11 +103,11 @@ pub struct OoxmlValidationIssue {
 /// Summary of OOXML package validation results.
 pub struct OoxmlValidationReport {
   mode : OoxmlValidationMode
-  part_count : Int
-  relationship_part_count : Int
-  issue_count : Int
-  error_count : Int
-  warning_count : Int
+  part_count : Int32
+  relationship_part_count : Int32
+  issue_count : Int32
+  error_count : Int32
+  warning_count : Int32
   issues : Array[OoxmlValidationIssue]
 }
 
@@ -156,7 +162,7 @@ pub struct OoxmlAsset {
   part_name : String
   content_type : String?
   ext : String
-  size : Int
+  size : Int32
   referenced_by : Array[OoxmlAssetRef]
 }
 
@@ -165,7 +171,7 @@ pub struct OoxmlAsset {
 pub struct OoxmlPartInfo {
   part_name : String
   content_type : String?
-  size : Int
+  size : Int32
   is_relationships_part : Bool
   has_relationships : Bool
 }
@@ -223,6 +229,22 @@ pub struct OoxmlCustomProperty {
 }
 
 ///|
+/// One bounded custom-property projection. Candidate slots are consumed before
+/// name/value filtering; limit_exceeded means a further complete candidate was
+/// encountered, not that XML/ZIP validation stopped at the selection limit.
+pub struct OoxmlCustomPropertyProjection {
+  properties : Array[OoxmlCustomProperty]
+  limit_exceeded : Bool
+}
+
+///|
+priv struct CustomPropertyProjectionPolicy {
+  max_candidates : Int32?
+  qualified_value_type : Bool
+  omit_empty_scalar_values : Bool
+} derive(Eq, Hash)
+
+///|
 /// Read-only summary of an OOXML package inventory used by tests and debug
 /// inspection.
 pub struct OoxmlPackageInventory {
@@ -230,10 +252,10 @@ pub struct OoxmlPackageInventory {
   content_types : Array[OoxmlContentTypeInfo]
   relationship_source_parts : Array[String]
   relationship_parts : Array[String]
-  part_count : Int
-  relationship_part_count : Int
-  content_type_entry_count : Int
-  media_asset_count : Int
+  part_count : Int32
+  relationship_part_count : Int32
+  content_type_entry_count : Int32
+  media_asset_count : Int32
   has_core_properties : Bool
   has_app_properties : Bool
 }
@@ -244,10 +266,10 @@ pub struct OoxmlPackageInventory {
 priv struct OoxmlPartCache {
   bytes_by_part : Map[String, Bytes]
   text_by_part : Map[String, String]
-  bytes_hit_count : Ref[Int]
-  bytes_miss_count : Ref[Int]
-  text_hit_count : Ref[Int]
-  text_decode_count : Ref[Int]
+  bytes_hit_count : Ref[Int32]
+  bytes_miss_count : Ref[Int32]
+  text_hit_count : Ref[Int32]
+  text_decode_count : Ref[Int32]
 }
 
 ///|
@@ -258,13 +280,30 @@ priv struct OoxmlRelationshipIndex {
 }
 
 ///|
+// Raw XML field values are preserved for the reader's required-value contract
+// and the validator's independent missing/duplicate issue collection.
+priv struct OoxmlRelationshipRow {
+  id : String
+  rel_type : String
+  target : String
+  target_mode : OoxmlTargetMode
+}
+
+///|
+priv struct OoxmlRelationshipRows {
+  rows : Array[OoxmlRelationshipRow]
+  stats : @xml.XmlCursorStats
+}
+
+///|
 priv struct OoxmlRelationshipCache {
+  rows_by_rels_part : Map[String, OoxmlRelationshipRows]
   index_by_rels_part : Map[String, OoxmlRelationshipIndex]
-  relationships_hit_count : Ref[Int]
-  relationships_miss_count : Ref[Int]
-  by_id_hit_count : Ref[Int]
-  by_id_miss_count : Ref[Int]
-  by_type_query_count : Ref[Int]
+  relationships_hit_count : Ref[Int32]
+  relationships_miss_count : Ref[Int32]
+  by_id_hit_count : Ref[Int32]
+  by_id_miss_count : Ref[Int32]
+  by_type_query_count : Ref[Int32]
 }
 
 ///|
@@ -273,38 +312,24 @@ priv struct OoxmlRelationshipCache {
 pub struct OoxmlPackage {
   archive : @zip.ZipArchive
   part_index : Map[String, String]
-  part_size_index : Map[String, Int]
+  part_size_index : Map[String, Int32]
   content_types_default : Map[String, String]
   content_types_override : Map[String, String]
+  priv content_types_scan : @xml.XmlCursorStats
   priv part_cache : OoxmlPartCache
   priv relationship_cache : OoxmlRelationshipCache
+  priv core_properties_cache : Ref[OoxmlCoreProperties?]
+  priv app_properties_cache : Ref[OoxmlAppProperties?]
+  priv custom_properties_cache : Ref[Array[OoxmlCustomProperty]?]
+  priv custom_projections_cache : Map[
+    CustomPropertyProjectionPolicy,
+    OoxmlCustomPropertyProjection,
+  ]
   priv sorted_parts_cache : Ref[Array[String]?]
   priv inventory_cache : Ref[OoxmlPackageInventory?]
 }
 
 ///|
-fn find_substring(text : String, needle : String) -> Int {
-  if needle == "" {
-    return 0
-  }
-  let text_chars = text.to_array()
-  let needle_chars = needle.to_array()
-  if needle_chars.length() > text_chars.length() {
-    return -1
-  }
-
-  let limit = text_chars.length() - needle_chars.length()
-  for start in 0..<=limit {
-    let mut ok = true
-    for offset in 0..<needle_chars.length() {
-      if text_chars[start + offset] != needle_chars[offset] {
-        ok = false
-        break
-      }
-    }
-    if ok {
-      return start
-    }
-  }
-  -1
+fn find_substring(text : String, needle : String) -> Int32 {
+  text.find(needle).unwrap_or(-1)
 }

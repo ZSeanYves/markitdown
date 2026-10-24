@@ -2,7 +2,14 @@ import {
   "moonbitlang/core/env",
   "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
   "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

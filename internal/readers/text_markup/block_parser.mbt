@@ -100,15 +100,15 @@ fn parse_markup_document(
 priv struct CachedMarkupBlock {
   source_lines : Array[String]
   block : TextMarkupBlock
-  origin_index : Int
+  origin_index : Int32
 }
 
 ///|
 fn cache_markup_block(
   cache : Map[String, Array[CachedMarkupBlock]],
   lines : Array[String],
-  start : Int,
-  next : Int,
+  start : Int32,
+  next : Int32,
   block : TextMarkupBlock,
 ) -> Unit {
   if next <= start || lines[start] == "" {
@@ -124,8 +124,8 @@ fn cache_markup_block(
 fn find_cached_markup_block(
   cache : Map[String, Array[CachedMarkupBlock]],
   lines : Array[String],
-  start : Int,
-) -> (TextMarkupBlock, Int)? {
+  start : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let entries = match cache.get(lines[start]) {
     Some(value) => value
     None => return None
@@ -239,7 +239,7 @@ fn build_trimmed_markup_lines(lines : Array[String]) -> Array[String] {
 }
 
 ///|
-fn markup_trimmed_line(context : MarkupParseContext, index : Int) -> String {
+fn markup_trimmed_line(context : MarkupParseContext, index : Int32) -> String {
   match context.trimmed_semantic_lines {
     Some(lines) => lines[index]
     None => context.lines[index].trim().to_owned()
@@ -283,15 +283,15 @@ fn tex_list_stack_top_is_enumerate(stack : Array[Bool]) -> Bool {
 
 ///|
 priv enum MarkupLineClass {
-  Blank(Int)
+  Blank(Int32)
   ParagraphLine(String)
-  Block(TextMarkupBlock, Int)
+  Block(TextMarkupBlock, Int32)
 }
 
 ///|
 fn classify_markup_line(
   context : MarkupParseContext,
-  index : Int,
+  index : Int32,
 ) -> MarkupLineClass {
   let trimmed = markup_trimmed_line(context, index)
   if trimmed == "" {
@@ -334,7 +334,7 @@ fn classify_markup_line(
 ///|
 fn text_markup_line_can_start_block(
   context : MarkupParseContext,
-  index : Int,
+  index : Int32,
   trimmed : String,
 ) -> Bool {
   if trimmed == "" {
@@ -373,7 +373,7 @@ fn text_markup_line_can_start_block(
 ///|
 fn rst_line_may_start_block(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   trimmed : String,
 ) -> Bool {
   let first = trimmed[0]
@@ -403,9 +403,9 @@ fn rst_line_may_start_block(
 ///|
 fn detect_structured_semantic_block(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   match format {
     Rst =>
       match detect_rst_note_definition(lines, index) {
@@ -460,8 +460,8 @@ fn detect_structured_semantic_block(
 ///|
 fn detect_asciidoc_image_block(
   lines : Array[String],
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   if !trimmed.has_prefix("image::") || !trimmed.has_suffix("]") {
     return None
@@ -514,9 +514,9 @@ fn markup_semantic_line(line : String, format : TextMarkupFormat) -> String {
 ///|
 fn detect_heading(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   let line = lines[index].trim().to_owned()
   if line == "" {
     return None
@@ -621,9 +621,9 @@ fn detect_heading(
 ///|
 fn detect_code_block(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   let line = lines[index]
   let trimmed = line.trim().to_owned()
   match format {
@@ -737,8 +737,8 @@ fn detect_code_block(
 ///|
 fn detect_list_item(
   context : MarkupParseContext,
-  index : Int,
-) -> (TextMarkupBlock, Int)? {
+  index : Int32,
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = markup_trimmed_line(context, index)
   match context.format {
     Tex =>
@@ -807,9 +807,9 @@ fn detect_list_item(
 ///|
 fn detect_table_block(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   match format {
     Rst =>
       if rst_table_border(lines[index].trim().to_owned()) {
@@ -907,9 +907,9 @@ fn detect_table_block(
 ///|
 fn detect_block_quote(
   lines : Array[String],
-  index : Int,
+  index : Int32,
   format : TextMarkupFormat,
-) -> (TextMarkupBlock, Int)? {
+) -> (TextMarkupBlock, Int32)? {
   let trimmed = lines[index].trim().to_owned()
   match format {
     Rst =>

@@ -9,21 +9,21 @@ pub struct PreparedSubtitleDocument {
 }
 
 ///|
-fn prepare_srt_document_from_source(
+async fn prepare_srt_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedSubtitleDocument, String] {
   prepare_subtitle_from_source(source, "srt")
 }
 
 ///|
-fn prepare_vtt_document_from_source(
+async fn prepare_vtt_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedSubtitleDocument, String] {
   prepare_subtitle_from_source(source, "vtt")
 }
 
 ///|
-fn prepare_subtitle_from_source(
+async fn prepare_subtitle_from_source(
   source : @input.InputSource,
   format_name : String,
 ) -> Result[PreparedSubtitleDocument, String] {

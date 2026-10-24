@@ -93,8 +93,8 @@ fn parse_delimited_chars(
     rows : Array[CsvRow],
     row_fields : Array[String],
     field : Array[Char],
-    row_line_start : Int,
-    row_line_end : Int,
+    row_line_start : Int32,
+    row_line_end : Int32,
     options : CsvParseOptions,
   ) -> Array[String] {
     finish_field(row_fields, field)
@@ -230,7 +230,7 @@ fn row_is_blank(row : Array[String]) -> Bool {
 }
 
 ///|
-fn widest_row_width(rows : Array[CsvRow]) -> Int {
+fn widest_row_width(rows : Array[CsvRow]) -> Int32 {
   let mut width = 0
   for row in rows {
     if row.original_field_count > width {
@@ -269,7 +269,7 @@ fn normalize_csv_source(text : String) -> String {
 }
 
 ///|
-fn physical_line_count(text : String) -> Int {
+fn physical_line_count(text : String) -> Int32 {
   if text == "" {
     return 0
   }

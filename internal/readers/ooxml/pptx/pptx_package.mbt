@@ -1,20 +1,14 @@
 ///|
-priv struct PptxSourcePartCache {
-  bytes : Bytes?
-  text : String?
-}
-
-///|
 priv struct PptxSourceParseContext {
   pkg : @ox.OoxmlPackage
-  part_cache : Map[String, PptxSourcePartCache]
+  part_cache : Map[String, Bytes]
   rel_cache : Map[String, Array[PptxRelationship]]
   rel_by_id_cache : Map[String, Map[String, PptxRelationship]]
   warnings : Array[PptxWarning]
   budget : PptxParseBudget
-  total_source_nodes : Ref[Int]
-  media_ref_count : Ref[Int]
-  media_bytes_loaded : Ref[Int]
+  total_source_nodes : Ref[Int32]
+  media_ref_count : Ref[Int32]
+  media_bytes_loaded : Ref[Int32]
 }
 
 ///|
@@ -81,47 +75,20 @@ fn push_over_budget_warning(
 }
 
 ///|
-fn read_source_part_bytes(
+async fn read_source_part_bytes(
   ctx : PptxSourceParseContext,
   part_name : String,
-) -> Bytes? {
+) -> Bytes? noraise {
+  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
+    return None
+  }
   match ctx.part_cache.get(part_name) {
-    Some(cached) =>
-      match cached.bytes {
-        Some(bytes) => return Some(bytes)
-        None => ()
-      }
+    Some(bytes) => return Some(bytes)
     None => ()
   }
   let bytes = @ox.read_part_bytes(ctx.pkg, part_name) catch { _ => return None }
-  let text = match ctx.part_cache.get(part_name) {
-    Some(cached) => cached.text
-    None => None
-  }
-  ctx.part_cache.set(part_name, { bytes: Some(bytes), text, })
+  ctx.part_cache.set(part_name, bytes)
   Some(bytes)
-}
-
-///|
-fn read_source_part_text(
-  ctx : PptxSourceParseContext,
-  part_name : String,
-) -> String? {
-  match ctx.part_cache.get(part_name) {
-    Some(cached) =>
-      match cached.text {
-        Some(text) => return Some(text)
-        None => ()
-      }
-    None => ()
-  }
-  let text = @ox.read_part_text(ctx.pkg, part_name) catch { _ => return None }
-  let bytes = match ctx.part_cache.get(part_name) {
-    Some(cached) => cached.bytes
-    None => None
-  }
-  ctx.part_cache.set(part_name, { bytes, text: Some(text), })
-  Some(text)
 }
 
 ///|
@@ -148,10 +115,13 @@ fn to_pptx_relationship(
 }
 
 ///|
-fn read_source_relationships(
+async fn read_source_relationships(
   ctx : PptxSourceParseContext,
   source_part : String,
-) -> Array[PptxRelationship] {
+) -> Array[PptxRelationship] noraise {
+  if @dzip.archive_hard_failure(ctx.pkg.archive) is Some(_) {
+    return []
+  }
   match ctx.rel_cache.get(source_part) {
     Some(rels) => return rels
     None => ()
@@ -190,11 +160,11 @@ fn read_source_relationships(
 }
 
 ///|
-fn find_source_relationship_by_id(
+async fn find_source_relationship_by_id(
   ctx : PptxSourceParseContext,
   source_part : String,
   rel_id : String,
-) -> PptxRelationship? {
+) -> PptxRelationship? noraise {
   match ctx.rel_by_id_cache.get(source_part) {
     Some(by_id) => return by_id.get(rel_id)
     None => ()
@@ -217,7 +187,9 @@ fn part_content_type(
 }
 
 ///|
-fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
+async fn build_pptx_part_graph(
+  ctx : PptxSourceParseContext,
+) -> PptxPartGraph noraise {
   let parts : Array[PptxPartInfo] = []
   for info in @ox.list_part_infos(ctx.pkg) {
     parts.push({
@@ -270,9 +242,9 @@ fn build_pptx_part_graph(ctx : PptxSourceParseContext) -> PptxPartGraph {
 }
 
 ///|
-fn parse_pptx_document_metadata(
+async fn parse_pptx_document_metadata(
   ctx : PptxSourceParseContext,
-) -> PptxDocumentMetadata raise {
+) -> PptxDocumentMetadata {
   let core = @ox.read_core_properties(ctx.pkg)
   let app = @ox.read_app_properties(ctx.pkg)
   {
@@ -293,117 +265,66 @@ fn parse_pptx_document_metadata(
 }
 
 ///|
-fn parse_custom_properties(
+async fn parse_custom_properties(
   ctx : PptxSourceParseContext,
-) -> Array[PptxCustomProperty] raise {
-  let xml = match read_source_part_bytes(ctx, "docProps/custom.xml") {
-    Some(bytes) => bytes
-    None => return []
+) -> Array[PptxCustomProperty] {
+  let projection = @ox.read_custom_properties_projected(
+    ctx.pkg,
+    max_candidates=ctx.budget.max_custom_properties,
+    qualified_value_type=true,
+    omit_empty_scalar_values=true,
+  )
+  if projection.limit_exceeded {
+    push_over_budget_warning(
+      ctx,
+      "docProps/custom.xml",
+      "custom-properties",
+      None,
+      None,
+      "pptx custom document property budget exceeded",
+    )
   }
-  let out : Array[PptxCustomProperty] = []
-  let mut pos = 0
-  let mut count = 0
-  while true {
-    let p0 = find_bytes(xml, pat("<property"), pos)
-    match p0 {
-      None => break
-      Some(start) =>
-        match slice_full_element(xml, start, "property") {
-          Some((block, next_pos)) => {
-            count += 1
-            if count > ctx.budget.max_custom_properties {
-              if count == ctx.budget.max_custom_properties + 1 {
-                push_over_budget_warning(
-                  ctx,
-                  "docProps/custom.xml",
-                  "custom-properties",
-                  None,
-                  None,
-                  "pptx custom document property budget exceeded",
-                )
-              }
-              pos = next_pos
-              continue
-            }
-            let name = normalize_optional_attr(
-              read_attr_value_in_first_tag_bytes(block, "<property", "name"),
-            )
-            match name {
-              Some(n) => {
-                let (value_type, value) = read_custom_property_value(block)
-                if value.trim() != "" {
-                  out.push({ name: n, value, value_type, })
-                }
-              }
-              None => ()
-            }
-            pos = next_pos
-          }
-          None => break
-        }
-    }
-  }
-  out
+  projection.properties.map(property => {
+    name: property.name,
+    value: property.value,
+    value_type: property.value_type,
+  })
 }
 
 ///|
-fn read_custom_property_value(block : Bytes) -> (String?, String) raise {
-  let mut pos = 0
-  while pos < block.length() {
-    let lt = find_bytes(block, pat("<vt:"), pos)
-    match lt {
-      None => break
-      Some(start) =>
-        match read_open_tag_name(block, start) {
-          Some(name) => {
-            let close_tag = "</" + name + ">"
-            let gt = find_bytes(block, pat(">"), start).unwrap_or(-1)
-            if gt < 0 {
-              return (Some(name), "")
-            }
-            let end_ = find_bytes(block, pat(close_tag), gt + 1).unwrap_or(-1)
-            if end_ < 0 {
-              return (Some(name), "")
-            }
-            return (
-              Some(name),
-              xml_unescape(bytes_slice_to_string(block, gt + 1, end_))
-              .trim()
-              .to_owned(),
-            )
-          }
-          None => pos = start + 1
-        }
-    }
+pub async fn open_pptx_document(path : String) -> PptxDocument {
+  let session = @input.begin_input_session(@input.input_from_path(path))
+  defer @input.end_input_session(session)
+  let document = match prepare_pptx_document_from_source(session.source) {
+    Ok(prepared) => prepared.document
+    Err(message) => raise PptxError::OpenFailed(path + ": " + message)
   }
-  (None, "")
+  if @input.input_session_error(session) is Some(message) {
+    raise PptxError::OpenFailed(path + ": " + message)
+  }
+  document
 }
 
 ///|
-pub fn open_pptx_document(path : String) -> PptxDocument raise {
-  let bytes = @fs.read_file_to_bytes(path) catch {
-    e => raise PptxError::OpenFailed(path + ": " + (e : Error).to_string())
-  }
-  let pkg = @ox.open_ooxml_package(bytes) catch {
-    e => raise PptxError::OoxmlFailure(e.to_string())
-  }
-  parse_pptx_document_from_package(pkg)
-}
-
-///|
-pub fn parse_pptx_document_from_package(
+pub async fn parse_pptx_document_from_package(
   pkg : @ox.OoxmlPackage,
-) -> PptxDocument raise {
+) -> PptxDocument {
   let source = parse_pptx_source(pkg)
-  normalize_pptx_source(source)
+  let document = normalize_pptx_source(source)
+  ensure_pptx_package_integrity(pkg)
+  document
 }
 
 ///|
-pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
+pub async fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument {
+  ensure_pptx_package_integrity(pkg)
   let ctx = new_pptx_source_parse_context(pkg)
   let part_graph0 = build_pptx_part_graph(ctx)
+  ensure_pptx_package_integrity(pkg)
   let metadata = parse_pptx_document_metadata(ctx)
+  ensure_pptx_package_integrity(pkg)
   let presentation = parse_source_presentation(ctx, part_graph0)
+  ensure_pptx_package_integrity(pkg)
   let layouts = parse_source_layouts(ctx)
   let masters = parse_source_masters(ctx)
   let comment_authors = parse_comment_authors(ctx)
@@ -433,6 +354,7 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
     root_presentation_part: part_graph0.root_presentation_part,
     warnings: ctx.warnings.copy(),
   }
+  ensure_pptx_package_integrity(pkg)
   {
     metadata,
     part_graph,
@@ -442,5 +364,14 @@ pub fn parse_pptx_source(pkg : @ox.OoxmlPackage) -> PptxSourceDocument raise {
     masters,
     comment_authors,
     warnings: ctx.warnings.copy(),
+  }
+}
+
+///|
+fn ensure_pptx_package_integrity(
+  pkg : @ox.OoxmlPackage,
+) -> Unit raise PptxError {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(message) {
+    raise OoxmlFailure(message)
   }
 }

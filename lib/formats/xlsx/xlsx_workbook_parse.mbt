@@ -12,9 +12,9 @@ fn xlsx_benchmark_parse_context() -> @parser.ParseContext {
 }
 
 ///|
-fn xlsx_workbook_from_source(
+async fn xlsx_workbook_from_source(
   source : @input.InputSource,
-) -> Result[XlsxWorkbook, String] {
+) -> Result[XlsxWorkbook, String] noraise {
   let prepared = match @drxlsx.prepare_xlsx_package_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)
@@ -104,8 +104,8 @@ fn xlsx_malformed_parse_result(
 
 ///|
 priv struct XlsxStyles {
-  xf_numfmts : Array[Int]
-  custom_numfmts : Map[Int, String]
+  xf_numfmts : Array[Int32]
+  custom_numfmts : Map[Int32, String]
 }
 
 ///|
@@ -119,8 +119,8 @@ priv struct XlsxSheetInfo {
 
 ///|
 priv struct XlsxCell {
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   display_text : String
   hyperlink_target : String?
   hyperlink_relationship_id : String?
@@ -156,24 +156,24 @@ priv struct XlsxSheet {
   visibility : @shared.XlsxSheetVisibility
   include_hidden_rows : Bool
   dimension_ref : String?
-  min_row : Int
-  min_col : Int
-  max_row : Int
-  max_col : Int
+  min_row : Int32
+  min_col : Int32
+  max_row : Int32
+  max_col : Int32
   cell_lookup : Map[String, XlsxCell]
-  hidden_rows : Map[Int, Bool]
+  hidden_rows : Map[Int32, Bool]
   merged_lookup : Map[String, String]
   merged_ranges : Array[String]
   include_merge_layout : Bool
-  row_count : Int
-  cell_count : Int
-  non_empty_cell_count : Int
-  formula_count : Int
-  shared_formula_count : Int
-  array_formula_count : Int
-  drawing_count : Int
-  image_count : Int
-  external_link_count : Int
+  row_count : Int32
+  cell_count : Int32
+  non_empty_cell_count : Int32
+  formula_count : Int32
+  shared_formula_count : Int32
+  array_formula_count : Int32
+  drawing_count : Int32
+  image_count : Int32
+  external_link_count : Int32
   comments : Array[XlsxComment]
   tables : Array[XlsxSheetTable]
   is_empty : Bool
@@ -181,10 +181,10 @@ priv struct XlsxSheet {
 
 ///|
 priv struct XlsxSheetHyperlink {
-  row_start : Int
-  column_start : Int
-  row_end : Int
-  column_end : Int
+  row_start : Int32
+  column_start : Int32
+  row_end : Int32
+  column_end : Int32
   target : String?
   relationship_id : String?
 }
@@ -198,28 +198,28 @@ priv struct XlsxParsedSheetView {
   visibility : @shared.XlsxSheetVisibility
   include_hidden_rows : Bool
   dimension_ref : String?
-  min_row : Int
-  min_col : Int
-  max_row : Int
-  max_col : Int
-  hidden_rows : Map[Int, Bool]
+  min_row : Int32
+  min_col : Int32
+  max_row : Int32
+  max_col : Int32
+  hidden_rows : Map[Int32, Bool]
   merged_ranges : Array[String]
   include_merge_layout : Bool
-  row_count : Int
-  cell_count : Int
-  non_empty_cell_count : Int
-  formula_count : Int
-  shared_formula_count : Int
-  array_formula_count : Int
-  drawing_count : Int
-  image_count : Int
-  external_link_count : Int
+  row_count : Int32
+  cell_count : Int32
+  non_empty_cell_count : Int32
+  formula_count : Int32
+  shared_formula_count : Int32
+  array_formula_count : Int32
+  drawing_count : Int32
+  image_count : Int32
+  external_link_count : Int32
   comments : Array[XlsxComment]
   tables : Array[XlsxSheetTable]
   is_empty : Bool
   cells : Array[XlsxCell]
-  first_cell_index : Int
-  last_cell_index_exclusive : Int
+  first_cell_index : Int32
+  last_cell_index_exclusive : Int32
 }
 
 ///|
@@ -227,21 +227,21 @@ priv struct XlsxWorkbook {
   workbook_part : String
   sheets : Array[XlsxSheet]
   shared_strings : Array[String]
-  sheet_count : Int
-  visible_sheet_count : Int
-  hidden_sheet_count : Int
-  very_hidden_sheet_count : Int
-  row_count : Int
-  cell_count : Int
-  non_empty_cell_count : Int
-  merged_cell_count : Int
-  formula_count : Int
-  shared_formula_count : Int
-  array_formula_count : Int
-  style_count : Int
-  drawing_count : Int
-  image_count : Int
-  external_link_count : Int
+  sheet_count : Int32
+  visible_sheet_count : Int32
+  hidden_sheet_count : Int32
+  very_hidden_sheet_count : Int32
+  row_count : Int32
+  cell_count : Int32
+  non_empty_cell_count : Int32
+  merged_cell_count : Int32
+  formula_count : Int32
+  shared_formula_count : Int32
+  array_formula_count : Int32
+  style_count : Int32
+  drawing_count : Int32
+  image_count : Int32
+  external_link_count : Int32
 }
 
 ///|
@@ -349,7 +349,7 @@ fn xlsx_init_diagnostics(
 }
 
 ///|
-fn xlsx_parse_workbook(
+async fn xlsx_parse_workbook(
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
   context : @parser.ParseContext,
@@ -522,7 +522,7 @@ fn xlsx_parse_workbook(
 }
 
 ///|
-fn xlsx_load_workbook_shared_state(
+async fn xlsx_load_workbook_shared_state(
   pkg : @ox.OoxmlPackage,
 ) -> XlsxWorkbookSharedState raise @ox.OoxmlError {
   let workbook_part = xlsx_resolve_workbook_part(pkg)
@@ -549,7 +549,7 @@ fn xlsx_load_workbook_shared_state(
 }
 
 ///|
-fn xlsx_resolve_workbook_part(
+async fn xlsx_resolve_workbook_part(
   pkg : @ox.OoxmlPackage,
 ) -> String raise @ox.OoxmlError {
   if @ox.has_part(pkg, "xl/workbook.xml") {
@@ -590,8 +590,8 @@ fn xlsx_parse_shared_strings(shared_xml : String) -> Array[String] {
 
 ///|
 fn xlsx_parse_styles(styles_xml : String) -> XlsxStyles {
-  let xf_numfmts : Array[Int] = []
-  let custom_numfmts : Map[Int, String] = Map([])
+  let xf_numfmts : Array[Int32] = []
+  let custom_numfmts : Map[Int32, String] = Map([])
 
   let numfmts_start = xlsx_find_sub(styles_xml, "<numFmts", 0)
   match numfmts_start {
@@ -707,7 +707,7 @@ fn xlsx_workbook_uses_date_1904(workbook_xml : String) -> Bool {
 }
 
 ///|
-fn xlsx_parse_sheet_infos(
+async fn xlsx_parse_sheet_infos(
   pkg : @ox.OoxmlPackage,
   workbook_part : String,
   workbook_xml : String,
@@ -777,7 +777,7 @@ fn xlsx_find_relationship_by_id(
 }
 
 ///|
-fn xlsx_parse_sheet(
+async fn xlsx_parse_sheet(
   pkg : @ox.OoxmlPackage,
   sheet_info : XlsxSheetInfo,
   shared_strings : Array[String],
@@ -785,11 +785,11 @@ fn xlsx_parse_sheet(
   uses_date_1904 : Bool,
   include_hidden_rows : Bool,
   include_merge_layout : Bool,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
   diagnostics : @core.Diagnostics,
-  build_cell_source_refs? : Bool = true,
+  build_cell_source_refs~ : Bool = true,
 ) -> XlsxSheet raise @ox.OoxmlError {
   let view = xlsx_parse_sheet_view(
     pkg,
@@ -847,7 +847,7 @@ fn xlsx_parse_sheet(
 }
 
 ///|
-fn xlsx_parse_sheet_view(
+async fn xlsx_parse_sheet_view(
   pkg : @ox.OoxmlPackage,
   sheet_info : XlsxSheetInfo,
   shared_strings : Array[String],
@@ -855,12 +855,12 @@ fn xlsx_parse_sheet_view(
   uses_date_1904 : Bool,
   include_hidden_rows : Bool,
   include_merge_layout : Bool,
-  max_rows : Int,
-  max_cols : Int,
-  max_cells : Int,
+  max_rows : Int32,
+  max_cols : Int32,
+  max_cells : Int32,
   diagnostics : @core.Diagnostics,
-  build_cell_source_refs? : Bool = true,
-  prefer_streaming_scan? : Bool = false,
+  build_cell_source_refs~ : Bool = true,
+  prefer_streaming_scan~ : Bool = false,
 ) -> XlsxParsedSheetView raise @ox.OoxmlError {
   let relationships = @ox.read_part_relationships(pkg, sheet_info.part_name)
   let mut drawing_count = 0
@@ -917,52 +917,68 @@ fn xlsx_parse_sheet_view(
     }
   }
 
-  let parsed_sheet_xml = if prefer_streaming_scan {
-    match
-      xlsx_parse_sheet_xml_bytes_streaming(
-        pkg,
-        sheet_info,
-        shared_strings,
-        styles,
-        uses_date_1904,
-        max_rows,
-        max_cols,
-        max_cells,
-        build_cell_source_refs~,
-      ) {
-      Ok(value) => value
-      Err(_) => {
-        let sheet_xml_bytes = @ox.read_part_bytes_transient(
+  let parsed_sheet_xml = try {
+    if prefer_streaming_scan {
+      match
+        xlsx_parse_sheet_xml_bytes_streaming(
           pkg,
-          sheet_info.part_name,
-        )
-        xlsx_parse_sheet_xml_bytes(
           sheet_info,
-          sheet_xml_bytes,
           shared_strings,
           styles,
           uses_date_1904,
-          relationships,
+          max_rows,
+          max_cols,
+          max_cells,
           build_cell_source_refs~,
-          cell_window_bounds=None,
-        )
+        ) {
+        Ok(value) => value
+        Err(BudgetExceeded(error)) =>
+          raise @ox.OoxmlError::BudgetExceeded(error)
+        Err(ReadFailed(message)) => raise @ox.OoxmlError::ZipError(message)
+        Err(InvalidEncoding(message)) =>
+          raise @ox.OoxmlError::InvalidEncoding(message)
+        Err(UnsupportedShape(reason)) => {
+          diagnostics.fallback_trace.push(
+            "xlsx worksheet stream shape fallback: " + reason,
+          )
+          let sheet_xml_bytes = @ox.read_part_bytes_transient(
+            pkg,
+            sheet_info.part_name,
+          )
+          xlsx_parse_sheet_xml_bytes(
+            sheet_info,
+            sheet_xml_bytes,
+            shared_strings,
+            styles,
+            uses_date_1904,
+            relationships,
+            build_cell_source_refs~,
+            cell_window_bounds=None,
+          )
+        }
       }
+    } else {
+      let sheet_xml_bytes = @ox.read_part_bytes_transient(
+        pkg,
+        sheet_info.part_name,
+      )
+      xlsx_parse_sheet_xml_bytes(
+        sheet_info,
+        sheet_xml_bytes,
+        shared_strings,
+        styles,
+        uses_date_1904,
+        relationships,
+        build_cell_source_refs~,
+        cell_window_bounds=None,
+      )
     }
-  } else {
-    let sheet_xml_bytes = @ox.read_part_bytes_transient(
-      pkg,
-      sheet_info.part_name,
-    )
-    xlsx_parse_sheet_xml_bytes(
-      sheet_info,
-      sheet_xml_bytes,
-      shared_strings,
-      styles,
-      uses_date_1904,
-      relationships,
-      build_cell_source_refs~,
-      cell_window_bounds=None,
-    )
+  } catch {
+    InvalidEncoding(message) => {
+      @dzip.record_hard_failure(pkg.archive, message)
+      raise InvalidEncoding(message)
+    }
+    error => raise error
   }
   let include_hidden_rows = include_hidden_rows
   let dimension_ref = parsed_sheet_xml.dimension_ref
@@ -1101,40 +1117,42 @@ fn xlsx_parse_sheet_view(
 }
 
 ///|
-fn xlsx_parse_sheet_xml_bytes_streaming(
+async fn xlsx_parse_sheet_xml_bytes_streaming(
   pkg : @ox.OoxmlPackage,
   sheet_info : XlsxSheetInfo,
   shared_strings : Array[String],
   styles : XlsxStyles,
   uses_date_1904 : Bool,
-  max_rows : Int,
-  _max_cols : Int,
-  _max_cells : Int,
-  build_cell_source_refs? : Bool = true,
-) -> Result[XlsxParsedSheetXml, String] {
+  max_rows : Int32,
+  _max_cols : Int32,
+  _max_cells : Int32,
+  build_cell_source_refs~ : Bool = true,
+) -> Result[XlsxParsedSheetXml, XlsxSheetStreamError] noraise {
   let sheet_xml_bytes = match
     xlsx_compact_sheet_xml_stream(pkg, sheet_info.part_name, max_rows) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  Ok(
-    xlsx_parse_sheet_xml_bytes(
-      sheet_info,
-      sheet_xml_bytes,
-      shared_strings,
-      styles,
-      uses_date_1904,
-      @ox.read_part_relationships(pkg, sheet_info.part_name) catch {
-        _ => []
-      },
-      build_cell_source_refs~,
-      cell_window_bounds=None,
-    ),
-  )
+  let parsed = xlsx_parse_sheet_xml_bytes(
+    sheet_info,
+    sheet_xml_bytes,
+    shared_strings,
+    styles,
+    uses_date_1904,
+    @ox.read_part_relationships(pkg, sheet_info.part_name) catch {
+      _ => []
+    },
+    build_cell_source_refs~,
+    cell_window_bounds=None,
+  ) catch {
+    InvalidEncoding(message) => return Err(InvalidEncoding(message))
+    error => return Err(ReadFailed(error.to_string()))
+  }
+  Ok(parsed)
 }
 
 ///|
-fn xlsx_parse_table_definition(
+async fn xlsx_parse_table_definition(
   pkg : @ox.OoxmlPackage,
   rel : @ox.OoxmlRelationship,
 ) -> XlsxSheetTable? raise @ox.OoxmlError {

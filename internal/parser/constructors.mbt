@@ -5,13 +5,48 @@ pub fn make_parser(
   name : String,
   mode : ParserMode,
   capability : ParserCapability,
-  parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String],
-  stream_events? : ((@input.InputSource, ParseContext) -> Result[
+  parse : async (@input.InputSource, ParseContext) -> Result[
+    ParseResult,
+    String,
+  ],
+  open_stream~ : (async (@input.InputSource, ParseContext) -> Result[
     ParseEventStream?,
     String,
   ])? = None,
 ) -> Parser {
-  { name, mode, capability, parse, stream_events, }
+  {
+    name,
+    mode,
+    capability,
+    parse: async fn(source, context) {
+      let source = match context.input_source {
+        Some(parent) => @input.input_source_inherit_session(source, parent)
+        None => source
+      }
+      let session = @input.begin_input_session(
+        source,
+        max_bytes=max_input_bytes(context),
+      )
+      defer @input.end_input_session(session)
+      let cleanup = @input.begin_input_cleanup_scope(session)
+      defer ignore(@input.cleanup_input_scope(cleanup))
+      let context = parse_context_with_input_source(context, session.source)
+      if @input.input_source_error(session.source) is Some(message) {
+        return Err(message)
+      }
+      let result = parse(session.source, context)
+      ignore(@input.cleanup_input_scope(cleanup))
+      match @input.input_source_error(session.source) {
+        Some(message) => Err(message)
+        None => result
+      }
+    },
+    open_stream: open_stream.map(fn(open) {
+      async fn(source, context) {
+        open_parser_stream_with_cleanup(open, source, context)
+      }
+    }),
+  }
 }
 
 ///|
@@ -21,10 +56,10 @@ pub fn parse_stream_summary(
   mode : ParserMode,
   capabilities : ParserCapability,
   diagnostics : @core.Diagnostics,
-  metadata? : @core.DocumentMetadata = Map([]),
-  assets? : Array[@core.AssetRef] = [],
-  source_map? : @core.SourceMap? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  metadata~ : @core.DocumentMetadata = Map([]),
+  assets~ : Array[@core.AssetRef] = [],
+  source_map~ : @core.SourceMap? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> ParseStreamSummary {
   {
     parser_name,
@@ -39,60 +74,33 @@ pub fn parse_stream_summary(
 }
 
 ///|
-/// Construct a pull stream from its producer callbacks.
+/// Construct the asynchronous parser pull protocol. Pure scanners may run
+/// inside these callbacks; the protocol always advances asynchronously.
 pub fn make_parse_event_stream(
-  next : () -> Result[@core.CoreEvent?, String],
-  finish : () -> Result[ParseStreamSummary, String],
+  next : async () -> Result[@core.CoreEvent?, String],
+  finish : async () -> Result[ParseStreamSummary, String],
+  close~ : async () -> Result[Unit, String] = fn() { Ok(()) },
 ) -> ParseEventStream {
   {
-    next,
-    next_async: async fn() {
+    next: async fn() {
       @async.sleep(0)
       next()
     },
     finish,
+    close_stream: close,
   }
 }
 
 ///|
-/// Construct a pull stream whose producer already owns an asynchronous
-/// advancement callback. The synchronous projection intentionally remains
-/// unavailable so callers cannot accidentally block on an async source.
-pub fn make_async_parse_event_stream(
-  next : async () -> Result[@core.CoreEvent?, String],
-  finish : () -> Result[ParseStreamSummary, String],
-) -> ParseEventStream {
-  {
-    next: fn() { Err("asynchronous event stream requires async advancement") },
-    next_async: next,
-    finish,
+/// Abort without requesting a successful summary. It is safe to use in a
+/// cancellation defer; owned stream resources and temporary cleanup are closed
+/// independently of finish. Callers must not silently abandon a live stream.
+pub async fn ParseEventStream::close(
+  self : ParseEventStream,
+) -> Result[Unit, String] noraise + nocancel {
+  @async.protect_from_cancel(() => (self.close_stream)()) catch {
+    error => Err("parser stream close failed: " + error.to_string())
   }
-}
-
-///|
-/// Construct an async parser record from its name, mode, capability, and parse
-/// function.
-pub fn make_async_parser(
-  name : String,
-  mode : ParserMode,
-  capability : ParserCapability,
-  parse : async (@input.InputSource, ParseContext) -> Result[
-    ParseResult,
-    String,
-  ],
-) -> AsyncParser {
-  { name, mode, capability, parse, }
-}
-
-///|
-/// Wrap a synchronous parser as an async parser without changing semantics.
-pub fn async_parser_from_sync(parser : Parser) -> AsyncParser {
-  make_async_parser(parser.name, parser.mode, parser.capability, fn(
-    source : @input.InputSource,
-    context : ParseContext,
-  ) -> Result[ParseResult, String] {
-    (parser.parse)(source, context)
-  })
 }
 
 ///|
@@ -127,10 +135,10 @@ pub fn parse_result_with_events_capability(
   events : Array[@core.CoreEvent],
   diagnostics : @core.Diagnostics,
   capability : ParserCapability,
-  metadata? : @core.DocumentMetadata = Map([]),
-  assets? : Array[@core.AssetRef] = [],
-  source_map? : @core.SourceMap? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  metadata~ : @core.DocumentMetadata = Map([]),
+  assets~ : Array[@core.AssetRef] = [],
+  source_map~ : @core.SourceMap? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> ParseResult {
   if diagnostics.metrics.get("builder_input_kind") == None {
     diagnostics.metrics.set("builder_input_kind", "event_stream")
@@ -182,10 +190,10 @@ pub fn parse_result_with_blocks_capability(
   blocks : Array[@core.CoreBlock],
   diagnostics : @core.Diagnostics,
   capability : ParserCapability,
-  metadata? : @core.DocumentMetadata = Map([]),
-  assets? : Array[@core.AssetRef] = [],
-  source_map? : @core.SourceMap? = None,
-  assembly? : @core.DocumentAssembly? = None,
+  metadata~ : @core.DocumentMetadata = Map([]),
+  assets~ : Array[@core.AssetRef] = [],
+  source_map~ : @core.SourceMap? = None,
+  assembly~ : @core.DocumentAssembly? = None,
 ) -> ParseResult {
   if diagnostics.metrics.get("builder_input_kind") == None {
     diagnostics.metrics.set("builder_input_kind", "block_stream")

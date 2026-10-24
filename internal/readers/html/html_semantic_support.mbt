@@ -134,30 +134,30 @@ fn html_semantic_first_source_key(first : String?, second : String?) -> String? 
 }
 
 ///|
-fn html_semantic_source_key(tag_name : String, source_order : Int) -> String {
+fn html_semantic_source_key(tag_name : String, source_order : Int32) -> String {
   "html:block:" + tag_name + ":" + source_order.to_string()
 }
 
 ///|
 fn html_semantic_inline_source_key(
   tag_name : String,
-  source_order : Int,
+  source_order : Int32,
 ) -> String {
   "html:inline:" + tag_name + ":" + source_order.to_string()
 }
 
 ///|
-fn html_semantic_list_source_key(source_order : Int) -> String {
+fn html_semantic_list_source_key(source_order : Int32) -> String {
   "html:list:" + source_order.to_string()
 }
 
 ///|
-fn html_semantic_list_item_source_key(source_order : Int) -> String {
+fn html_semantic_list_item_source_key(source_order : Int32) -> String {
   "html:list-item:" + source_order.to_string()
 }
 
 ///|
-fn html_semantic_blockquote_source_key(source_order : Int) -> String {
+fn html_semantic_blockquote_source_key(source_order : Int32) -> String {
   "html:blockquote:" + source_order.to_string()
 }
 
@@ -447,8 +447,8 @@ fn push_html_semantic_unsupported_fact(
   severity : HtmlWarningSeverity,
   related_source_key : String?,
   tag_name : String,
-  source_order : Int,
-  depth : Int,
+  source_order : Int32,
+  depth : Int32,
   parent_source_key : String?,
   text_preview : String,
   attributes : Array[HtmlSemanticAttributeSummary],
@@ -485,8 +485,8 @@ fn push_html_semantic_guard_unsupported_facts(
   warnings : Array[HtmlSemanticWarning],
   related_source_key : String,
   tag_name : String,
-  source_order : Int,
-  depth : Int,
+  source_order : Int32,
+  depth : Int32,
   parent_source_key : String?,
   text_preview : String,
   attributes : Array[HtmlSemanticAttributeSummary],
@@ -531,7 +531,7 @@ fn html_semantic_guard_unsupported_kind(
 }
 
 ///|
-fn clamp_html_semantic_depth(depth : Int) -> Int {
+fn clamp_html_semantic_depth(depth : Int32) -> Int32 {
   if depth > HTML_SEMANTIC_MAX_DEPTH {
     HTML_SEMANTIC_MAX_DEPTH
   } else {
@@ -631,7 +631,7 @@ fn html_semantic_code_text(children : Array[HtmlNode]) -> (String, Bool) {
 fn append_html_semantic_code_text(
   node : HtmlNode,
   out : Array[Char],
-  max_chars : Int,
+  max_chars : Int32,
 ) -> Bool {
   if out.length() >= max_chars {
     return true
@@ -656,7 +656,7 @@ fn append_html_semantic_code_text(
 fn append_html_semantic_text_preview(
   node : HtmlNode,
   out : Array[Char],
-  max_chars : Int,
+  max_chars : Int32,
 ) -> Bool {
   if out.length() >= max_chars {
     return true
@@ -679,7 +679,7 @@ fn append_html_semantic_text_preview(
 fn append_html_semantic_preview_chars(
   out : Array[Char],
   text : String,
-  max_chars : Int,
+  max_chars : Int32,
 ) -> Bool {
   for ch in text {
     if out.length() >= max_chars {
@@ -693,7 +693,7 @@ fn append_html_semantic_preview_chars(
 ///|
 fn html_semantic_child_has_adjacent_text(
   children : Array[HtmlNode],
-  index : Int,
+  index : Int32,
 ) -> Bool {
   let before = if index > 0 {
     html_semantic_node_has_meaningful_text(children[index - 1])
@@ -720,7 +720,7 @@ fn html_semantic_node_has_meaningful_text(node : HtmlNode) -> Bool {
 fn html_semantic_count_elements_by_tag(
   nodes : Array[HtmlNode],
   tag_name : String,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for node in nodes {
     match node {
@@ -912,7 +912,7 @@ fn html_semantic_char_is_space(ch : Char) -> Bool {
 ///|
 fn bounded_html_semantic_preview(
   text : String,
-  max_chars : Int,
+  max_chars : Int32,
 ) -> (String, Bool) {
   let out : Array[Char] = []
   for ch in text {

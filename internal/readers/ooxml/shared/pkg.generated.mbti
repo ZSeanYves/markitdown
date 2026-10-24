@@ -10,11 +10,11 @@ pub fn make_office_asset_plan(String, String, copy_policy? : OfficeAssetCopyPoli
 
 pub fn make_office_content_type(String, extension? : String?, part_name? : String?, source_ref? : @core.SourceRef?) -> OfficeContentType
 
-pub fn make_office_media_asset(String, content_type? : String?, relationship_id? : String?, source_part? : String?, size? : Int?, source_ref? : @core.SourceRef?) -> OfficeMediaAsset
+pub fn make_office_media_asset(String, content_type? : String?, relationship_id? : String?, source_part? : String?, size? : Int32?, source_ref? : @core.SourceRef?) -> OfficeMediaAsset
 
 pub fn make_office_package(OfficeDocumentKind, Array[OfficePart], Array[OfficeRelationship], Array[OfficeContentType], Array[OfficeMediaAsset], container_path? : String?, source_id? : String?, diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> OfficePackage
 
-pub fn make_office_part(String, normalized_part_name? : String?, content_type? : String?, relationship_type? : String?, size? : Int?, source_ref? : @core.SourceRef?, security_findings? : Array[OfficeSecurityFinding]) -> OfficePart
+pub fn make_office_part(String, normalized_part_name? : String?, content_type? : String?, relationship_type? : String?, size? : Int32?, source_ref? : @core.SourceRef?, security_findings? : Array[OfficeSecurityFinding]) -> OfficePart
 
 pub fn make_office_relationship(String, String, String, String, target_mode? : String, normalized_target? : String?, is_external? : Bool, source_ref? : @core.SourceRef?, security_findings? : Array[OfficeSecurityFinding]) -> OfficeRelationship
 
@@ -24,13 +24,13 @@ pub fn make_pptx_comment_model(String, String, author? : String?, source_ref? : 
 
 pub fn make_pptx_image_model(asset_part? : String?, content_type? : String?, alt_text? : String?, title? : String?, relationship_id? : String?, source_ref? : @core.SourceRef?) -> PptxImageModel
 
-pub fn make_pptx_layout_model(layout_name? : String?, part_name? : String?, master_part? : String?, theme_part? : String?, placeholder_count? : Int, source_ref? : @core.SourceRef?) -> PptxLayoutModel
+pub fn make_pptx_layout_model(layout_name? : String?, part_name? : String?, master_part? : String?, theme_part? : String?, placeholder_count? : Int32, source_ref? : @core.SourceRef?) -> PptxLayoutModel
 
-pub fn make_pptx_master_model(master_name? : String?, part_name? : String?, theme_part? : String?, placeholder_count? : Int, source_ref? : @core.SourceRef?) -> PptxMasterModel
+pub fn make_pptx_master_model(master_name? : String?, part_name? : String?, theme_part? : String?, placeholder_count? : Int32, source_ref? : @core.SourceRef?) -> PptxMasterModel
 
 pub fn make_pptx_notes_model(Array[String], notes_part? : String?, source_ref? : @core.SourceRef?) -> PptxNotesModel
 
-pub fn make_pptx_paragraph_model(Int, Array[PptxTextRunModel], level? : Int?, bullet_kind? : String?, source_ref? : @core.SourceRef?) -> PptxParagraphModel
+pub fn make_pptx_paragraph_model(Int32, Array[PptxTextRunModel], level? : Int32?, bullet_kind? : String?, source_ref? : @core.SourceRef?) -> PptxParagraphModel
 
 pub fn make_pptx_placeholder_model(String, placeholder_index? : String?, placeholder_name? : String?, resolved_from? : PptxPlaceholderOrigin, source_ref? : @core.SourceRef?) -> PptxPlaceholderModel
 
@@ -38,31 +38,31 @@ pub fn make_pptx_presentation_model(Array[PptxSlideModel], themes? : Array[PptxT
 
 pub fn make_pptx_presentation_plan(PptxPresentationModel, Array[String], hidden_slide_ids? : Array[String], diagnostics? : @core.Diagnostics, source_ref? : @core.SourceRef?) -> PptxPresentationPlan
 
-pub fn make_pptx_reading_order_item(Int, Int, PptxReadingOrderStrategy, shape_id? : String?, confidence? : String?, source_ref? : @core.SourceRef?) -> PptxReadingOrderItem
+pub fn make_pptx_reading_order_item(Int32, Int32, PptxReadingOrderStrategy, shape_id? : String?, confidence? : String?, source_ref? : @core.SourceRef?) -> PptxReadingOrderItem
 
 pub fn make_pptx_shape_model(PptxShapeType, text_paragraphs? : Array[PptxParagraphModel], shape_id? : String?, shape_name? : String?, bbox? : @core.BBox?, table? : PptxTableModel?, image? : PptxImageModel?, placeholder? : PptxPlaceholderModel?, source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxShapeModel
 
-pub fn make_pptx_slide_model(Int, Array[PptxShapeModel], slide_id? : String?, slide_part? : String?, visibility? : PptxSlideVisibility, layout_part? : String?, master_part? : String?, theme_part? : String?, notes? : PptxNotesModel?, comments? : Array[PptxCommentModel], reading_order? : Array[PptxReadingOrderItem], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxSlideModel
+pub fn make_pptx_slide_model(Int32, Array[PptxShapeModel], slide_id? : String?, slide_part? : String?, visibility? : PptxSlideVisibility, layout_part? : String?, master_part? : String?, theme_part? : String?, notes? : PptxNotesModel?, comments? : Array[PptxCommentModel], reading_order? : Array[PptxReadingOrderItem], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> PptxSlideModel
 
-pub fn make_pptx_table_cell_model(Int, Int, String, rich_runs? : Array[PptxTextRunModel], row_span? : Int?, column_span? : Int?, source_ref? : @core.SourceRef?) -> PptxTableCellModel
+pub fn make_pptx_table_cell_model(Int32, Int32, String, rich_runs? : Array[PptxTextRunModel], row_span? : Int32?, column_span? : Int32?, source_ref? : @core.SourceRef?) -> PptxTableCellModel
 
 pub fn make_pptx_table_model(Array[PptxTableRowModel], source_ref? : @core.SourceRef?) -> PptxTableModel
 
-pub fn make_pptx_table_row_model(Int, Array[PptxTableCellModel], source_ref? : @core.SourceRef?) -> PptxTableRowModel
+pub fn make_pptx_table_row_model(Int32, Array[PptxTableCellModel], source_ref? : @core.SourceRef?) -> PptxTableRowModel
 
 pub fn make_pptx_text_run_model(String, hyperlink_target? : String?, relationship_id? : String?, source_ref? : @core.SourceRef?) -> PptxTextRunModel
 
 pub fn make_pptx_theme_model(theme_name? : String?, part_name? : String?, color_scheme_name? : String?, font_scheme_name? : String?, source_ref? : @core.SourceRef?) -> PptxThemeModel
 
-pub fn make_xlsx_cell_model(String, Int, Int, XlsxCellType, raw_value? : String?, display_value? : String?, shared_string_index? : Int?, style_ref? : @core.StyleRef?, formula? : XlsxFormula?, source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> XlsxCellModel
+pub fn make_xlsx_cell_model(String, Int32, Int32, XlsxCellType, raw_value? : String?, display_value? : String?, shared_string_index? : Int32?, style_ref? : @core.StyleRef?, formula? : XlsxFormula?, source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> XlsxCellModel
 
 pub fn make_xlsx_formula(String, cached_value? : String?, formula_ref? : String?, is_array_formula? : Bool, is_shared_formula? : Bool, source_ref? : @core.SourceRef?) -> XlsxFormula
 
 pub fn make_xlsx_merged_range(String, String, String, source_ref? : @core.SourceRef?) -> XlsxMergedRange
 
-pub fn make_xlsx_row_model(Int, Array[XlsxCellModel], source_ref? : @core.SourceRef?) -> XlsxRowModel
+pub fn make_xlsx_row_model(Int32, Array[XlsxCellModel], source_ref? : @core.SourceRef?) -> XlsxRowModel
 
-pub fn make_xlsx_shared_string(Int, String, source_ref? : @core.SourceRef?) -> XlsxSharedString
+pub fn make_xlsx_shared_string(Int32, String, source_ref? : @core.SourceRef?) -> XlsxSharedString
 
 pub fn make_xlsx_sheet_model(String, Array[XlsxRowModel], sheet_id? : String?, relationship_id? : String?, part_name? : String?, visibility? : XlsxSheetVisibility, dimension_ref? : String?, merged_ranges? : Array[XlsxMergedRange], source_ref? : @core.SourceRef?, diagnostics? : @core.Diagnostics) -> XlsxSheetModel
 
@@ -127,7 +127,7 @@ pub struct OfficeMediaAsset {
   content_type : String?
   relationship_id : String?
   source_part : String?
-  size : Int?
+  size : Int32?
   source_ref : @core.SourceRef?
 }
 
@@ -148,7 +148,7 @@ pub struct OfficePart {
   normalized_part_name : String?
   content_type : String?
   relationship_type : String?
-  size : Int?
+  size : Int32?
   source_ref : @core.SourceRef?
   security_findings : Array[OfficeSecurityFinding]
 }
@@ -209,7 +209,7 @@ pub struct PptxLayoutModel {
   part_name : String?
   master_part : String?
   theme_part : String?
-  placeholder_count : Int
+  placeholder_count : Int32
   source_ref : @core.SourceRef?
 }
 
@@ -217,7 +217,7 @@ pub struct PptxMasterModel {
   master_name : String?
   part_name : String?
   theme_part : String?
-  placeholder_count : Int
+  placeholder_count : Int32
   source_ref : @core.SourceRef?
 }
 
@@ -228,9 +228,9 @@ pub struct PptxNotesModel {
 }
 
 pub struct PptxParagraphModel {
-  paragraph_index : Int
+  paragraph_index : Int32
   runs : Array[PptxTextRunModel]
-  level : Int?
+  level : Int32?
   bullet_kind : String?
   source_ref : @core.SourceRef?
 }
@@ -271,8 +271,8 @@ pub struct PptxPresentationPlan {
 }
 
 pub struct PptxReadingOrderItem {
-  reading_order_index : Int
-  slide_index : Int
+  reading_order_index : Int32
+  slide_index : Int32
   shape_id : String?
   strategy : PptxReadingOrderStrategy
   confidence : String?
@@ -323,7 +323,7 @@ pub fn PptxShapeType::equal(Self, Self) -> Bool
 pub fn PptxShapeType::not_equal(Self, Self) -> Bool
 
 pub struct PptxSlideModel {
-  slide_index : Int
+  slide_index : Int32
   slide_id : String?
   slide_part : String?
   visibility : PptxSlideVisibility
@@ -346,12 +346,12 @@ pub fn PptxSlideVisibility::equal(Self, Self) -> Bool
 pub fn PptxSlideVisibility::not_equal(Self, Self) -> Bool
 
 pub struct PptxTableCellModel {
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   text : String
   rich_runs : Array[PptxTextRunModel]
-  row_span : Int?
-  column_span : Int?
+  row_span : Int32?
+  column_span : Int32?
   source_ref : @core.SourceRef?
 }
 
@@ -361,7 +361,7 @@ pub struct PptxTableModel {
 }
 
 pub struct PptxTableRowModel {
-  row_index : Int
+  row_index : Int32
   cells : Array[PptxTableCellModel]
   source_ref : @core.SourceRef?
 }
@@ -383,12 +383,12 @@ pub struct PptxThemeModel {
 
 pub struct XlsxCellModel {
   cell_ref : String
-  row_index : Int
-  column_index : Int
+  row_index : Int32
+  column_index : Int32
   cell_type : XlsxCellType
   raw_value : String?
   display_value : String?
-  shared_string_index : Int?
+  shared_string_index : Int32?
   style_ref : @core.StyleRef?
   formula : XlsxFormula?
   source_ref : @core.SourceRef?
@@ -426,13 +426,13 @@ pub struct XlsxMergedRange {
 }
 
 pub struct XlsxRowModel {
-  row_index : Int
+  row_index : Int32
   cells : Array[XlsxCellModel]
   source_ref : @core.SourceRef?
 }
 
 pub struct XlsxSharedString {
-  string_index : Int
+  string_index : Int32
   value : String
   source_ref : @core.SourceRef?
 }

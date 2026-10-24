@@ -34,8 +34,8 @@ pub fn diagnostics_with_mode(
   diagnostics : Diagnostics,
   parser_mode : String?,
   convert_mode : String?,
-  fidelity_mode? : String? = None,
-  output_mode? : String? = None,
+  fidelity_mode~ : String? = None,
+  output_mode~ : String? = None,
 ) -> Diagnostics {
   { ..diagnostics, parser_mode, convert_mode, fidelity_mode, output_mode, }
 }
@@ -149,7 +149,7 @@ pub fn make_dependency_diagnostic(
   status : DependencyDiagnosticStatus,
   macos_commands : Array[String],
   ubuntu_commands : Array[String],
-  footer? : String? = None,
+  footer~ : String? = None,
 ) -> DependencyDiagnostic {
   { kind, title, summary, status, macos_commands, ubuntu_commands, footer, }
 }

@@ -60,7 +60,22 @@ fn escape_json_string(s : String) -> String {
         out.push('\\')
         out.push('t')
       }
-      _ => out.push(ch)
+      _ =>
+        if ch.to_int() < 32 {
+          let code = ch.to_int()
+          out.push('\\')
+          out.push('u')
+          out.push('0')
+          out.push('0')
+          out.push(if code < 16 { '0' } else { '1' })
+          let low = code & 15
+          // The masked nibble always produces an ASCII hex digit.
+          out.push(
+            (if low < 10 { low + 48 } else { low + 87 }).to_char().unwrap(),
+          )
+        } else {
+          out.push(ch)
+        }
     }
   }
   String::from_array(out)

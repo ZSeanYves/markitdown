@@ -64,13 +64,13 @@ priv struct DocxInlineLowering {
   rich_inlines : Array[@core.CoreInline]
   plain_text : String
   has_link : Bool
-  image_count : Int
-  hyperlink_count : Int
-  tracked_change_count : Int
+  image_count : Int32
+  hyperlink_count : Int32
+  tracked_change_count : Int32
 }
 
 ///|
-fn metric_int(diagnostics : @core.Diagnostics, key : String) -> Int {
+fn metric_int(diagnostics : @core.Diagnostics, key : String) -> Int32 {
   @string.parse_int(diagnostics.metrics.get(key).unwrap_or("0")) catch {
     _ => 0
   }
@@ -159,22 +159,21 @@ fn new_docx_lowering_state(
 }
 
 ///|
-fn fill_docx_package_metrics(
+async fn fill_docx_package_metrics(
   diagnostics : @core.Diagnostics,
   pkg : @ox.OoxmlPackage,
-) -> Unit {
+) -> Unit noraise {
   let inventory = @ox.inspect_ooxml_inventory(pkg)
   let validation = @ox.validate_ooxml_package(pkg)
   let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
     _ => []
   }).length()
-  let part_relationship_count = inventory.relationship_source_parts.fold(
-    init=0,
-    fn(acc, source_part) {
-      acc +
-      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
-    },
-  )
+  let mut part_relationship_count = 0
+  for source_part in inventory.relationship_source_parts {
+    part_relationship_count += (@ox.read_part_relationships(pkg, source_part) catch {
+      _ => []
+    }).length()
+  }
   diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
@@ -262,7 +261,7 @@ fn fill_docx_package_metrics(
 }
 
 ///|
-fn count_docx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn count_docx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     if part.part_name.has_prefix("word/media/") &&

@@ -4,7 +4,7 @@ pub fn txt_parser() -> @parser.Parser {
     "txt_parser",
     StreamingEvent,
     txt_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -21,15 +21,12 @@ pub fn txt_parser() -> @parser.Parser {
       let source = prepared.prepared_source
       let parsed = match prepared.document {
         Some(document) => document
-        None => {
-          let fallback = invalid_text_parse_result(
-            source,
-            diagnostics,
-            prepared.parse_error.unwrap_or("Utf8DecodeFailed(invalid utf8)"),
-            context,
+        None =>
+          return Err(
+            prepared.parse_error.unwrap_or(
+              "text preparation produced no document",
+            ),
           )
-          return Ok(fallback)
-        }
       }
       let inspect = prepared.inspect.unwrap_or(inspect_text_document(parsed))
       let events : Array[@core.CoreEvent] = Array(
@@ -181,14 +178,14 @@ pub fn txt_parser() -> @parser.Parser {
         ),
       )
     },
-    stream_events=Some(open_txt_event_stream),
+    open_stream=Some((source, context) => open_txt_event_stream(source, context)),
   )
 }
 
 ///|
 /// Open the native line producer used by the sink path. UTF-16 sources keep
 /// the established buffered parser because the shared chunk cursor is UTF-8.
-fn open_txt_event_stream(
+async fn open_txt_event_stream(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseEventStream?, String] {
@@ -247,6 +244,21 @@ fn open_txt_event_stream(
   let saw_crlf = Ref(false)
   let saw_cr = Ref(false)
   let max_line_chars = @parser.max_line_chars(context)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      chunk.val = ""
+      chunk_index.val = 0
+      current.val = StringBuilder()
+      current_chars.val = 0
+      line_truncated.val = false
+      line_has_content.val = false
+      pending_cr.val = false
+      eof.val = true
+      (reader.close)()
+    }
+  }
   let emit_line = fn() -> @core.CoreEvent {
     let text = current.val.to_string() +
       (if line_truncated.val { " [truncated]" } else { "" })
@@ -279,7 +291,10 @@ fn open_txt_event_stream(
   Ok(
     Some(
       @parser.make_parse_event_stream(
-        fn() {
+        async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if chunk_index.val >= chunk.val.length() && !eof.val {
               match (reader.next)() {
@@ -289,7 +304,10 @@ fn open_txt_event_stream(
                   continue
                 }
                 Ok(None) => eof.val = true
-                Err(message) => return Err(message)
+                Err(message) => {
+                  close()
+                  return Err(message)
+                }
               }
             }
             if chunk_index.val >= chunk.val.length() {
@@ -303,10 +321,20 @@ fn open_txt_event_stream(
                 emitted_events.val += 1
                 return Ok(Some(emit_line()))
               }
+              close()
               return Ok(None)
             }
-            let ch = chunk.val[chunk_index.val].unsafe_to_char()
-            chunk_index.val += 1
+            let previous_index = chunk_index.val
+            let (ch, next_index) = match
+              @sourceio.source_text_scalar_at(chunk.val, previous_index) {
+              Ok(value) => value
+              Err(message) => {
+                @input.record_input_failure(source, message)
+                close()
+                return Err(message)
+              }
+            }
+            chunk_index.val = next_index
             if skip_bom.val {
               skip_bom.val = false
               if ch == '\u{FEFF}' {
@@ -320,7 +348,7 @@ fn open_txt_event_stream(
                 emitted_events.val += 1
                 return Ok(Some(emit_line()))
               }
-              chunk_index.val -= 1
+              chunk_index.val = previous_index
               saw_cr.val = true
               emitted_events.val += 1
               return Ok(Some(emit_line()))
@@ -338,14 +366,20 @@ fn open_txt_event_stream(
             let normalized = stream_normalize_txt_char(ch)
             if normalized != "" {
               line_has_content.val = true
-              if current_chars.val + normalized.length() <= max_line_chars {
+              if line_truncated.val {
+                // Keep consuming raw input and source positions after the
+                // first excluded scalar, without resuming a later character.
+                continue
+              } else if current_chars.val + normalized.length() <=
+                max_line_chars {
                 current.val.write_string(normalized)
                 current_chars.val += normalized.length()
               } else {
                 let remaining = max_line_chars - current_chars.val
                 if remaining > 0 {
-                  current.val.write_string(normalized[:remaining].to_owned())
-                  current_chars.val += remaining
+                  let end = txt_scalar_safe_prefix_end(normalized, remaining)
+                  current.val.write_string(normalized[:end].to_owned())
+                  current_chars.val += end
                 }
                 line_truncated.val = true
               }
@@ -354,6 +388,7 @@ fn open_txt_event_stream(
           Ok(None)
         },
         fn() {
+          close()
           diagnostics.metrics.set(
             "input_line_count",
             line_count.val.to_string(),
@@ -402,6 +437,10 @@ fn open_txt_event_stream(
               diagnostics,
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),
@@ -476,83 +515,15 @@ fn txt_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-fn invalid_text_parse_result(
-  source : @input.InputSource,
-  diagnostics : @core.Diagnostics,
-  err : String,
-  context : @parser.ParseContext,
-) -> @parser.ParseResult {
-  let source_ref = @core.source_ref_with_lines(
-    @core.empty_source_ref(),
-    Some(source.source_name),
-    Some("txt"),
-    None,
-    None,
-  )
-  let event : @core.CoreEvent = {
-    kind: StartBlock(Raw),
-    text: "[invalid utf8 text input]",
-    source_ref: Some(source_ref),
-  }
-  diagnostics.warnings.push("txt decode warning: " + err)
-  diagnostics.degraded_features.push("invalid_utf8_text_fallback")
-  diagnostics.fallback_trace.push("txt invalid utf8 -> raw placeholder block")
-  diagnostics.metrics.set("parser_name", "txt_parser")
-  diagnostics.metrics.set("parser_mode", "streaming_event")
-  diagnostics.metrics.set(
-    "input_kind",
-    @fshared.input_kind_name(@input.input_kind(source)),
-  )
-  diagnostics.metrics.set("detected_format", "txt")
-  @fshared.apply_product_metrics(diagnostics, "txt")
-  diagnostics.metrics.set("input_line_count", "0")
-  diagnostics.metrics.set("line_count", "0")
-  diagnostics.metrics.set("paragraph_count", "0")
-  diagnostics.metrics.set("empty_line_count", "0")
-  diagnostics.metrics.set("char_count", "0")
-  diagnostics.metrics.set("newline_style", "invalid_utf8")
-  diagnostics.metrics.set("invalid_utf8_fallback", "true")
-  diagnostics.metrics.set("table_count", "0")
-  diagnostics.metrics.set("image_count", "0")
-  diagnostics.metrics.set("asset_count", "0")
-  diagnostics.metrics.set("block_count", "1")
-  diagnostics.metrics.set("event_count", "1")
-  diagnostics.metrics.set("event_granularity", "line")
-  diagnostics.metrics.set("event_semantics", "line_event_stream")
-  diagnostics.metrics.set(
-    "requested_mode",
-    @fshared.requested_mode_name(context),
-  )
-  diagnostics.metrics.set("effective_mode", "streaming_event")
-  diagnostics.metrics.set("ir_input_kind", "event_stream")
-  diagnostics.metrics.set(
-    "degraded_feature_count",
-    diagnostics.degraded_features.length().to_string(),
-  )
-  diagnostics.metrics.set(
-    "fallback_count",
-    diagnostics.fallback_trace.length().to_string(),
-  )
-  diagnostics.pass_trace.push("parse:txt_parser")
-  @parser.parse_result_with_events_capability(
-    "txt_parser",
-    StreamingEvent,
-    [event],
-    diagnostics,
-    txt_parser_capability(),
-  )
-}
-
-///|
 fn truncate_text_event_lines(
   event : @core.CoreEvent,
-  max_line_chars : Int,
+  max_line_chars : Int32,
 ) -> @core.CoreEvent {
   { ..event, text: truncate_text_lines(event.text, max_line_chars), }
 }
 
 ///|
-fn truncate_text_lines(text : String, max_line_chars : Int) -> String {
+fn truncate_text_lines(text : String, max_line_chars : Int32) -> String {
   text
   .split("\n")
   .to_array()
@@ -561,9 +532,21 @@ fn truncate_text_lines(text : String, max_line_chars : Int) -> String {
 }
 
 ///|
-fn truncate_line(text : String, max_chars : Int) -> String {
+fn truncate_line(text : String, max_chars : Int32) -> String {
   if text.length() <= max_chars {
     return text
   }
-  text[:max_chars].to_owned() + " [truncated]"
+  text[:txt_scalar_safe_prefix_end(text, max_chars)].to_owned() + " [truncated]"
+}
+
+///|
+// The existing line policy counts UTF16 units. Its prefix must still end on
+// a scalar boundary when the final permitted unit is a leading surrogate.
+fn txt_scalar_safe_prefix_end(text : String, max_chars : Int32) -> Int32 {
+  let end = max_chars.max(0).min(text.length())
+  if end > 0 && end < text.length() && text.at(end - 1).is_leading_surrogate() {
+    end - 1
+  } else {
+    end
+  }
 }

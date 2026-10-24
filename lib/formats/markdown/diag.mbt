@@ -75,7 +75,7 @@ fn markdown_set_route_metrics(
 fn markdown_apply_block_report_metrics(
   diagnostics : @core.Diagnostics,
   report : MarkdownBlockReport,
-  block_count : Int,
+  block_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("block_count", block_count.to_string())
   diagnostics.metrics.set("paragraph_count", report.paragraph_count.to_string())
@@ -168,20 +168,20 @@ fn markdown_block_kind_name(kind : MarkdownBlockKind) -> String {
 
 ///|
 priv struct MarkdownBlockReport {
-  paragraph_count : Int
-  list_count : Int
-  table_count : Int
-  code_block_count : Int
-  blockquote_count : Int
-  link_count : Int
-  image_count : Int
-  raw_html_count : Int
-  unsafe_link_count : Int
-  unsafe_html_count : Int
-  asset_count : Int
-  max_list_depth : Int
-  footnote_definition_count : Int
-  footnote_reference_count : Int
+  paragraph_count : Int32
+  list_count : Int32
+  table_count : Int32
+  code_block_count : Int32
+  blockquote_count : Int32
+  link_count : Int32
+  image_count : Int32
+  raw_html_count : Int32
+  unsafe_link_count : Int32
+  unsafe_html_count : Int32
+  asset_count : Int32
+  max_list_depth : Int32
+  footnote_definition_count : Int32
+  footnote_reference_count : Int32
 }
 
 ///|
@@ -272,20 +272,20 @@ fn markdown_apply_validation_issues(
 
 ///|
 priv struct MarkdownBlockReportAccumulator {
-  paragraph_count : Ref[Int]
-  list_count : Ref[Int]
-  table_count : Ref[Int]
-  code_block_count : Ref[Int]
-  blockquote_count : Ref[Int]
-  link_count : Ref[Int]
-  image_count : Ref[Int]
-  raw_html_count : Ref[Int]
-  unsafe_link_count : Ref[Int]
-  unsafe_html_count : Ref[Int]
-  asset_count : Ref[Int]
-  max_list_depth : Ref[Int]
-  footnote_definition_count : Ref[Int]
-  footnote_reference_count : Ref[Int]
+  paragraph_count : Ref[Int32]
+  list_count : Ref[Int32]
+  table_count : Ref[Int32]
+  code_block_count : Ref[Int32]
+  blockquote_count : Ref[Int32]
+  link_count : Ref[Int32]
+  image_count : Ref[Int32]
+  raw_html_count : Ref[Int32]
+  unsafe_link_count : Ref[Int32]
+  unsafe_html_count : Ref[Int32]
+  asset_count : Ref[Int32]
+  max_list_depth : Ref[Int32]
+  footnote_definition_count : Ref[Int32]
+  footnote_reference_count : Ref[Int32]
 }
 
 ///|
@@ -334,7 +334,7 @@ fn markdown_block_report_from_accumulator(
 fn markdown_accumulate_single_block_report(
   block : @core.CoreBlock,
   report : MarkdownBlockReportAccumulator,
-  list_depth : Int,
+  list_depth : Int32,
 ) -> Unit {
   match block.kind {
     Paragraph => report.paragraph_count.val += 1

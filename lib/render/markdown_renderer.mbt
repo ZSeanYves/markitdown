@@ -21,7 +21,7 @@ pub fn markdown_renderer() -> Renderer {
     render_input: fn(
       input : RenderInput,
       context : RenderContext,
-    ) -> RenderResult {
+    ) -> RenderResult raise JsonEncodingError {
       render_markdown_input(input, context)
     },
   }
@@ -33,7 +33,7 @@ pub fn markdown_renderer() -> Renderer {
 fn render_markdown_input(
   input : RenderInput,
   context : RenderContext,
-) -> RenderResult {
+) -> RenderResult raise JsonEncodingError {
   let renderer = markdown_renderer()
   match input {
     Document(document) => (renderer.render)(document, context)

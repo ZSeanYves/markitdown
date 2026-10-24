@@ -2,13 +2,13 @@
 fn rag_test_event(
   kind : @core.EventKind,
   text : String,
-  source_ref? : @core.SourceRef? = None,
+  source_ref~ : @core.SourceRef? = None,
 ) -> @core.CoreEvent {
   { kind, text, source_ref, }
 }
 
 ///|
-fn rag_test_line_ref(line : Int) -> @core.SourceRef {
+fn rag_test_line_ref(line : Int32) -> @core.SourceRef {
   @core.source_ref_with_lines(
     @core.empty_source_ref(),
     Some("fixture.txt"),

@@ -7,7 +7,20 @@ import {
   "moonbit-community/flate/zlib",
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/input",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
+  "ZSeanYves/markitdown/internal/inflate",
+  "moonbit-community/flate/checksum",
 }
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

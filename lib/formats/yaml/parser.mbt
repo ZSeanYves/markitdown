@@ -17,7 +17,7 @@ fn yaml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn yaml_parser() -> @parser.Parser {
-  @parser.make_parser("yaml_parser", DomAstModel, yaml_parser_capability(), fn(
+  @parser.make_parser("yaml_parser", DomAstModel, yaml_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -122,7 +122,7 @@ pub fn yaml_parse_with_prepared_document(
       }
     }
   } else {
-    match parse_yaml_document_result(source, context) {
+    match parse_prepared_yaml_document_result(context, prepared) {
       Ok(result) => result
       Err(err) => {
         let diagnostics = @fshared.empty_parser_diagnostics(
@@ -143,7 +143,7 @@ pub fn yaml_parse_with_prepared_document(
 }
 
 ///|
-fn parse_yaml_document_result(
+async fn parse_yaml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
@@ -151,6 +151,14 @@ fn parse_yaml_document_result(
     Ok(payload) => payload
     Err(err) => return Err(err)
   }
+  parse_prepared_yaml_document_result(context, prepared)
+}
+
+///|
+fn parse_prepared_yaml_document_result(
+  context : @parser.ParseContext,
+  prepared : @dyaml.PreparedYamlDocument,
+) -> Result[@parser.ParseResult, String] {
   let source = prepared.prepared_source
   let text = prepared.original_text
   let diagnostics = @fshared.empty_parser_diagnostics(

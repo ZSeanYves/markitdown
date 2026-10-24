@@ -35,27 +35,32 @@ fn pdf_text_coverage_font_info() -> PdfNativeFontInfo {
 
 ///|
 fn pdf_text_coverage_stream_object(
-  object_id : Int,
+  object_id : Int32,
   dict_text : String,
   payload : String,
 ) -> PdfNativeObject {
   {
     object_id,
     dict_text,
-    stream: Some({
-      primary_bytes: @utf8.encode(payload),
-      endstream_bytes: @utf8.encode(payload),
-      declared_length: Some(payload.length()),
-    }),
+    stream: Some(
+      Loaded({
+        primary_bytes: @utf8.encode(payload),
+        endstream_bytes: @utf8.encode(payload),
+        endstream_eol_suffix: 0,
+        endstream_eol_length: 0,
+        declared_length: Some(payload.length()),
+        decode_context: None,
+      }),
+    ),
   }
 }
 
 ///|
-test "pdf text content operators cover positioning spacing arrays and actual text" {
-  let fonts : Map[Int, PdfNativeFontInfo] = Map([
+async test "pdf text content operators cover positioning spacing arrays and actual text" {
+  let fonts : Map[Int32, PdfNativeFontInfo] = Map([
     (1, pdf_text_coverage_font_info()),
   ])
-  let aliases : Map[String, Int] = Map([("F1", 1)])
+  let aliases : Map[String, Int32] = Map([("F1", 1)])
   let content = [
     "q 1 0 0 1 5 7 cm", "BT /F1 10 Tf 10 100 Tm", "2 Tc 3 Tw 80 Tz 4 Ts", "(alpha) Tj",
     "12 TL T* (beta) Tj", "2 -14 TD (gamma) Tj", "(delta) '", "5 1 (epsilon) \"",
@@ -82,13 +87,13 @@ test "pdf text content operators cover positioning spacing arrays and actual tex
 }
 
 ///|
-test "pdf text stream covers depth malformed tokens and form xobjects" {
+async test "pdf text stream covers depth malformed tokens and form xobjects" {
   let source = pdf_text_coverage_source()
   let geometry = make_pdf_page_geometry(2, 300.0, 300.0)
-  let fonts : Map[Int, PdfNativeFontInfo] = Map([
+  let fonts : Map[Int32, PdfNativeFontInfo] = Map([
     (1, pdf_text_coverage_font_info()),
   ])
-  let aliases : Map[String, Int] = Map([("F1", 1)])
+  let aliases : Map[String, Int32] = Map([("F1", 1)])
   let empty = pdf_extract_text_fragments_from_stream(
     source,
     geometry,
@@ -116,7 +121,7 @@ test "pdf text stream covers depth malformed tokens and form xobjects" {
     9, "<< /Subtype /Form /Matrix [1 0 0 1 20 30] /Resources << /Font << /F1 1 0 R >> >> >>",
     "BT /F1 9 Tf 1 0 0 1 10 20 Tm (from form) Tj ET",
   )
-  let objects : Map[Int, PdfNativeObject] = Map([(9, form)])
+  let objects : Map[Int32, PdfNativeObject] = Map([(9, form)])
   let fragments = match
     pdf_extract_text_fragments_from_stream(
       source,
@@ -172,8 +177,8 @@ test "pdf text utility edge cases remain deterministic" {
 }
 
 ///|
-test "pdf embedded font extraction covers missing corrupt and supported streams" {
-  let empty : Map[Int, PdfNativeObject] = Map([])
+async test "pdf embedded font extraction covers missing corrupt and supported streams" {
+  let empty : Map[Int32, PdfNativeObject] = Map([])
   assert_true(pdf_extract_embedded_font_program("<< >>", empty) is None)
   assert_true(
     pdf_extract_embedded_font_program("<< /FontDescriptor 8 0 R >>", empty)
@@ -184,7 +189,7 @@ test "pdf embedded font extraction covers missing corrupt and supported streams"
     dict_text: "<< /FontFile2 10 0 R >>",
     stream: None,
   }
-  let only_descriptor : Map[Int, PdfNativeObject] = Map([
+  let only_descriptor : Map[Int32, PdfNativeObject] = Map([
     (8, descriptor_missing_file),
   ])
   assert_true(
@@ -195,7 +200,7 @@ test "pdf embedded font extraction covers missing corrupt and supported streams"
   )
 
   let sfnt = pdf_text_coverage_stream_object(10, "<< >>", "tiny")
-  let objects : Map[Int, PdfNativeObject] = Map([
+  let objects : Map[Int32, PdfNativeObject] = Map([
     (8, descriptor_missing_file),
     (10, sfnt),
   ])
@@ -215,7 +220,7 @@ test "pdf embedded font extraction covers missing corrupt and supported streams"
       "<< /Subtype /" + subtype + " >>",
       "minimal",
     )
-    let index : Map[Int, PdfNativeObject] = Map([(8, descriptor), (11, file3)])
+    let index : Map[Int32, PdfNativeObject] = Map([(8, descriptor), (11, file3)])
     let result = pdf_extract_embedded_font_program(
       "<< /FontDescriptor 8 0 R >>", index,
     )
@@ -228,8 +233,8 @@ test "pdf embedded font extraction covers missing corrupt and supported streams"
 }
 
 ///|
-test "pdf embedded font maps decoding and widths cover controlled fallbacks" {
-  let identity : Map[Int, PdfNativeObject] = Map([])
+async test "pdf embedded font maps decoding and widths cover controlled fallbacks" {
+  let identity : Map[Int32, PdfNativeObject] = Map([])
   assert_true(
     pdf_extract_cid_to_gid_map("<< /CIDToGIDMap /Identity >>", identity) == None,
   )
@@ -576,7 +581,7 @@ test "pdf content token escapes operands and primitive parsers cover failures" {
 
 ///|
 test "pdf sfnt cmap formats and malformed tables cover bounded parsing" {
-  let map0 : Map[Int, String] = Map([])
+  let map0 : Map[Int32, String] = Map([])
   pdf_sfnt_parse_cmap_format0(
     pdf_wbtest_bytes_from_hex(
       "000001060000" + "00".repeat(65) + "01" + "00".repeat(190),
@@ -586,7 +591,7 @@ test "pdf sfnt cmap formats and malformed tables cover bounded parsing" {
   )
   assert_true(map0.get(1) == Some("A"))
   pdf_sfnt_parse_cmap_format0(@utf8.encode("short"), 0, map0)
-  let map6 : Map[Int, String] = Map([])
+  let map6 : Map[Int32, String] = Map([])
   pdf_sfnt_parse_cmap_format6(
     pdf_wbtest_bytes_from_hex("0006001000000041000200010002"),
     0,
@@ -600,7 +605,7 @@ test "pdf sfnt cmap formats and malformed tables cover bounded parsing" {
     0,
     Map([]),
   )
-  let map12 : Map[Int, String] = Map([])
+  let map12 : Map[Int32, String] = Map([])
   pdf_sfnt_parse_cmap_format12(
     pdf_wbtest_bytes_from_hex(
       "000C00000000001C00000000000000010001F6000001F60100000005",
@@ -616,7 +621,7 @@ test "pdf sfnt cmap formats and malformed tables cover bounded parsing" {
     0,
     Map([]),
   )
-  let format4_short : Map[Int, String] = Map([])
+  let format4_short : Map[Int32, String] = Map([])
   pdf_sfnt_parse_cmap_format4(@utf8.encode("short"), 0, format4_short)
   assert_true(format4_short.length() == 0)
   assert_true(

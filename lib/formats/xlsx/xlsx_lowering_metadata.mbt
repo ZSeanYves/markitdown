@@ -1,20 +1,19 @@
 ///|
-fn xlsx_fill_package_metrics(
+async fn xlsx_fill_package_metrics(
   diagnostics : @core.Diagnostics,
   pkg : @ox.OoxmlPackage,
-) -> Unit {
+) -> Unit noraise {
   let validation = @ox.validate_ooxml_package(pkg)
   let inventory = @ox.inspect_ooxml_inventory(pkg)
   let package_relationship_count = (@ox.read_package_relationships(pkg) catch {
     _ => []
   }).length()
-  let part_relationship_count = inventory.relationship_source_parts.fold(
-    init=0,
-    fn(acc, source_part) {
-      acc +
-      (@ox.read_part_relationships(pkg, source_part) catch { _ => [] }).length()
-    },
-  )
+  let mut part_relationship_count = 0
+  for source_part in inventory.relationship_source_parts {
+    part_relationship_count += (@ox.read_part_relationships(pkg, source_part) catch {
+      _ => []
+    }).length()
+  }
   diagnostics.metrics.set("ooxml_part_count", inventory.part_count.to_string())
   diagnostics.metrics.set(
     "relationship_count",
@@ -56,7 +55,7 @@ fn xlsx_fill_package_metrics(
 fn xlsx_count_validation_kind(
   issues : Array[@ox.OoxmlValidationIssue],
   kind : @ox.OoxmlValidationIssueKind,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for issue in issues {
     if issue.kind == kind {
@@ -67,7 +66,7 @@ fn xlsx_count_validation_kind(
 }
 
 ///|
-fn xlsx_total_uncompressed_bytes(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn xlsx_total_uncompressed_bytes(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut total = 0
   for part in parts {
     total += part.size
@@ -76,7 +75,7 @@ fn xlsx_total_uncompressed_bytes(parts : Array[@ox.OoxmlPartInfo]) -> Int {
 }
 
 ///|
-fn xlsx_count_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn xlsx_count_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     match part.content_type {
@@ -88,7 +87,7 @@ fn xlsx_count_macro_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
 }
 
 ///|
-fn xlsx_count_ole_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn xlsx_count_ole_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     if part.part_name.contains("/embeddings/") ||
@@ -100,7 +99,7 @@ fn xlsx_count_ole_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
 }
 
 ///|
-fn count_xlsx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int {
+fn count_xlsx_media_parts(parts : Array[@ox.OoxmlPartInfo]) -> Int32 {
   let mut count = 0
   for part in parts {
     if part.part_name.has_prefix("xl/media/") && !part.part_name.has_suffix("/") {

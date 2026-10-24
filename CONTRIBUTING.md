@@ -1,75 +1,86 @@
 # Contributing
 
-Keep product code and repository automation in MoonBit. The supported
-automation surface is the `.mbtx` regression and benchmark programs under
-`tools/regression/`; there is no Python or shell helper layer.
+Product code and repository automation use MoonBit. Write automation in
+`.mbtx`; use structured process arguments instead of shell scripts. The product
+targets Linux x86_64 and macOS arm64 with the Native backend.
 
 ## Development checks
 
-Run the source checks in a serialized order because MoonBit shares its build
-lock across targets:
+Use MoonBit `0.1.20261021` / `moonc v0.10.17+093cb8f9c` and a C compiler.
+Run MoonBit commands serially because the repository shares its build lock:
 
 ```text
-moon info && moon fmt
-moon check --target all --warn-list +73 --deny-warn
+moon check --target native --warn-list +73 --deny-warn
 moon test --target native --no-parallelize
-moon test --target wasm --no-parallelize
-moon build --target native --release --package ZSeanYves/markitdown
-moon build --target wasm --release --package ZSeanYves/markitdown
+moon test --target native --release --no-parallelize
+moon build --target native .
+moon build --target native --release .
+moon info
+moon fmt
 ```
 
-These commands validate the checkout and release artifacts. They do not replace
-the package-consumer gate.
+Review generated `.mbti` diffs; do not edit generated interfaces manually.
+These checks cover the checkout and its artifacts. Installation, independent
+library consumption, full quality regression and performance have separate
+gates in the [upgrade plan](docs/architecture/native-performance-plan.md).
 
-## MoonX validation
+## Native consumer and regression validation
 
-For a behavior change, use the pinned sibling `markitdown-quality-lab` checkout
-and an exact published package coordinate:
+Use `tools/regression/native_install.mbtx` to check installation and an
+independent module that imports only the public façade. See the
+[tooling guide](tools/regression/README.md) for its arguments. Validate local
+source and a fixed Git commit before publication; verify the exact registry
+version after publication. The checks must not publish a package.
 
 ```text
-moonx tools/regression/moonx_smoke.mbtx ZSeanYves/markitdown@<exact-version> --target wasm
-moonx tools/regression/run_moonx_regression.mbtx ZSeanYves/markitdown@<exact-version> --target wasm --suite all
-moonx tools/regression/moonx_benchmark.mbtx ZSeanYves/markitdown@<exact-version> --target wasm
+moon run --target native tools/regression/native_install.mbtx --source local --root /absolute/path/to/markitdown --evidence /absolute/path/to/new-install-evidence
+```
+
+Run affected corpus cases against the actual Native executable, using the
+pinned sibling `markitdown-quality-lab` checkout:
+
+```text
+moon run tools/regression/run_native_regression.mbtx --binary /absolute/path/to/installed/markitdown --lab /absolute/path/to/markitdown-quality-lab --suite all --evidence /absolute/path/to/new-regression-evidence
 ```
 
 Use `--suite quality`, `--suite accurate`, `--format FORMAT`, or `--case ID`
-while diagnosing one fixture, then run every affected suite. Evidence is
-written under ignored `.tmp/moonx-*` directories. Before publication, a MoonX
-download error is expected because the exact registry asset does not exist yet;
-do not replace it with a local binary run.
+for diagnosis, then run every affected valid contract. Preserve existing
+quality-lab changes and save failed-run summaries. A fake runner validates
+the harness only. A missing registry version is a missing publication, not a
+passed consumer gate.
 
 ## Format changes
 
-Every format change should answer three questions in the pull request:
+Every format change should explain:
 
-1. Which public capability or diagnostic changes?
-2. Which deterministic fixture or quality-lab case proves the change?
-3. How do Native and Wasm observe the same shared semantic result?
+1. The public capability, output, resource limit or diagnostic that changes.
+2. The deterministic fixture or quality-lab case that proves the behavior.
+3. How text, structure, order, sources, metadata, diagnostics and assets are
+   preserved across collecting and Sink delivery where supported.
 
-Add or update a small contract fixture for a new boundary. Keep third-party
-samples in `markitdown-quality-lab` with their license, hash, provenance, and
-manifest entry. Never change a golden only to hide lost text, structure,
-assets, diagnostics, or source references.
-
-The stable consumer import is `ZSeanYves/markitdown/lib`. Internal readers,
-parser records, `DocumentIR`, pipeline contexts, and runtime adapters can be
-refactored without becoming public compatibility promises.
+Never update a golden to hide lost content or bypass integrity/resource
+checks. Add third-party samples with license, hash, provenance and manifest
+entries. Evaluate performance only after quality passes, on the same input,
+mode, limits, assets and output target.
 
 ## Scope and target rules
 
-The 0.8 product is text-only. OCR, audio transcription, scanned-page
-recognition, and image recognition are retired routes. Document images remain
-exportable assets, and PDF work must preserve the bounded text-layer contract
-with an explicit diagnostic for pages without recoverable text.
+The product converts text and preserves document images as assets. OCR,
+audio transcription, scanned-page recognition, image recognition, rendering
+engines and formula recalculation are outside the product boundary.
 
-Wasm defines the portable baseline. Native extensions belong behind the small
-target-isolated FFI boundary and must be listed in
-[`docs/ffi-inventory.md`](docs/ffi-inventory.md). Do not copy the full
-conversion pipeline for a target-specific implementation.
+Keep the thin root `main.mbt`, public `lib`, and private `internal` split.
+There is one Native conversion chain. Small FFI boundaries must record their
+necessity, ownership, transitive dependencies and removal condition in the
+[FFI inventory](docs/ffi-inventory.md).
+
+Wasm, Wasm-GC and JavaScript product distributions and their compatibility
+implementations are retired. Repository `.mbtx` scripts may use the toolchain's
+script runtime, but must invoke actual Native product artifacts for acceptance.
 
 ## Documentation
 
-Update the nearest maintained document when behavior changes. Start with the
-[documentation index](docs/README.md), and keep command examples aligned with
-the current MoonX entrypoints. Generated interfaces and evidence files are
-updated by their owning check; do not hand-edit them to make a diff disappear.
+Update the nearest maintained document when behavior changes. Keep product
+installation examples on `moon install` and script examples on `.mbtx`.
+Do not describe candidate, hosted-platform or post-publication gates as passed
+until their saved evidence exists.

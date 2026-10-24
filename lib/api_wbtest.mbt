@@ -18,7 +18,7 @@ async test "stable API converts Path, Text, Bytes, and Reader inputs" {
         if start >= bytes.length() {
           Ok(b"")
         } else {
-          let stop = Int::min(start + length, bytes.length())
+          let stop = Int32::min(start + length, bytes.length())
           Ok(Bytes::from_array(bytes[start:stop].to_array()))
         }
       },
@@ -38,7 +38,7 @@ async test "stable API converts Path, Text, Bytes, and Reader inputs" {
         if start >= bytes.length() {
           Ok(b"")
         } else {
-          let stop = Int::min(start + length, bytes.length())
+          let stop = Int32::min(start + length, bytes.length())
           Ok(Bytes::from_array(bytes[start:stop].to_array()))
         }
       },
@@ -188,7 +188,7 @@ async test "reader input enforces requested and conversion byte limits" {
       if start >= bytes.length() {
         Ok(b"")
       } else {
-        let stop = Int::min(start + length, bytes.length())
+        let stop = Int32::min(start + length, bytes.length())
         Ok(Bytes::from_array(bytes[start:stop].to_array()))
       }
     },

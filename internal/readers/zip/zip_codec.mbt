@@ -2,14 +2,14 @@
 pub(all) enum CompressionMethod {
   Store
   DeflateRaw
-  Unsupported(Int)
+  Unsupported(Int32)
 } derive(Eq)
 
 ///|
 pub(all) suberror CodecError {
-  UnsupportedCompressionMethod(Int)
+  UnsupportedCompressionMethod(Int32)
   DecodeFailed(String)
-  OutputTooLarge(Int, Int)
+  OutputTooLarge(Int32, Int32)
 }
 
 ///|
@@ -35,7 +35,7 @@ pub impl Show for CodecError with fn output(self : CodecError, logger : &Logger)
 pub fn decompress(
   compression_method : CompressionMethod,
   compressed : Bytes,
-  max_output_size? : Int = 128 * 1024 * 1024,
+  max_output_size~ : Int32 = 128 * 1024 * 1024,
 ) -> Bytes raise CodecError {
   if max_output_size < 0 {
     raise OutputTooLarge(max_output_size, 0)

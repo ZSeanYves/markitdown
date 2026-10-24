@@ -1,5 +1,5 @@
 ///|
-fn pdf_decode_stream_text(
+async fn pdf_decode_stream_text(
   object : PdfNativeObject,
   context : String,
 ) -> Result[String, PdfNativeError] {
@@ -10,12 +10,12 @@ fn pdf_decode_stream_text(
 }
 
 ///|
-fn pdf_decode_stream_bytes(
+async fn pdf_decode_stream_bytes(
   object : PdfNativeObject,
   context : String,
 ) -> Result[Bytes, PdfNativeError] {
-  let stream = match object.stream {
-    Some(value) => value
+  let read = match object.stream {
+    Some(reference) => pdf_load_stream_reference(reference)
     None =>
       return Err(
         ParseFailed(
@@ -26,14 +26,35 @@ fn pdf_decode_stream_bytes(
         ),
       )
   }
+  defer pdf_release_stream_read(read)
+  let decoded = pdf_decode_loaded_stream_bytes(
+    object.object_id,
+    object.dict_text,
+    read.stream,
+    context,
+  )
+  if decoded is Ok(_) {
+    pdf_publish_stream_read(read)
+  }
+  decoded
+}
+
+///|
+// The same pure core serves locally-owned xref streams and the async gateway.
+fn pdf_decode_loaded_stream_bytes(
+  object_id : Int32,
+  dict_text : String,
+  stream : PdfNativeStreamSlice,
+  context : String,
+) -> Result[Bytes, PdfNativeError] raise PdfHardDecodeFailure {
   let stream_bytes = stream.primary_bytes
-  let filter_specs = match pdf_extract_stream_filter_specs(object.dict_text) {
+  let filter_specs = match pdf_extract_stream_filter_specs(dict_text) {
     Ok(value) => value
     Err(err) =>
       return Err(
         UnsupportedFeature(
           "stream decode failed for object " +
-          object.object_id.to_string() +
+          object_id.to_string() +
           " (" +
           context +
           "): " +
@@ -46,13 +67,15 @@ fn pdf_decode_stream_bytes(
       stream_bytes,
       filter_specs.0,
       filter_specs.1,
+      decode_context=stream.decode_context,
+      stream_framing=Some(stream),
     ) {
     Ok(bytes) => Ok(bytes)
     Err(err) =>
       Err(
         PdfNativeError::UnsupportedFeature(
           "stream decode failed for object " +
-          object.object_id.to_string() +
+          object_id.to_string() +
           " (" +
           context +
           "): " +
@@ -64,111 +87,25 @@ fn pdf_decode_stream_bytes(
 }
 
 ///|
-fn pdf_extract_image_candidates_from_stream(
-  source : @input.InputSource,
-  geometry : PdfPageGeometry,
-  object_index : Map[Int, PdfNativeObject],
-  resources_text : String?,
-  content_text : String,
-  base_matrix? : PdfNativeGraphicsMatrix = pdf_identity_matrix(),
-  remaining_depth? : Int = 6,
-) -> Array[PdfNativeImageCandidate] {
-  if remaining_depth <= 0 {
-    return []
-  }
-  let tokens = match pdf_scan_content_tokens(content_text) {
-    Ok(parsed) => parsed
-    Err(_) => return []
-  }
-  let candidates : Array[PdfNativeImageCandidate] = []
-  let operands : Array[PdfNativeContentToken] = []
-  let graphics_stack : Array[PdfNativeGraphicsMatrix] = []
-  let mut current_matrix = base_matrix
-  for token in tokens {
-    match token {
-      Word(op) =>
-        match op {
-          "q" => {
-            graphics_stack.push(current_matrix)
-            operands.clear()
-          }
-          "Q" => {
-            current_matrix = graphics_stack.pop().unwrap_or(base_matrix)
-            operands.clear()
-          }
-          "cm" => {
-            if operands.length() >= 6 {
-              current_matrix = pdf_concat_graphics_matrix(
-                current_matrix,
-                pdf_matrix_from_operands(operands),
-              )
-            }
-            operands.clear()
-          }
-          "Do" => {
-            if operands.length() >= 1 {
-              match pdf_token_name(operands[operands.length() - 1]) {
-                Some(xobject_name) =>
-                  candidates.append(
-                    pdf_image_candidates_from_xobject_name(
-                      source, geometry, object_index, resources_text, xobject_name,
-                      current_matrix, remaining_depth,
-                    )[:],
-                  )
-                None => ()
-              }
-            }
-            operands.clear()
-          }
-          _ => operands.clear()
-        }
-      _ => operands.push(token)
-    }
-  }
-  candidates
-}
-
-///|
-fn pdf_image_candidates_from_xobject_name(
-  source : @input.InputSource,
-  geometry : PdfPageGeometry,
-  object_index : Map[Int, PdfNativeObject],
-  resources_text : String?,
-  xobject_name : String,
-  current_matrix : PdfNativeGraphicsMatrix,
-  remaining_depth : Int,
-) -> Array[PdfNativeImageCandidate] {
-  let resolved = match
-    pdf_lookup_xobject_object(resources_text, xobject_name, object_index) {
-    Some(value) => value
-    None => return []
-  }
-  let (object_id, xobject) = resolved
-  match pdf_extract_name_after(xobject.dict_text, "/Subtype") {
-    Some("Image") =>
-      [
-        pdf_image_candidate_from_xobject(
-          source, geometry, xobject_name, object_id, xobject, object_index, current_matrix,
+fn pdf_decode_owned_object_stream_bytes(
+  object : PdfNativeObject,
+  context : String,
+) -> Result[Bytes, PdfNativeError] raise PdfHardDecodeFailure {
+  match object.stream {
+    Some(Loaded(stream) | SelectedLoaded(stream, _)) =>
+      pdf_decode_loaded_stream_bytes(
+        object.object_id,
+        object.dict_text,
+        stream,
+        context,
+      )
+    _ =>
+      Err(
+        ParseFailed(
+          "local xref stream does not have an owned payload: " +
+          object.object_id.to_string(),
         ),
-      ]
-    Some("Form") =>
-      match pdf_decode_stream_text(xobject, "form xobject stream") {
-        Ok(form_text) =>
-          pdf_extract_image_candidates_from_stream(
-            source,
-            geometry,
-            object_index,
-            pdf_extract_resources_text(xobject.dict_text, object_index),
-            form_text,
-            base_matrix=pdf_concat_graphics_matrix(
-              current_matrix,
-              pdf_form_graphics_matrix(xobject.dict_text),
-            ),
-            remaining_depth=remaining_depth - 1,
-          )
-        Err(_) => []
-      }
-    _ => []
+      )
   }
 }
 
@@ -176,8 +113,8 @@ fn pdf_image_candidates_from_xobject_name(
 fn pdf_lookup_xobject_object(
   resources_text : String?,
   xobject_name : String,
-  object_index : Map[Int, PdfNativeObject],
-) -> (Int, PdfNativeObject)? {
+  object_index : Map[Int32, PdfNativeObject],
+) -> (Int32, PdfNativeObject)? {
   let resources_text = match resources_text {
     Some(value) => value
     None => return None
@@ -211,13 +148,13 @@ fn pdf_lookup_xobject_object(
 }
 
 ///|
-fn pdf_image_candidate_from_xobject(
+async fn pdf_image_candidate_from_xobject(
   source : @input.InputSource,
   geometry : PdfPageGeometry,
   xobject_name : String,
-  object_id : Int,
+  object_id : Int32,
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   current_matrix : PdfNativeGraphicsMatrix,
 ) -> PdfNativeImageCandidate {
   let image_width = pdf_extract_int_after(object.dict_text, "/Width")
@@ -270,9 +207,9 @@ fn pdf_image_candidate_from_xobject(
 ///|
 fn pdf_source_ref_for_image_candidate(
   source : @input.InputSource,
-  page_no : Int,
+  page_no : Int32,
   bbox : PdfBBox,
-  object_id : Int,
+  object_id : Int32,
   xobject_name : String,
 ) -> @core.SourceRef {
   let base = pdf_native_source_ref(source, page_no, bbox, None, None, 0.0)
@@ -285,14 +222,14 @@ fn pdf_source_ref_for_image_candidate(
 }
 
 ///|
-fn pdf_exportable_image_asset_ref(
+async fn pdf_exportable_image_asset_ref(
   source : @input.InputSource,
-  page_no : Int,
+  page_no : Int32,
   bbox : PdfBBox,
   xobject_name : String,
-  object_id : Int,
+  object_id : Int32,
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> @core.AssetRef? {
   let payload_info = match pdf_exportable_image_payload(object, object_index) {
     Some(value) => value
@@ -337,27 +274,45 @@ priv struct PdfExportableImagePayload {
   filter_chain : String
   decode_mode : String
   source_encoding : String?
-  globals_object_id : Int?
+  globals_object_id : Int32?
 }
 
 ///|
 priv struct PdfCcittFaxParams {
-  compression : Int
-  width : Int
-  height : Int
-  photometric : Int
+  compression : Int32
+  width : Int32
+  height : Int32
+  photometric : Int32
   encoded_byte_align : Bool
 }
 
 ///|
-fn pdf_exportable_image_payload(
+async fn pdf_exportable_image_payload(
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfExportableImagePayload? {
-  let stream = match object.stream {
-    Some(value) => value
+  let read = match object.stream {
+    Some(reference) => pdf_load_stream_reference(reference)
     None => return None
   }
+  defer pdf_release_stream_read(read)
+  let result = pdf_exportable_image_payload_loaded(
+    object,
+    object_index,
+    read.stream,
+  )
+  if result is Some(_) {
+    pdf_publish_stream_read(read)
+  }
+  result
+}
+
+///|
+async fn pdf_exportable_image_payload_loaded(
+  object : PdfNativeObject,
+  object_index : Map[Int32, PdfNativeObject],
+  stream : PdfNativeStreamSlice,
+) -> PdfExportableImagePayload? {
   if pdf_image_decode_budget_exceeded(object, object_index, stream) {
     return None
   }
@@ -404,6 +359,8 @@ fn pdf_exportable_image_payload(
       filters,
       params,
       filters.length() - 1,
+      decode_context=stream.decode_context,
+      stream_framing=Some(stream),
     ) {
     Ok(value) => Some(value)
     Err(_) => None
@@ -525,6 +482,8 @@ fn pdf_exportable_image_payload(
       filters,
       params,
       filters.length(),
+      decode_context=stream.decode_context,
+      stream_framing=Some(stream),
     ) {
     Ok(value) => value
     Err(_) =>
@@ -572,9 +531,9 @@ fn pdf_exportable_image_payload(
 const PDF_MAX_IMAGE_DECODE_WORKING_BYTES : Int64 = 64L * 1024L * 1024L
 
 ///|
-fn pdf_image_decode_budget_exceeded(
+async fn pdf_image_decode_budget_exceeded(
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   stream : PdfNativeStreamSlice,
 ) -> Bool {
   let source_bytes = pdf_stream_selected_bytes(stream).length().to_int64()
@@ -617,11 +576,11 @@ fn pdf_image_decode_budget_exceeded(
 }
 
 ///|
-fn pdf_decoded_pixels_png_payload(
+async fn pdf_decoded_pixels_png_payload(
   object : PdfNativeObject,
   decoded : Bytes,
   filter_chain : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfExportableImagePayload? {
   let width = pdf_extract_int_after(object.dict_text, "/Width").unwrap_or(0)
   let height = pdf_extract_int_after(object.dict_text, "/Height").unwrap_or(0)
@@ -713,8 +672,8 @@ fn pdf_decoded_pixels_png_payload(
 ///|
 fn pdf_convert_cmyk_to_rgb(
   decoded : Bytes,
-  width : Int,
-  height : Int,
+  width : Int32,
+  height : Int32,
 ) -> Bytes? {
   if width <= 0 ||
     height <= 0 ||
@@ -739,11 +698,11 @@ fn pdf_convert_cmyk_to_rgb(
 ///|
 fn pdf_expand_indexed_rgb_pixels(
   decoded : Bytes,
-  width : Int,
-  height : Int,
-  bits : Int,
+  width : Int32,
+  height : Int32,
+  bits : Int32,
   base : PdfResolvedImageColorSpace,
-  high : Int,
+  high : Int32,
   palette : Bytes,
 ) -> Bytes? {
   if bits != 1 && bits != 2 && bits != 4 && bits != 8 {
@@ -804,7 +763,7 @@ fn pdf_expand_indexed_rgb_pixels(
 }
 
 ///|
-fn pdf_min_int(left : Int, right : Int) -> Int {
+fn pdf_min_int(left : Int32, right : Int32) -> Int32 {
   if left < right {
     left
   } else {
@@ -816,9 +775,9 @@ fn pdf_min_int(left : Int, right : Int) -> Int {
 fn pdf_image_color_key_alpha(
   object : PdfNativeObject,
   pixels : Bytes,
-  width : Int,
-  height : Int,
-  channels : Int,
+  width : Int32,
+  height : Int32,
+  channels : Int32,
 ) -> Bytes? {
   let ranges = pdf_extract_int_array_after(object.dict_text, "/Mask")
   if (channels != 1 && channels != 3) || ranges.length() != channels * 2 {
@@ -839,11 +798,11 @@ fn pdf_image_color_key_alpha(
 }
 
 ///|
-fn pdf_image_soft_mask_alpha(
+async fn pdf_image_soft_mask_alpha(
   object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
-  width : Int,
-  height : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  width : Int32,
+  height : Int32,
 ) -> Bytes? {
   let mask_id = match
     pdf_extract_object_reference_after(object.dict_text, "/SMask") {

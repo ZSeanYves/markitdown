@@ -17,6 +17,8 @@ fn legacy_output_mode(mode : OutputMode) -> @product.OutputMode {
 }
 
 ///|
+// Keep option failures as values for the frozen facade's Result contract.
+#warnings("-result_error_return")
 fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
   if options.limits.max_rows <= 0 ||
     options.limits.max_cols <= 0 ||
@@ -28,6 +30,9 @@ fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
     options.limits.max_asset_bytes <= 0L ||
     options.limits.max_total_asset_bytes <= 0L {
     return Err(InvalidOption("byte limits must be positive"))
+  }
+  if options.limits.max_temporary_bytes is Some(limit) && limit < 0L {
+    return Err(InvalidOption("temporary byte limit must be non-negative"))
   }
   if options.rag.chunk_size <= 0 ||
     options.rag.chunk_overlap < 0 ||
@@ -46,6 +51,7 @@ fn validate_options(options : ConvertOptions) -> Result[Unit, ConvertError] {
 }
 
 ///|
+#warnings("-result_error_return")
 fn legacy_options(
   options : ConvertOptions,
 ) -> Result[@convert.ConvertOptions, ConvertError] {
@@ -64,6 +70,7 @@ fn legacy_options(
     max_input_bytes=options.limits.max_input_bytes,
     max_asset_bytes=options.limits.max_asset_bytes,
     max_total_asset_bytes=options.limits.max_total_asset_bytes,
+    max_temporary_bytes=options.limits.max_temporary_bytes,
   )
   let rag = @rag.make_rag_options(
     options.rag.chunk_size,
@@ -310,5 +317,21 @@ fn stable_output(execution : @convert.ConvertExecution) -> Output {
     assets: stable_assets(result.assets),
     source_map: stable_source_map(result.source_map),
     chunks: stable_chunks(result.chunks),
+  }
+}
+
+///|
+fn stable_conversion_summary(
+  result : @convert.ConvertResult,
+) -> ConversionSummary {
+  {
+    detected_format: @input.detected_format_name(result.detected_format),
+    convert_mode: stable_convert_mode(result.convert_mode),
+    output_mode: stable_output_mode(result.output_mode),
+    metadata_json: metadata_json(result.metadata),
+    diagnostics: stable_diagnostics(result.diagnostics),
+    assets: stable_assets(result.assets),
+    source_map: stable_source_map(result.source_map),
+    chunk_count: result.chunks.map(chunks => chunks.length()).unwrap_or(0),
   }
 }

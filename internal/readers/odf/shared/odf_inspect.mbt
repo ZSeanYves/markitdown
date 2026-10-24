@@ -136,7 +136,7 @@ fn ods_row_has_visible_content(row : OdsRow) -> Bool {
 }
 
 ///|
-fn ods_row_cell_count(row : OdsRow) -> Int {
+fn ods_row_cell_count(row : OdsRow) -> Int32 {
   let mut count = 0
   for cell in row.cells {
     count += cell.repeat_count
@@ -145,7 +145,7 @@ fn ods_row_cell_count(row : OdsRow) -> Int {
 }
 
 ///|
-fn ods_row_used_cell_count(row : OdsRow) -> Int {
+fn ods_row_used_cell_count(row : OdsRow) -> Int32 {
   let mut width = 0
   for cell in row.cells {
     let cell_width = if cell.covered {
@@ -163,7 +163,7 @@ fn ods_row_used_cell_count(row : OdsRow) -> Int {
 }
 
 ///|
-fn max_int(left : Int, right : Int) -> Int {
+fn max_int(left : Int32, right : Int32) -> Int32 {
   if left > right {
     left
   } else {

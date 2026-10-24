@@ -1,7 +1,7 @@
 ///|
 fn markup_test_block(
   text : String,
-  synthetic? : Bool = false,
+  synthetic~ : Bool = false,
 ) -> TextMarkupBlock {
   let meta : Map[String, String] = Map([])
   if synthetic {

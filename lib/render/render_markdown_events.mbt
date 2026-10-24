@@ -198,7 +198,7 @@ fn write_markdown_xml_generic_outline_events_to(
   out : StringBuilder,
   events : Array[@core.CoreEvent],
 ) -> Unit {
-  let stack : Array[(@core.BlockKind, Int)] = []
+  let stack : Array[(@core.BlockKind, Int32)] = []
   let mut wrote_any = false
   let mut needs_heading_gap = false
   for event in events {
@@ -448,7 +448,7 @@ fn write_markdown_subtitle_record_v2_to(
   out : StringBuilder,
   text : String,
   source_ref : @core.SourceRef?,
-  include_identifier? : Bool = true,
+  include_identifier~ : Bool = true,
 ) -> Unit {
   let mut first = true
   for line in text.split("\n") {
@@ -716,7 +716,7 @@ fn write_markdown_generic_block_events_direct_to(
 ///|
 priv struct GenericEventCursor {
   events : Array[@core.CoreEvent]
-  mut index : Int
+  mut index : Int32
 }
 
 ///|
@@ -881,7 +881,7 @@ fn generic_inline_kind_name(kind : String?) -> @core.InlineKind? {
 }
 
 ///|
-fn widest_event_row_width(rows : Array[Array[String]]) -> Int {
+fn widest_event_row_width(rows : Array[Array[String]]) -> Int32 {
   let mut width = 0
   for row in rows {
     if row.length() > width {
@@ -895,7 +895,7 @@ fn widest_event_row_width(rows : Array[Array[String]]) -> Int {
 fn write_markdown_table_row_from_values(
   out : StringBuilder,
   row : Array[String],
-  width : Int,
+  width : Int32,
 ) -> Unit {
   out.write_string("|")
   for col in 0..<width {

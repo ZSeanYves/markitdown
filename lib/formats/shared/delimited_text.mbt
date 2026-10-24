@@ -43,7 +43,7 @@ fn delimited_parser(
     name,
     StreamingEvent,
     csv_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {
@@ -315,7 +315,7 @@ fn delimited_parser(
         ),
       )
     },
-    stream_events=Some(fn(source, context) {
+    open_stream=Some(async fn(source, context) {
       open_delimited_event_stream(name, format, is_tsv, source, context)
     }),
   )

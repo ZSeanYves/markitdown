@@ -176,7 +176,7 @@ fn html_semantic_parent_item_key(
 fn html_semantic_item_order_in_list(
   items : Array[HtmlListItemFact],
   list_source_key : String?,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for item in items {
     if item.list_source_key == list_source_key {
@@ -190,7 +190,7 @@ fn html_semantic_item_order_in_list(
 fn html_semantic_list_depth(
   ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
-) -> Int {
+) -> Int32 {
   match ctx.list_depth_by_block_source_key.get(block_source_key) {
     Some(depth) => depth
     None => 0
@@ -201,7 +201,7 @@ fn html_semantic_list_depth(
 fn html_semantic_quote_depth(
   ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
-) -> Int {
+) -> Int32 {
   match ctx.quote_depth_by_block_source_key.get(block_source_key) {
     Some(depth) => depth
     None => 0
@@ -279,7 +279,7 @@ fn html_semantic_descendant_block_key_by_tag_index(
   ctx : HtmlSemanticCollectCtx,
   ancestor_block_source_key : String,
   tag_name : String,
-  descendant_index : Int,
+  descendant_index : Int32,
 ) -> String? {
   let keys = if tag_name == "tr" {
     match
@@ -311,7 +311,7 @@ fn html_semantic_descendant_block_key_by_tag_index(
 fn html_semantic_table_cell_block_key_by_index(
   ctx : HtmlSemanticCollectCtx,
   row_block_source_key : String,
-  cell_index : Int,
+  cell_index : Int32,
 ) -> String? {
   match
     ctx.direct_table_cell_block_source_keys_by_row_source_key.get(
@@ -342,7 +342,7 @@ fn html_semantic_direct_child_block_keys(
 }
 
 ///|
-fn parse_html_semantic_positive_int_attr(raw : String?) -> Int {
+fn parse_html_semantic_positive_int_attr(raw : String?) -> Int32 {
   match raw {
     Some(value) => {
       let trimmed = value.trim().to_owned()
@@ -375,7 +375,7 @@ fn parse_html_semantic_positive_int_attr(raw : String?) -> Int {
 fn html_semantic_table_max_column_count(
   ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut max_count = 0
   for key in row_source_keys {
     match ctx.table_row_by_source_key.get(key) {
@@ -390,7 +390,7 @@ fn html_semantic_table_max_column_count(
 fn html_semantic_table_has_ragged_rows(
   ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
-  max_column_count : Int,
+  max_column_count : Int32,
 ) -> Bool {
   if max_column_count == 0 {
     return false
@@ -451,7 +451,7 @@ fn html_semantic_table_has_nested_table(
 fn html_semantic_table_span_cell_count(
   ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for key in cell_source_keys {
     match ctx.table_cell_by_source_key.get(key) {
@@ -469,8 +469,8 @@ fn html_semantic_table_span_cell_count(
 fn html_semantic_table_ragged_row_count(
   ctx : HtmlSemanticCollectCtx,
   row_source_keys : Array[String],
-  max_column_count : Int,
-) -> Int {
+  max_column_count : Int32,
+) -> Int32 {
   if max_column_count == 0 {
     return 0
   }
@@ -488,7 +488,7 @@ fn html_semantic_table_ragged_row_count(
 fn html_semantic_table_nested_cell_count(
   ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for key in cell_source_keys {
     match ctx.table_cell_by_source_key.get(key) {
@@ -503,7 +503,7 @@ fn html_semantic_table_nested_cell_count(
 fn html_semantic_table_complex_cell_count(
   ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for key in cell_source_keys {
     match ctx.table_cell_by_source_key.get(key) {
@@ -518,7 +518,7 @@ fn html_semantic_table_complex_cell_count(
 fn html_semantic_table_image_cell_count(
   ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for key in cell_source_keys {
     match ctx.table_cell_by_source_key.get(key) {
@@ -533,7 +533,7 @@ fn html_semantic_table_image_cell_count(
 fn html_semantic_table_block_child_cell_count(
   ctx : HtmlSemanticCollectCtx,
   cell_source_keys : Array[String],
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for key in cell_source_keys {
     match ctx.table_cell_by_source_key.get(key) {
@@ -548,7 +548,7 @@ fn html_semantic_table_block_child_cell_count(
 fn html_semantic_warning_kind_count(
   warnings : Array[HtmlSemanticWarning],
   kind : HtmlSemanticWarningKind,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for warning in warnings {
     if warning.kind == kind {
@@ -931,7 +931,7 @@ fn html_semantic_index_block_ancestry(
   ctx : HtmlSemanticCollectCtx,
   source_key : String,
   block_kind : HtmlBlockKind,
-  source_order : Int,
+  source_order : Int32,
   parent_source_key : String?,
 ) -> Unit {
   let mut list_depth = 0

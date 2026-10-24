@@ -4,7 +4,7 @@ pub fn tex_parser() -> @parser.Parser {
     "tex_parser",
     DomAstModel,
     @fshared.text_markup_parser_capability(),
-    fn(
+    async fn(
       source : @input.InputSource,
       context : @parser.ParseContext,
     ) -> Result[@parser.ParseResult, String] {

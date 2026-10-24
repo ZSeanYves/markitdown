@@ -54,13 +54,14 @@ pub extend OutputMode with @debug.Debug::{to_repr}
 ///|
 /// Stable resource ceilings for one conversion.
 pub struct ResourceLimits {
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  max_line_chars : Int
+  max_rows : Int32
+  max_cols : Int32
+  max_cells : Int32
+  max_line_chars : Int32
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
+  max_temporary_bytes : Int64?
 } derive(Eq, @debug.Debug)
 
 ///|
@@ -72,8 +73,8 @@ pub extend ResourceLimits with @debug.Debug::{to_repr}
 ///|
 /// Stable RAG chunking policy.
 pub struct RagOptions {
-  chunk_size : Int
-  chunk_overlap : Int
+  chunk_size : Int32
+  chunk_overlap : Int32
   preserve_heading_path : Bool
   preserve_source_ref : Bool
   split_tables : Bool
@@ -172,12 +173,12 @@ pub extend BoundingBox with @debug.Debug::{to_repr}
 pub struct SourceRef {
   file_id : String?
   format : String?
-  page : Int?
+  page : Int32?
   bbox : BoundingBox?
-  line_start : Int?
-  line_end : Int?
-  byte_start : Int?
-  byte_end : Int?
+  line_start : Int32?
+  line_end : Int32?
+  byte_start : Int32?
+  byte_end : Int32?
   time_start : String?
   time_end : String?
   xpath : String?
@@ -187,12 +188,12 @@ pub struct SourceRef {
   markdown_path : String?
   container_path : String?
   entry_path : String?
-  entry_index : Int?
+  entry_index : Int32?
   entry_format : String?
   inner_path : String?
   sheet : String?
   cell_range : String?
-  slide : Int?
+  slide : Int32?
   shape_id : String?
   relationship_id : String?
   chapter_href : String?
@@ -211,7 +212,7 @@ pub struct SourceMapEntry {
   primary_ref : SourceRef?
   refs : Array[SourceRef]
   merged_from : Array[SourceRef]
-  confidence : Int?
+  confidence : Int32?
   relation : String?
 } derive(Eq, @debug.Debug)
 
@@ -321,6 +322,34 @@ pub extend Output with Eq::{equal, not_equal}
 
 ///|
 pub extend Output with @debug.Debug::{to_repr}
+
+///|
+/// Caller-owned asynchronous output callbacks. Conversion waits for each
+/// write before advancing and calls finish only after all output succeeds.
+pub struct OutputSink {
+  write : async (String) -> Result[Unit, String]
+  finish : async () -> Result[Unit, String]
+}
+
+///|
+/// Conversion side channels returned after sink delivery, without retaining
+/// the rendered body or retrieval chunk text.
+pub struct ConversionSummary {
+  detected_format : String
+  convert_mode : ConvertMode
+  output_mode : OutputMode
+  metadata_json : String
+  diagnostics : Array[Diagnostic]
+  assets : Array[Asset]
+  source_map : SourceMap?
+  chunk_count : Int32
+} derive(Eq, @debug.Debug)
+
+///|
+pub extend ConversionSummary with Eq::{equal, not_equal}
+
+///|
+pub extend ConversionSummary with @debug.Debug::{to_repr}
 
 ///|
 /// Stability level of a format capability.

@@ -1,12 +1,22 @@
 import {
   "moonbitlang/core/env",
   "moonbitlang/core/json" @corejson,
+  "moonbitlang/core/encoding/utf8",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
+  "ZSeanYves/markitdown/internal/session_temp" @temp,
   "ZSeanYves/markitdown/internal/readers/source_io" @sourceio,
   "ZSeanYves/markitdown/lib/core",
   "ZSeanYves/markitdown/lib/formats/shared" @fshared,
   "ZSeanYves/markitdown/lib/input",
   "ZSeanYves/markitdown/internal/parser",
 }
+
+import {
+  "moonbitlang/async",
+  "ZSeanYves/markitdown/lib/product",
+} for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

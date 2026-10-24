@@ -2,9 +2,9 @@
 fn pdf_page_link_candidates(
   source : @input.InputSource,
   page_object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   geometry : PdfPageGeometry,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeLinkCandidate] {
   let links : Array[PdfNativeLinkCandidate] = []
   for
@@ -36,9 +36,9 @@ fn pdf_page_link_candidates(
 fn pdf_page_annotations(
   source : @input.InputSource,
   page_object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   geometry : PdfPageGeometry,
-  page_numbers : Map[Int, Int],
+  page_numbers : Map[Int32, Int32],
 ) -> Array[PdfNativeAnnotation] {
   let refs = pdf_extract_resolved_object_references_after(
     page_object.dict_text,
@@ -87,7 +87,7 @@ fn pdf_page_destinations(
 fn pdf_parse_tounicode_cmap_info(cmap_text : String) -> PdfToUnicodeCMapInfo {
   let mapping : Map[String, String] = Map([])
   let invalid_keys : Map[String, Bool] = Map([])
-  let widths : Map[Int, Bool] = Map([])
+  let widths : Map[Int32, Bool] = Map([])
   let tokens = match pdf_scan_content_tokens(cmap_text) {
     Ok(value) => value
     Err(_) =>
@@ -262,7 +262,7 @@ fn pdf_apply_tounicode_bfrange(
                   invalid_keys.set(key, true)
                 } else {
                   let value = String::from_array([
-                    Int::unsafe_to_char(codepoint),
+                    Int32::unsafe_to_char(codepoint),
                   ])
                   mapping.set(key, value)
                 }
@@ -281,8 +281,8 @@ fn pdf_apply_tounicode_bfrange(
 }
 
 ///|
-fn pdf_sort_desc_widths(widths : Map[Int, Bool]) -> Array[Int] {
-  let out : Array[Int] = []
+fn pdf_sort_desc_widths(widths : Map[Int32, Bool]) -> Array[Int32] {
+  let out : Array[Int32] = []
   for entry in widths.to_array() {
     if entry.1 && entry.0 > 0 {
       out.push(entry.0)
@@ -303,8 +303,8 @@ fn pdf_sort_desc_widths(widths : Map[Int, Bool]) -> Array[Int] {
 ///|
 fn pdf_page_geometry(
   page_object : PdfNativeObject,
-  object_index : Map[Int, PdfNativeObject],
-  page_no : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  page_no : Int32,
 ) -> PdfPageGeometry {
   let media_box = match
     pdf_extract_rect_after(page_object.dict_text, "/MediaBox") {
@@ -338,7 +338,7 @@ fn pdf_object_is_font(object : PdfNativeObject) -> Bool {
 ///|
 fn pdf_extract_parent_page_boxes(
   page_text : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfBBox? {
   match pdf_extract_object_reference_after(page_text, "/Parent") {
     Some(parent_id) =>
@@ -353,10 +353,10 @@ fn pdf_extract_parent_page_boxes(
 ///|
 fn pdf_font_aliases_from_resources_text(
   resources_text : String?,
-  object_index : Map[Int, PdfNativeObject],
-  inline_font_ids : Map[String, Int],
-) -> Map[String, Int] {
-  let aliases : Map[String, Int] = Map([])
+  object_index : Map[Int32, PdfNativeObject],
+  inline_font_ids : Map[String, Int32],
+) -> Map[String, Int32] {
+  let aliases : Map[String, Int32] = Map([])
   let font_dict_text = match
     pdf_font_resource_dict_text(resources_text, object_index) {
     Some(text) => text
@@ -391,7 +391,7 @@ fn pdf_font_aliases_from_resources_text(
 ///|
 fn pdf_font_resource_dict_text(
   resources_text : String?,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> String? {
   let resources_text = match resources_text {
     Some(text) => text
@@ -414,7 +414,7 @@ fn pdf_font_resource_dict_text(
 ///|
 fn pdf_extract_resources_text(
   page_text : String,
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> String? {
   match pdf_extract_inline_dict_after(page_text, "/Resources") {
     Some(text) => Some(text)
@@ -433,8 +433,8 @@ fn pdf_extract_resources_text(
 ///|
 fn pdf_extract_parent_resources_text(
   page_text : String,
-  object_index : Map[Int, PdfNativeObject],
-  remaining_depth : Int,
+  object_index : Map[Int32, PdfNativeObject],
+  remaining_depth : Int32,
 ) -> String? {
   if remaining_depth <= 0 {
     return None
@@ -461,7 +461,7 @@ fn pdf_extract_parent_resources_text(
 ///|
 fn pdf_extract_info_metadata(
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> Map[String, @core.JsonValue]? {
   let info_ref = match
     pdf_lookup_trailer_object_reference(trailer_hints, "/Info") {
@@ -494,9 +494,9 @@ fn pdf_extract_info_metadata(
 }
 
 ///|
-fn pdf_page_object_ids(objects : Array[PdfNativeObject]) -> Array[Int] {
-  let out : Array[Int] = []
-  let seen : Map[Int, Bool] = Map([])
+fn pdf_page_object_ids(objects : Array[PdfNativeObject]) -> Array[Int32] {
+  let out : Array[Int32] = []
+  let seen : Map[Int32, Bool] = Map([])
   for object in objects {
     if pdf_object_is_page(object) &&
       !seen.get(object.object_id).unwrap_or(false) {
@@ -510,9 +510,9 @@ fn pdf_page_object_ids(objects : Array[PdfNativeObject]) -> Array[Int] {
 ///|
 fn pdf_ordered_page_object_ids(
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   objects : Array[PdfNativeObject],
-) -> Array[Int] {
+) -> Array[Int32] {
   let catalog = match pdf_catalog_object(trailer_hints, object_index) {
     Some(value) => value
     None => return pdf_page_object_ids(objects)
@@ -532,11 +532,11 @@ fn pdf_ordered_page_object_ids(
 
 ///|
 fn pdf_collect_page_tree_ids(
-  object_index : Map[Int, PdfNativeObject],
-  object_id : Int,
-  visited : Map[Int, Bool],
-  depth : Int,
-) -> Array[Int] {
+  object_index : Map[Int32, PdfNativeObject],
+  object_id : Int32,
+  visited : Map[Int32, Bool],
+  depth : Int32,
+) -> Array[Int32] {
   if depth >= 256 || visited.get(object_id).unwrap_or(false) {
     return []
   }
@@ -551,7 +551,7 @@ fn pdf_collect_page_tree_ids(
   if !pdf_object_is_pages_node(object) {
     return []
   }
-  let ordered : Array[Int] = []
+  let ordered : Array[Int32] = []
   for
     kid_id in pdf_extract_resolved_object_references_after(
       object.dict_text,
@@ -566,8 +566,8 @@ fn pdf_collect_page_tree_ids(
 }
 
 ///|
-fn pdf_page_number_index(page_object_ids : Array[Int]) -> Map[Int, Int] {
-  let index : Map[Int, Int] = Map([])
+fn pdf_page_number_index(page_object_ids : Array[Int32]) -> Map[Int32, Int32] {
+  let index : Map[Int32, Int32] = Map([])
   for i in 0..<page_object_ids.length() {
     index.set(page_object_ids[i], i + 1)
   }
@@ -577,10 +577,10 @@ fn pdf_page_number_index(page_object_ids : Array[Int]) -> Map[Int, Int] {
 ///|
 fn pdf_annotation_page_index(
   objects : Array[PdfNativeObject],
-  object_index : Map[Int, PdfNativeObject],
-  page_numbers : Map[Int, Int],
-) -> Map[Int, Int] {
-  let index : Map[Int, Int] = Map([])
+  object_index : Map[Int32, PdfNativeObject],
+  page_numbers : Map[Int32, Int32],
+) -> Map[Int32, Int32] {
+  let index : Map[Int32, Int32] = Map([])
   for object in objects {
     if !pdf_object_is_page(object) {
       continue
@@ -607,7 +607,7 @@ fn pdf_annotation_page_index(
 fn pdf_lookup_trailer_object_reference(
   trailer_hints : Array[String],
   key : String,
-) -> Int? {
+) -> Int32? {
   for trailer in trailer_hints {
     match pdf_extract_object_reference_after(trailer, key) {
       Some(value) => return Some(value)
@@ -620,7 +620,7 @@ fn pdf_lookup_trailer_object_reference(
 ///|
 fn pdf_catalog_object(
   trailer_hints : Array[String],
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfNativeObject? {
   let root_ref = match
     pdf_lookup_trailer_object_reference(trailer_hints, "/Root") {
@@ -634,9 +634,9 @@ fn pdf_catalog_object(
 }
 
 ///|
-fn pdf_collect_xref_follow_offsets(trailer_text : String) -> Array[Int] {
-  let offsets : Array[Int] = []
-  let seen : Map[Int, Bool] = Map([])
+fn pdf_collect_xref_follow_offsets(trailer_text : String) -> Array[Int32] {
+  let offsets : Array[Int32] = []
+  let seen : Map[Int32, Bool] = Map([])
   for key in ["/Prev", "/XRefStm"] {
     match pdf_extract_int_after(trailer_text, key) {
       Some(value) if value >= 0 && !seen.get(value).unwrap_or(false) => {
@@ -666,7 +666,7 @@ fn pdf_object_is_pages_node(object : PdfNativeObject) -> Bool {
 }
 
 ///|
-fn pdf_extract_object_reference_after(text : String, key : String) -> Int? {
+fn pdf_extract_object_reference_after(text : String, key : String) -> Int32? {
   match pdf_extract_dict_value(text, key) {
     Some(Reference(object_id, generation)) => {
       ignore(generation)
@@ -680,8 +680,8 @@ fn pdf_extract_object_reference_after(text : String, key : String) -> Int? {
 fn pdf_extract_object_references_after(
   text : String,
   key : String,
-) -> Array[Int] {
-  let refs : Array[Int] = []
+) -> Array[Int32] {
+  let refs : Array[Int32] = []
   match pdf_extract_dict_value(text, key) {
     Some(Reference(object_id, generation)) => {
       ignore(generation)
@@ -698,8 +698,8 @@ fn pdf_extract_object_references_after(
 fn pdf_extract_resolved_object_references_after(
   text : String,
   key : String,
-  object_index : Map[Int, PdfNativeObject],
-) -> Array[Int] {
+  object_index : Map[Int32, PdfNativeObject],
+) -> Array[Int32] {
   match pdf_extract_dict_value(text, key) {
     Some(Reference(object_id, generation)) => {
       ignore(generation)
@@ -721,7 +721,7 @@ fn pdf_extract_resolved_object_references_after(
 }
 
 ///|
-fn pdf_reference_ids_from_object_text(text : String) -> Array[Int] {
+fn pdf_reference_ids_from_object_text(text : String) -> Array[Int32] {
   let trimmed = text.trim().to_owned()
   if !trimmed.has_prefix("[") {
     return []
@@ -741,7 +741,7 @@ fn pdf_reference_ids_from_object_text(text : String) -> Array[Int] {
 
 ///|
 fn pdf_catalog_object_fallback(
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
 ) -> PdfNativeObject? {
   for entry in object_index.to_array() {
     let object = entry.1
@@ -762,7 +762,7 @@ fn pdf_extract_name_after(text : String, key : String) -> String? {
 }
 
 ///|
-fn pdf_extract_int_after(text : String, key : String) -> Int? {
+fn pdf_extract_int_after(text : String, key : String) -> Int32? {
   match pdf_extract_dict_value(text, key) {
     Some(Number(value)) =>
       if pdf_double_is_integral(value) {
@@ -776,8 +776,8 @@ fn pdf_extract_int_after(text : String, key : String) -> Int? {
 }
 
 ///|
-fn pdf_extract_int_array_after(text : String, key : String) -> Array[Int] {
-  let values : Array[Int] = []
+fn pdf_extract_int_array_after(text : String, key : String) -> Array[Int32] {
+  let values : Array[Int32] = []
   match pdf_extract_dict_value(text, key) {
     Some(Array(tokens)) =>
       for token in tokens {

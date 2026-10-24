@@ -11,7 +11,7 @@ fn contract_balanced_markdown_options(
 }
 
 ///|
-test "heavy route probes produce reusable typed artifacts before parse" {
+async test "heavy route probes produce reusable typed artifacts before parse" {
   let html_source = @input.input_from_path_with_format(
     "samples/fixtures/contracts/html/html_simple.html",
     Some(Html),
@@ -77,6 +77,9 @@ test "heavy route probes produce reusable typed artifacts before parse" {
     "samples/fixtures/contracts/docx/docx_paragraph_linebreak.docx",
     Some(Docx),
   )
+  let docx_session = @input.begin_input_session(docx_source)
+  defer @input.end_input_session(docx_session)
+  let docx_source = docx_session.source
   let docx_plan = match
     detect_and_resolve_execution_plan(
       docx_source,
@@ -107,6 +110,9 @@ test "heavy route probes produce reusable typed artifacts before parse" {
     "samples/fixtures/contracts/pptx/pptx_link_basic.pptx",
     Some(Pptx),
   )
+  let pptx_session = @input.begin_input_session(pptx_source)
+  defer @input.end_input_session(pptx_session)
+  let pptx_source = pptx_session.source
   let pptx_plan = match
     detect_and_resolve_execution_plan(
       pptx_source,
@@ -135,7 +141,7 @@ test "heavy route probes produce reusable typed artifacts before parse" {
 }
 
 ///|
-test "heavy route probe formats fail closed when probe artifact is missing" {
+async test "heavy route probe formats fail closed when probe artifact is missing" {
   let heavy_formats = [
     @input.DetectedFormat::Html,
     Ipynb,

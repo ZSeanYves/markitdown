@@ -1,17 +1,17 @@
 ///|
 priv struct PdfNativeLinkSegment {
-  start : Int
-  end : Int
+  start : Int32
+  end : Int32
   href : String
   source_ref : @core.SourceRef
-  link_index : Int
+  link_index : Int32
 }
 
 ///|
 fn pdf_native_lowered_paragraph(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
 ) -> PdfNativeLoweredParagraph? {
   match pdf_native_text_block_paragraph(page, text_block, text_block_index) {
     Some((text, source_ref)) => {
@@ -44,7 +44,7 @@ fn pdf_native_lowered_paragraph(
 fn pdf_native_link_segments_for_text_block(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
   text : String,
   paragraph_source_ref : @core.SourceRef,
 ) -> Array[PdfNativeLinkSegment]? {
@@ -106,7 +106,7 @@ fn pdf_native_link_segments_for_text_block(
 fn pdf_native_link_candidate_is_productizable_uri(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
   link : PdfNativeLinkCandidate,
 ) -> Bool {
   if !pdf_native_href_is_external_uri(link.href) {
@@ -235,8 +235,8 @@ fn pdf_native_inline_anchor_text(text : String) -> String {
 fn pdf_native_find_substring(
   text : String,
   needle : String,
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   let text_len = text.length()
   let needle_len = needle.length()
   if needle_len == 0 {
@@ -260,7 +260,7 @@ fn pdf_native_find_substring(
 fn pdf_native_unique_substring_range(
   text : String,
   needle : String,
-) -> (Int, Int)? {
+) -> (Int32, Int32)? {
   if needle == "" {
     return None
   }
@@ -310,7 +310,7 @@ fn pdf_native_rich_inlines_from_link_segments(
 fn pdf_native_text_block_paragraph(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
-  text_block_index : Int,
+  text_block_index : Int32,
 ) -> (String, @core.SourceRef)? {
   let parts : Array[String] = []
   let meaningful_lines : Array[PdfNativeTextLine] = []
@@ -360,7 +360,7 @@ fn pdf_native_text_block_source_ref(
   page : PdfNativePage,
   text_block : PdfNativeTextBlock,
   lines : Array[PdfNativeTextLine],
-  text_block_index : Int,
+  text_block_index : Int32,
 ) -> @core.SourceRef {
   let first_line = lines[0]
   let last_line = lines[lines.length() - 1]
@@ -444,7 +444,7 @@ fn pdf_native_core_bbox(bbox : PdfBBox) -> @core.BBox {
 ///|
 fn pdf_native_link_candidate_json(
   link : PdfNativeLinkCandidate,
-  fallback_page_no : Int,
+  fallback_page_no : Int32,
 ) -> @core.JsonValue {
   let payload : Map[String, @core.JsonValue] = Map([])
   payload.set("href", String(link.href))
@@ -502,8 +502,8 @@ fn pdf_native_link_candidate_json(
 ///|
 fn pdf_native_link_page_no(
   link : PdfNativeLinkCandidate,
-  fallback_page_no : Int,
-) -> Int {
+  fallback_page_no : Int32,
+) -> Int32 {
   match link.source_ref {
     Some(source_ref) => source_ref.page.unwrap_or(fallback_page_no)
     None => fallback_page_no

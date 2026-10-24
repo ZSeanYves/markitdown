@@ -2,28 +2,28 @@
 const ZIP_PARSER_NAME : String = "zip_container_parser"
 
 ///|
-const ZIP_MAX_CONTAINER_ENTRIES : Int = 512
+const ZIP_MAX_CONTAINER_ENTRIES : Int32 = 512
 
 ///|
-const ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES : Int = 32 * 1024 * 1024
+const ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES : Int32 = 32 * 1024 * 1024
 
 ///|
-const ZIP_MAX_SINGLE_ENTRY_BYTES : Int = 8 * 1024 * 1024
+const ZIP_MAX_SINGLE_ENTRY_BYTES : Int32 = 8 * 1024 * 1024
 
 ///|
-const ZIP_MAX_COMPRESSION_RATIO : Int = 200
+const ZIP_MAX_COMPRESSION_RATIO : Int32 = 200
 
 ///|
-const ZIP_MAX_SELECTED_INNER_DOCUMENTS : Int = 128
+const ZIP_MAX_SELECTED_INNER_DOCUMENTS : Int32 = 128
 
 ///|
-const ZIP_MAX_MATERIALIZED_ASSETS : Int = 256
+const ZIP_MAX_MATERIALIZED_ASSETS : Int32 = 256
 
 ///|
-const ZIP_MAX_FILENAME_LENGTH : Int = 240
+const ZIP_MAX_FILENAME_LENGTH : Int32 = 240
 
 ///|
-const ZIP_MAX_DIRECTORY_DEPTH : Int = 16
+const ZIP_MAX_DIRECTORY_DEPTH : Int32 = 16
 
 ///|
 priv struct ZipAssetRewrite {
@@ -59,13 +59,20 @@ pub fn zip_parser_capability() -> @parser.ParserCapability {
 }
 
 ///|
-fn zip_parse_with_archive_core(
+async fn zip_parse_with_archive_core(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
   archive : @dzip.ZipArchive,
   report : @dzip.ZipArchiveInspectReport,
 ) -> @parser.ParseResult {
+  let context = @parser.parse_context_with_asset_limits(
+    context,
+    context.limits.max_asset_bytes.min(ZIP_MAX_SINGLE_ENTRY_BYTES.to_int64()),
+    context.limits.max_total_asset_bytes.min(
+      ZIP_MAX_TOTAL_UNCOMPRESSED_BYTES.to_int64(),
+    ),
+  )
   let diagnostics = @fshared.empty_parser_diagnostics(
     ZIP_PARSER_NAME,
     ContainerRecursive,
@@ -185,7 +192,7 @@ fn zip_parse_with_archive_core(
   let merged_assets : Array[@core.AssetRef] = []
   let asset_entry_infos = zip_entry_info_index(report.inventory.entries)
   let referenced_asset_entries = zip_collect_referenced_asset_entries(
-    archive, candidate_infos, registry, context, container_path,
+    archive, source, candidate_infos, registry, context, container_path,
   )
   let mut selected_entry_count = 0
   let mut unsupported_entry_count = 0
@@ -194,6 +201,9 @@ fn zip_parse_with_archive_core(
   let mut resource_limit_hit = false
 
   for info in candidate_infos {
+    if @input.input_source_error(source) is Some(_) {
+      break
+    }
     let entry_path = zip_entry_display_path(info)
     let format_label = zip_entry_format_label(info)
     let entry_source_ref = zip_entry_source_ref(
@@ -257,6 +267,13 @@ fn zip_parse_with_archive_core(
         }
         match image_format {
           Some(format) => {
+            if !@parser.require_asset_payload_within_limits(
+                context,
+                info.uncompressed_size.to_int64(),
+                @parser.materialized_asset_payload_bytes(merged_assets),
+              ) {
+              break
+            }
             let entry_bytes = match
               zip_read_entry_bytes(archive, info.raw_name) {
               Ok(value) => value
@@ -275,14 +292,29 @@ fn zip_parse_with_archive_core(
             let (asset, image_block) = zip_standalone_image_asset(
               entry, entry_path, container_path, format,
             )
-            merged_assets.push(asset)
-            ignore(entry_bytes) // Reading validates CRC before exporting the asset.
+            merged_assets.push({ ..asset, payload: Some(Bytes(entry_bytes)), })
             merged_blocks.push(image_block)
             continue
           }
           None => ()
         }
         if zip_entry_is_asset(info) {
+          if !@parser.require_asset_payload_within_limits(
+              context,
+              info.uncompressed_size.to_int64(),
+              @parser.materialized_asset_payload_bytes(merged_assets),
+            ) {
+            break
+          }
+          let entry_bytes = match zip_read_entry_bytes(archive, info.raw_name) {
+            Ok(value) => value
+            Err(err) => {
+              diagnostics.warnings.push(
+                entry_path + ": standalone asset read failed: " + err,
+              )
+              continue
+            }
+          }
           selected_entry_count += 1
           decoded_total += info.uncompressed_size
           let (asset, image_block) = zip_standalone_image_asset(
@@ -291,7 +323,7 @@ fn zip_parse_with_archive_core(
             container_path,
             Unknown,
           )
-          merged_assets.push(asset)
+          merged_assets.push({ ..asset, payload: Some(Bytes(entry_bytes)), })
           merged_blocks.push(image_block)
           diagnostics.metrics.set("zip_standalone_asset_only_count", "present")
           continue
@@ -330,11 +362,17 @@ fn zip_parse_with_archive_core(
         decoded_total += info.uncompressed_size
         selected_entry_count += 1
         let inner_source = zip_inner_source(
-          container_path, entry_path, detected_format, entry_bytes,
+          source, container_path, entry_path, detected_format, entry_bytes,
         )
         let inner_document = match
           zip_parse_inner_document(
-            registry, inner_source, detected_format, context,
+            registry,
+            inner_source,
+            detected_format,
+            @fshared.parse_context_with_remaining_asset_bytes(
+              context,
+              @parser.materialized_asset_payload_bytes(merged_assets),
+            ),
           ) {
           Ok(value) => value
           Err(err) => {
@@ -353,6 +391,9 @@ fn zip_parse_with_archive_core(
         }
         zip_absorb_child_diagnostics(diagnostics, inner_document.diagnostics)
         let rewritten_assets = zip_rewrite_child_assets(
+          archive,
+          context,
+          inner_source,
           inner_document.assets,
           entry,
           asset_entry_infos,
@@ -425,7 +466,7 @@ fn zip_parse_with_archive_core(
 }
 
 ///|
-pub fn zip_parse_with_archive_artifact(
+pub async fn zip_parse_with_archive_artifact(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
@@ -440,7 +481,7 @@ pub fn zip_parse_with_archive_artifact(
 }
 
 ///|
-pub fn zip_parse_with_prepared_archive(
+pub async fn zip_parse_with_prepared_archive(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
@@ -456,7 +497,7 @@ pub fn zip_parse_with_prepared_archive(
 }
 
 ///|
-pub fn zip_parse_with_archive(
+pub async fn zip_parse_with_archive(
   source : @input.InputSource,
   context : @parser.ParseContext,
   registry : @parser.ParserRegistry,
@@ -471,10 +512,10 @@ pub fn zip_parse_with_archive(
 }
 
 ///|
-fn zip_read_entry_bytes(
+async fn zip_read_entry_bytes(
   archive : @dzip.ZipArchive,
   raw_name : String,
-) -> Result[Bytes, String] {
+) -> Result[Bytes, String] noraise {
   try
     @dzip.read_entry(
       archive,

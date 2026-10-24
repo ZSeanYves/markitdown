@@ -23,8 +23,8 @@ pub struct TomlMember {
   segments : Array[String]
   path : String
   value : TomlValue
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
 }
 
 ///|
@@ -32,8 +32,8 @@ pub struct TomlTable {
   path : String
   segments : Array[String]
   members : Array[TomlMember]
-  line_start : Int
-  mut line_end : Int
+  line_start : Int32
+  mut line_end : Int32
   is_array_item : Bool
 }
 
@@ -72,12 +72,12 @@ pub struct TomlErrorInfo {
 ///|
 /// Structural summary for a parsed TOML document.
 pub struct TomlInspectReport {
-  node_count : Int
-  scalar_count : Int
-  array_count : Int
-  table_like_count : Int
-  table_count : Int
-  max_depth : Int
+  node_count : Int32
+  scalar_count : Int32
+  array_count : Int32
+  table_like_count : Int32
+  table_count : Int32
+  max_depth : Int32
   root_kind : String
 }
 

@@ -1,0 +1,1874 @@
+///|
+import {
+  "moonbitlang/async@0.22.4",
+  "moonbitlang/async@0.22.4/fs",
+  "moonbitlang/async@0.22.4/shell",
+  "moonbitlang/async@0.22.4/process",
+  "moonbitlang/core/env",
+  "moonbitlang/core/json",
+  "moonbitlang/core/string",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/x@0.5.5/crypto",
+}
+
+///|
+struct LibraryCase {
+  id : String
+  input : String
+  input_sha256 : String
+  source_name : String
+  input_kind : String
+  format : String
+  mode : String
+  view : String
+  limits : Map[String, String]
+  rag : Map[String, Json]
+  asset_demand : String
+} derive(FromJson, ToJson)
+
+///|
+struct ProcessMetrics {
+  wall_ms : Double?
+  cpu_ms : Double?
+  peak_rss_bytes : Double?
+} derive(ToJson, FromJson)
+
+///|
+struct Slot {
+  phase : String
+  iteration : Int32
+  lane : String
+} derive(ToJson, FromJson, Eq, Debug)
+
+///|
+fn object(value : Json) -> Map[String, Json] raise {
+  match value {
+    Object(fields) => fields
+    _ => fail("JSON object required")
+  }
+}
+
+///|
+fn field(value : Json, key : String) -> Json raise {
+  object(value).get(key).unwrap_or_else(() => fail("missing field: " + key))
+}
+
+///|
+fn text(value : Json) -> String raise {
+  match value {
+    String(value) => value
+    _ => fail("JSON string required")
+  }
+}
+
+///|
+fn count(value : Json) -> Int32 raise {
+  @json.from_json(value)
+}
+
+///|
+fn valid_number(value : Double) -> Bool {
+  !value.is_nan() && !value.is_inf() && value >= 0.0
+}
+
+///|
+fn number(value : String) -> Double? {
+  let result = @string.parse_double(value.trim()) catch { _ => return None }
+  if valid_number(result) {
+    Some(result)
+  } else {
+    None
+  }
+}
+
+///|
+fn safe_id(value : String) -> Bool {
+  value != "" &&
+  value != "." &&
+  value != ".." &&
+  value
+  .iter()
+  .all(ch => {
+    (ch >= 'a' && ch <= 'z') ||
+    (ch >= 'A' && ch <= 'Z') ||
+    (ch >= '0' && ch <= '9') ||
+    ch == '-' ||
+    ch == '_' ||
+    ch == '.'
+  })
+}
+
+///|
+fn hash_bytes(value : Bytes) -> String {
+  @crypto.bytes_to_hex_string(@crypto.sha256(value))
+}
+
+///|
+async fn hash_file(path : String) -> String {
+  hash_bytes(@fs.read_file(path).binary())
+}
+
+///|
+async fn read_json(path : String) -> Json {
+  @json.parse(@fs.read_file(path).text(), reject_duplicate_keys=true)
+}
+
+///|
+async fn write_json(path : String, value : Json) -> Unit {
+  @fs.write_file(path, value.stringify(indent=2) + "\n")
+}
+
+///|
+async fn fresh(path : String) -> Unit {
+  guard path.has_prefix("/") && !@fs.exists(path) else {
+    fail("fresh absolute evidence directory required")
+  }
+  @fs.mkdir(path, recursive=true)
+}
+
+///|
+fn exact_keys(value : Json, keys : Array[String]) -> Bool {
+  guard value is Object(fields) else { return false }
+  fields.length() == keys.length() && keys.all(key => fields.contains(key))
+}
+
+///|
+fn case_valid(value : Json) -> Bool {
+  if !exact_keys(value, [
+      "id", "input", "input_sha256", "source_name", "input_kind", "format", "mode",
+      "view", "limits", "rag", "asset_demand",
+    ]) {
+    return false
+  }
+  let item : LibraryCase = @json.from_json(value) catch { _ => return false }
+  if !safe_id(item.id) ||
+    !item.input.has_prefix("/") ||
+    item.source_name == "" ||
+    item.input_sha256.length() != 64 ||
+    !item.input_sha256
+    .iter()
+    .all(ch => (ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')) ||
+    !["path", "text", "bytes", "reader", "async_reader"].contains(
+      item.input_kind,
+    ) ||
+    !["balanced", "accurate", "stream"].contains(item.mode) ||
+    !["markdown", "debug", "rag"].contains(item.view) ||
+    item.asset_demand != "public_metadata_only" {
+    return false
+  }
+  let limit_keys = [
+    "max_rows", "max_cols", "max_cells", "max_line_chars", "max_input_bytes", "max_asset_bytes",
+    "max_total_asset_bytes",
+  ]
+  if item.limits.length() != 7 {
+    return false
+  }
+  for key in limit_keys {
+    let raw = item.limits.get(key).unwrap_or("")
+    if raw == "" || !raw.iter().all(ch => ch >= '0' && ch <= '9') {
+      return false
+    }
+    let value = @string.parse_int64(raw) catch { _ => return false }
+    if value < 0L ||
+      (
+        ["max_rows", "max_cols", "max_cells", "max_line_chars"].contains(key) &&
+        value > 2147483647L
+      ) {
+      return false
+    }
+  }
+  let rag = Json::object(item.rag)
+  if !exact_keys(rag, [
+      "chunk_size", "chunk_overlap", "preserve_heading_path", "preserve_source_ref",
+      "split_tables", "split_code_blocks",
+    ]) {
+    return false
+  }
+  let size : Int32 = @json.from_json(item.rag["chunk_size"]) catch {
+    _ => return false
+  }
+  let overlap : Int32 = @json.from_json(item.rag["chunk_overlap"]) catch {
+    _ => return false
+  }
+  if size <= 0 || overlap < 0 || overlap >= size {
+    return false
+  }
+  for
+    key in [
+      "preserve_heading_path", "preserve_source_ref", "split_tables", "split_code_blocks",
+    ] {
+    let _ : Bool = @json.from_json(item.rag[key]) catch { _ => return false }
+  }
+  true
+}
+
+///|
+fn schedule(window : Int32) -> Array[Slot] {
+  let result : Array[Slot] = []
+  for round in 1..<=3 {
+    let lanes = if (round + window) % 2 == 0 {
+      ["baseline", "candidate"]
+    } else {
+      ["candidate", "baseline"]
+    }
+    for lane in lanes {
+      result.push({ phase: "warmup", iteration: round, lane, })
+    }
+  }
+  for quartet in 0..<15 {
+    let lanes = if window == 1 {
+      ["baseline", "candidate", "candidate", "baseline"]
+    } else {
+      ["candidate", "baseline", "baseline", "candidate"]
+    }
+    let seen : Map[String, Int32] = Map([])
+    for lane in lanes {
+      let next = seen.get(lane).unwrap_or(0) + 1
+      seen[lane] = next
+      result.push({ phase: "measure", iteration: quartet * 2 + next, lane, })
+    }
+  }
+  result
+}
+
+///|
+fn percentile(values : Array[Double], fraction : Double) -> Double? {
+  if values.is_empty() {
+    return None
+  }
+  let sorted = values.copy()
+  sorted.sort()
+  let rank = (fraction * sorted.length().to_double()).ceil().to_int().max(1)
+  Some(sorted[rank - 1])
+}
+
+///|
+fn process_metrics(raw : String, platform : String) -> ProcessMetrics {
+  let mut wall = None
+  let mut user = None
+  let mut system = None
+  let mut rss = None
+  for line in raw.split("\n") {
+    let line = line.trim().to_owned()
+    if platform == "Darwin" {
+      let words = line.split(" ").filter(part => part != "").to_array()
+      for index in 1..<words.length() {
+        match words[index] {
+          "real" =>
+            wall = number(words[index - 1].to_owned()).map(value => {
+              value * 1000.0
+            })
+          "user" =>
+            user = number(words[index - 1].to_owned()).map(value => {
+              value * 1000.0
+            })
+          "sys" =>
+            system = number(words[index - 1].to_owned()).map(value => {
+              value * 1000.0
+            })
+          _ => ()
+        }
+      }
+      if line.has_suffix("maximum resident set size") && !words.is_empty() {
+        rss = number(words[0].to_owned())
+      }
+    } else {
+      for
+        pair in [
+          ("User time (seconds):", "user"),
+          ("System time (seconds):", "system"),
+          ("Elapsed (wall clock) time (h:mm:ss or m:ss):", "wall"),
+          ("Maximum resident set size (kbytes):", "rss"),
+        ] {
+        let (label, kind) = pair
+        if !line.has_prefix(label) {
+          continue
+        }
+        let value = line[label.length():].trim().to_owned()
+        match kind {
+          "user" => user = number(value).map(value => value * 1000.0)
+          "system" => system = number(value).map(value => value * 1000.0)
+          "rss" => rss = number(value).map(value => value * 1024.0)
+          "wall" => {
+            let mut seconds = 0.0
+            let mut valid = true
+            for part in value.split(":") {
+              match number(part.to_owned()) {
+                Some(value) => seconds = seconds * 60.0 + value
+                None => valid = false
+              }
+            }
+            if valid {
+              wall = Some(seconds * 1000.0)
+            }
+          }
+          _ => ()
+        }
+      }
+    }
+  }
+  let cpu = match (user, system) {
+    (Some(a), Some(b)) => Some(a + b)
+    _ => None
+  }
+  { wall_ms: wall, cpu_ms: cpu, peak_rss_bytes: rss, }
+}
+
+///|
+/// Complete facade Eq is evaluated after every monotonic call interval.
+/// The current public adapter exports no timing metrics, so the timing-field
+/// normalization allowlist is intentionally empty and diagnostics stay intact.
+fn consumer_source() -> String {
+  (
+    #|///|
+    #|fn field(value : Json, key : String) -> Json raise {
+    #|  guard value is Object(fields) && fields.get(key) is Some(item) else { fail("missing field: " + key) }
+    #|  item
+    #|}
+    #|///|
+    #|fn text(value : Json) -> String raise { @json.from_json(value) }
+    #|///|
+    #|fn limit(config : Json, key : String) -> Int64 raise {
+    #|  @string.parse_int64(text(field(field(config,"limits"),key)))
+    #|}
+    #|///|
+    #|fn options(config : Json) -> @markitdown.ConvertOptions raise {
+    #|  let limits = @markitdown.ResourceLimits::default()
+    #|    .with_max_rows(limit(config,"max_rows").to_int())
+    #|    .with_max_cols(limit(config,"max_cols").to_int())
+    #|    .with_max_cells(limit(config,"max_cells").to_int())
+    #|    .with_max_line_chars(limit(config,"max_line_chars").to_int())
+    #|    .with_max_input_bytes(limit(config,"max_input_bytes"))
+    #|    .with_max_asset_bytes(limit(config,"max_asset_bytes"))
+    #|    .with_max_total_asset_bytes(limit(config,"max_total_asset_bytes"))
+    #|  let rag = field(config,"rag")
+    #|  let rag_options = @markitdown.RagOptions::default()
+    #|    .with_chunk_size(@json.from_json(field(rag,"chunk_size")))
+    #|    .with_chunk_overlap(@json.from_json(field(rag,"chunk_overlap")))
+    #|    .with_preserve_heading_path(@json.from_json(field(rag,"preserve_heading_path")))
+    #|    .with_preserve_source_ref(@json.from_json(field(rag,"preserve_source_ref")))
+    #|    .with_split_tables(@json.from_json(field(rag,"split_tables")))
+    #|    .with_split_code_blocks(@json.from_json(field(rag,"split_code_blocks")))
+    #|  let mode : @markitdown.ConvertMode = match text(field(config,"mode")) { "balanced"=>Balanced; "accurate"=>Accurate; "stream"=>Stream; _=>fail("invalid mode") }
+    #|  let view : @markitdown.OutputMode = match text(field(config,"view")) { "markdown"=>Markdown; "debug"=>Debug; "rag"=>Rag; _=>fail("invalid view") }
+    #|  let hint = text(field(config,"format"))
+    #|  @markitdown.ConvertOptions::default().with_mode(mode).with_output_mode(view).with_format_hint(if hint=="" {None} else {Some(hint)}).with_limits(limits).with_rag(rag_options)
+    #|}
+    #|///|
+    #|fn make_input(config : Json, bytes : Bytes, content : String, read_bytes : Ref[Int64]) -> @markitdown.Input raise {
+    #|  let name = text(field(config,"source_name"))
+    #|  let read = fn(offset : Int64, length : Int) {
+    #|    if offset < 0L || length < 0 || offset > bytes.length().to_int64() { Err("invalid callback read") }
+    #|    else {
+    #|      let start = offset.to_int()
+    #|      let amount = length.min(bytes.length()-start)
+    #|      read_bytes.val += amount.to_int64()
+    #|      Ok(bytes[start:start+amount].to_owned())
+    #|    }
+    #|  }
+    #|  match text(field(config,"input_kind")) {
+    #|    "path" => @markitdown.Input::from_path(text(field(config,"input")))
+    #|    "text" => @markitdown.Input::from_text(content,source_name=name)
+    #|    "bytes" => @markitdown.Input::from_bytes(bytes,source_name=name)
+    #|    "reader" => @markitdown.Input::from_reader(read,size=bytes.length().to_int64(),source_name=name)
+    #|    "async_reader" => @markitdown.Input::from_async_reader(fn(offset,length){read(offset,length)},size=bytes.length().to_int64(),source_name=name)
+    #|    _ => fail("invalid input kind")
+    #|  }
+    #|}
+    #|///|
+    #|async fn main {
+    #|  let args = @env.args()
+    #|  guard args.length()==4 else { fail("consumer CASE_JSON ITERATIONS RESULT_JSON") }
+    #|  let config = @json.parse(@fs.read_file(args[1]).text(),reject_duplicate_keys=true)
+    #|  let iterations = @string.parse_int(args[2])
+    #|  guard iterations>0 && iterations<=1000000 else {fail("invalid iterations")}
+    #|  let bytes = @fs.read_file(text(field(config,"input"))).binary()
+    #|  let input_hash = @crypto.bytes_to_hex_string(@crypto.sha256(bytes))
+    #|  assert_eq(input_hash,text(field(config,"input_sha256")))
+    #|  let kind = text(field(config,"input_kind"))
+    #|  let content = if kind=="text" { @utf8.decode(bytes,ignore_bom=false) } else { "" }
+    #|  let opts = options(config)
+    #|  let read_bytes = Ref(0L)
+    #|  let input = make_input(config,bytes,content,read_bytes)
+    #|  let oracle = @markitdown.convert(input,options=opts).unwrap()
+    #|  let expected_reads = read_bytes.val
+    #|  if text(field(config,"format"))!="" {assert_eq(oracle.detected_format,text(field(config,"format")))}
+    #|  let full = @debug.render(Repr(oracle),max_depth=2147483647)
+    #|  let fingerprint = @crypto.bytes_to_hex_string(@crypto.sha256(@utf8.encode(full)))
+    #|  let mut conversion_us = 0.0
+    #|  let mut verified = 0
+    #|  let mut characters = 0L
+    #|  let mut chunk_count = 0L
+    #|  let mut asset_count = 0L
+    #|  let mut diagnostic_count = 0L
+    #|  let mut callback_bytes = 0L
+    #|  for _ in 0..<iterations {
+    #|    read_bytes.val = 0L
+    #|    let call = make_input(config,bytes,content,read_bytes)
+    #|    let started = @bench.monotonic_clock_start()
+    #|    let output = @markitdown.convert(call,options=opts)
+    #|    let elapsed = @bench.monotonic_clock_end(started)
+    #|    // Everything below is outside the conversion interval, including Eq.
+    #|    guard elapsed>=0.0 && !elapsed.is_nan() && !elapsed.is_inf() else {fail("invalid monotonic duration")}
+    #|    let output = output.unwrap()
+    #|    assert_true(output==oracle,msg="complete public Output mismatch (no diagnostic exclusions)")
+    #|    assert_eq(read_bytes.val,expected_reads)
+    #|    conversion_us += elapsed
+    #|    verified += 1
+    #|    characters += output.content.length().to_int64()
+    #|    chunk_count += output.chunks.length().to_int64()
+    #|    asset_count += output.assets.length().to_int64()
+    #|    diagnostic_count += output.diagnostics.length().to_int64()
+    #|    callback_bytes += read_bytes.val
+    #|  }
+    #|  assert_eq(verified,iterations)
+    #|  assert_eq(characters,oracle.content.length().to_int64()*iterations.to_int64())
+    #|  let result : Json = {
+    #|    "schema":1,"surface":"public_collect","verified_iterations":Json(verified),
+    #|    "conversion_us":Json(conversion_us),"first_output_ms":null,
+    #|    "oracle_sha256":Json(fingerprint),"input_sha256":Json(input_hash),
+    #|    "content_utf16_units_per_iteration":Json(oracle.content.length()),
+    #|    "chunks_per_iteration":Json(oracle.chunks.length()),"assets_per_iteration":Json(oracle.assets.length()),
+    #|    "diagnostics_per_iteration":Json(oracle.diagnostics.length()),
+    #|    "verified_content_utf16_units":Json(characters.to_string()),"verified_chunks":Json(chunk_count.to_string()),
+    #|    "verified_assets":Json(asset_count.to_string()),"verified_diagnostics":Json(diagnostic_count.to_string()),
+    #|    "reader_callback_bytes":if kind=="reader" || kind=="async_reader" {Json(callback_bytes.to_string())} else {null},
+    #|    "budget_ledger":"unavailable_public_api","normalization_allowlist":[],
+    #|    "verification":"full public Output Eq after every call; diagnostics intact",
+    #|    "rss_scope":"whole process including startup, oracle, fingerprint and per-call validation"
+    #|  }
+    #|  @fs.write_file(args[3],result.stringify(indent=2)+"\n")
+    #|}
+  )
+}
+
+///|
+async fn source_rows(root : String, relative~ : String = "") -> Array[String] {
+  let out : Array[String] = []
+  for name in @fs.readdir(root + "/" + relative, include_hidden=true) {
+    if relative == "" &&
+      [".git", ".mooncakes", "_build", ".tmp", ".audit"].contains(name) {
+      continue
+    }
+    let path = if relative == "" { name } else { relative + "/" + name }
+    let absolute = root + "/" + path
+    match @fs.kind(absolute, follow_symlink=false) {
+      Directory => out.append(source_rows(root, relative=path))
+      Regular => out.push(path + "\tfile\t" + hash_file(absolute))
+      SymLink => {
+        let resolved = @fs.realpath(absolute)
+        let canonical = @fs.realpath(root)
+        guard resolved.has_prefix(canonical + "/") &&
+          @fs.kind(resolved) == Regular else {
+          fail(
+            "source symlink must target a file inside the frozen root: " + path,
+          )
+        }
+        out.push(
+          path +
+          "\tsymlink:" +
+          resolved[canonical.length() + 1:].to_owned() +
+          "\t" +
+          hash_file(resolved),
+        )
+      }
+      _ => fail("unsupported source file kind: " + path)
+    }
+  }
+  out.sort()
+  out
+}
+
+///|
+async fn tree_hash(root : String) -> String {
+  hash_bytes(@utf8.encode(source_rows(root).join("\n") + "\n"))
+}
+
+///|
+async fn capture(
+  directory : String,
+  label : String,
+  program : String,
+  args : Array[String],
+  cwd : String,
+) -> String {
+  write_json(directory + "/" + label + ".command.json", {
+    "program": Json(program),
+    "args": Json(args),
+    "cwd": Json(cwd),
+  })
+  let result = @shell.Cmd(program, args, cwd~).output()
+  @fs.write_file(directory + "/" + label + ".stdout", result.stdout())
+  @fs.write_file(directory + "/" + label + ".stderr", result.stderr())
+  @fs.write_file(
+    directory + "/" + label + ".exit",
+    result.exit_code().to_string(),
+  )
+  guard result.exit_code() == 0 else {
+    fail("command failed: " + label + " (saved logs)")
+  }
+  result.stdout()
+}
+
+///|
+async fn current_toolchain() -> String {
+  let result = @shell.Cmd("moon", ["version", "--all"]).output()
+  guard result.exit_code() == 0 else {
+    fail("toolchain fingerprint unavailable")
+  }
+  let rows = [result.stdout() + result.stderr()]
+  for binary in ["moon", "moonc"] {
+    let lookup = @shell.Cmd("which", [binary]).output()
+    guard lookup.exit_code() == 0 else {
+      fail("toolchain executable path unavailable")
+    }
+    let path = lookup.stdout().trim().to_owned()
+    rows.push(
+      binary + "_path=" + path + "\n" + binary + "_sha256=" + hash_file(path),
+    )
+  }
+  rows.join("\n")
+}
+
+///|
+async fn current_machine() -> String {
+  let uname = @shell.Cmd("uname", ["-a"]).output()
+  guard uname.exit_code() == 0 else { fail("machine identity unavailable") }
+  let platform = @shell.Cmd("uname", ["-s"]).output().stdout().trim().to_owned()
+  let hardware = if platform == "Darwin" {
+    let data = @shell.Cmd("sysctl", ["-n", "hw.model", "hw.ncpu", "hw.memsize"]).output()
+    guard data.exit_code() == 0 else { fail("hardware identity unavailable") }
+    data.stdout()
+  } else if platform == "Linux" {
+    let cpu = @fs.read_file("/proc/cpuinfo")
+      .text()
+      .split("\n")
+      .filter(line => {
+        line.has_prefix("model name") ||
+        line.has_prefix("vendor_id") ||
+        line.has_prefix("processor")
+      })
+      .map(line => line.to_owned())
+      .to_array()
+      .join("\n")
+    let memory = @fs.read_file("/proc/meminfo")
+      .text()
+      .split("\n")
+      .filter(line => line.has_prefix("MemTotal:"))
+      .map(line => line.to_owned())
+      .to_array()
+      .join("\n")
+    cpu + "\n" + memory
+  } else {
+    fail("unsupported measurement platform")
+  }
+  uname.stdout() + hardware
+}
+
+///|
+async fn dependencies(tree : Json, consumer : String) -> Json {
+  guard field(tree, "modules") is Array(modules) else {
+    fail("dependency modules required")
+  }
+  let rows : Array[String] = []
+  for dependency in modules {
+    let name = text(field(dependency, "name"))
+    if name == "ZSeanYves/markitdown" || name == "markitdown-benchmark/consumer" {
+      continue
+    }
+    let identity = name + "@" + text(field(dependency, "version"))
+    let source = field(dependency, "source")
+    let source_kind = text(field(source, "kind"))
+    let path = if object(source).get("path") is Some(String(value)) {
+      value
+    } else {
+      consumer + "/.mooncakes/" + name
+    }
+    guard @fs.exists(path) else {
+      fail("resolved dependency bytes unavailable: " + identity)
+    }
+    rows.push(identity + "\t" + source_kind + "\t" + tree_hash(path))
+  }
+  rows.sort()
+  Json(rows)
+}
+
+///|
+async fn prepare_lane(
+  root : String,
+  archive : String,
+  lane : String,
+  evidence : String,
+) -> Json {
+  guard root.has_prefix("/") &&
+    archive.has_prefix("/") &&
+    @fs.exists(root + "/moon.mod") else {
+    fail("absolute frozen source root and archive required")
+  }
+  let directory = evidence + "/" + lane
+  @fs.mkdir(directory)
+  let source_before = tree_hash(root)
+  let module_text = @fs.read_file(root + "/moon.mod").text()
+  guard module_text.contains("name = \"ZSeanYves/markitdown\"") else {
+    fail("unexpected product module")
+  }
+  let versions = module_text
+    .split("\n")
+    .filter(line => line.trim().has_prefix("version = "))
+    .to_array()
+  guard versions.length() == 1 else {
+    fail("one explicit module version required")
+  }
+  let version = versions[0]
+    .trim()
+    .strip_prefix("version = ")
+    .unwrap()
+    .trim()
+    .replace_all(old="\"", new="")
+    .to_owned()
+  @fs.write_file(
+    directory + "/moon.mod",
+    "name = \"markitdown-benchmark/consumer\"\nversion = \"0.0.0\"\nimport {\n \"ZSeanYves/markitdown@" +
+    version +
+    "\",\n \"moonbitlang/async@0.22.4\",\n \"moonbitlang/x@0.5.5\",\n}\npreferred_target = \"native\"\n",
+  )
+  @fs.write_file(
+    directory + "/moon.pkg",
+    "import {\n \"ZSeanYves/markitdown/lib\" @markitdown,\n \"moonbitlang/async\",\n \"moonbitlang/async/fs\",\n \"moonbitlang/core/env\",\n \"moonbitlang/core/json\",\n \"moonbitlang/core/string\",\n \"moonbitlang/core/debug\",\n \"moonbitlang/core/bench\",\n \"moonbitlang/core/encoding/utf8\",\n \"moonbitlang/x/crypto\",\n}\npkgtype(kind: \"executable\")\nsupported_targets = \"native\"\n",
+  )
+  @fs.write_file(directory + "/main.mbt", consumer_source())
+  ignore(
+    capture(
+      directory,
+      "workspace",
+      "moon",
+      ["work", "init", ".", root],
+      directory,
+    ),
+  )
+  guard @fs.read_file(directory + "/moon.work").text().contains(root) else {
+    fail("workspace override not bound")
+  }
+  let tree = @json.parse(
+    capture(directory, "dependencies", "moon", ["tree", "--json"], directory),
+    reject_duplicate_keys=true,
+  )
+  guard field(tree, "modules") is Array(modules) else {
+    fail("dependency modules required")
+  }
+  guard modules.any(dependency => {
+    let item = object(dependency)
+    item.get("name") == Some(Json("ZSeanYves/markitdown")) &&
+    item.get("version") == Some(Json(version)) &&
+    item.get("workspace_member") == Some(Json(true)) &&
+    field(field(dependency, "source"), "kind") == Json("local") &&
+    field(field(dependency, "source"), "path") == Json(root)
+  }) else {
+    fail("product dependency points at a different source")
+  }
+  let build = directory + "/build"
+  ignore(
+    capture(
+      directory,
+      "build",
+      "moon",
+      [
+        "build", "--release", "--target", "native", "--warn-list", "+73", "--deny-warn",
+        "--target-dir", build, ".",
+      ],
+      directory,
+    ),
+  )
+  let binary = build +
+    "/native/release/build/markitdown-benchmark/consumer/consumer.exe"
+  guard @fs.exists(binary) else { fail("Native consumer executable missing") }
+  assert_eq(tree_hash(root), source_before)
+  let deps = dependencies(tree, directory)
+  write_json(directory + "/dependency-identity.json", deps)
+  let identity : Json = {
+    "root": Json(root),
+    "archive": Json(archive),
+    "archive_sha256": Json(hash_file(archive)),
+    "source_tree_sha256": Json(source_before),
+    "binary": Json(binary),
+    "binary_sha256": Json(hash_file(binary)),
+    "consumer_source_sha256": Json(hash_file(directory + "/main.mbt")),
+    "consumer_pkg_sha256": Json(hash_file(directory + "/moon.pkg")),
+    "workspace_sha256": Json(hash_file(directory + "/moon.work")),
+    "dependency_identity": deps,
+    "archive_relation": "caller supplied provenance annotation; actual build identity is the verified source tree hash",
+  }
+  identity
+}
+
+///|
+async fn verify_prepared(prepared : Json) -> Unit {
+  assert_eq(field(prepared, "toolchain"), Json(current_toolchain()))
+  assert_eq(field(prepared, "machine"), Json(current_machine()))
+  assert_eq(
+    field(prepared, "harness_sha256"),
+    Json(hash_file(text(field(prepared, "harness")))),
+  )
+  for lane in ["baseline", "candidate"] {
+    let identity = field(prepared, lane)
+    assert_eq(
+      field(identity, "source_tree_sha256"),
+      Json(tree_hash(text(field(identity, "root")))),
+    )
+    assert_eq(
+      field(identity, "archive_sha256"),
+      Json(hash_file(text(field(identity, "archive")))),
+    )
+    assert_eq(
+      field(identity, "binary_sha256"),
+      Json(hash_file(text(field(identity, "binary")))),
+    )
+    let directory = text(field(identity, "consumer_directory"))
+    assert_eq(
+      field(identity, "consumer_source_sha256"),
+      Json(hash_file(directory + "/main.mbt")),
+    )
+    assert_eq(
+      field(identity, "consumer_pkg_sha256"),
+      Json(hash_file(directory + "/moon.pkg")),
+    )
+    assert_eq(
+      field(identity, "workspace_sha256"),
+      Json(hash_file(directory + "/moon.work")),
+    )
+    let tree = @json.parse(
+      capture(
+        directory,
+        "recheck-dependencies",
+        "moon",
+        ["tree", "--json"],
+        directory,
+      ),
+      reject_duplicate_keys=true,
+    )
+    assert_eq(
+      field(identity, "dependency_identity"),
+      dependencies(tree, directory),
+    )
+  }
+  guard field(prepared, "cases") is Array(cases) else { fail("cases required") }
+  for config in cases {
+    assert_eq(
+      field(config, "input_sha256"),
+      Json(hash_file(text(field(config, "input")))),
+    )
+    let file = text(field(prepared, "directory")) +
+      "/cases/" +
+      text(field(config, "id")) +
+      ".json"
+    assert_eq(read_json(file), config)
+  }
+}
+
+///|
+async fn execute_sample(
+  binary : String,
+  config : String,
+  iterations : Int32,
+  directory : String,
+  platform : String,
+  timeout : Int32,
+) -> Json {
+  @fs.mkdir(directory, recursive=true)
+  let args = [
+    if platform == "Darwin" {
+      "-l"
+    } else {
+      "-v"
+    },
+    "-o",
+    directory + "/time.txt",
+    binary,
+    config,
+    iterations.to_string(),
+    directory + "/result.json",
+  ]
+  write_json(directory + "/command.json", {
+    "program": "/usr/bin/time",
+    "args": Json(args),
+    "locale": "C",
+  })
+  let started = @env.now()
+  let status = @async.with_timeout_opt(timeout, async fn() {
+    @async.with_task_group(async fn(group) {
+      let process = @process.spawn(
+        group,
+        "/usr/bin/time",
+        args,
+        extra_env={ "LC_ALL": "C", "LANG": "C" },
+        stdout=@process.redirect_to_file(directory + "/stdout.log"),
+        stderr=@process.redirect_to_file(directory + "/stderr.log"),
+        cancel_handler=@process.hard_cancel(),
+        no_wait=true,
+      )
+      process.wait()
+    })
+  }).unwrap_or(-1)
+  @fs.write_file(directory + "/exit-code.txt", status.to_string())
+  guard status == 0 && @fs.exists(directory + "/result.json") else {
+    fail("consumer failed or timed out; raw evidence saved")
+  }
+  let result = read_json(directory + "/result.json")
+  assert_eq(field(result, "schema"), Json(1))
+  assert_eq(field(result, "verified_iterations"), Json(iterations))
+  assert_eq(field(result, "first_output_ms"), null)
+  assert_eq(field(result, "budget_ledger"), Json("unavailable_public_api"))
+  assert_eq(field(result, "normalization_allowlist"), Json::array([]))
+  let duration : Double = @json.from_json(field(result, "conversion_us"))
+  guard valid_number(duration) else { fail("invalid conversion duration") }
+  let metrics = if @fs.exists(directory + "/time.txt") {
+    process_metrics(@fs.read_file(directory + "/time.txt").text(), platform)
+  } else {
+    { wall_ms: None, cpu_ms: None, peak_rss_bytes: None, }
+  }
+  let report : Json = {
+    "consumer": result,
+    "process_metrics": ToJson::to_json(metrics),
+    "started_ms": Json(started.to_string()),
+    "ended_ms": Json(@env.now().to_string()),
+    "conversion_scope": "sum of monotonic public-call intervals; full Eq/counters outside",
+    "process_scope": "startup + fixture/oracle/fingerprint + calls + validation; not pure conversion CPU/RSS",
+  }
+  write_json(directory + "/sample.json", report)
+  report
+}
+
+///|
+async fn prepare(
+  options : Map[String, String],
+  evidence : String,
+  smoke : Bool,
+) -> Unit {
+  let cases_path = options.get("--cases").unwrap_or("")
+  let value = read_json(cases_path)
+  guard exact_keys(value, ["schema", "cases"]) &&
+    field(value, "schema") == Json(1) &&
+    field(value, "cases") is Array(cases) &&
+    !cases.is_empty() else {
+    fail("strict schema1 case manifest required")
+  }
+  let seen : Map[String, Bool] = Map([])
+  for config in cases {
+    guard case_valid(config) else { fail("invalid case contract") }
+    let id = text(field(config, "id"))
+    guard !seen.contains(id) else { fail("duplicate case ID") }
+    seen[id] = true
+    assert_eq(
+      field(config, "input_sha256"),
+      Json(hash_file(text(field(config, "input")))),
+    )
+  }
+  let toolchain = current_toolchain()
+  let harness = options.get("--harness").unwrap_or("")
+  guard harness.has_prefix("/") && @fs.exists(harness) else {
+    fail("absolute running harness source path required for fingerprinting")
+  }
+  let baseline = object(
+    prepare_lane(
+      options.get("--baseline-source").unwrap_or(""),
+      options.get("--baseline-archive").unwrap_or(""),
+      "baseline",
+      evidence,
+    ),
+  )
+  let candidate = object(
+    prepare_lane(
+      options.get("--candidate-source").unwrap_or(""),
+      options.get("--candidate-archive").unwrap_or(""),
+      "candidate",
+      evidence,
+    ),
+  )
+  baseline["consumer_directory"] = Json(evidence + "/baseline")
+  candidate["consumer_directory"] = Json(evidence + "/candidate")
+  assert_eq(
+    baseline["consumer_source_sha256"],
+    candidate["consumer_source_sha256"],
+  )
+  assert_eq(baseline["dependency_identity"], candidate["dependency_identity"])
+  let machine = current_machine()
+  let platform_result = @shell.Cmd("uname", ["-s"]).output()
+  let platform = platform_result.stdout().trim().to_owned()
+  guard ["Darwin", "Linux"].contains(platform) else {
+    fail("supported metric parser required")
+  }
+  @fs.mkdir(evidence + "/cases")
+  for config in cases {
+    write_json(
+      evidence + "/cases/" + text(field(config, "id")) + ".json",
+      config,
+    )
+  }
+  let prepared : Json = {
+    "schema": 1,
+    "directory": Json(evidence),
+    "surface": "public_collect",
+    "baseline": Json::object(baseline),
+    "candidate": Json::object(candidate),
+    "cases": Json(cases),
+    "cases_sha256": Json(hash_file(cases_path)),
+    "toolchain": Json(toolchain),
+    "machine": Json(machine),
+    "platform": Json(platform),
+    "harness": Json(harness),
+    "harness_sha256": Json(hash_file(harness)),
+    "warmups_per_lane": 3,
+    "measurements_per_lane": 30,
+    "minimum_sample_conversion_us": 20000,
+    "first_output_ms": null,
+    "budget_ledger": "unavailable_public_api",
+    "diagnostic_normalization_allowlist": [],
+    "performance_status": "not_run",
+    "formal_plan_status": "inconclusive",
+    "quality_and_install_evidence": "separate gates; never inferred from this tool",
+  }
+  write_json(evidence + "/prepared.json", prepared)
+  if smoke {
+    let smoke_rows : Array[Json] = []
+    for config in cases {
+      let id = text(field(config, "id"))
+      let fingerprints : Array[Json] = []
+      for lane in ["baseline", "candidate"] {
+        let result = execute_sample(
+          text(field(field(prepared, lane), "binary")),
+          evidence + "/cases/" + id + ".json",
+          1,
+          evidence + "/tool-smoke/" + id + "/" + lane,
+          platform,
+          600000,
+        )
+        fingerprints.push(field(field(result, "consumer"), "oracle_sha256"))
+      }
+      assert_eq(fingerprints[0], fingerprints[1])
+      smoke_rows.push({
+        "case": Json(id),
+        "equal_full_public_fingerprint": true,
+        "classification": "tool evidence only; no formal performance sample",
+      })
+    }
+    write_json(evidence + "/tool-smoke.json", Json(smoke_rows))
+  }
+  verify_prepared(prepared)
+  assert_eq(current_toolchain(), toolchain)
+}
+
+///|
+async fn calibrate(prepared_path : String, evidence : String) -> Unit {
+  let prepared = read_json(prepared_path + "/prepared.json")
+  verify_prepared(prepared)
+  let configs : Array[Json] = @json.from_json(field(prepared, "cases"))
+  let counts : Map[String, Json] = Map([])
+  for config in configs {
+    let id = text(field(config, "id"))
+    let path = evidence + "/" + id + ".json"
+    write_json(path, config)
+    let mut iterations = 1
+    for ;; {
+      let fingerprints : Array[Json] = []
+      let mut enough = true
+      for lane in ["baseline", "candidate"] {
+        let report = execute_sample(
+          text(field(field(prepared, lane), "binary")),
+          path,
+          iterations,
+          evidence + "/" + id + "/n" + iterations.to_string() + "/" + lane,
+          text(field(prepared, "platform")),
+          600000,
+        )
+        let result = field(report, "consumer")
+        let duration : Double = @json.from_json(field(result, "conversion_us"))
+        enough = enough && duration >= 20000.0
+        fingerprints.push(field(result, "oracle_sha256"))
+      }
+      assert_eq(fingerprints[0], fingerprints[1])
+      if enough {
+        counts[id] = Json(iterations)
+        break
+      }
+      guard iterations <= 500000 else {
+        fail(
+          "calibration cannot reach 20ms before explicit one-million iteration ceiling",
+        )
+      }
+      iterations *= 2
+    }
+  }
+  verify_prepared(prepared)
+  write_json(evidence + "/calibration.json", {
+    "schema": 1,
+    "prepared": Json(prepared_path),
+    "prepared_sha256": Json(hash_file(prepared_path + "/prepared.json")),
+    "iterations": Json::object(counts),
+    "minimum_conversion_us": 20000,
+    "classification": "calibration evidence; no formal sample or performance pass",
+  })
+}
+
+///|
+async fn run_window(
+  prepared_path : String,
+  calibration_path : String,
+  number : Int32,
+  evidence : String,
+) -> Unit {
+  guard number == 1 || number == 2 else { fail("window must be 1 or 2") }
+  let prepared = read_json(prepared_path + "/prepared.json")
+  let calibration = read_json(calibration_path + "/calibration.json")
+  assert_eq(field(calibration, "prepared"), Json(prepared_path))
+  assert_eq(
+    field(calibration, "prepared_sha256"),
+    Json(hash_file(prepared_path + "/prepared.json")),
+  )
+  verify_prepared(prepared)
+  let limitations : Array[String] = []
+  let samples : Array[Json] = []
+  let configs : Array[Json] = @json.from_json(field(prepared, "cases"))
+  for config in configs {
+    let id = text(field(config, "id"))
+    let iterations = count(field(field(calibration, "iterations"), id))
+    guard iterations > 0 && iterations <= 1000000 else {
+      fail("invalid fixed calibration iterations")
+    }
+    let config_path = evidence + "/" + id + ".json"
+    write_json(config_path, config)
+    let mut fingerprint = None
+    for slot in schedule(number) {
+      let directory = evidence +
+        "/samples/" +
+        id +
+        "/" +
+        slot.phase +
+        "-" +
+        slot.iteration.to_string() +
+        "-" +
+        slot.lane
+      let report = execute_sample(
+        text(field(field(prepared, slot.lane), "binary")),
+        config_path,
+        iterations,
+        directory,
+        text(field(prepared, "platform")),
+        600000,
+      )
+      let result = field(report, "consumer")
+      let signature = field(result, "oracle_sha256")
+      match fingerprint {
+        None => fingerprint = Some(signature)
+        Some(expected) => assert_eq(signature, expected)
+      }
+      let duration : Double = @json.from_json(field(result, "conversion_us"))
+      let metrics : ProcessMetrics = @json.from_json(
+        field(report, "process_metrics"),
+      )
+      if slot.phase == "measure" {
+        if duration < 20000.0 {
+          limitations.push(
+            id + "/" + slot.lane + ": aggregate call duration under20ms",
+          )
+        }
+        for metric in [metrics.wall_ms, metrics.cpu_ms, metrics.peak_rss_bytes] {
+          match metric {
+            Some(value) if valid_number(value) && value > 0.0 => ()
+            _ =>
+              limitations.push(
+                id +
+                "/" +
+                slot.lane +
+                ": missing, zero-resolution or invalid process metric",
+              )
+          }
+        }
+      }
+      samples.push({
+        "case": Json(id),
+        "slot": ToJson::to_json(slot),
+        "iterations": Json(iterations),
+        "report": report,
+      })
+      assert_eq(read_json(config_path), config)
+    }
+  }
+  verify_prepared(prepared)
+  let window : Json = {
+    "schema": 1,
+    "window": Json(number),
+    "surface": "public_collect",
+    "prepared": Json(prepared_path),
+    "prepared_sha256": Json(hash_file(prepared_path + "/prepared.json")),
+    "calibration": Json(calibration_path),
+    "calibration_sha256": Json(
+      hash_file(calibration_path + "/calibration.json"),
+    ),
+    "cases": Json(configs),
+    "samples": Json(samples),
+    "limitations": Json(limitations),
+    "library_window_status": if limitations.is_empty() {
+      Json("valid_selected_cases")
+    } else {
+      Json("inconclusive")
+    },
+    "formal_plan_status": "inconclusive",
+    "first_output_ms": null,
+    "metric_scope": "conversion_us excludes per-call quality checks; process CPU/RSS includes them; no pure-conversion RSS claim",
+  }
+  write_json(evidence + "/window.json", window)
+}
+
+///|
+fn window_valid_inner(value : Json) -> Bool raise {
+  guard field(value, "schema") == Json(1) &&
+    field(value, "surface") == Json("public_collect") else {
+    return false
+  }
+  let number = count(field(value, "window"))
+  if number != 1 && number != 2 {
+    return false
+  }
+  let configs : Array[Json] = @json.from_json(field(value, "cases"))
+  let samples : Array[Json] = @json.from_json(field(value, "samples"))
+  if configs.is_empty() || samples.length() != configs.length() * 66 {
+    return false
+  }
+  let limitations : Array[String] = @json.from_json(field(value, "limitations"))
+  if !limitations.is_empty() {
+    return false
+  }
+  let mut previous_end = 0UL
+  let seen : Map[String, Bool] = Map([])
+  for index, config in configs {
+    if !case_valid(config) {
+      return false
+    }
+    let id = text(field(config, "id"))
+    if seen.contains(id) {
+      return false
+    }
+    seen[id] = true
+    let expected = schedule(number)
+    let mut fingerprint = None
+    let mut fixed_iterations = None
+    for offset in 0..<66 {
+      let sample = samples[index * 66 + offset]
+      if field(sample, "case") != Json(id) ||
+        field(sample, "slot") != ToJson::to_json(expected[offset]) {
+        return false
+      }
+      let report = field(sample, "report")
+      let started = @string.parse_uint64(text(field(report, "started_ms")))
+      let ended = @string.parse_uint64(text(field(report, "ended_ms")))
+      if started < previous_end || ended < started {
+        return false
+      }
+      previous_end = ended
+      let result = field(report, "consumer")
+      let iterations = count(field(sample, "iterations"))
+      if iterations <= 0 || iterations > 1000000 {
+        return false
+      }
+      match fixed_iterations {
+        None => fixed_iterations = Some(iterations)
+        Some(expected) => if iterations != expected { return false }
+      }
+      if field(result, "verified_iterations") != field(sample, "iterations") ||
+        field(result, "first_output_ms") != null ||
+        field(result, "budget_ledger") != Json("unavailable_public_api") ||
+        field(result, "normalization_allowlist") != Json::array([]) {
+        return false
+      }
+      if field(result, "input_sha256") != field(config, "input_sha256") {
+        return false
+      }
+      for
+        pair in [
+          ("content_utf16_units_per_iteration", "verified_content_utf16_units"),
+          ("chunks_per_iteration", "verified_chunks"),
+          ("assets_per_iteration", "verified_assets"),
+          ("diagnostics_per_iteration", "verified_diagnostics"),
+        ] {
+        let (per_call, total) = pair
+        let expected = count(field(result, per_call))
+        let actual = @string.parse_int64(text(field(result, total)))
+        if expected < 0 || actual != expected.to_int64() * iterations.to_int64() {
+          return false
+        }
+      }
+      let signature = field(result, "oracle_sha256")
+      match fingerprint {
+        None => fingerprint = Some(signature)
+        Some(expected) => if signature != expected { return false }
+      }
+      if expected[offset].phase == "measure" {
+        let duration : Double = @json.from_json(field(result, "conversion_us"))
+        if !valid_number(duration) || duration < 20000.0 {
+          return false
+        }
+        let metrics : ProcessMetrics = @json.from_json(
+          field(report, "process_metrics"),
+        )
+        for metric in [metrics.wall_ms, metrics.cpu_ms, metrics.peak_rss_bytes] {
+          match metric {
+            Some(value) if valid_number(value) && value > 0.0 => ()
+            _ => return false
+          }
+        }
+      }
+    }
+  }
+  true
+}
+
+///|
+fn window_valid(value : Json) -> Bool {
+  window_valid_inner(value) catch {
+    _ => false
+  }
+}
+
+///|
+fn window_bound_inner(
+  value : Json,
+  prepared : Json,
+  calibration : Json,
+) -> Bool raise {
+  if !window_valid(value) ||
+    field(value, "cases") != field(prepared, "cases") ||
+    field(calibration, "schema") != Json(1) ||
+    field(calibration, "minimum_conversion_us") != Json(20000) {
+    return false
+  }
+  let configs : Array[Json] = @json.from_json(field(prepared, "cases"))
+  let counts = object(field(calibration, "iterations"))
+  if counts.length() != configs.length() {
+    return false
+  }
+  for config in configs {
+    let iterations = count(counts[text(field(config, "id"))])
+    if iterations <= 0 || iterations > 1000000 {
+      return false
+    }
+  }
+  let samples : Array[Json] = @json.from_json(field(value, "samples"))
+  samples.all(sample => {
+    field(sample, "iterations") == counts[text(field(sample, "case"))]
+  })
+}
+
+///|
+fn window_bound(value : Json, prepared : Json, calibration : Json) -> Bool {
+  window_bound_inner(value, prepared, calibration) catch {
+    _ => false
+  }
+}
+
+///|
+fn independent_windows_inner(
+  a : Json,
+  b : Json,
+  canonical_a : String,
+  canonical_b : String,
+) -> Bool raise {
+  if canonical_a == canonical_b || !window_valid(a) || !window_valid(b) {
+    return false
+  }
+  let a_samples : Array[Json] = @json.from_json(field(a, "samples"))
+  let b_samples : Array[Json] = @json.from_json(field(b, "samples"))
+  let a_start = @string.parse_uint64(
+    text(field(field(a_samples[0], "report"), "started_ms")),
+  )
+  let a_end = @string.parse_uint64(
+    text(field(field(a_samples[a_samples.length() - 1], "report"), "ended_ms")),
+  )
+  let b_start = @string.parse_uint64(
+    text(field(field(b_samples[0], "report"), "started_ms")),
+  )
+  let b_end = @string.parse_uint64(
+    text(field(field(b_samples[b_samples.length() - 1], "report"), "ended_ms")),
+  )
+  a_end <= b_start || b_end <= a_start
+}
+
+///|
+fn independent_windows(
+  a : Json,
+  b : Json,
+  canonical_a : String,
+  canonical_b : String,
+) -> Bool {
+  independent_windows_inner(a, b, canonical_a, canonical_b) catch {
+    _ => false
+  }
+}
+
+///|
+async fn aggregate(inputs : String, evidence : String) -> Unit {
+  let paths = inputs.split(",").map(path => path.to_owned()).to_array()
+  guard paths.length() == 2 && paths[0] != paths[1] else {
+    fail("two independent window directories required")
+  }
+  let a = read_json(paths[0] + "/window.json")
+  let b = read_json(paths[1] + "/window.json")
+  guard independent_windows(
+    a,
+    b,
+    @fs.realpath(paths[0]),
+    @fs.realpath(paths[1]),
+  ) else {
+    fail("window directories alias or their recorded time intervals overlap")
+  }
+  guard window_valid(a) &&
+    window_valid(b) &&
+    field(a, "window") == Json(1) &&
+    field(b, "window") == Json(2) else {
+    fail("incomplete or inconclusive windows")
+  }
+  for
+    key in [
+      "prepared", "prepared_sha256", "calibration", "calibration_sha256", "cases",
+    ] {
+    assert_eq(field(a, key), field(b, key))
+  }
+  let prepared_path = text(field(a, "prepared"))
+  assert_eq(
+    field(a, "prepared_sha256"),
+    Json(hash_file(prepared_path + "/prepared.json")),
+  )
+  assert_eq(
+    field(a, "calibration_sha256"),
+    Json(hash_file(text(field(a, "calibration")) + "/calibration.json")),
+  )
+  let prepared = read_json(prepared_path + "/prepared.json")
+  let calibration = read_json(
+    text(field(a, "calibration")) + "/calibration.json",
+  )
+  assert_eq(field(calibration, "prepared"), Json(prepared_path))
+  assert_eq(field(calibration, "prepared_sha256"), field(a, "prepared_sha256"))
+  guard window_bound(a, prepared, calibration) &&
+    window_bound(b, prepared, calibration) else {
+    fail(
+      "window cases or iterations differ from frozen preparation/calibration",
+    )
+  }
+  verify_prepared(prepared)
+  let configs : Array[Json] = @json.from_json(field(a, "cases"))
+  let summaries : Array[Json] = []
+  let limitations : Array[String] = []
+  for config in configs {
+    let id = text(field(config, "id"))
+    let all : Map[String, Array[Double]] = Map([])
+    let fingerprints : Array[Json] = []
+    for window in [a, b] {
+      let samples : Array[Json] = @json.from_json(field(window, "samples"))
+      let mut signature = None
+      for lane in ["baseline", "candidate"] {
+        let calls : Array[Double] = []
+        let process_wall : Array[Double] = []
+        let cpu : Array[Double] = []
+        let rss : Array[Double] = []
+        let throughput : Array[Double] = []
+        for sample in samples {
+          let slot : Slot = @json.from_json(field(sample, "slot"))
+          if field(sample, "case") != Json(id) ||
+            slot.phase != "measure" ||
+            slot.lane != lane {
+            continue
+          }
+          let report = field(sample, "report")
+          let result = field(report, "consumer")
+          let value = field(result, "oracle_sha256")
+          match signature {
+            None => signature = Some(value)
+            Some(expected) => assert_eq(value, expected)
+          }
+          let duration : Double = @json.from_json(
+            field(result, "conversion_us"),
+          )
+          let iterations = count(field(sample, "iterations"))
+          calls.push(duration / iterations.to_double())
+          throughput.push(iterations.to_double() * 1000000.0 / duration)
+          let metrics : ProcessMetrics = @json.from_json(
+            field(report, "process_metrics"),
+          )
+          process_wall.push(metrics.wall_ms.unwrap())
+          cpu.push(metrics.cpu_ms.unwrap())
+          rss.push(metrics.peak_rss_bytes.unwrap())
+        }
+        assert_eq(calls.length(), 30)
+        let number = count(field(window, "window"))
+        for
+          entry in [
+            ("conversion_us_per_call", calls),
+            ("conversions_per_second", throughput),
+            ("process_wall_ms", process_wall),
+            ("process_cpu_ms", cpu),
+            ("process_peak_rss_bytes", rss),
+          ] {
+          let (metric, values) = entry
+          let key = number.to_string() + "/" + lane + "/" + metric
+          all[key] = values
+          let p50 = percentile(values, 0.50).unwrap()
+          let p95 = percentile(values, 0.95).unwrap()
+          if p50 <= 0.0 || p95 / p50 > 1.20 {
+            limitations.push(
+              id + "/" + key + ": excessive spread or timer resolution",
+            )
+          }
+          summaries.push({
+            "case": Json(id),
+            "window": Json(number),
+            "lane": Json(lane),
+            "metric": Json(metric),
+            "p50": Json(p50),
+            "p95": Json(p95),
+          })
+        }
+      }
+      fingerprints.push(signature.unwrap())
+    }
+    assert_eq(fingerprints[0], fingerprints[1])
+    for number in [1, 2] {
+      for metric in ["conversion_us_per_call", "process_peak_rss_bytes"] {
+        let prefix = number.to_string()
+        let baseline = all[prefix + "/baseline/" + metric]
+        let candidate = all[prefix + "/candidate/" + metric]
+        for fraction in [0.50, 0.95] {
+          let ratio = percentile(candidate, fraction).unwrap() /
+            percentile(baseline, fraction).unwrap()
+          if !valid_number(ratio) || ratio > 1.10 {
+            limitations.push(
+              id +
+              "/" +
+              prefix +
+              "/" +
+              metric +
+              ": observed >10% ratio or invalid value",
+            )
+          }
+          summaries.push({
+            "case": Json(id),
+            "window": Json(number),
+            "metric": Json(metric),
+            "percentile": Json(fraction),
+            "candidate_over_baseline": Json(ratio),
+          })
+        }
+      }
+    }
+  }
+  write_json(evidence + "/comparison.json", {
+    "schema": 1,
+    "surface": "public_collect",
+    "library_selected_case_status": if limitations.is_empty() {
+      Json("within_scoped_thresholds")
+    } else {
+      Json("inconclusive")
+    },
+    "formal_plan_status": "inconclusive",
+    "limitations": Json(limitations),
+    "summaries": Json(summaries),
+    "metric_scope": "process CPU/RSS includes startup and quality verification; cannot establish pure conversion RSS or PDF targets",
+    "independent_gates": "CLI quality/install/budget/profile/platform/soak and complete required case coverage remain separate",
+  })
+}
+
+///|
+fn fixture_case() -> Json {
+  {
+    "id": "unit",
+    "input": "/tmp/unit.md",
+    "input_sha256": Json(Array::make(64, "a").join("")),
+    "source_name": "unit.md",
+    "input_kind": "bytes",
+    "format": "markdown",
+    "mode": "balanced",
+    "view": "markdown",
+    "asset_demand": "public_metadata_only",
+    "limits": {
+      "max_rows": "2000",
+      "max_cols": "50",
+      "max_cells": "100000",
+      "max_line_chars": "4000",
+      "max_input_bytes": "536870912",
+      "max_asset_bytes": "33554432",
+      "max_total_asset_bytes": "134217728",
+    },
+    "rag": {
+      "chunk_size": 1200,
+      "chunk_overlap": 150,
+      "preserve_heading_path": true,
+      "preserve_source_ref": true,
+      "split_tables": true,
+      "split_code_blocks": true,
+    },
+  }
+}
+
+///|
+fn synthetic_window(number : Int32) -> Json raise {
+  let config = fixture_case()
+  let samples : Array[Json] = []
+  for index, slot in schedule(number) {
+    let result : Json = {
+      "schema": 1,
+      "surface": "public_collect",
+      "verified_iterations": 1,
+      "conversion_us": 22000.0,
+      "first_output_ms": null,
+      "budget_ledger": "unavailable_public_api",
+      "normalization_allowlist": [],
+      "oracle_sha256": "synthetic-tool-oracle",
+      "input_sha256": field(config, "input_sha256"),
+      "content_utf16_units_per_iteration": 3,
+      "verified_content_utf16_units": "3",
+      "chunks_per_iteration": 2,
+      "verified_chunks": "2",
+      "assets_per_iteration": 1,
+      "verified_assets": "1",
+      "diagnostics_per_iteration": 4,
+      "verified_diagnostics": "4",
+    }
+    samples.push({
+      "case": "unit",
+      "slot": ToJson::to_json(slot),
+      "iterations": 1,
+      "report": {
+        "consumer": result,
+        "process_metrics": {
+          "wall_ms": 40.0,
+          "cpu_ms": 25.0,
+          "peak_rss_bytes": 4096.0,
+        },
+        "started_ms": Json((index * 2 + (number - 1) * 200).to_string()),
+        "ended_ms": Json((index * 2 + 1 + (number - 1) * 200).to_string()),
+      },
+    })
+  }
+  {
+    "schema": 1,
+    "window": Json(number),
+    "surface": "public_collect",
+    "cases": [config],
+    "samples": Json(samples),
+    "limitations": [],
+  }
+}
+
+///|
+fn mutate_sample(
+  window : Json,
+  index : Int32,
+  key : String,
+  value : Json,
+) -> Json raise {
+  let result = object(window)
+  let samples : Array[Json] = @json.from_json(result["samples"])
+  let sample = object(samples[index])
+  let report = object(sample["report"])
+  let consumer = object(report["consumer"])
+  consumer[key] = value
+  report["consumer"] = Json::object(consumer)
+  sample["report"] = Json::object(report)
+  samples[index] = Json::object(sample)
+  result["samples"] = Json(samples)
+  Json::object(result)
+}
+
+///|
+fn selftest() -> Unit raise {
+  assert_true(case_valid(fixture_case()))
+  let bad = object(fixture_case())
+  bad["asset_demand"] = Json("cli_export_all")
+  assert_false(case_valid(Json::object(bad)))
+  let extra = object(fixture_case())
+  extra["internal_budget"] = Json(0)
+  assert_false(case_valid(Json::object(extra)))
+  let negative = object(fixture_case())
+  let limits = object(negative["limits"])
+  limits["max_asset_bytes"] = Json("-1")
+  negative["limits"] = Json::object(limits)
+  assert_false(case_valid(Json::object(negative)))
+  assert_eq(schedule(1).length(), 66)
+  assert_eq(schedule(2).length(), 66)
+  for number in [1, 2] {
+    for lane in ["baseline", "candidate"] {
+      assert_eq(
+        schedule(number)
+        .filter(slot => slot.lane == lane && slot.phase == "warmup")
+        .length(),
+        3,
+      )
+      assert_eq(
+        schedule(number)
+        .filter(slot => slot.lane == lane && slot.phase == "measure")
+        .length(),
+        30,
+      )
+    }
+  }
+  assert_eq(schedule(1)[6:10].map(slot => slot.lane), [
+    "baseline", "candidate", "candidate", "baseline",
+  ])
+  assert_eq(schedule(2)[6:10].map(slot => slot.lane), [
+    "candidate", "baseline", "baseline", "candidate",
+  ])
+  assert_eq(
+    process_metrics(
+      "0.12 real 0.02 user 0.01 sys\n4096 maximum resident set size", "Darwin",
+    ).peak_rss_bytes,
+    Some(4096.0),
+  )
+  assert_eq(
+    process_metrics(
+      "Maximum resident set size (kbytes): 42\nUser time (seconds): 0.2\nSystem time (seconds): 0.1\nElapsed (wall clock) time (h:mm:ss or m:ss): 1:02.50",
+      "Linux",
+    ).wall_ms,
+    Some(62500.0),
+  )
+  assert_eq(process_metrics("time: unsupported", "Darwin").peak_rss_bytes, None)
+  assert_eq(number("NaN"), None)
+  assert_eq(number("-1"), None)
+  assert_eq(percentile([30.0, 10.0, 20.0], 0.95), Some(30.0))
+  assert_false(window_valid({ "schema": 1 }))
+  assert_true(window_valid(synthetic_window(1)))
+  assert_true(window_valid(synthetic_window(2)))
+  let prepared : Json = { "cases": [fixture_case()] }
+  let calibration : Json = {
+    "schema": 1,
+    "minimum_conversion_us": 20000,
+    "iterations": { "unit": 1 },
+  }
+  assert_true(window_bound(synthetic_window(1), prepared, calibration))
+  assert_true(window_bound(synthetic_window(2), prepared, calibration))
+  // A window can be internally consistent yet use an uncalibrated fixed N.
+  assert_false(
+    window_bound(synthetic_window(1), prepared, {
+      "schema": 1,
+      "minimum_conversion_us": 20000,
+      "iterations": { "unit": 2 },
+    }),
+  )
+  let different_case = object(fixture_case())
+  different_case["view"] = Json("debug")
+  assert_false(
+    window_bound(
+      synthetic_window(1),
+      { "cases": [Json::object(different_case)] },
+      calibration,
+    ),
+  )
+  assert_false(
+    window_bound(synthetic_window(1), prepared, {
+      "schema": 1,
+      "minimum_conversion_us": 20000,
+      "iterations": { "unit": 1, "unprepared_case": 1 },
+    }),
+  )
+  assert_true(
+    independent_windows(synthetic_window(1), synthetic_window(2), "/a", "/b"),
+  )
+  assert_false(
+    independent_windows(
+      synthetic_window(1),
+      synthetic_window(2),
+      "/same",
+      "/same",
+    ),
+  )
+  let overlapping = object(synthetic_window(2))
+  let overlapping_samples : Array[Json] = @json.from_json(
+    overlapping["samples"],
+  )
+  for index, sample in overlapping_samples {
+    let sample = object(sample)
+    let report = object(sample["report"])
+    report["started_ms"] = Json((index * 2 + 100).to_string())
+    report["ended_ms"] = Json((index * 2 + 101).to_string())
+    sample["report"] = Json::object(report)
+    overlapping_samples[index] = Json::object(sample)
+  }
+  overlapping["samples"] = Json(overlapping_samples)
+  assert_true(window_valid(Json::object(overlapping)))
+  assert_false(
+    independent_windows(
+      synthetic_window(1),
+      Json::object(overlapping),
+      "/a",
+      "/b",
+    ),
+  )
+  let duplicate = object(synthetic_window(1))
+  duplicate["cases"] = Json([fixture_case(), fixture_case()])
+  let duplicate_samples : Array[Json] = @json.from_json(duplicate["samples"])
+  let twice : Array[Json] = []
+  for _ in 0..<2 {
+    for sample in duplicate_samples {
+      twice.push(sample)
+    }
+  }
+  duplicate["samples"] = Json(twice)
+  assert_false(window_valid(Json::object(duplicate)))
+  let invalid = object(synthetic_window(1))
+  let invalid_case = object(fixture_case())
+  invalid_case["source_name"] = Json("")
+  invalid["cases"] = Json([Json::object(invalid_case)])
+  assert_false(window_valid(Json::object(invalid)))
+  assert_false(
+    window_valid(
+      mutate_sample(synthetic_window(1), 6, "conversion_us", Json(19999.0)),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(synthetic_window(1), 6, "first_output_ms", Json(0)),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(synthetic_window(1), 6, "verified_iterations", Json(0)),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(synthetic_window(1), 6, "verified_assets", Json("0")),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(synthetic_window(1), 6, "input_sha256", Json("wrong input")),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(
+        synthetic_window(1),
+        6,
+        "oracle_sha256",
+        Json("different output"),
+      ),
+    ),
+  )
+  assert_false(
+    window_valid(
+      mutate_sample(
+        synthetic_window(1),
+        6,
+        "normalization_allowlist",
+        Json(["diagnostics"]),
+      ),
+    ),
+  )
+  let missing = object(synthetic_window(1))
+  let samples : Array[Json] = @json.from_json(missing["samples"])
+  samples.pop() |> ignore
+  missing["samples"] = Json(samples)
+  assert_false(window_valid(Json::object(missing)))
+  let missing_metric = object(synthetic_window(1))
+  let ms : Array[Json] = @json.from_json(missing_metric["samples"])
+  let sample = object(ms[6])
+  let report = object(sample["report"])
+  report["process_metrics"] = {
+    "wall_ms": 40.0,
+    "cpu_ms": null,
+    "peak_rss_bytes": 4096.0,
+  }
+  sample["report"] = Json::object(report)
+  ms[6] = Json::object(sample)
+  missing_metric["samples"] = Json(ms)
+  assert_false(window_valid(Json::object(missing_metric)))
+  let source = consumer_source()
+  assert_true(source.contains("@bench.monotonic_clock_start()"))
+  assert_true(source.contains("output==oracle"))
+  assert_false(source.contains("/internal/"))
+  assert_false(source.contains("@markitdown.convert_to_sink"))
+  assert_true(source.contains("max_depth=2147483647"))
+  println("consumer_source_sha256=" + hash_bytes(@utf8.encode(source)))
+  println(
+    "PASS library benchmark tool selftests; no product or performance run",
+  )
+}
+
+///|
+async fn main {
+  let args = @env.args().filter(arg => arg != "--")
+  let options : Map[String, String] = Map([])
+  guard (args.length() - 1) % 2 == 0 else {
+    fail("expected --option value pairs")
+  }
+  for index = 1; index < args.length(); index = index + 2 {
+    let key = args[index]
+    guard [
+        "--self-test", "--prepare", "--dev-smoke", "--calibrate", "--window", "--aggregate",
+        "--evidence", "--cases", "--baseline-source", "--candidate-source", "--baseline-archive",
+        "--candidate-archive", "--prepared", "--calibration", "--harness",
+      ].contains(key) &&
+      !options.contains(key) else {
+      fail("unknown or duplicate option: " + key)
+    }
+    options[key] = args[index + 1]
+  }
+  if options.get("--self-test") == Some("true") {
+    guard options.length() == 1 else {
+      fail("self-test accepts no performance options")
+    }
+    selftest()
+    return
+  }
+  let evidence = options.get("--evidence").unwrap_or("")
+  fresh(evidence)
+  write_json(evidence + "/invocation.json", {
+    "args": Json(args),
+    "cwd": Json(@fs.realpath(".")),
+  })
+  let outcome = try {
+    let operations = [
+      "--prepare", "--dev-smoke", "--calibrate", "--window", "--aggregate",
+    ].filter(key => options.contains(key))
+    guard operations.length() == 1 else { fail("choose exactly one operation") }
+    for key in ["--prepare", "--dev-smoke", "--calibrate"] {
+      if options.contains(key) {
+        assert_eq(options[key], "true")
+      }
+    }
+    if options.get("--prepare") == Some("true") ||
+      options.get("--dev-smoke") == Some("true") {
+      prepare(options, evidence, options.get("--dev-smoke") == Some("true"))
+    } else if options.get("--calibrate") == Some("true") {
+      calibrate(options.get("--prepared").unwrap_or(""), evidence)
+    } else if options.get("--window") is Some(number) {
+      run_window(
+        options.get("--prepared").unwrap_or(""),
+        options.get("--calibration").unwrap_or(""),
+        @string.parse_int(number),
+        evidence,
+      )
+    } else if options.get("--aggregate") is Some(inputs) {
+      aggregate(inputs, evidence)
+    } else {
+      fail("choose prepare/dev-smoke/calibrate/window/aggregate")
+    }
+    Ok(())
+  } catch {
+    error => Err(error.to_string())
+  }
+  match outcome {
+    Ok(_) =>
+      write_json(evidence + "/summary.json", {
+        "tool_status": "completed",
+        "performance_status": "see explicit calibration/window/comparison records; tool completion alone is no pass",
+        "formal_plan_status": "inconclusive",
+      })
+    Err(message) => {
+      write_json(evidence + "/summary.json", {
+        "tool_status": "failed",
+        "performance_status": "inconclusive",
+        "formal_plan_status": "inconclusive",
+        "failure": Json(message),
+      })
+      fail("library benchmark inconclusive; saved failure evidence: " + message)
+    }
+  }
+}

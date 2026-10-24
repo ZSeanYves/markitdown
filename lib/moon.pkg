@@ -12,11 +12,17 @@ import {
   "moonbitlang/async",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/x/fs",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
 } for "wbtest"
 
 import {
   "moonbitlang/async",
+  "ZSeanYves/markitdown/internal/readers/zip" @dzip,
+  "moonbitlang/x/fs",
+  "moonbitlang/core/json" @source_json,
 } for "test"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

@@ -68,7 +68,7 @@ pub(all) struct CoreBlock {
   block_id : BlockId
   kind : BlockKind
   text : String
-  column_index : Int?
+  column_index : Int32?
   rich_inlines : Array[CoreInline]?
   children : Array[CoreBlock]
   attrs : Map[String, String]
@@ -83,10 +83,10 @@ pub(all) struct CoreBlock {
 pub(all) struct CompactSourceRef {
   file_id : String
   format : String
-  line_start : Int
-  line_end : Int
-  byte_start : Int
-  byte_end : Int
+  line_start : Int32
+  line_end : Int32
+  byte_start : Int32
+  byte_end : Int32
   literal : Bool
   minimal_inline_escape : Bool
   rendered_markdown : String?
@@ -102,7 +102,7 @@ pub(all) struct SectionNode {
   section_id : BlockId
   heading_block_id : BlockId?
   title : String
-  level : Int
+  level : Int32
   heading_path : HeadingPath
   child_section_ids : Array[BlockId]
   block_ids : Array[BlockId]
@@ -115,7 +115,7 @@ pub(all) struct CaptionBinding {
   caption_block_id : BlockId
   target_block_id : BlockId
   relation : String
-  confidence : Int?
+  confidence : Int32?
 }
 
 ///|
@@ -125,16 +125,16 @@ pub(all) struct TableContinuation {
   table_block_id : BlockId
   continues_from_block_id : BlockId?
   relation : String
-  confidence : Int?
+  confidence : Int32?
 }
 
 ///|
 /// One normalized reading-order entry emitted by pipeline assembly.
 pub(all) struct ReadingOrderEntry {
   block_id : BlockId
-  ordinal : Int
-  page : Int?
-  slide : Int?
+  ordinal : Int32
+  page : Int32?
+  slide : Int32?
   sheet : String?
 }
 
@@ -145,7 +145,7 @@ pub(all) struct AssetBinding {
   asset_id : String
   owner_block_id : BlockId
   relation : String
-  confidence : Int?
+  confidence : Int32?
 }
 
 ///|
@@ -221,7 +221,7 @@ pub(all) enum SignalType {
 /// format-specific evidence without expanding the public enum every time.
 pub(all) struct CoreSignal {
   signal_type : SignalType
-  confidence : Int
+  confidence : Int32
   payload : Map[String, JsonValue]
 }
 
@@ -234,7 +234,7 @@ pub(all) struct SourceMapEntry {
   primary_ref : SourceRef?
   refs : Array[SourceRef]
   merged_from : Array[SourceRef]
-  confidence : Int?
+  confidence : Int32?
   relation : String?
 }
 
@@ -258,12 +258,12 @@ pub(all) struct SourceMap {
 pub(all) struct SourceRef {
   file_id : String?
   format : String?
-  page : Int?
+  page : Int32?
   bbox : BBox?
-  line_start : Int?
-  line_end : Int?
-  byte_start : Int?
-  byte_end : Int?
+  line_start : Int32?
+  line_end : Int32?
+  byte_start : Int32?
+  byte_end : Int32?
   time_start : String?
   time_end : String?
   xpath : String?
@@ -273,12 +273,12 @@ pub(all) struct SourceRef {
   markdown_path : String?
   container_path : String?
   entry_path : String?
-  entry_index : Int?
+  entry_index : Int32?
   entry_format : String?
   inner_path : String?
   sheet : String?
   cell_range : String?
-  slide : Int?
+  slide : Int32?
   shape_id : String?
   relationship_id : String?
   chapter_href : String?
@@ -319,12 +319,12 @@ pub(all) enum ContainerSecurityFinding {
 pub(all) struct ContainerEntry {
   entry_path : String
   normalized_path : String?
-  entry_index : Int?
+  entry_index : Int32?
   entry_kind : ContainerEntryKind
   detected_format : String?
   media_type : String?
-  compressed_size : Int?
-  uncompressed_size : Int?
+  compressed_size : Int32?
+  uncompressed_size : Int32?
   is_encrypted : Bool
   compression_method : String?
   crc : String?

@@ -35,20 +35,19 @@ async test "docx parser preserves note ordering code blocks and comment spacing"
 
 ///|
 async test "docx accurate fidelity inlines anchored textboxes into body order" {
+  let session = @input.begin_input_session(
+    @input.input_from_path(
+      "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
+    ),
+  )
+  defer @input.end_input_session(session)
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
     @parser.new_parse_context(Docx),
     Accurate,
     Markdown,
   )
-  let result = match
-    @parser.registry_parse(
-      registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
-      ),
-      context,
-    ) {
+  let result = match @parser.registry_parse(registry, session.source, context) {
     Ok(value) => value
     Err(err) => fail("accurate docx parse failed: " + err)
   }

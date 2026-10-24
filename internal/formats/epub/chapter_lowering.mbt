@@ -1,7 +1,7 @@
 ///|
 fn epub_total_uncompressed_bytes(
   entries : Array[@depub.EpubArchiveEntry],
-) -> Int {
+) -> Int32 {
   let mut total = 0
   for entry in entries {
     total += entry.uncompressed_size
@@ -48,7 +48,9 @@ fn epub_package_metadata(pkg : @depub.EpubPackage) -> @core.DocumentMetadata {
 }
 
 ///|
-fn epub_issue_tallies(issues : Array[@depub.EpubValidationIssue]) -> (Int, Int) {
+fn epub_issue_tallies(
+  issues : Array[@depub.EpubValidationIssue],
+) -> (Int32, Int32) {
   let mut missing_manifest = 0
   let mut missing_spine = 0
   for issue in issues {
@@ -62,7 +64,7 @@ fn epub_issue_tallies(issues : Array[@depub.EpubValidationIssue]) -> (Int, Int) 
 }
 
 ///|
-fn epub_external_resource_count(pkg : @depub.EpubPackage) -> Int {
+fn epub_external_resource_count(pkg : @depub.EpubPackage) -> Int32 {
   let mut count = 0
   for item in pkg.manifest {
     let href = item.href.trim().to_owned().to_lower()
@@ -132,8 +134,9 @@ fn epub_nav_blocks(
 }
 
 ///|
-fn epub_cover_assets(
+async fn epub_cover_assets(
   pkg : @depub.EpubPackage,
+  context : @parser.ParseContext,
   container_path : String,
   asset_entry_infos : Map[String, @depub.EpubArchiveEntry],
   merged_blocks : Array[@core.CoreBlock],
@@ -146,7 +149,7 @@ fn epub_cover_assets(
   }
   let cover_path = cover_item.resolved_path
   match asset_entry_infos.get(cover_path) {
-    Some(_) => {
+    Some(info) => {
       if merged_assets.length() >= EPUB_MAX_MATERIALIZED_ASSETS {
         diagnostics.warnings.push(
           "epub cover asset materialization limit reached",
@@ -156,6 +159,25 @@ fn epub_cover_assets(
           "epub asset skip -> materialization limit exceeded",
         )
         return
+      }
+      if !@parser.require_asset_payload_within_limits(
+          context,
+          info.uncompressed_size.to_int64(),
+          @parser.materialized_asset_payload_bytes(merged_assets),
+        ) {
+        return
+      }
+      let payload = try @depub.read_part_bytes(pkg, cover_path) |> Ok catch {
+        error => Err(error.to_string())
+      }
+      let payload = match payload {
+        Ok(bytes) => bytes
+        Err(message) => {
+          diagnostics.warnings.push(
+            "epub cover asset read failed: " + cover_path + ": " + message,
+          )
+          return
+        }
       }
       let source_ref = @core.source_ref_with_container_entry(
         @core.empty_source_ref(),
@@ -176,7 +198,11 @@ fn epub_cover_assets(
         "epub:" + cover_path + ":cover",
         source_ref~,
       )
-      let next_asset = { ..asset, path: Some(output_relative_path), }
+      let next_asset = {
+        ..asset,
+        path: Some(output_relative_path),
+        payload: Some(Bytes(payload)),
+      }
       let alt = epub_basename(cover_path)
       next_asset.attrs.set("alt", alt)
       next_asset.attrs.set("source_path", cover_path)
@@ -276,8 +302,8 @@ fn epub_spine_entry(
 ///|
 fn epub_spine_skip_reason(
   spine_item : @depub.EpubSpineItem,
-  selected_entry_count : Int,
-  decoded_total : Int,
+  selected_entry_count : Int32,
+  decoded_total : Int32,
   asset_entry_infos : Map[String, @depub.EpubArchiveEntry],
 ) -> EpubSkipReason? {
   if !spine_item.linear {
@@ -407,7 +433,7 @@ fn epub_record_skip_diagnostic(
 }
 
 ///|
-fn epub_parse_inner_document(
+async fn epub_parse_inner_document(
   registry : @parser.ParserRegistry,
   source : @input.InputSource,
   format : @input.DetectedFormat,
@@ -452,7 +478,9 @@ fn epub_absorb_child_metric(
 }
 
 ///|
-fn epub_rewrite_child_assets(
+async fn epub_rewrite_child_assets(
+  pkg : @depub.EpubPackage,
+  context : @parser.ParseContext,
   assets : Array[@core.AssetRef],
   entry : @core.ContainerEntry,
   asset_entry_infos : Map[String, @depub.EpubArchiveEntry],
@@ -463,6 +491,10 @@ fn epub_rewrite_child_assets(
   let rewrites : Array[EpubAssetRewrite] = []
   let entry_path = entry.entry_path
   for asset in assets {
+    if context.input_source is Some(source) &&
+      @input.input_source_error(source) is Some(_) {
+      break
+    }
     let old_path = asset.path.unwrap_or("").trim().to_owned()
     let old_asset_id = asset.asset_id
     let source_path = match asset.payload {
@@ -497,7 +529,28 @@ fn epub_rewrite_child_assets(
           continue
         }
         match asset_entry_infos.get(resolved_entry) {
-          Some(_) => {
+          Some(info) => {
+            if !@parser.require_asset_payload_within_limits(
+                context,
+                info.uncompressed_size.to_int64(),
+                @parser.materialized_asset_payload_bytes(merged_assets),
+              ) {
+              break
+            }
+            let payload = try
+              @depub.read_part_bytes(pkg, resolved_entry) |> Ok
+            catch {
+              error => Err(error.to_string())
+            }
+            let payload = match payload {
+              Ok(bytes) => bytes
+              Err(message) => {
+                diagnostics.warnings.push(
+                  "epub asset read failed: " + resolved_entry + ": " + message,
+                )
+                continue
+              }
+            }
             let output_relative_path = epub_asset_output_path(
               entry_path, old_path,
             )
@@ -514,6 +567,7 @@ fn epub_rewrite_child_assets(
               asset_id: new_asset_id,
               path: Some(output_relative_path),
               source_ref: Some(next_source_ref),
+              payload: Some(Bytes(payload)),
             }
             next_asset.attrs.set("zip_entry_path", resolved_entry)
             next_asset.attrs.set("zip_container_format", "epub")
@@ -574,7 +628,7 @@ fn epub_rewrite_child_blocks(
 ///|
 priv struct EpubRewritePlan {
   entry_path : String
-  entry_index : Int?
+  entry_index : Int32?
   entry_format : String?
   container_path : String?
   fallback_source_ref : @core.SourceRef
@@ -737,7 +791,7 @@ fn epub_find_asset_rewrite(
 fn epub_rewrite_source_ref(
   source_ref : @core.SourceRef,
   plan : EpubRewritePlan,
-  inner_path? : String? = None,
+  inner_path~ : String? = None,
 ) -> @core.SourceRef {
   let resolved_inner_path = match inner_path {
     Some(value) => Some(value)
@@ -913,7 +967,7 @@ fn epub_dirname(path : String) -> String {
 fn epub_entry_source_ref(
   container_path : String,
   entry_path : String,
-  entry_index : Int,
+  entry_index : Int32,
   media_type : String?,
 ) -> @core.SourceRef {
   @core.source_ref_with_container_entry(
@@ -980,51 +1034,20 @@ fn epub_inner_source_name(
 
 ///|
 fn epub_inner_source(
+  parent : @input.InputSource,
   container_path : String,
   entry_path : String,
   detected_format : @input.DetectedFormat,
   entry_bytes : Bytes,
 ) -> @input.InputSource {
   let source_name = epub_inner_source_name(container_path, entry_path)
-  if epub_child_prefers_text_source(detected_format) {
-    match
-      (try @utf8.decode(entry_bytes, ignore_bom=false) |> Ok catch {
-        _ => Err(())
-      }) {
-      Ok(text) =>
-        @input.with_bytes_payload(
-          @input.input_from_text_with_format(
-            text,
-            source_name,
-            Some(detected_format),
-          ),
-          entry_bytes,
-        )
-      Err(_) =>
-        @input.input_from_bytes_with_format(
-          entry_bytes,
-          source_name,
-          Some(detected_format),
-        )
-    }
-  } else {
-    @input.input_from_bytes_with_format(
-      entry_bytes,
-      source_name,
-      Some(detected_format),
-    )
-  }
-}
-
-///|
-fn epub_child_prefers_text_source(
-  detected_format : @input.DetectedFormat,
-) -> Bool {
-  match detected_format {
-    Html => true
-    Markdown => true
-    _ => false
-  }
+  @input.input_from_container_entry_bytes(
+    parent,
+    entry_bytes,
+    source_name,
+    entry_limit=EPUB_MAX_SINGLE_ENTRY_BYTES.to_int64(),
+    explicit_format=Some(detected_format),
+  )
 }
 
 ///|

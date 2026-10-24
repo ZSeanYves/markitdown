@@ -82,6 +82,9 @@ pub struct ParserCapability {
 /// This carries requested route shape, fidelity/output profiles, PDF policy toggles, and coarse resource limits. It is the canonical
 /// place for parser-visible runtime policy.
 pub struct ParseContext {
+  input_source : @input.InputSource?
+  input_access_limit : Int64?
+  report_resource_limit_failure : (@input.ResourceLimitFailure) -> Unit
   detected_format : @input.DetectedFormat
   requested_mode : ParserMode?
   fidelity_mode : @product.FidelityMode
@@ -94,10 +97,10 @@ pub struct ParseContext {
   pdf_header_footer_filter_policy : PdfHeaderFooterFilterPolicy
   pdf_table_reconstruction_policy : PdfTableReconstructionPolicy
   limits : @product.ResourceLimits
-  max_rows : Int?
-  max_cols : Int?
-  max_cells : Int?
-  max_line_chars : Int?
+  max_rows : Int32?
+  max_cols : Int32?
+  max_cells : Int32?
+  max_line_chars : Int32?
   debug : Bool
 }
 
@@ -167,16 +170,12 @@ pub struct ParseStreamSummary {
 }
 
 ///|
-/// Pull-based parser output. `next` returns one event at a time; `finish`
-/// exposes side channels and final diagnostics after EOF. A stream is
-/// single-consumer and must not be polled after an error.
+/// A single-consumer asynchronous parser pull stream. After EOF, finish
+/// returns side channels; callers must stop polling after an error.
 pub struct ParseEventStream {
-  next : () -> Result[@core.CoreEvent?, String]
-  /// Async façade used by the canonical output sink. Existing format
-  /// producers are wrapped at construction time until their pull callbacks
-  /// can read directly from async sources.
-  next_async : async () -> Result[@core.CoreEvent?, String]
-  finish : () -> Result[ParseStreamSummary, String]
+  next : async () -> Result[@core.CoreEvent?, String]
+  finish : async () -> Result[ParseStreamSummary, String]
+  priv close_stream : async () -> Result[Unit, String]
 }
 
 ///|
@@ -188,23 +187,14 @@ pub struct Parser {
   name : String
   mode : ParserMode
   capability : ParserCapability
-  parse : (@input.InputSource, ParseContext) -> Result[ParseResult, String]
-  stream_events : ((@input.InputSource, ParseContext) -> Result[
-    ParseEventStream?,
-    String,
-  ])?
-}
-
-///|
-/// Async parser registry entry used by async product dispatch.
-pub struct AsyncParser {
-  name : String
-  mode : ParserMode
-  capability : ParserCapability
   parse : async (@input.InputSource, ParseContext) -> Result[
     ParseResult,
     String,
   ]
+  open_stream : (async (@input.InputSource, ParseContext) -> Result[
+    ParseEventStream?,
+    String,
+  ])?
 }
 
 ///|
@@ -214,32 +204,6 @@ pub struct AsyncParser {
 /// registrations for mode-specific overrides.
 pub struct ParserRegistry {
   parsers : Map[String, Array[Parser]]
-}
-
-///|
-/// Format-keyed async parser registry used by async product dispatch.
-pub struct AsyncParserRegistry {
-  parsers : Map[String, Array[AsyncParser]]
-}
-
-///|
-/// One registration in the shared asynchronous parser registry.
-///
-/// This is a compatibility façade for incremental migration. New routing can
-/// register either implementation in one table while existing format packages
-/// continue using `ParserRegistry` until their call sites are migrated.
-pub struct ParserRegistration {
-  name : String
-  mode : ParserMode
-  capability : ParserCapability
-  sync_parser : Parser?
-  async_parser : AsyncParser?
-}
-
-///|
-/// Format-keyed façade used by the migration path toward one async dispatch.
-pub struct UnifiedParserRegistry {
-  parsers : Map[String, Array[ParserRegistration]]
 }
 
 ///|

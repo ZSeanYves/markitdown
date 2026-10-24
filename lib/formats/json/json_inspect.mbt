@@ -16,16 +16,16 @@ pub fn inspect_json_document(doc : JsonDocument) -> JsonInspectReport {
 
 ///|
 priv struct JsonInspectStats {
-  node_count : Int
-  object_count : Int
-  array_count : Int
-  scalar_count : Int
-  member_count : Int
-  max_depth : Int
+  node_count : Int32
+  object_count : Int32
+  array_count : Int32
+  scalar_count : Int32
+  member_count : Int32
+  max_depth : Int32
 }
 
 ///|
-fn inspect_json_value(value : JsonValue, depth : Int) -> JsonInspectStats {
+fn inspect_json_value(value : JsonValue, depth : Int32) -> JsonInspectStats {
   match value {
     Object(members) => {
       let mut node_count = 1

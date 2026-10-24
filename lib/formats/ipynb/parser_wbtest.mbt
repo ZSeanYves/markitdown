@@ -23,7 +23,7 @@ fn ipynb_wbtest_complex_notebook() -> String {
 }
 
 ///|
-test "IPYNB parser lowers markdown code rich outputs errors and attachments" {
+async test "IPYNB parser lowers markdown code rich outputs errors and attachments" {
   let text = ipynb_wbtest_complex_notebook()
   let source = @input.input_from_text_with_format(
     text,
@@ -41,7 +41,7 @@ test "IPYNB parser lowers markdown code rich outputs errors and attachments" {
 }
 
 ///|
-test "IPYNB parser reuses lowering for block streaming route" {
+async test "IPYNB parser reuses lowering for block streaming route" {
   let text = ipynb_wbtest_complex_notebook()
   let source = @input.input_from_text_with_format(
     text,
@@ -68,7 +68,7 @@ test "IPYNB parser reuses lowering for block streaming route" {
 }
 
 ///|
-test "IPYNB malformed notebook produces raw fenced fallback" {
+async test "IPYNB malformed notebook produces raw fenced fallback" {
   let source = @input.input_from_text_with_format(
     "{\"nbformat\":4,\"cells\":\"oops\"}",
     "broken.ipynb",
@@ -84,7 +84,7 @@ test "IPYNB malformed notebook produces raw fenced fallback" {
 }
 
 ///|
-test "IPYNB extended display messages resolve to final visible output" {
+async test "IPYNB extended display messages resolve to final visible output" {
   let text =
     #|{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":[
     #|{"cell_type":"code","source":"run()","metadata":{},"execution_count":1,"outputs":[

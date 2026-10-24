@@ -8,10 +8,10 @@ pub struct PdfBBox {
 
 ///|
 pub struct PdfPageGeometry {
-  page_no : Int
+  page_no : Int32
   width : Double
   height : Double
-  rotation_degrees : Int
+  rotation_degrees : Int32
   crop_box : PdfBBox?
 }
 
@@ -27,11 +27,11 @@ pub fn make_pdf_bbox(
 
 ///|
 pub fn make_pdf_page_geometry(
-  page_no : Int,
+  page_no : Int32,
   width : Double,
   height : Double,
-  rotation_degrees? : Int = 0,
-  crop_box? : PdfBBox? = None,
+  rotation_degrees~ : Int32 = 0,
+  crop_box~ : PdfBBox? = None,
 ) -> PdfPageGeometry {
   { page_no, width, height, rotation_degrees, crop_box, }
 }

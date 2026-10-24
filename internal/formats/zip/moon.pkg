@@ -1,5 +1,4 @@
 import {
-  "moonbitlang/core/encoding/utf8",
   "ZSeanYves/markitdown/internal/readers/zip" @dzip,
   "ZSeanYves/markitdown/internal/readers/zip_source" @dzipsource,
   "ZSeanYves/markitdown/lib/container",
@@ -9,6 +8,8 @@ import {
   "ZSeanYves/markitdown/internal/parser",
   "ZSeanYves/markitdown/internal/runtime",
 }
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

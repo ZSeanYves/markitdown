@@ -1,19 +1,19 @@
 ///|
-fn parse_table(
+async fn parse_table(
   ctx : PptxSourceParseContext,
   part_name : String,
   frame_xml : Bytes,
   geometry : PptxGeometry?,
   source_key : PptxSourceKey,
-) -> PptxTable raise {
+) -> PptxTable {
   let rows : Array[PptxTableRow] = []
   match find_element_inner(frame_xml, "<a:tbl", "</a:tbl>") {
     Some(tbl) => {
       let mut pos = 0
       let mut row_index = 0
-      let cell_count : Ref[Int] = { val: 0, }
-      let text_run_count : Ref[Int] = { val: 0, }
-      let output_cell_count : Ref[Int] = { val: 0, }
+      let cell_count : Ref[Int32] = { val: 0, }
+      let text_run_count : Ref[Int32] = { val: 0, }
+      let output_cell_count : Ref[Int32] = { val: 0, }
       while true {
         let r0 = find_bytes(tbl, pat("<a:tr"), pos)
         match r0 {
@@ -47,16 +47,16 @@ fn parse_table(
 }
 
 ///|
-fn parse_table_row(
+async fn parse_table_row(
   ctx : PptxSourceParseContext,
   part_name : String,
   row_xml : Bytes,
-  row_index : Int,
+  row_index : Int32,
   parent_key : String,
-  cell_count : Ref[Int],
-  text_run_count : Ref[Int],
-  output_cell_count : Ref[Int],
-) -> PptxTableRow raise {
+  cell_count : Ref[Int32],
+  text_run_count : Ref[Int32],
+  output_cell_count : Ref[Int32],
+) -> PptxTableRow {
   let cells : Array[PptxTableCell] = []
   let mut pos = 0
   let mut col_index = 0
@@ -196,8 +196,8 @@ fn bounded_table_grid_span(
   ctx : PptxSourceParseContext,
   part_name : String,
   node_key : String,
-  raw_span : Int,
-) -> Int {
+  raw_span : Int32,
+) -> Int32 {
   let span = if raw_span < 1 { 1 } else { raw_span }
   if span > ctx.budget.max_table_grid_span {
     push_over_budget_warning(
@@ -220,8 +220,8 @@ fn bounded_table_row_span(
   ctx : PptxSourceParseContext,
   part_name : String,
   node_key : String,
-  raw_span : Int,
-) -> Int {
+  raw_span : Int32,
+) -> Int32 {
   let span = if raw_span < 1 { 1 } else { raw_span }
   if span > ctx.budget.max_table_grid_span {
     push_over_budget_warning(
@@ -240,14 +240,14 @@ fn bounded_table_row_span(
 }
 
 ///|
-fn count_table_text_runs(cell_xml : Bytes) -> Int {
+fn count_table_text_runs(cell_xml : Bytes) -> Int32 {
   count_bytes_occurrences(cell_xml, pat("<a:r")) +
   count_bytes_occurrences(cell_xml, pat("<a:br")) +
   count_bytes_occurrences(cell_xml, pat("<a:fld"))
 }
 
 ///|
-fn count_bytes_occurrences(xml : Bytes, pattern : Bytes) -> Int {
+fn count_bytes_occurrences(xml : Bytes, pattern : Bytes) -> Int32 {
   let mut count = 0
   let mut pos = 0
   while true {

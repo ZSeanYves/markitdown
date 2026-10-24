@@ -1,39 +1,66 @@
 ///|
 priv struct LineJsonPullScan {
-  header_keys : Array[String]?
-  record_count : Int
-  object_count : Int
-  array_count : Int
-  scalar_count : Int
-  max_depth : Int
-  blank_line_count : Int
-  mismatch_count : Int
+  columns : LineJsonColumns?
+  record_count : Int32
+  object_count : Int32
+  array_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
+  blank_line_count : Int32
+  mismatch_count : Int32
 }
 
 ///|
-fn open_line_json_event_stream(
+priv enum LineJsonPullScanError {
+  InputFailure(String)
+  RecordLimit(String)
+  RecoverableSyntax
+}
+
+///|
+async fn open_line_json_event_stream(
   parser_name : String,
   format_name : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
 ) -> Result[@parser.ParseEventStream?, String] {
+  if context.limits.max_temporary_bytes is Some(_) {
+    return open_spooled_line_json_event_stream(
+      parser_name, format_name, source, context, capability,
+    )
+  }
   let scan = match scan_line_json_source(format_name, source, context) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(RecoverableSyntax) => return Ok(None)
+    Err(InputFailure(message) | RecordLimit(message)) => return Err(message)
   }
   let table_reader = match open_line_json_reader(source, context) {
     Ok(value) => value
-    Err(_) => return Ok(None)
+    Err(message) => return Err(message)
   }
   let code_reader : Ref[@sourceio.SourceTextLineReader?] = { val: None, }
-  let phase = Ref(if scan.header_keys is Some(_) { 0 } else { 1 })
+  let phase = Ref(if scan.columns is Some(_) { 0 } else { 1 })
   let header_emitted = Ref(false)
   let table_records = Ref(0)
   let code_records = Ref(0)
   let queued : Array[@core.CoreEvent] = []
   let queued_index = Ref(0)
   let event_count = Ref(0)
+  let closed = Ref(false)
+  let close = fn() {
+    if !closed.val {
+      closed.val = true
+      (table_reader.close)()
+      if code_reader.val is Some(reader) {
+        (reader.close)()
+      }
+      code_reader.val = None
+      queued.clear()
+      queued.shrink_to_fit()
+      queued_index.val = 0
+    }
+  }
   let diagnostics = @fshared.empty_parser_diagnostics(
     parser_name,
     StreamingEvent,
@@ -43,7 +70,10 @@ fn open_line_json_event_stream(
   Ok(
     Some(
       @parser.make_parse_event_stream(
-        fn() {
+        async fn() {
+          if closed.val {
+            return Ok(None)
+          }
           while true {
             if queued_index.val < queued.length() {
               let event = queued[queued_index.val]
@@ -54,7 +84,8 @@ fn open_line_json_event_stream(
             queued.clear()
             queued_index.val = 0
             if phase.val == 0 {
-              let header = scan.header_keys.unwrap_or([])
+              let columns = scan.columns.unwrap()
+              let header = columns.keys
               if !header_emitted.val {
                 append_line_json_row_events(
                   queued, header, source, format_name, 1,
@@ -69,13 +100,8 @@ fn open_line_json_event_stream(
                 Ok(Some(record)) => {
                   let root = record.1.root
                   match root {
-                    Object(members) => {
-                      let keys = members.map(entry => entry.key)
-                      if @fshared.keys_match_position_index(
-                          header,
-                          @fshared.key_position_index(header),
-                          keys,
-                        ) {
+                    Object(members) =>
+                      if columns.matches(members) {
                         append_line_json_row_events(
                           queued,
                           json_members_to_row(members, header),
@@ -84,15 +110,18 @@ fn open_line_json_event_stream(
                           record.0.line_no,
                         )
                       }
-                    }
                     _ => ()
                   }
                 }
                 Ok(None) => {
+                  (table_reader.close)()
                   phase.val = 1
                   continue
                 }
-                Err(message) => return Err(message)
+                Err(message) => {
+                  close()
+                  return Err(message)
+                }
               }
             } else {
               let reader = match code_reader.val {
@@ -100,7 +129,10 @@ fn open_line_json_event_stream(
                 None => {
                   let value = match open_line_json_reader(source, context) {
                     Ok(opened) => opened
-                    Err(message) => return Err(message)
+                    Err(message) => {
+                      close()
+                      return Err(message)
+                    }
                   }
                   code_reader.val = Some(value)
                   value
@@ -112,15 +144,9 @@ fn open_line_json_event_stream(
                 ) {
                 Ok(Some(record)) => {
                   let raw = record.0.text.trim().to_owned()
-                  let mismatch = match (scan.header_keys, record.1.root) {
-                    (Some(header), Object(members)) => {
-                      let keys = members.map(entry => entry.key)
-                      !@fshared.keys_match_position_index(
-                        header,
-                        @fshared.key_position_index(header),
-                        keys,
-                      )
-                    }
+                  let mismatch = match (scan.columns, record.1.root) {
+                    (Some(columns), Object(members)) =>
+                      !columns.matches(members)
                     (Some(_), _) => true
                     (None, _) => true
                   }
@@ -140,76 +166,37 @@ fn open_line_json_event_stream(
                     })
                   }
                 }
-                Ok(None) => return Ok(None)
-                Err(message) => return Err(message)
+                Ok(None) => {
+                  close()
+                  return Ok(None)
+                }
+                Err(message) => {
+                  close()
+                  return Err(message)
+                }
               }
             }
           }
           Ok(None)
         },
         fn() {
-          @fshared.init_parser_route_metrics_with_granularity(
-            diagnostics,
-            source,
-            context,
-            format_name,
-            parser_name,
-            StreamingEvent,
-            StreamingEvent,
-            "event_stream",
-            Record,
-            "record_event_stream",
-          )
-          @fshared.apply_product_metrics(diagnostics, format_name)
-          diagnostics.metrics.set("record_count", scan.record_count.to_string())
-          diagnostics.metrics.set("row_count", scan.record_count.to_string())
-          diagnostics.metrics.set("object_count", scan.object_count.to_string())
-          diagnostics.metrics.set("array_count", scan.array_count.to_string())
-          diagnostics.metrics.set("scalar_count", scan.scalar_count.to_string())
-          diagnostics.metrics.set(
-            "max_depth_observed",
-            scan.max_depth.to_string(),
-          )
-          diagnostics.metrics.set(
-            "blank_line_count",
-            scan.blank_line_count.to_string(),
-          )
-          diagnostics.metrics.set("invalid_record_count", "0")
-          diagnostics.metrics.set(
-            "non_table_record_count",
-            scan.mismatch_count.to_string(),
-          )
-          diagnostics.metrics.set("event_count", event_count.val.to_string())
-          diagnostics.metrics.set(
-            "record_count_emitted",
-            scan.record_count.to_string(),
-          )
-          diagnostics.metrics.set("stream_parser_to_renderer", "true")
-          if scan.blank_line_count > 0 {
-            diagnostics.warnings.push(
-              "blank " +
-              format_name +
-              " line(s) skipped: " +
-              scan.blank_line_count.to_string(),
-            )
-            diagnostics.degraded_features.push(
-              format_name + "_blank_line_skipped",
-            )
-            diagnostics.fallback_trace.push(
-              format_name + " blank line -> skip empty record",
-            )
-          }
-          @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
-          diagnostics.pass_trace.push("parse:" + parser_name + ":pull_stream")
-          diagnostics.pass_trace.push("parse:" + parser_name)
+          close()
           Ok(
-            @parser.parse_stream_summary(
+            line_json_event_summary(
               parser_name,
-              StreamingEvent,
+              format_name,
+              source,
+              context,
               capability,
               diagnostics,
+              scan,
+              event_count.val.to_int64(),
             ),
           )
+        },
+        close=fn() {
+          close()
+          Ok(())
         },
       ),
     ),
@@ -217,7 +204,69 @@ fn open_line_json_event_stream(
 }
 
 ///|
-fn open_line_json_reader(
+fn line_json_event_summary(
+  parser_name : String,
+  format_name : String,
+  source : @input.InputSource,
+  context : @parser.ParseContext,
+  capability : @parser.ParserCapability,
+  diagnostics : @core.Diagnostics,
+  scan : LineJsonPullScan,
+  event_count : Int64,
+) -> @parser.ParseStreamSummary {
+  @fshared.init_parser_route_metrics_with_granularity(
+    diagnostics,
+    source,
+    context,
+    format_name,
+    parser_name,
+    StreamingEvent,
+    StreamingEvent,
+    "event_stream",
+    Record,
+    "record_event_stream",
+  )
+  @fshared.apply_product_metrics(diagnostics, format_name)
+  diagnostics.metrics.set("record_count", scan.record_count.to_string())
+  diagnostics.metrics.set("row_count", scan.record_count.to_string())
+  diagnostics.metrics.set("object_count", scan.object_count.to_string())
+  diagnostics.metrics.set("array_count", scan.array_count.to_string())
+  diagnostics.metrics.set("scalar_count", scan.scalar_count.to_string())
+  diagnostics.metrics.set("max_depth_observed", scan.max_depth.to_string())
+  diagnostics.metrics.set("blank_line_count", scan.blank_line_count.to_string())
+  diagnostics.metrics.set("invalid_record_count", "0")
+  diagnostics.metrics.set(
+    "non_table_record_count",
+    scan.mismatch_count.to_string(),
+  )
+  diagnostics.metrics.set("event_count", event_count.to_string())
+  diagnostics.metrics.set("record_count_emitted", scan.record_count.to_string())
+  diagnostics.metrics.set("stream_parser_to_renderer", "true")
+  if scan.blank_line_count > 0 {
+    diagnostics.warnings.push(
+      "blank " +
+      format_name +
+      " line(s) skipped: " +
+      scan.blank_line_count.to_string(),
+    )
+    diagnostics.degraded_features.push(format_name + "_blank_line_skipped")
+    diagnostics.fallback_trace.push(
+      format_name + " blank line -> skip empty record",
+    )
+  }
+  @fshared.refresh_parser_count_metrics(diagnostics, "event_stream")
+  diagnostics.pass_trace.push("parse:" + parser_name + ":pull_stream")
+  diagnostics.pass_trace.push("parse:" + parser_name)
+  @parser.parse_stream_summary(
+    parser_name,
+    StreamingEvent,
+    capability,
+    diagnostics,
+  )
+}
+
+///|
+async fn open_line_json_reader(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@sourceio.SourceTextLineReader, String] {
@@ -225,15 +274,16 @@ fn open_line_json_reader(
     source,
     max_bytes=@parser.max_input_bytes(context),
     max_line_chars=@parser.max_line_chars(context),
+    blank_prefix=['\u{001E}', '\u{FEFF}'],
   )
 }
 
 ///|
-fn next_line_json_record(
+async fn next_line_json_record(
   reader : @sourceio.SourceTextLineReader,
   format_name : String,
   context : @parser.ParseContext,
-  count : Ref[Int],
+  count : Ref[Int32],
 ) -> Result[(@sourceio.SourceTextLine, JsonDocument)?, String] {
   let max_rows = context.max_rows.unwrap_or(200)
   while count.val < max_rows {
@@ -243,7 +293,7 @@ fn next_line_json_record(
       Err(message) => return Err(message)
     }
     let raw = normalize_line_delimited_json_record(line.text).trim().to_owned()
-    if raw == "" {
+    if line.is_blank {
       continue
     }
     if line.truncated {
@@ -267,17 +317,18 @@ fn next_line_json_record(
 }
 
 ///|
-fn scan_line_json_source(
+async fn scan_line_json_source(
   format_name : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
-) -> Result[LineJsonPullScan, String] {
+) -> Result[LineJsonPullScan, LineJsonPullScanError] {
   let reader = match open_line_json_reader(source, context) {
     Ok(value) => value
-    Err(message) => return Err(message)
+    Err(message) => return Err(InputFailure(message))
   }
+  defer (reader.close)()
   let count = Ref(0)
-  let mut header_keys : Array[String]? = None
+  let mut columns : LineJsonColumns? = None
   let mut object_count = 0
   let mut array_count = 0
   let mut scalar_count = 0
@@ -288,26 +339,23 @@ fn scan_line_json_source(
     let line = match (reader.next)() {
       Ok(Some(value)) => value
       Ok(None) => break
-      Err(message) => return Err(message)
+      Err(message) =>
+        if (reader.input_error)() is Some(_) {
+          return Err(InputFailure(message))
+        } else {
+          return Err(RecoverableSyntax)
+        }
     }
     let raw = normalize_line_delimited_json_record(line.text).trim().to_owned()
-    if raw == "" {
+    if line.is_blank {
       blank_line_count += 1
       continue
     }
     if line.truncated {
-      return Err(format_name + " record exceeds max_line_chars")
+      return Err(RecordLimit(format_name + " record exceeds max_line_chars"))
     }
     let document = parse_json_document(raw) catch {
-      error =>
-        return Err(
-          "invalid " +
-          format_name +
-          " record at line " +
-          line.line_no.to_string() +
-          ": " +
-          error.to_string(),
-        )
+      _ => return Err(RecoverableSyntax)
     }
     let inspect = inspect_json_document(document)
     object_count += inspect.object_count
@@ -315,26 +363,17 @@ fn scan_line_json_source(
     scalar_count += inspect.scalar_count
     max_depth = max_depth.max(inspect.max_depth)
     match document.root {
-      Object(members) => {
-        let keys = members.map(entry => entry.key)
-        match header_keys {
-          Some(header) =>
-            if !@fshared.keys_match_position_index(
-                header,
-                @fshared.key_position_index(header),
-                keys,
-              ) {
-              mismatch_count += 1
-            }
-          None => header_keys = Some(keys)
+      Object(members) =>
+        match columns {
+          Some(schema) => if !schema.matches(members) { mismatch_count += 1 }
+          None => columns = Some(LineJsonColumns::new(members))
         }
-      }
       _ => mismatch_count += 1
     }
     count.val += 1
   }
   Ok({
-    header_keys,
+    columns,
     record_count: count.val,
     object_count,
     array_count,
@@ -351,7 +390,7 @@ fn append_line_json_row_events(
   values : Array[String],
   source : @input.InputSource,
   format_name : String,
-  line_no : Int,
+  line_no : Int32,
 ) -> Unit {
   let source_ref = @core.source_ref_with_lines(
     @core.empty_source_ref(),

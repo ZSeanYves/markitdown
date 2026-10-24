@@ -1,8 +1,8 @@
 ///|
-pub fn validate_ooxml_package(
+pub async fn validate_ooxml_package(
   pkg : OoxmlPackage,
-  mode? : OoxmlValidationMode = Strict,
-) -> OoxmlValidationReport {
+  mode~ : OoxmlValidationMode = Strict,
+) -> OoxmlValidationReport noraise {
   let inventory = inspect_ooxml_inventory(pkg)
   let issues = collect_ooxml_validation_issues(pkg, mode~)
   let mut error_count = 0
@@ -25,10 +25,10 @@ pub fn validate_ooxml_package(
 }
 
 ///|
-fn collect_ooxml_validation_issues(
+async fn collect_ooxml_validation_issues(
   pkg : OoxmlPackage,
-  mode? : OoxmlValidationMode = Strict,
-) -> Array[OoxmlValidationIssue] {
+  mode~ : OoxmlValidationMode = Strict,
+) -> Array[OoxmlValidationIssue] noraise {
   let issues : Array[OoxmlValidationIssue] = []
   if mode == Compatible {
     return issues
@@ -37,18 +37,20 @@ fn collect_ooxml_validation_issues(
   let inventory = inspect_ooxml_inventory(pkg)
   for rels_part_name in inventory.relationship_parts {
     let source_part = source_part_for_rels_part(rels_part_name)
-    let rels_xml = read_part_text(pkg, rels_part_name) catch { _ => continue }
-    let tags = collect_start_tags(rels_xml, "Relationship")
-    let seen_ids : Map[String, Int] = Map([])
+    let scanned = read_relationship_rows_from_rels_part(
+      pkg,
+      rels_part_name,
+      allow_syntax_recovery=true,
+    ) catch {
+      _ => continue
+    }
+    let seen_ids : Map[String, Int32] = Map([])
 
-    for tag in tags {
-      let attrs = parse_tag_attributes(tag)
-      let rel_id = get_optional_attr(attrs, "Id").trim().to_owned()
-      let rel_type = get_optional_attr(attrs, "Type").trim().to_owned()
-      let target = get_optional_attr(attrs, "Target").trim().to_owned()
-      let target_mode = parse_target_mode(
-        get_optional_attr(attrs, "TargetMode"),
-      )
+    for row in scanned.rows {
+      let rel_id = row.id.trim().to_owned()
+      let rel_type = row.rel_type.trim().to_owned()
+      let target = row.target.trim().to_owned()
+      let target_mode = row.target_mode
 
       if rel_id == "" {
         issues.push(
@@ -141,6 +143,17 @@ fn collect_ooxml_validation_issues(
           ),
         )
       } else {
+        let scratch = relationship_normalization_scratch(
+          @zip.archive_budget_context(pkg.archive),
+          source_part.unwrap_or(""),
+          target,
+        ) catch {
+          error => {
+            ignore(ooxml_cursor_hard_failure(pkg.archive, error))
+            return issues
+          }
+        }
+        defer (if scratch is Some(lease) { lease.release() })
         let _resolved = resolve_target(
           source_part.unwrap_or(""),
           target,
@@ -222,7 +235,7 @@ fn source_part_for_rels_part(rels_part_name : String) -> String? {
 fn compare_validation_issue(
   a : OoxmlValidationIssue,
   b : OoxmlValidationIssue,
-) -> Int {
+) -> Int32 {
   validation_issue_sort_key(a)[:].lexical_compare(
     validation_issue_sort_key(b)[:],
   )

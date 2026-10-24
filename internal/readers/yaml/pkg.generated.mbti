@@ -2,6 +2,7 @@
 package "ZSeanYves/markitdown/internal/readers/yaml"
 
 import {
+  "ZSeanYves/markitdown/internal/resource_budget",
   "ZSeanYves/markitdown/lib/input",
 }
 
@@ -12,13 +13,13 @@ pub fn inspect_yaml_document(YamlDocument) -> YamlInspectReport
 
 pub fn inspect_yaml_structure_events(Array[YamlStructureEvent]) -> YamlInspectReport
 
-pub fn parse_yaml_document(String) -> YamlDocument raise
+pub fn parse_yaml_document(String, budget_context? : @resource_budget.BudgetContext) -> YamlDocument raise
 
-pub fn parse_yaml_structure_document(String) -> YamlStructureDocument raise
+pub fn parse_yaml_structure_document(String, budget_context? : @resource_budget.BudgetContext) -> YamlStructureDocument raise
 
-pub fn parse_yaml_structure_events(String) -> Array[YamlStructureEvent] raise
+pub fn parse_yaml_structure_events(String, budget_context? : @resource_budget.BudgetContext) -> Array[YamlStructureEvent] raise
 
-pub fn prepare_yaml_document_from_source(@input.InputSource) -> Result[PreparedYamlDocument, String]
+pub async fn prepare_yaml_document_from_source(@input.InputSource) -> Result[PreparedYamlDocument, String]
 
 pub fn profile_yaml_document(String) -> YamlProfiledDocument raise
 
@@ -46,8 +47,8 @@ pub struct PreparedYamlDocument {
 pub struct YamlCompactSequenceSummary {
   key : String
   value_summary : String
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   inspect : YamlInspectReport
 }
 
@@ -79,11 +80,11 @@ pub fn YamlErrorKind::not_equal(Self, Self) -> Bool
 
 pub struct YamlInspectReport {
   is_empty : Bool
-  node_count : Int
-  mapping_count : Int
-  sequence_count : Int
-  scalar_count : Int
-  max_depth : Int
+  node_count : Int32
+  mapping_count : Int32
+  sequence_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
   root_kind : String?
 }
 
@@ -131,10 +132,10 @@ pub(all) enum YamlStructureEventKind {
 }
 
 pub struct YamlStructureSource {
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   path : String
-  depth : Int
+  depth : Int32
 }
 
 pub(all) enum YamlValue {

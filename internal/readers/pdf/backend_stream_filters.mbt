@@ -3,8 +3,10 @@ fn pdf_decode_image_prefix_filters_with_params(
   payload : Bytes,
   filters : Array[String],
   params : Array[PdfStreamDecodeParams?],
-  decode_count : Int,
-) -> Result[Bytes, String] {
+  decode_count : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  stream_framing~ : PdfNativeStreamSlice? = None,
+) -> Result[Bytes, String] raise PdfHardDecodeFailure {
   let limit = if decode_count < filters.length() {
     decode_count
   } else {
@@ -22,14 +24,20 @@ fn pdf_decode_image_prefix_filters_with_params(
       },
     )
   }
-  decode_pdf_stream_filters_with_params(payload, prefix_filters, prefix_params)
+  decode_pdf_stream_filters_with_params(
+    payload,
+    prefix_filters,
+    prefix_params,
+    decode_context~,
+    stream_framing~,
+  )
 }
 
 ///|
 fn pdf_image_filter_param_dict_text_at(
   dict_text : String,
-  filter_count : Int,
-  filter_index : Int,
+  filter_count : Int32,
+  filter_index : Int32,
 ) -> String? {
   let value = match pdf_extract_dict_value(dict_text, "/DecodeParms") {
     Some(found) => Some(found)
@@ -113,13 +121,13 @@ fn pdf_ccitt_fax_params_from_image_object(
 }
 
 ///|
-fn pdf_push_u16le(out : Array[Byte], value : Int) -> Unit {
+fn pdf_push_u16le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn pdf_push_u32le(out : Array[Byte], value : Int) -> Unit {
+fn pdf_push_u32le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -129,8 +137,8 @@ fn pdf_push_u32le(out : Array[Byte], value : Int) -> Unit {
 ///|
 fn pdf_push_tiff_ifd_entry_short(
   out : Array[Byte],
-  tag : Int,
-  value : Int,
+  tag : Int32,
+  value : Int32,
 ) -> Unit {
   pdf_push_u16le(out, tag)
   pdf_push_u16le(out, 3)
@@ -142,8 +150,8 @@ fn pdf_push_tiff_ifd_entry_short(
 ///|
 fn pdf_push_tiff_ifd_entry_long(
   out : Array[Byte],
-  tag : Int,
-  value : Int,
+  tag : Int32,
+  value : Int32,
 ) -> Unit {
   pdf_push_u16le(out, tag)
   pdf_push_u16le(out, 4)
@@ -280,14 +288,14 @@ fn pdf_image_bbox_from_graphics_matrix(
 ///|
 fn pdf_native_exportable_image_asset_count(
   image_candidates : Array[PdfNativeImageCandidate],
-) -> Int {
+) -> Int32 {
   image_candidates.filter(candidate => candidate.asset_ref is Some(_)).length()
 }
 
 ///|
 fn pdf_native_unsupported_image_asset_count(
   image_candidates : Array[PdfNativeImageCandidate],
-) -> Int {
+) -> Int32 {
   image_candidates.filter(candidate => candidate.asset_ref is None).length()
 }
 
@@ -338,11 +346,11 @@ fn pdf_native_unsupported_image_asset_details(
 ///|
 /// ToUnicode/CMap-scoped decode wrapper. This is not a generic PDF StreamDecode
 /// framework and must stay local to font CMap recovery.
-fn pdf_decode_cmap_stream_text(
+async fn pdf_decode_cmap_stream_text(
   object : PdfNativeObject,
 ) -> Result[PdfCMapStreamDecodeResult, PdfCMapStreamDecodeFailure] {
-  let stream = match object.stream {
-    Some(value) => value
+  let read = match object.stream {
+    Some(reference) => pdf_load_stream_reference(reference)
     None =>
       return Err({
         strategy: Failed,
@@ -359,6 +367,19 @@ fn pdf_decode_cmap_stream_text(
         " has no CMap stream",
       })
   }
+  defer pdf_release_stream_read(read)
+  let decoded = pdf_decode_loaded_cmap_stream_text(object, read.stream)
+  if decoded is Ok(_) {
+    pdf_publish_stream_read(read)
+  }
+  decoded
+}
+
+///|
+fn pdf_decode_loaded_cmap_stream_text(
+  object : PdfNativeObject,
+  stream : PdfNativeStreamSlice,
+) -> Result[PdfCMapStreamDecodeResult, PdfCMapStreamDecodeFailure] raise PdfHardDecodeFailure {
   let filter_specs = match pdf_extract_stream_filter_specs(object.dict_text) {
     Ok(value) => value
     Err(err) =>
@@ -404,6 +425,8 @@ fn pdf_decode_cmap_stream_text(
       selected_bytes,
       filters,
       filter_specs.1,
+      decode_context=stream.decode_context,
+      stream_framing=Some(stream),
     ) {
     Ok(bytes) =>
       Ok({
@@ -457,8 +480,8 @@ fn pdf_cmap_stream_selected_bytes(stream : PdfNativeStreamSlice) -> Bytes {
 ///|
 fn pdf_cmap_decode_diagnostics_with(
   base : PdfCMapStreamDecodeDiagnostics,
-  zlib_status? : String = base.zlib_status,
-  raw_fallback? : PdfCMapRawFallbackStatus = base.raw_fallback,
+  zlib_status~ : String = base.zlib_status,
+  raw_fallback~ : PdfCMapRawFallbackStatus = base.raw_fallback,
 ) -> PdfCMapStreamDecodeDiagnostics {
   {
     filter_name: base.filter_name,

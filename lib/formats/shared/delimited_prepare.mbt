@@ -11,32 +11,46 @@ pub struct PreparedDelimitedDocument {
 }
 
 ///|
-fn prepare_csv_document_from_source(
+async fn prepare_csv_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedDelimitedDocument, String] {
   prepare_delimited_document_from_source(source, false)
 }
 
 ///|
-fn prepare_tsv_document_from_source(
+async fn prepare_tsv_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedDelimitedDocument, String] {
   prepare_delimited_document_from_source(source, true)
 }
 
 ///|
-fn prepare_delimited_document_from_source(
+async fn prepare_delimited_document_from_source(
   source : @input.InputSource,
   is_tsv : Bool,
 ) -> Result[PreparedDelimitedDocument, String] {
-  let text_payload = match @sourceio.read_source_text_with_utf16_bom(source) {
+  let session = @input.begin_input_session(source)
+  defer @input.end_input_session(session)
+  let text_payload = match
+    @sourceio.read_source_text_with_utf16_bom(session.source) {
     Ok(payload) => payload
-    Err(_) =>
-      match @sourceio.read_source_text_with_cp932_fallback(source) {
+    Err(message) => {
+      if @input.input_session_error(session) is Some(_) ||
+        message != "utf8 decode failed" {
+        return Err(message)
+      }
+      match @sourceio.read_source_text_with_cp932_fallback(session.source) {
         Ok(payload) => payload
         Err(err) => return Err(err)
       }
+    }
   }
+  // Return the prepared text with the caller's session ownership. A local
+  // session may already be closed when this prepared document is consumed.
+  let prepared_source = @input.rebind_prepared_source(
+    source,
+    text_payload.prepared_source,
+  )
   let parsed = if is_tsv {
     try
       parse_csv_with_options(text_payload.text, csv_parse_options_for_tsv())
@@ -52,7 +66,7 @@ fn prepare_delimited_document_from_source(
   match parsed {
     Ok(document) =>
       Ok({
-        prepared_source: text_payload.prepared_source,
+        prepared_source,
         original_text: text_payload.text,
         document: Some(document),
         inspect: Some(inspect_csv_document(document)),
@@ -67,7 +81,7 @@ fn prepare_delimited_document_from_source(
       })
     Err(err) =>
       Ok({
-        prepared_source: text_payload.prepared_source,
+        prepared_source,
         original_text: text_payload.text,
         document: None,
         inspect: None,

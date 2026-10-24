@@ -1,11 +1,11 @@
 ///|
 /// Render Markdown directly into a sink while retaining only the current
-/// block/row fragment. Debug and RAG renderers deliberately do not use this
-/// entry point because their JSON framing is not independently chunk-safe.
-pub fn render_markdown_input_to_sink(
+/// block/row fragment. Debug and RAG use their own shared JSON fragment cursor
+/// through `render_json_input_to_sink`.
+pub async fn render_markdown_input_to_sink(
   input : RenderInput,
   context : RenderContext,
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
 ) -> Result[RenderResult, String] {
   match input {
     Document(document) => {
@@ -49,7 +49,10 @@ pub fn render_markdown_input_to_sink(
         @product.render_profile_name(context.render_profile),
       )
       diagnostics.metrics.set("renderer_stream_mode", "event")
-      if markdown_text_markup_compact_event_stream(profiled) {
+      // Empty inputs have no first event to classify and emit no Markdown.
+      if profiled.length() == 0 {
+        Ok(sink_render_result(diagnostics))
+      } else if markdown_text_markup_compact_event_stream(profiled) {
         write_markdown_text_markup_compact_to_sink(profiled, write, diagnostics)
       } else if markdown_xml_outline_event_stream(profiled) {
         write_markdown_xml_outline_to_sink(profiled, write, diagnostics)
@@ -63,7 +66,7 @@ pub fn render_markdown_input_to_sink(
       } else if event_stream_contains_table_rows(profiled) {
         let sink = open_markdown_table_event_sink(write)
         write_events_to_sink(profiled, sink, diagnostics)
-      } else if profiled.length() > 0 && profiled[0].kind == TextLine {
+      } else if profiled[0].kind == TextLine || profiled[0].kind == BlankLine {
         let sink = open_markdown_line_event_sink(write)
         write_events_to_sink(profiled, sink, diagnostics)
       } else if generic_block_event_stream(profiled) {
@@ -86,9 +89,9 @@ fn sink_render_result(diagnostics : @core.Diagnostics) -> RenderResult {
 }
 
 ///|
-fn write_markdown_json_list_to_sink(
+async fn write_markdown_json_list_to_sink(
   events : Array[@core.CoreEvent],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
   let mut wrote_any = false
@@ -104,9 +107,9 @@ fn write_markdown_json_list_to_sink(
 }
 
 ///|
-fn write_markdown_xml_outline_to_sink(
+async fn write_markdown_xml_outline_to_sink(
   events : Array[@core.CoreEvent],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
   let mut wrote_any = false
@@ -156,12 +159,12 @@ fn write_markdown_xml_outline_to_sink(
 }
 
 ///|
-fn write_markdown_xml_generic_outline_to_sink(
+async fn write_markdown_xml_generic_outline_to_sink(
   events : Array[@core.CoreEvent],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
-  let stack : Array[(@core.BlockKind, Int)] = []
+  let stack : Array[(@core.BlockKind, Int32)] = []
   let mut wrote_any = false
   let mut needs_heading_gap = false
   for event in events {
@@ -244,9 +247,9 @@ fn write_markdown_xml_generic_outline_to_sink(
 }
 
 ///|
-fn write_markdown_text_markup_compact_to_sink(
+async fn write_markdown_text_markup_compact_to_sink(
   events : Array[@core.CoreEvent],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
   let cursor = { events, index: 0, }
@@ -358,9 +361,9 @@ fn write_markdown_text_markup_compact_to_sink(
 }
 
 ///|
-fn write_markdown_generic_events_to_sink(
+async fn write_markdown_generic_events_to_sink(
   events : Array[@core.CoreEvent],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
   diagnostics : @core.Diagnostics,
 ) -> Result[RenderResult, String] {
   let mut wrote_any = false
@@ -383,7 +386,7 @@ fn write_markdown_generic_events_to_sink(
 }
 
 ///|
-fn write_events_to_sink(
+async fn write_events_to_sink(
   events : Array[@core.CoreEvent],
   sink : MarkdownEventSink,
   diagnostics : @core.Diagnostics,
@@ -401,9 +404,9 @@ fn write_events_to_sink(
 }
 
 ///|
-fn write_markdown_blocks_to_sink(
+async fn write_markdown_blocks_to_sink(
   blocks : Array[@core.CoreBlock],
-  write : (String) -> Result[Unit, String],
+  write : async (String) -> Result[Unit, String],
 ) -> Result[Unit, String] {
   let leaf_cache : Map[String, String] = Map([])
   let mut previous : @core.BlockKind? = None

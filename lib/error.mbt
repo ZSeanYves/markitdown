@@ -26,7 +26,7 @@ pub fn ErrorCode::stable_name(self : ErrorCode) -> String {
 
 ///|
 /// Return the process exit status assigned to this error class.
-pub fn ConvertError::exit_code(self : ConvertError) -> Int {
+pub fn ConvertError::exit_code(self : ConvertError) -> Int32 {
   match self.code() {
     InvalidOption => 2
     DetectionFailed | UnsupportedCapability => 3
@@ -75,6 +75,7 @@ fn convert_error_from_legacy(error : @convert.ConvertError) -> ConvertError {
     DetectFailed(message) => DetectionFailed(message)
     ParseFailed(message) => ParseFailed(message)
     RenderFailed(message) => RenderFailed(message)
+    OutputAssetFailure(message) => RenderFailed(message)
     ResourceLimitExceeded(kind~, observed~, limit~) =>
       ResourceLimitExceeded(kind~, observed~, limit~)
   }

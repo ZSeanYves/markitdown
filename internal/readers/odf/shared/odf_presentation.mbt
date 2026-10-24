@@ -1,9 +1,9 @@
 ///|
-fn odf_extract_presentation_slides(
+async fn odf_extract_presentation_slides(
   root : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   content_path : String,
-) -> OdpExtractState {
+) -> OdpExtractState noraise {
   let slides : Array[OdpSlide] = []
   let assets : Array[OdpImageRef] = []
   let mut slide_index = 0
@@ -49,12 +49,12 @@ priv struct OdpSlideExtracted {
 }
 
 ///|
-fn odf_extract_slide(
+async fn odf_extract_slide(
   page : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   content_path : String,
-  slide_index : Int,
-) -> OdpSlideExtracted {
+  slide_index : Int32,
+) -> OdpSlideExtracted noraise {
   let blocks : Array[OdpSlideBlock] = []
   let assets : Array[OdpImageRef] = []
   let page_name = odf_attr(page, "draw:name")
@@ -133,14 +133,14 @@ fn odf_extract_slide(
 }
 
 ///|
-fn odf_extract_slide_group(
+async fn odf_extract_slide_group(
   group : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   content_path : String,
   blocks : Array[OdpSlideBlock],
   assets : Array[OdpImageRef],
-  depth : Int,
-) -> Unit {
+  depth : Int32,
+) -> Unit noraise {
   if depth > 32 {
     let text = odf_collect_text(group).trim().to_owned()
     if text != "" {
@@ -216,11 +216,11 @@ priv struct OdpFrameBlocks {
 }
 
 ///|
-fn odf_extract_slide_frame(
+async fn odf_extract_slide_frame(
   frame : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
   content_path : String,
-) -> OdpFrameBlocks {
+) -> OdpFrameBlocks noraise {
   let blocks : Array[OdpSlideBlock] = []
   let assets : Array[OdpImageRef] = []
   for child in frame.children {
@@ -298,10 +298,10 @@ fn odf_extract_slide_frame(
 }
 
 ///|
-fn odf_extract_chart_text(
+async fn odf_extract_chart_text(
   node : @dxml.XmlElement,
   archive : @dzip.ZipArchive,
-) -> String {
+) -> String noraise {
   let inline = odf_collect_text(node).trim().to_owned()
   if inline != "" {
     return inline
@@ -330,7 +330,15 @@ fn odf_extract_chart_text(
     Some(value) => value
     None => return ""
   }
-  let xml = @utf8.decode(bytes, ignore_bom=false) catch { _ => return "" }
+  let xml = @utf8.decode(bytes, ignore_bom=false) catch {
+    _ => {
+      @dzip.record_hard_failure(
+        archive,
+        InvalidEncoding("failed to decode utf-8 entry: " + path).to_string(),
+      )
+      return ""
+    }
+  }
   let document = try @dxml.parse_xml_document(xml) |> Ok catch {
     _ => Err(())
   }

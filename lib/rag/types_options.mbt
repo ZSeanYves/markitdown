@@ -4,8 +4,8 @@
 /// These options affect both chunk boundaries and how much structural or
 /// provenance context each chunk retains.
 pub struct RagOptions {
-  chunk_size : Int
-  chunk_overlap : Int
+  chunk_size : Int32
+  chunk_overlap : Int32
   preserve_heading_path : Bool
   preserve_source_ref : Bool
   split_tables : Bool
@@ -69,8 +69,8 @@ pub fn default_rag_options() -> RagOptions {
 /// Construct explicit RAG options, applying normalization to invalid size or
 /// overlap values.
 pub fn make_rag_options(
-  chunk_size : Int,
-  chunk_overlap : Int,
+  chunk_size : Int32,
+  chunk_overlap : Int32,
   preserve_heading_path : Bool,
   preserve_source_ref : Bool,
   split_tables : Bool,
@@ -87,7 +87,7 @@ pub fn make_rag_options(
 }
 
 ///|
-fn rag_chunk_size_or_default(value : Int) -> Int {
+fn rag_chunk_size_or_default(value : Int32) -> Int32 {
   if value <= 0 {
     default_rag_options().chunk_size
   } else {
@@ -96,7 +96,7 @@ fn rag_chunk_size_or_default(value : Int) -> Int {
 }
 
 ///|
-fn rag_chunk_overlap_or_default(value : Int) -> Int {
+fn rag_chunk_overlap_or_default(value : Int32) -> Int32 {
   if value < 0 {
     default_rag_options().chunk_overlap
   } else {

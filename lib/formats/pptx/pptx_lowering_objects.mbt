@@ -82,7 +82,7 @@ fn pptx_objects_for_slide(
     return slide.objects
   }
   let ordered : Array[@pptxdoc.PptxObject] = []
-  let used : Array[Int] = []
+  let used : Array[Int32] = []
   for key in slide.reading_order {
     match pptx_find_object_index_by_source_key(slide.objects, key) {
       Some(index) =>
@@ -316,7 +316,7 @@ fn pptx_unsupported_summary_label(
 fn pptx_find_object_index_by_source_key(
   objects : Array[@pptxdoc.PptxObject],
   key : @pptxdoc.PptxSourceKey,
-) -> Int? {
+) -> Int32? {
   for i in 0..<objects.length() {
     if pptx_source_keys_match_local(pptx_object_source_key(objects[i]), key) {
       return Some(i)
@@ -500,7 +500,7 @@ fn pptx_shape_is_heading(
 ///|
 fn pptx_shape_should_emit_heading_paragraph(
   shape : @pptxdoc.PptxShape,
-  paragraph_index : Int,
+  paragraph_index : Int32,
 ) -> Bool {
   match shape.placeholder {
     Some(ph) => ph.kind == CenterTitle || paragraph_index == 0
@@ -819,7 +819,7 @@ fn pptx_list_item_text(text : String) -> String {
 fn pptx_flush_lists(
   out : Array[@core.CoreBlock],
   list_stack : Array[PptxListTree],
-  min_depth : Int,
+  min_depth : Int32,
 ) -> Unit {
   while list_stack.length() > min_depth {
     let current = list_stack.pop().unwrap()

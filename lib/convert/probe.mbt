@@ -1,5 +1,5 @@
 ///|
-fn structured_text_preflight_probe(
+async fn structured_text_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -20,7 +20,7 @@ fn structured_text_preflight_probe(
 }
 
 ///|
-fn package_container_preflight_probe(
+async fn package_container_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -39,7 +39,7 @@ fn package_container_preflight_probe(
 }
 
 ///|
-fn paged_media_preflight_probe(
+async fn paged_media_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   options : ConvertOptions,
@@ -51,7 +51,7 @@ fn paged_media_preflight_probe(
 }
 
 ///|
-fn preflight_probe(
+async fn preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
   options : ConvertOptions,

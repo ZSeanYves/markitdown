@@ -14,6 +14,8 @@ pub fn capabilities_json() -> String
 
 pub async fn convert(Input, options? : ConvertOptions) -> Result[Output, ConvertError]
 
+pub async fn convert_to_sink(Input, OutputSink, options? : ConvertOptions) -> Result[ConversionSummary, ConvertError]
+
 // Errors
 pub(all) suberror ConvertError {
   UnsupportedCapability(String)
@@ -25,7 +27,7 @@ pub(all) suberror ConvertError {
 } derive(Eq, @debug.Debug)
 pub fn ConvertError::code(Self) -> ErrorCode
 pub fn ConvertError::equal(Self, Self) -> Bool
-pub fn ConvertError::exit_code(Self) -> Int
+pub fn ConvertError::exit_code(Self) -> Int32
 pub fn ConvertError::message(Self) -> String
 pub fn ConvertError::not_equal(Self, Self) -> Bool
 pub fn ConvertError::output(Self, &Logger) -> Unit
@@ -129,6 +131,20 @@ pub fn Chunk::equal(Self, Self) -> Bool
 pub fn Chunk::not_equal(Self, Self) -> Bool
 pub fn Chunk::to_repr(Self) -> @debug.Repr
 
+pub struct ConversionSummary {
+  detected_format : String
+  convert_mode : ConvertMode
+  output_mode : OutputMode
+  metadata_json : String
+  diagnostics : Array[Diagnostic]
+  assets : Array[Asset]
+  source_map : SourceMap?
+  chunk_count : Int32
+} derive(Eq, @debug.Debug)
+pub fn ConversionSummary::equal(Self, Self) -> Bool
+pub fn ConversionSummary::not_equal(Self, Self) -> Bool
+pub fn ConversionSummary::to_repr(Self) -> @debug.Repr
+
 pub(all) enum ConvertMode {
   Balanced
   Accurate
@@ -188,10 +204,10 @@ pub fn ErrorCode::to_repr(Self) -> @debug.Repr
 pub struct Input {
   // private fields
 }
-pub fn Input::from_async_reader(async (Int64, Int) -> Result[Bytes, String], size? : Int64, source_name? : String) -> Self
+pub fn Input::from_async_reader(async (Int64, Int32) -> Result[Bytes, String], size? : Int64, source_name? : String) -> Self
 pub fn Input::from_bytes(Bytes, source_name? : String) -> Self
 pub fn Input::from_path(String) -> Self
-pub fn Input::from_reader((Int64, Int) -> Result[Bytes, String], size? : Int64, source_name? : String) -> Self
+pub fn Input::from_reader((Int64, Int32) -> Result[Bytes, String], size? : Int64, source_name? : String) -> Self
 pub fn Input::from_text(String, source_name? : String) -> Self
 pub fn Input::kind(Self) -> InputKind
 pub fn Input::source_name(Self) -> String
@@ -231,6 +247,12 @@ pub fn OutputMode::equal(Self, Self) -> Bool
 pub fn OutputMode::not_equal(Self, Self) -> Bool
 pub fn OutputMode::to_repr(Self) -> @debug.Repr
 
+pub struct OutputSink {
+  write : async (String) -> Result[Unit, String]
+  finish : async () -> Result[Unit, String]
+}
+pub fn OutputSink::new(async (String) -> Result[Unit, String], async () -> Result[Unit, String]) -> Self
+
 pub struct Provenance {
   detected_format : String
   selected_route : String
@@ -250,8 +272,8 @@ pub fn Provenance::not_equal(Self, Self) -> Bool
 pub fn Provenance::to_repr(Self) -> @debug.Repr
 
 pub struct RagOptions {
-  chunk_size : Int
-  chunk_overlap : Int
+  chunk_size : Int32
+  chunk_overlap : Int32
   preserve_heading_path : Bool
   preserve_source_ref : Bool
   split_tables : Bool
@@ -261,32 +283,34 @@ pub fn RagOptions::default() -> Self
 pub fn RagOptions::equal(Self, Self) -> Bool
 pub fn RagOptions::not_equal(Self, Self) -> Bool
 pub fn RagOptions::to_repr(Self) -> @debug.Repr
-pub fn RagOptions::with_chunk_overlap(Self, Int) -> Self
-pub fn RagOptions::with_chunk_size(Self, Int) -> Self
+pub fn RagOptions::with_chunk_overlap(Self, Int32) -> Self
+pub fn RagOptions::with_chunk_size(Self, Int32) -> Self
 pub fn RagOptions::with_preserve_heading_path(Self, Bool) -> Self
 pub fn RagOptions::with_preserve_source_ref(Self, Bool) -> Self
 pub fn RagOptions::with_split_code_blocks(Self, Bool) -> Self
 pub fn RagOptions::with_split_tables(Self, Bool) -> Self
 
 pub struct ResourceLimits {
-  max_rows : Int
-  max_cols : Int
-  max_cells : Int
-  max_line_chars : Int
+  max_rows : Int32
+  max_cols : Int32
+  max_cells : Int32
+  max_line_chars : Int32
   max_input_bytes : Int64
   max_asset_bytes : Int64
   max_total_asset_bytes : Int64
+  max_temporary_bytes : Int64?
 } derive(Eq, @debug.Debug)
 pub fn ResourceLimits::default() -> Self
 pub fn ResourceLimits::equal(Self, Self) -> Bool
 pub fn ResourceLimits::not_equal(Self, Self) -> Bool
 pub fn ResourceLimits::to_repr(Self) -> @debug.Repr
 pub fn ResourceLimits::with_max_asset_bytes(Self, Int64) -> Self
-pub fn ResourceLimits::with_max_cells(Self, Int) -> Self
-pub fn ResourceLimits::with_max_cols(Self, Int) -> Self
+pub fn ResourceLimits::with_max_cells(Self, Int32) -> Self
+pub fn ResourceLimits::with_max_cols(Self, Int32) -> Self
 pub fn ResourceLimits::with_max_input_bytes(Self, Int64) -> Self
-pub fn ResourceLimits::with_max_line_chars(Self, Int) -> Self
-pub fn ResourceLimits::with_max_rows(Self, Int) -> Self
+pub fn ResourceLimits::with_max_line_chars(Self, Int32) -> Self
+pub fn ResourceLimits::with_max_rows(Self, Int32) -> Self
+pub fn ResourceLimits::with_max_temporary_bytes(Self, Int64?) -> Self
 pub fn ResourceLimits::with_max_total_asset_bytes(Self, Int64) -> Self
 
 pub struct SourceMap {
@@ -302,7 +326,7 @@ pub struct SourceMapEntry {
   primary_ref : SourceRef?
   refs : Array[SourceRef]
   merged_from : Array[SourceRef]
-  confidence : Int?
+  confidence : Int32?
   relation : String?
 } derive(Eq, @debug.Debug)
 pub fn SourceMapEntry::equal(Self, Self) -> Bool
@@ -312,12 +336,12 @@ pub fn SourceMapEntry::to_repr(Self) -> @debug.Repr
 pub struct SourceRef {
   file_id : String?
   format : String?
-  page : Int?
+  page : Int32?
   bbox : BoundingBox?
-  line_start : Int?
-  line_end : Int?
-  byte_start : Int?
-  byte_end : Int?
+  line_start : Int32?
+  line_end : Int32?
+  byte_start : Int32?
+  byte_end : Int32?
   time_start : String?
   time_end : String?
   xpath : String?
@@ -327,12 +351,12 @@ pub struct SourceRef {
   markdown_path : String?
   container_path : String?
   entry_path : String?
-  entry_index : Int?
+  entry_index : Int32?
   entry_format : String?
   inner_path : String?
   sheet : String?
   cell_range : String?
-  slide : Int?
+  slide : Int32?
   shape_id : String?
   relationship_id : String?
   chapter_href : String?

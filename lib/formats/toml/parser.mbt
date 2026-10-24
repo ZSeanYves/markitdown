@@ -17,7 +17,7 @@ fn toml_parser_capability() -> @parser.ParserCapability {
 
 ///|
 pub fn toml_parser() -> @parser.Parser {
-  @parser.make_parser("toml_parser", DomAstModel, toml_parser_capability(), fn(
+  @parser.make_parser("toml_parser", DomAstModel, toml_parser_capability(), async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -26,7 +26,7 @@ pub fn toml_parser() -> @parser.Parser {
 }
 
 ///|
-fn parse_toml_document_result(
+async fn parse_toml_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
 ) -> Result[@parser.ParseResult, String] {
@@ -85,7 +85,7 @@ pub fn toml_parse_with_preparsed_document(
   text : String,
   doc : TomlDocument,
   inspect : TomlInspectReport,
-  fast_array_table? : TomlFastArrayTable? = None,
+  fast_array_table~ : TomlFastArrayTable? = None,
 ) -> @parser.ParseResult {
   let diagnostics = @fshared.empty_parser_diagnostics(
     "toml_parser",

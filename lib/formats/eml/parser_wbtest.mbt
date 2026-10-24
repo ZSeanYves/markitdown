@@ -1,5 +1,5 @@
 ///|
-test "EML parser lowers related HTML CID attachments and nested messages" {
+async test "EML parser lowers related HTML CID attachments and nested messages" {
   let eml = [
     "From: Alice <alice@example.test>", "To: Bob <bob@example.test>", "Subject: Complex message",
     "MIME-Version: 1.0", "Content-Type: multipart/related; boundary=outer", "", "--outer",
@@ -26,7 +26,7 @@ test "EML parser lowers related HTML CID attachments and nested messages" {
 }
 
 ///|
-test "EML parser skips attachment decode before exceeding asset budget" {
+async test "EML parser reports a hard asset limit failure before attachment decode" {
   let eml = [
     "MIME-Version: 1.0", "Content-Type: multipart/related; boundary=x", "", "--x",
     "Content-Type: text/html", "", "<p><img src=\"cid:hero\"></p>", "--x", "Content-Type: image/png; name=hero.png",
@@ -46,11 +46,8 @@ test "EML parser skips attachment decode before exceeding asset budget" {
   let result = (eml_parser().parse)(
     @input.input_from_text_with_format(eml, "budget.eml", Some(Eml)),
     context,
-  ).unwrap()
-  assert_eq(result.assets.length(), 0)
-  assert_true(
-    result.diagnostics.degraded_features.contains("eml_attachment_budget_skip"),
   )
+  assert_true(result is Err(_))
 }
 
 ///|
@@ -75,7 +72,7 @@ test "EML HTML compatibility preserves inline boundary spacing" {
 }
 
 ///|
-test "EML parser rejects malformed multipart and exposes capability limits" {
+async test "EML parser rejects malformed multipart and exposes capability limits" {
   let source = @input.input_from_text_with_format(
     "Content-Type: multipart/mixed\n\nbody",
     "broken.eml",
@@ -98,7 +95,7 @@ test "EML parser rejects malformed multipart and exposes capability limits" {
 }
 
 ///|
-test "EML parser preserves malformed MIME part with typed recovery diagnostics" {
+async test "EML parser preserves malformed MIME part with typed recovery diagnostics" {
   let eml = [
     "Content-Type: multipart/mixed; boundary=mix", "", "--mix", "bad header", "",
     "retained raw child", "--mix", "Content-Type: text/plain", "", "valid body",
@@ -171,7 +168,7 @@ fn eml_wbtest_child_registry() -> @parser.ParserRegistry {
 }
 
 ///|
-test "EML parser recursively dispatches typed MIME children and absorbs diagnostics" {
+async test "EML parser recursively dispatches typed MIME children and absorbs diagnostics" {
   let eml = [
     "From: sender@example.test", "Subject: Typed children", "MIME-Version: 1.0",
     "Content-Type: multipart/mixed; boundary=typed", "", "--typed", "Content-Type: text/html; charset=utf-8",
@@ -196,7 +193,57 @@ test "EML parser recursively dispatches typed MIME children and absorbs diagnost
 }
 
 ///|
-test "EML lowering preserves typed fallback unknown parts and recursion budget" {
+async test "EML parser returns supported charset errors for body and lazy text attachment" {
+  for
+    (mime, charset, disposition, body) in [
+      ("text/plain", "utf-8", "", "gA=="),
+      ("text/plain", "utf-16le", "", "ANg="),
+      (
+        "text/plain", "utf-16le", "Content-Disposition: attachment; filename=invalid.txt\n",
+        "ANg=",
+      ),
+      (
+        "text/html", "utf-16le", "Content-Disposition: attachment; filename=invalid.html\n",
+        "ANg=",
+      ),
+      (
+        "application/json", "utf-16le", "Content-Disposition: attachment; filename=invalid.json\n",
+        "ANg=",
+      ),
+    ] {
+    let input = "Content-Type: " +
+      mime +
+      "; charset=" +
+      charset +
+      "\n" +
+      disposition +
+      "Content-Transfer-Encoding: base64\n\n" +
+      body
+    let result = (eml_parser().parse)(
+      @input.input_from_text_with_format(
+        input,
+        "invalid-encoding.eml",
+        Some(Eml),
+      ),
+      @parser.new_parse_context(Eml),
+    )
+    match result {
+      Err(message) => assert_true(message.has_prefix("eml encoding error: "))
+      Ok(_) =>
+        fail(
+          "malformed supported charset must not produce successful body/raw fallback: " +
+          mime +
+          "; " +
+          charset +
+          "; " +
+          disposition,
+        )
+    }
+  }
+}
+
+///|
+async test "EML lowering preserves typed fallback unknown parts and recursion budget" {
   let eml = [
     "From: sender@example.test", "Subject: Fallback children", "MIME-Version: 1.0",
     "Content-Type: multipart/mixed; boundary=fallback", "", "--fallback", "Content-Type: text/plain",

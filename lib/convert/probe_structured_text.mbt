@@ -1,5 +1,5 @@
 ///|
-fn markdown_preflight_probe(
+async fn markdown_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -71,7 +71,7 @@ fn markdown_preflight_probe(
 }
 
 ///|
-fn markdown_probe_line_count(text : String) -> Int {
+fn markdown_probe_line_count(text : String) -> Int32 {
   if text == "" {
     return 0
   }
@@ -85,7 +85,7 @@ fn markdown_probe_line_count(text : String) -> Int {
 }
 
 ///|
-fn json_preflight_probe(
+async fn json_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -130,7 +130,7 @@ fn json_preflight_probe(
 }
 
 ///|
-fn yaml_preflight_probe(
+async fn yaml_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -168,7 +168,7 @@ fn yaml_preflight_probe(
 }
 
 ///|
-fn toml_preflight_probe(
+async fn toml_preflight_probe(
   source : @input.InputSource,
   _options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -194,7 +194,7 @@ fn toml_preflight_probe(
 }
 
 ///|
-fn text_markup_preflight_probe(
+async fn text_markup_preflight_probe(
   source : @input.InputSource,
   format : @input.DetectedFormat,
 ) -> ProbeOutcome {
@@ -202,7 +202,7 @@ fn text_markup_preflight_probe(
     Tex => @dtext.prepare_tex_document_from_source(source)
     Rst => @dtext.prepare_rst_document_from_source(source)
     Asciidoc => @dtext.prepare_asciidoc_document_from_source(source)
-    _ => abort("unsupported text markup preflight format")
+    _ => return unavailable_probe(@input.detected_format_name(format), source)
   }
   let prepared = match prepared {
     Ok(value) => value
@@ -224,7 +224,7 @@ fn text_markup_preflight_probe(
 }
 
 ///|
-fn ipynb_preflight_probe(
+async fn ipynb_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -280,8 +280,8 @@ fn ipynb_preflight_probe(
 
 ///|
 priv struct XmlProbeSummary {
-  node_count : Int
-  max_depth : Int
+  node_count : Int32
+  max_depth : Int32
 }
 
 ///|
@@ -315,7 +315,7 @@ fn xml_stream_probe_summary_from_tokens(
 }
 
 ///|
-fn xml_preflight_probe(
+async fn xml_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {
@@ -363,11 +363,11 @@ fn xml_preflight_probe(
 
 ///|
 priv struct HtmlProbeSummary {
-  node_count : Int
-  block_scope_count : Int
-  structural_scope_count : Int
-  max_depth : Int
-  char_count : Int
+  node_count : Int32
+  block_scope_count : Int32
+  structural_scope_count : Int32
+  max_depth : Int32
+  char_count : Int32
 }
 
 ///|
@@ -421,7 +421,7 @@ fn html_probe_summary_from_events(
 }
 
 ///|
-fn html_preflight_probe(
+async fn html_preflight_probe(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> ProbeOutcome {

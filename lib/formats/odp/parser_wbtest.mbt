@@ -1,7 +1,7 @@
 ///|
-test "ODP malformed package produces document and block-stream fenced fallbacks" {
+async test "ODP malformed package produces document and block-stream fenced fallbacks" {
   let source = @input.input_from_bytes_with_format(
-    Bytes::from_array([1, 2, 3].map(Int::to_byte)),
+    Bytes::from_array([1, 2, 3].map(Int32::to_byte)),
     "broken.odp",
     Some(Odp),
   )
@@ -30,8 +30,17 @@ test "ODP malformed package produces document and block-stream fenced fallbacks"
 }
 
 ///|
-test "ODP advanced synthetic contract covers groups table notes images raw and stream paths" {
-  let source = @input.input_from_path(
+async test "ODP advanced synthetic contract covers groups table notes images raw and stream paths" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
+  let source = owned_input_path(
     "samples/fixtures/contracts/odp/odp_advanced_synthetic.odp",
   )
   let result = (odp_parser().parse)(source, @parser.new_parse_context(Odp)).unwrap()
@@ -84,8 +93,17 @@ test "ODP advanced synthetic contract covers groups table notes images raw and s
 }
 
 ///|
-test "ODP asset budget skips payload before creating an asset reference" {
-  let source = @input.input_from_path(
+async test "ODP asset budget reports a hard failure before creating an asset reference" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
+  let source = owned_input_path(
     "samples/fixtures/contracts/odp/odp_advanced_synthetic.odp",
   )
   let context = @parser.parse_context_with_asset_limits(
@@ -93,13 +111,6 @@ test "ODP asset budget skips payload before creating an asset reference" {
     1L,
     1L,
   )
-  let result = (odp_parser().parse)(source, context).unwrap()
-  let document = result.document.unwrap()
-  assert_eq(document.assets.length(), 0)
-  assert_true(
-    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
-  )
-  assert_true(
-    result.diagnostics.warnings.any(w => w.contains("asset payload skipped")),
-  )
+  let result = (odp_parser().parse)(source, context)
+  assert_true(result is Err(_))
 }

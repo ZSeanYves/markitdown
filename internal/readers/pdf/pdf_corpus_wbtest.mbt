@@ -1,5 +1,5 @@
 ///|
-test "PDF native backend fails closed for empty invalid encrypted and truncated bytes" {
+async test "PDF native backend fails closed for empty invalid encrypted and truncated bytes" {
   let cases : Array[(@input.InputSource, String)] = [
     (@input.input_from_bytes(Bytes::from_array([])), "empty"),
     (@input.input_from_text("not a pdf"), "not_pdf"),
@@ -21,7 +21,7 @@ test "PDF native backend fails closed for empty invalid encrypted and truncated 
 }
 
 ///|
-test "PDF native backend directly parses the main contract corpus" {
+async test "PDF native backend directly parses the main contract corpus" {
   let paths = [
     "samples/fixtures/contracts/pdf/hardwrap_en.pdf", "samples/fixtures/contracts/pdf/pdf_header_footer_variants_phase15.pdf",
     "samples/fixtures/contracts/pdf/pdf_metadata_table_like.pdf", "samples/fixtures/contracts/pdf/pdf_metadata_uri_link.pdf",
@@ -29,26 +29,21 @@ test "PDF native backend directly parses the main contract corpus" {
     "samples/fixtures/contracts/pdf/pdf_simple_table_like.pdf", "samples/fixtures/contracts/pdf/root_native_text_baseline.pdf",
     "samples/fixtures/contracts/pdf/text_multipage.pdf", "samples/fixtures/contracts/pdf/text_simple.pdf",
   ]
-  let mut succeeded = 0
-  let mut failed = 0
-  let mut page_count = 0
-  let mut text_block_count = 0
   for path in paths {
     match extract_pdf_native_document_from_path(path) {
       Ok(document) => {
-        succeeded += 1
-        page_count += document.pages.length()
+        assert_true(document.pages.length() > 0, msg=path)
+        let mut text_block_count = 0
         for page in document.pages {
           text_block_count += page.text_blocks.length()
-          assert_true(page.geometry.page_no > 0)
+          assert_true(page.geometry.page_no > 0, msg=path)
         }
-        assert_true(document.diagnostics.metrics.length() > 0)
+        assert_true(document.diagnostics.metrics.length() > 0, msg=path)
+        if !path.contains("pdf_ocr_") {
+          assert_true(text_block_count > 0, msg=path)
+        }
       }
-      Err(_) => failed += 1
+      Err(error) => fail(path + ": " + error.to_string())
     }
   }
-  assert_true(succeeded >= 8)
-  assert_true(page_count >= succeeded)
-  assert_true(text_block_count > 0)
-  assert_eq(succeeded + failed, paths.length())
 }

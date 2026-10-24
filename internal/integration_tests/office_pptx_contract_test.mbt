@@ -48,20 +48,19 @@ async test "pptx parser keeps nested lists speaker notes and asset boundaries st
 
 ///|
 async test "pptx accurate fidelity respects reading-order-driven grouped lowering" {
+  let session = @input.begin_input_session(
+    @input.input_from_path(
+      "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx",
+    ),
+  )
+  defer @input.end_input_session(session)
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
     @parser.new_parse_context(Pptx),
     Accurate,
     Markdown,
   )
-  let result = match
-    @parser.registry_parse(
-      registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/pptx/pptx_reading_order_geometry.pptx",
-      ),
-      context,
-    ) {
+  let result = match @parser.registry_parse(registry, session.source, context) {
     Ok(value) => value
     Err(err) => fail("accurate pptx parse failed: " + err)
   }

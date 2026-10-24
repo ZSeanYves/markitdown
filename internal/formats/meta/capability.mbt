@@ -20,7 +20,7 @@ pub struct CapabilityEntry {
 fn capability_entry(
   format : @input.DetectedFormat,
   group : CapabilityGroup,
-  cli_supported? : Bool = true,
+  cli_supported~ : Bool = true,
 ) -> CapabilityEntry {
   { format, group, cli_supported, }
 }

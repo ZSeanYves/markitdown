@@ -126,7 +126,7 @@ test "HTML semantic guards bound depth previews attributes and large tables" {
 }
 
 ///|
-test "HTML preparation retains only a scan summary above the block-stream limit" {
+async test "HTML preparation retains only a scan summary above the block-stream limit" {
   let body = "<p>bounded 😀</p>".repeat(20_000)
   let prepared = prepare_html_document_from_source(
     @input.input_from_text_with_format(

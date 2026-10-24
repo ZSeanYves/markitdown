@@ -33,8 +33,8 @@ async fn print_cli_help() -> Unit {
 ///|
 fn cli_usage_text() -> String {
   [
-    "Usage:", "  markitdown [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] <input> [output]",
-    "  markitdown batch [balance|accurate|stream] [--format <format>] [--debug|--rag] <input> <output_dir>",
+    "Usage:", "  markitdown [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] [--max-temporary-bytes <bytes>] <input> [output]",
+    "  markitdown batch [balance|accurate|stream] [--format <format>] [--debug|--rag] [--max-temporary-bytes <bytes>] <input> <output_dir>",
     "  markitdown help | --help | -h | version | --version | --capabilities", "",
     "Extract text, structure, sources and document image assets. Image and audio recognition are not supported.",
     "Omit the mode or use balance for the default strategy.", "accurate preserves additional Office/ODF semantics and refines PDF text geometry.",
@@ -42,6 +42,7 @@ fn cli_usage_text() -> String {
     "--debug emits debug JSON; --rag emits retrieval chunks.", "Use - with --format for stdin. ZIP supports balance mode only.",
     "PDF requires an extractable text layer; image-only pages are reported as unextracted.",
     "--provenance-out is available only for single-file runs; batch writes manifest.json.",
+    "--max-temporary-bytes sets an optional per-conversion spool payload cap; zero permits only empty storage.",
   ].join("\n")
 }
 
@@ -69,7 +70,7 @@ fn cli_fail_closed_format_message(
 }
 
 ///|
-async fn exit_cli_error(failure : CliFailure) -> Int {
+async fn exit_cli_error(failure : CliFailure) -> Int32 {
   cli_write_stderr("error: " + failure.message + "\n")
   if failure.kind == UsageFailure {
     cli_write_stderr(cli_usage_text() + "\n")

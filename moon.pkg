@@ -7,8 +7,8 @@ import {
 
 pkgtype(kind: "executable")
 
-supported_targets = "+wasm+native"
+supported_targets = "native"
 
 options(
-  "preferred-target": "wasm",
+  "preferred-target": "native",
 )

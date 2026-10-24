@@ -1,5 +1,14 @@
 ///|
-test "PPTX parser lowers remaining repository link footer bullet shape and baseline contracts" {
+async test "PPTX parser lowers remaining repository link footer bullet shape and baseline contracts" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/pptx/pptx_simple.pptx", "samples/fixtures/contracts/pptx/pptx_link_basic.pptx",
     "samples/fixtures/contracts/pptx/pptx_bullet_levels.pptx", "samples/fixtures/contracts/pptx/pptx_footer_page_number.pptx",
@@ -9,7 +18,7 @@ test "PPTX parser lowers remaining repository link footer bullet shape and basel
   let mut assets = 0
   for path in fixtures {
     let result = (pptx_parser().parse)(
-      @input.input_from_path(path),
+      owned_input_path(path),
       @parser.new_parse_context(Pptx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -25,7 +34,16 @@ test "PPTX parser lowers remaining repository link footer bullet shape and basel
 }
 
 ///|
-test "PPTX full contract corpus covers combined accurate feature lowering" {
+async test "PPTX full contract corpus covers combined accurate feature lowering" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "pptx_bullet_levels.pptx", "pptx_callout_blocks_basic.pptx", "pptx_footer_page_number.pptx",
     "pptx_hidden_slide_basic.pptx", "pptx_hidden_slides_policy.pptx", "pptx_image_single.pptx",
@@ -51,7 +69,7 @@ test "PPTX full contract corpus covers combined accurate feature lowering" {
   let mut total_blocks = 0
   for fixture in fixtures {
     let result = (pptx_parser().parse)(
-      @input.input_from_path("samples/fixtures/contracts/pptx/" + fixture),
+      owned_input_path("samples/fixtures/contracts/pptx/" + fixture),
       context,
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)

@@ -38,10 +38,10 @@ pub extend TextMarkupInlineKind with Eq::{equal, not_equal}
 pub struct TextMarkupBlock {
   kind : TextMarkupBlockKind
   text : String
-  level : Int
+  level : Int32
   ordered : Bool
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   meta : Map[String, String]
 }
 
@@ -66,14 +66,14 @@ pub struct TextMarkupDocument {
 
 ///|
 pub struct TextMarkupInspectReport {
-  block_count : Int
-  heading_count : Int
-  list_item_count : Int
-  code_count : Int
-  table_count : Int
-  blockquote_count : Int
-  raw_count : Int
-  paragraph_count : Int
-  line_count : Int
-  char_count : Int
+  block_count : Int32
+  heading_count : Int32
+  list_item_count : Int32
+  code_count : Int32
+  table_count : Int32
+  blockquote_count : Int32
+  raw_count : Int32
+  paragraph_count : Int32
+  line_count : Int32
+  char_count : Int32
 }

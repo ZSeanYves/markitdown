@@ -1,252 +1,19 @@
 ///|
-fn parse_docx_paragraph_runs(
+async fn parse_docx_paragraph_runs(
   xml : String,
   paragraph_key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceRun] {
-  let runs : Array[DocxSourceRun] = []
-  let mut i = 0
-  let mut run_index = 0
-  while i < xml.length() {
-    let start = match find_docx_char_from(xml, i, 60) {
-      Some(value) => value
-      None => break
-    }
-    if is_docx_start_tag_at(xml, start, "w:pPr") {
-      match skip_docx_element_or_tag(xml, start, "w:pPr") {
-        Some(end_exclusive) => i = end_exclusive
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:r") {
-      match find_docx_element_end(xml, start, "w:r") {
-        Some(end_exclusive) => {
-          let inner = docx_inner_xml_for_element(
-            xml, start, end_exclusive, "w:r",
-          )
-          let run_key = docx_child_source_key(paragraph_key, "r", run_index)
-          let run_inlines = parse_docx_run_inlines(
-            inner, run_key, relationships, pkg, warnings,
-          )
-          if run_inlines.length() > 0 {
-            runs.push({
-              style_id: read_docx_run_style_id(inner),
-              bold: read_docx_run_is_bold(inner),
-              inlines: run_inlines,
-              source_key: run_key,
-            })
-          }
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:hyperlink") {
-      match find_docx_element_end(xml, start, "w:hyperlink") {
-        Some(end_exclusive) => {
-          let link_key = docx_child_source_key(
-            paragraph_key, "hyperlink", run_index,
-          )
-          let link = parse_docx_hyperlink(
-            xml, start, end_exclusive, link_key, relationships, pkg, warnings,
-          )
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [Hyperlink(link)],
-            source_key: link_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:fldSimple") {
-      match find_docx_element_end(xml, start, "w:fldSimple") {
-        Some(end_exclusive) => {
-          let field_key = docx_child_source_key(
-            paragraph_key, "field", run_index,
-          )
-          let field = parse_docx_fld_simple(
-            xml, start, end_exclusive, field_key, relationships, pkg, warnings,
-          )
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [field],
-            source_key: field_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:sdt") {
-      match find_docx_element_end(xml, start, "w:sdt") {
-        Some(end_exclusive) => {
-          let sdt_key = docx_child_source_key(paragraph_key, "sdt", run_index)
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [
-              ContentControl(
-                parse_docx_inline_content_control(
-                  xml, start, end_exclusive, "w:sdt", sdt_key, relationships, pkg,
-                  warnings,
-                ),
-              ),
-            ],
-            source_key: sdt_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:smartTag") {
-      match find_docx_element_end(xml, start, "w:smartTag") {
-        Some(end_exclusive) => {
-          let smart_key = docx_child_source_key(
-            paragraph_key, "smartTag", run_index,
-          )
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [
-              SmartTag(
-                parse_docx_smart_tag_inline(
-                  xml, start, end_exclusive, smart_key, relationships, pkg, warnings,
-                ),
-              ),
-            ],
-            source_key: smart_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_math_start(xml, start) {
-      let tag = docx_tag_name_at(xml, start)
-      match find_docx_element_end(xml, start, tag) {
-        Some(end_exclusive) => {
-          let math_key = docx_child_source_key(paragraph_key, "math", run_index)
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [
-              parse_docx_math_inline(
-                xml, start, end_exclusive, tag, math_key, warnings,
-              ),
-            ],
-            source_key: math_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_tracked_change_start(xml, start) {
-      let tag = docx_tag_name_at(xml, start)
-      match find_docx_element_end(xml, start, tag) {
-        Some(end_exclusive) => {
-          let tracked_key = docx_child_source_key(
-            paragraph_key, "tracked", run_index,
-          )
-          let tracked = parse_docx_tracked_change(
-            xml, start, end_exclusive, tag, tracked_key, relationships, pkg, warnings,
-          )
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [tracked],
-            source_key: tracked_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if is_docx_start_tag_at(xml, start, "w:bookmarkStart") ||
-      is_docx_start_tag_at(xml, start, "w:bookmarkEnd") {
-      let bookmark_key = docx_child_source_key(
-        paragraph_key, "bookmark", run_index,
-      )
-      let bookmark = parse_docx_bookmark(xml, start, bookmark_key, warnings)
-      runs.push({
-        style_id: None,
-        bold: false,
-        inlines: [bookmark],
-        source_key: bookmark_key,
-      })
-      run_index += 1
-      match find_docx_any_tag_end(xml, start) {
-        Some(end_exclusive) => i = end_exclusive
-        None => break
-      }
-    } else if docx_structural_block_kind(xml, start) is Some(_) {
-      let marker_key = docx_child_source_key(
-        paragraph_key, "structural", run_index,
-      )
-      match parse_docx_structural_inline(xml, start, marker_key) {
-        Some((marker, end_exclusive)) => {
-          runs.push({
-            style_id: None,
-            bold: false,
-            inlines: [marker],
-            source_key: marker_key,
-          })
-          run_index += 1
-          i = end_exclusive
-          continue
-        }
-        None => break
-      }
-    } else if docx_string_has_prefix_at(xml, start, "</") {
-      match find_docx_any_tag_end(xml, start) {
-        Some(end_exclusive) => i = end_exclusive
-        None => break
-      }
-    } else {
-      let tag = docx_tag_name_at(xml, start)
-      if tag != "" {
-        let unsupported_key = docx_child_source_key(
-          paragraph_key, "inline", run_index,
-        )
-        warnings.push({
-          kind: UnsupportedInline,
-          message: "unsupported inline node: " + tag,
-          source_key: Some(unsupported_key),
-        })
-        runs.push({
-          style_id: None,
-          bold: false,
-          inlines: [
-            UnsupportedInline({
-              tag,
-              reason: "unsupported paragraph inline node",
-              source_key: unsupported_key,
-            }),
-          ],
-          source_key: unsupported_key,
-        })
-        run_index += 1
-      }
-      match skip_docx_element_or_tag(xml, start, tag) {
-        Some(end_exclusive) => i = end_exclusive
-        None => break
-      }
-    }
-  }
-  runs
+) -> Array[DocxSourceRun] noraise {
+  analyze_docx_paragraph(
+    xml,
+    paragraph_key,
+    relationships,
+    pkg,
+    warnings,
+    collect_properties=false,
+  ).runs
 }
 
 ///|
@@ -266,14 +33,14 @@ fn docx_content_control_body_xml(source_xml : String, tag : String) -> String {
 }
 
 ///|
-fn docx_content_control_source_block(
+async fn docx_content_control_source_block(
   tag : String,
   key : DocxSourceKey,
   inner : String,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceBlock {
+) -> DocxSourceBlock noraise {
   let blocks = if docx_content_control_has_block_content(inner) {
     parse_docx_body_inner(key.part_name, inner, relationships, pkg, warnings)
   } else {
@@ -308,16 +75,16 @@ fn docx_content_control_source_block(
 }
 
 ///|
-fn parse_docx_inline_content_control(
+async fn parse_docx_inline_content_control(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   tag : String,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceContentControl {
+) -> DocxSourceContentControl noraise {
   let inner = docx_content_control_body_xml(
     xml[start:end_exclusive].to_owned(),
     tag,
@@ -354,15 +121,15 @@ fn docx_content_control_has_block_content(xml : String) -> Bool {
 }
 
 ///|
-fn parse_docx_smart_tag_inline(
+async fn parse_docx_smart_tag_inline(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceSmartTag {
+) -> DocxSourceSmartTag noraise {
   let inner = docx_inner_xml_for_element(
     xml, start, end_exclusive, "w:smartTag",
   )
@@ -376,13 +143,13 @@ fn parse_docx_smart_tag_inline(
 }
 
 ///|
-fn parse_docx_run_inlines(
+async fn parse_docx_run_inlines(
   xml : String,
   run_key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceInline] {
+) -> Array[DocxSourceInline] noraise {
   let inlines : Array[DocxSourceInline] = []
   let mut i = 0
   let mut inline_index = 0
@@ -718,15 +485,15 @@ fn parse_docx_run_inlines(
 }
 
 ///|
-fn parse_docx_alternate_content_inlines(
+async fn parse_docx_alternate_content_inlines(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceInline] {
+) -> Array[DocxSourceInline] noraise {
   let inner = docx_inner_xml_for_element(
     xml, start, end_exclusive, "mc:AlternateContent",
   )
@@ -767,23 +534,13 @@ fn docx_non_visible_run_child_tags() -> Array[String] {
 }
 
 ///|
-fn docx_non_visible_run_child(xml : String, start : Int) -> Bool {
+fn docx_non_visible_run_child(xml : String, start : Int32) -> Bool {
   for tag in docx_non_visible_run_child_tags() {
     if is_docx_start_tag_at(xml, start, tag) {
       return true
     }
   }
   false
-}
-
-///|
-fn read_docx_paragraph_style_id(xml : String) -> String? {
-  read_docx_attr_in_first_tag(xml, "w:pStyle", "w:val")
-}
-
-///|
-fn read_docx_paragraph_alignment(xml : String) -> String? {
-  read_docx_attr_in_first_tag(xml, "w:jc", "w:val")
 }
 
 ///|
@@ -816,8 +573,8 @@ fn docx_source_blocks_have_table(blocks : Array[DocxSourceBlock]) -> Bool {
 ///|
 fn docx_source_blocks_max_table_depth(
   blocks : Array[DocxSourceBlock],
-  default_depth : Int,
-) -> Int {
+  default_depth : Int32,
+) -> Int32 {
   let mut out = default_depth
   for block in blocks {
     match block.table {
@@ -867,38 +624,6 @@ fn docx_source_table_text(table : DocxSourceTable) -> String {
 }
 
 ///|
-fn read_docx_run_style_id(xml : String) -> String? {
-  read_docx_attr_in_first_tag(xml, "w:rStyle", "w:val")
-}
-
-///|
-fn read_docx_run_is_bold(xml : String) -> Bool {
-  match find_docx_start_tag_from(xml, 0, "w:rPr") {
-    Some(start) =>
-      match find_docx_element_end(xml, start, "w:rPr") {
-        Some(end_exclusive) =>
-          docx_inner_xml_for_element(xml, start, end_exclusive, "w:rPr").contains(
-            "<w:b",
-          )
-        None => xml[start:].contains("<w:b")
-      }
-    None => false
-  }
-}
-
-///|
-fn read_docx_numbering_ref(xml : String) -> DocxNumberingRef? {
-  match read_docx_attr_in_first_tag(xml, "w:numId", "w:val") {
-    Some(num_id) =>
-      Some({
-        num_id,
-        ilvl: read_docx_attr_in_first_tag(xml, "w:ilvl", "w:val"),
-      })
-    None => None
-  }
-}
-
-///|
 fn read_docx_attr_in_first_tag(
   xml : String,
   tag : String,
@@ -911,7 +636,7 @@ fn read_docx_attr_in_first_tag(
 }
 
 ///|
-fn find_docx_start_tag_from(xml : String, from : Int, tag : String) -> Int? {
+fn find_docx_start_tag_from(xml : String, from : Int32, tag : String) -> Int32? {
   let mut i = if from < 0 { 0 } else { from }
   while i < xml.length() {
     let pos = match find_docx_char_from(xml, i, 60) {
@@ -927,7 +652,7 @@ fn find_docx_start_tag_from(xml : String, from : Int, tag : String) -> Int? {
 }
 
 ///|
-fn docx_open_tag_at(xml : String, start : Int) -> String {
+fn docx_open_tag_at(xml : String, start : Int32) -> String {
   match find_docx_any_tag_end(xml, start) {
     Some(end_exclusive) => xml[start:end_exclusive].to_owned()
     None => ""

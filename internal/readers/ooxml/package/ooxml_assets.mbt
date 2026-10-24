@@ -1,9 +1,11 @@
 ///|
 /// List media assets under `word/media`, `ppt/media`, and `xl/media`.
 ///
-/// Each result includes the asset part name, resolved content type, byte size,
-/// and internal relationships that reference the asset.
-pub fn list_media_assets(
+/// Each result includes the asset part name, resolved content type, declared
+/// uncompressed byte size, and internal relationships that reference it.
+/// Inventory never decodes media; read_part_bytes still validates the actual
+/// decoded size and CRC when an asset is materialized.
+pub async fn list_media_assets(
   pkg : OoxmlPackage,
 ) -> Array[OoxmlAsset] raise OoxmlError {
   let out : Array[OoxmlAsset] = []
@@ -14,13 +16,16 @@ pub fn list_media_assets(
     }
 
     let content_type = lookup_content_type(pkg, part)
-    let bytes = read_part_bytes(pkg, part)
+    let size = match part_declared_size(pkg, part) {
+      Some(value) if value >= 0 => value
+      _ => raise MissingPart(part)
+    }
     let refs = collect_asset_refs(pkg, part)
     out.push({
       part_name: part,
       content_type,
       ext: extension_of_part(part),
-      size: bytes.length(),
+      size,
       referenced_by: refs,
     })
   }
@@ -53,10 +58,10 @@ fn is_media_part_under(part : String, prefix : String) -> Bool {
 }
 
 ///|
-fn collect_asset_refs(
+async fn collect_asset_refs(
   pkg : OoxmlPackage,
   media_part : String,
-) -> Array[OoxmlAssetRef] {
+) -> Array[OoxmlAssetRef] noraise {
   let out : Array[OoxmlAssetRef] = []
 
   for source in list_parts(pkg) {

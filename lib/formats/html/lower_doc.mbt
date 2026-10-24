@@ -74,8 +74,8 @@ priv struct HtmlLoweringState {
 
 ///|
 priv struct HtmlScopePlan {
-  source_start : Int
-  source_end : Int
+  source_start : Int32
+  source_end : Int32
   label : String
 }
 
@@ -158,7 +158,7 @@ priv struct HtmlLoweringIndex {
 fn html_dom_lowering_index(doc : @dhtml.HtmlDocument) -> HtmlDomLoweringIndex {
   let block_elements : Map[String, @dhtml.HtmlElement] = Map([])
   let nav_spans : Array[@dhtml.HtmlSourceSpan] = []
-  let order : Ref[Int] = { val: 0, }
+  let order : Ref[Int32] = { val: 0, }
   html_dom_collect_index(doc.nodes, false, order, block_elements, nav_spans)
   { block_elements, nav_spans, }
 }
@@ -167,7 +167,7 @@ fn html_dom_lowering_index(doc : @dhtml.HtmlDocument) -> HtmlDomLoweringIndex {
 fn html_dom_collect_index(
   nodes : Array[@dhtml.HtmlNode],
   parent_pre : Bool,
-  order : Ref[Int],
+  order : Ref[Int32],
   block_elements : Map[String, @dhtml.HtmlElement],
   nav_spans : Array[@dhtml.HtmlSourceSpan],
 ) -> Unit {
@@ -322,7 +322,7 @@ fn html_heading_subtree_scope_plans(
   events : Array[@dhtml.HtmlTokenEvent],
 ) -> Array[HtmlScopePlan] {
   let raw_plans : Array[HtmlScopePlan] = []
-  let heading_stack : Array[(Int, Int)] = []
+  let heading_stack : Array[(Int32, Int32)] = []
   let mut index = 0
   for i in 0..<events.length() {
     let event = events[i]
@@ -422,7 +422,7 @@ fn html_scope_plan_dedup(plans : Array[HtmlScopePlan]) -> Array[HtmlScopePlan] {
 }
 
 ///|
-fn html_scope_plan_order(left : HtmlScopePlan, right : HtmlScopePlan) -> Int {
+fn html_scope_plan_order(left : HtmlScopePlan, right : HtmlScopePlan) -> Int32 {
   if left.source_start != right.source_start {
     left.source_start - right.source_start
   } else {
@@ -433,7 +433,7 @@ fn html_scope_plan_order(left : HtmlScopePlan, right : HtmlScopePlan) -> Int {
 }
 
 ///|
-fn html_heading_level(tag_name : String) -> Int {
+fn html_heading_level(tag_name : String) -> Int32 {
   if tag_name.length() == 2 &&
     tag_name[0] == 'h' &&
     tag_name[1] >= '1' &&

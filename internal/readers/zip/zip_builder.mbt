@@ -8,7 +8,7 @@ fn zip_builder_bytes_of_string(s : String) -> Array[Byte] {
 }
 
 ///|
-fn zip_builder_byte_to_unsigned_int(value : Byte) -> Int {
+fn zip_builder_byte_to_unsigned_int(value : Byte) -> Int32 {
   let raw = value.to_int()
   if raw >= 0 {
     raw
@@ -18,12 +18,12 @@ fn zip_builder_byte_to_unsigned_int(value : Byte) -> Int {
 }
 
 ///|
-fn zip_builder_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
-  let mut acc = UInt::lxor(crc, value)
+fn zip_builder_crc32_update_uint(crc : UInt32, value : UInt32) -> UInt32 {
+  let mut acc = UInt32::lxor(crc, value)
   let mut i = 0
   while i < 8 {
-    if UInt::land(acc, 1) != 0 {
-      acc = UInt::lxor(acc >> 1, 0xEDB88320)
+    if UInt32::land(acc, 1) != 0 {
+      acc = UInt32::lxor(acc >> 1, 0xEDB88320)
     } else {
       acc = acc >> 1
     }
@@ -33,25 +33,25 @@ fn zip_builder_crc32_update_uint(crc : UInt, value : UInt) -> UInt {
 }
 
 ///|
-fn zip_builder_crc32(bytes : Bytes) -> Int {
-  let mut crc : UInt = 0xFFFFFFFF
+fn zip_builder_crc32(bytes : Bytes) -> Int32 {
+  let mut crc : UInt32 = 0xFFFFFFFF
   for value in bytes {
     crc = zip_builder_crc32_update_uint(
       crc,
       zip_builder_byte_to_unsigned_int(value).reinterpret_as_uint(),
     )
   }
-  UInt::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
+  UInt32::lxor(crc, 0xFFFFFFFF).reinterpret_as_int()
 }
 
 ///|
-fn zip_builder_append_u16_le(out : Array[Byte], value : Int) -> Unit {
+fn zip_builder_append_u16_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
 }
 
 ///|
-fn zip_builder_append_u32_le(out : Array[Byte], value : Int) -> Unit {
+fn zip_builder_append_u32_le(out : Array[Byte], value : Int32) -> Unit {
   out.push((value & 0xFF).to_byte())
   out.push(((value >> 8) & 0xFF).to_byte())
   out.push(((value >> 16) & 0xFF).to_byte())
@@ -61,7 +61,7 @@ fn zip_builder_append_u32_le(out : Array[Byte], value : Int) -> Unit {
 ///|
 fn zip_builder_add_store_entry(
   out : Array[Byte],
-  central : Array[(String, Int, Int, Int)],
+  central : Array[(String, Int32, Int32, Int32)],
   name : String,
   data : Bytes,
 ) -> Unit {
@@ -94,7 +94,7 @@ fn zip_builder_add_store_entry(
 ///|
 pub fn build_store_zip_bytes(entries : Array[(String, Bytes)]) -> Bytes {
   let out : Array[Byte] = []
-  let central : Array[(String, Int, Int, Int)] = []
+  let central : Array[(String, Int32, Int32, Int32)] = []
 
   for entry in entries {
     let (name, data) = entry

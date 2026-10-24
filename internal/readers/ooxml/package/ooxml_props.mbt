@@ -3,19 +3,30 @@
 ///
 /// Missing `docProps/core.xml` is represented by a struct whose fields are
 /// `None`.
-pub fn read_core_properties(pkg : OoxmlPackage) -> OoxmlCoreProperties {
-  let xml = read_optional_xml_text(pkg, "docProps/core.xml")
-  {
-    title: tag_text(xml, "title"),
-    subject: tag_text(xml, "subject"),
-    creator: tag_text(xml, "creator"),
-    last_modified_by: tag_text(xml, "lastModifiedBy"),
-    description: tag_text(xml, "description"),
-    keywords: tag_text(xml, "keywords"),
-    category: tag_text(xml, "category"),
-    created: tag_text(xml, "created"),
-    modified: tag_text(xml, "modified"),
+pub async fn read_core_properties(
+  pkg : OoxmlPackage,
+) -> OoxmlCoreProperties raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
+  if pkg.core_properties_cache.val is Some(value) {
+    return value
   }
+  let fields = read_core_app_values(pkg, "docProps/core.xml", [
+    "title", "subject", "creator", "lastModifiedBy", "description", "keywords", "category",
+    "created", "modified",
+  ])
+  let value = {
+    title: fields.get("title").unwrap_or(None),
+    subject: fields.get("subject").unwrap_or(None),
+    creator: fields.get("creator").unwrap_or(None),
+    last_modified_by: fields.get("lastModifiedBy").unwrap_or(None),
+    description: fields.get("description").unwrap_or(None),
+    keywords: fields.get("keywords").unwrap_or(None),
+    category: fields.get("category").unwrap_or(None),
+    created: fields.get("created").unwrap_or(None),
+    modified: fields.get("modified").unwrap_or(None),
+  }
+  pkg.core_properties_cache.val = Some(value)
+  value
 }
 
 ///|
@@ -23,122 +34,78 @@ pub fn read_core_properties(pkg : OoxmlPackage) -> OoxmlCoreProperties {
 ///
 /// Missing `docProps/app.xml` is represented by a struct whose fields are
 /// `None`.
-pub fn read_app_properties(pkg : OoxmlPackage) -> OoxmlAppProperties {
-  let xml = read_optional_xml_text(pkg, "docProps/app.xml")
-  {
-    application: tag_text(xml, "Application"),
-    company: tag_text(xml, "Company"),
-    manager: tag_text(xml, "Manager"),
-    pages: tag_text(xml, "Pages"),
-    words: tag_text(xml, "Words"),
-    slides: tag_text(xml, "Slides"),
-    sheets: tag_text(xml, "Worksheets"),
+pub async fn read_app_properties(
+  pkg : OoxmlPackage,
+) -> OoxmlAppProperties raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
+  if pkg.app_properties_cache.val is Some(value) {
+    return value
   }
+  let fields = read_core_app_values(pkg, "docProps/app.xml", [
+    "Application", "Company", "Manager", "Pages", "Words", "Slides", "Worksheets",
+  ])
+  let value = {
+    application: fields.get("Application").unwrap_or(None),
+    company: fields.get("Company").unwrap_or(None),
+    manager: fields.get("Manager").unwrap_or(None),
+    pages: fields.get("Pages").unwrap_or(None),
+    words: fields.get("Words").unwrap_or(None),
+    slides: fields.get("Slides").unwrap_or(None),
+    sheets: fields.get("Worksheets").unwrap_or(None),
+  }
+  pkg.app_properties_cache.val = Some(value)
+  value
 }
 
 ///|
 /// Read lightweight custom document properties.
 ///
 /// Missing `docProps/custom.xml` is represented by an empty array.
-pub fn read_custom_properties(pkg : OoxmlPackage) -> Array[OoxmlCustomProperty] {
-  let xml = read_optional_xml_text(pkg, "docProps/custom.xml")
-  if xml == "" {
-    return []
+/// Scalar values contain XML character content; structural values preserve
+/// the complete selected VT element, type attributes and namespace context.
+/// Binary, numeric, date and OOXML string-escape coercion is not performed.
+pub async fn read_custom_properties(
+  pkg : OoxmlPackage,
+) -> Array[OoxmlCustomProperty] raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
+  if pkg.custom_properties_cache.val is Some(values) {
+    return values.copy()
   }
-  parse_custom_properties_xml(xml)
+  let values = read_custom_values(pkg)
+  pkg.custom_properties_cache.val = Some(values)
+  values.copy()
 }
 
 ///|
-fn parse_custom_properties_xml(xml : String) -> Array[OoxmlCustomProperty] {
-  let props : Array[OoxmlCustomProperty] = []
-  let mut cursor = 0
-  while true {
-    let start = find_substring_from(xml, "<property", cursor)
-    match start {
-      None => break
-      Some(prop_start) => {
-        let end = find_substring_from(xml, "</property>", prop_start)
-        match end {
-          None => break
-          Some(prop_end) => {
-            let block = xml[prop_start:prop_end + "</property>".length()].to_owned()
-            match parse_custom_property_block(block) {
-              Some(prop) => props.push(prop)
-              None => ()
-            }
-            cursor = prop_end + "</property>".length()
-          }
-        }
-      }
-    }
+/// Select a prefix of complete raw `property` candidates using the same custom
+/// XML consumer. Missing names, empty values and self-closing properties still
+/// consume slots. Nested properties consume no additional slot. The remaining
+/// XML is validated through EOF/CRC, without buffering skipped property values.
+///
+/// qualified_value_type preserves the selected raw `vt:*` name for legacy
+/// consumers. omit_empty_scalar_values drops empty character-content values;
+/// structural values retain their complete selected element, even when empty.
+/// Each policy has an independent projected cache; this does not materialize or
+/// truncate the unlimited reader's result. Cached arrays are shallow copies.
+pub async fn read_custom_properties_projected(
+  pkg : OoxmlPackage,
+  max_candidates~ : Int32,
+  qualified_value_type~ : Bool = false,
+  omit_empty_scalar_values~ : Bool = false,
+) -> OoxmlCustomPropertyProjection raise OoxmlError {
+  require_relationship_archive_healthy(pkg.archive)
+  if max_candidates < 0 {
+    raise InvalidXml("negative custom-property candidate limit")
   }
-  props
-}
-
-///|
-fn parse_custom_property_block(block : String) -> OoxmlCustomProperty? {
-  let open_end = find_substring_from(block, ">", 0)
-  let open_tag = match open_end {
-    Some(pos) => block[0:pos + 1].to_owned()
-    None => return None
+  let policy : CustomPropertyProjectionPolicy = {
+    max_candidates: Some(max_candidates),
+    qualified_value_type,
+    omit_empty_scalar_values,
   }
-  let attrs = parse_tag_attributes(open_tag)
-  let name = match attrs.get("name") {
-    Some(value) =>
-      if value.trim() == "" {
-        return None
-      } else {
-        xml_entity_decode(value.trim().to_owned())
-      }
-    None => return None
+  if pkg.custom_projections_cache.get(policy) is Some(value) {
+    return { ..value, properties: value.properties.copy(), }
   }
-
-  let vt_start = find_substring_from(block, "<vt:", open_tag.length())
-  let value_type = match vt_start {
-    Some(pos) => {
-      let vt_end = find_substring_from(block, ">", pos)
-      match vt_end {
-        Some(end_pos) => {
-          let tag = block[pos:end_pos + 1].to_owned()
-          let local_name = start_tag_local_name(tag)
-          if local_name == "" {
-            None
-          } else {
-            Some(local_name)
-          }
-        }
-        None => None
-      }
-    }
-    None => None
-  }
-  let value = match value_type {
-    Some(kind) => tag_text(block, kind).unwrap_or("")
-    None => ""
-  }
-  Some({ name, value, value_type, })
-}
-
-///|
-fn find_substring_from(haystack : String, needle : String, start : Int) -> Int? {
-  if needle == "" {
-    return Some(start)
-  }
-  if start < 0 || start >= haystack.length() {
-    return None
-  }
-  let rest = haystack[start:].to_owned()
-  let idx = find_substring(rest, needle)
-  if idx < 0 {
-    None
-  } else {
-    Some(start + idx)
-  }
-}
-
-///|
-fn read_optional_xml_text(pkg : OoxmlPackage, part_name : String) -> String {
-  read_part_text(pkg, part_name) catch {
-    _ => ""
-  }
+  let value = read_custom_projection(pkg, policy)
+  pkg.custom_projections_cache.set(policy, value)
+  { ..value, properties: value.properties.copy(), }
 }

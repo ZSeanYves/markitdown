@@ -74,13 +74,15 @@ fn route_fidelity_status(
 ///|
 pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
   Json::object({
-    "detected_format": @input.detected_format_name(route_plan.detected_format).to_json(),
-    "selected_route": route_plan.selected_route.to_json(),
-    "route_reason": route_plan.route_reason.to_json(),
-    "route_probe_summary": route_plan.route_probe_summary.to_json(),
-    "requested_parser_mode": route_plan.requested_parser_mode
-    .map(mode => @parser.mode_name(mode))
-    .to_json(),
+    "detected_format": Json(
+      @input.detected_format_name(route_plan.detected_format),
+    ),
+    "selected_route": Json(route_plan.selected_route),
+    "route_reason": Json(route_plan.route_reason),
+    "route_probe_summary": Json(route_plan.route_probe_summary),
+    "requested_parser_mode": Json(
+      route_plan.requested_parser_mode.map(mode => @parser.mode_name(mode)),
+    ),
   })
 }
 
@@ -88,26 +90,30 @@ pub fn route_plan_to_json(route_plan : RoutePlan) -> Json {
 pub fn convert_provenance_to_json(provenance : ConvertProvenance) -> Json {
   Json::object({
     "route_plan": route_plan_to_json(provenance.route_plan),
-    "fidelity_mode": fidelity_mode_name(provenance.fidelity_mode).to_json(),
-    "output_mode": output_mode_name(provenance.output_mode).to_json(),
-    "execution_profile": @product.execution_profile_name(
-      provenance.execution_profile,
-    ).to_json(),
-    "execution_profile_reason": provenance.execution_profile_reason.to_json(),
-    "lowering_profile": @product.lowering_profile_name(
-      provenance.lowering_profile,
-    ).to_json(),
-    "render_profile": @product.render_profile_name(provenance.render_profile).to_json(),
-    "profile_trigger_signals": provenance.profile_trigger_signals.to_json(),
-    "effective_parser_mode": @parser.mode_name(provenance.effective_parser_mode).to_json(),
-    "parse_result_kind": provenance.parse_result_kind.to_json(),
-    "pipeline_output_kind": provenance.pipeline_output_kind.to_json(),
-    "render_input_kind": provenance.render_input_kind.to_json(),
-    "route_fidelity_status": provenance.route_fidelity_status.to_json(),
-    "applied_accurate_features": provenance.applied_accurate_features.to_json(),
-    "same_mode_strategy_switches": provenance.same_mode_strategy_switches.to_json(),
-    "requested_fidelity_mode": provenance.requested_fidelity_mode
-    .map(mode => fidelity_mode_name(mode))
-    .to_json(),
+    "fidelity_mode": Json(fidelity_mode_name(provenance.fidelity_mode)),
+    "output_mode": Json(output_mode_name(provenance.output_mode)),
+    "execution_profile": Json(
+      @product.execution_profile_name(provenance.execution_profile),
+    ),
+    "execution_profile_reason": Json(provenance.execution_profile_reason),
+    "lowering_profile": Json(
+      @product.lowering_profile_name(provenance.lowering_profile),
+    ),
+    "render_profile": Json(
+      @product.render_profile_name(provenance.render_profile),
+    ),
+    "profile_trigger_signals": Json(provenance.profile_trigger_signals),
+    "effective_parser_mode": Json(
+      @parser.mode_name(provenance.effective_parser_mode),
+    ),
+    "parse_result_kind": Json(provenance.parse_result_kind),
+    "pipeline_output_kind": Json(provenance.pipeline_output_kind),
+    "render_input_kind": Json(provenance.render_input_kind),
+    "route_fidelity_status": Json(provenance.route_fidelity_status),
+    "applied_accurate_features": Json(provenance.applied_accurate_features),
+    "same_mode_strategy_switches": Json(provenance.same_mode_strategy_switches),
+    "requested_fidelity_mode": Json(
+      provenance.requested_fidelity_mode.map(mode => fidelity_mode_name(mode)),
+    ),
   })
 }

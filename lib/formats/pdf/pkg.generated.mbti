@@ -28,7 +28,7 @@ pub fn pdf_native_parser_capability() -> @parser.ParserCapability
 
 pub fn pdf_native_parser_name() -> String
 
-pub fn pdf_native_parser_result(@input.InputSource, @parser.ParseContext) -> @parser.ParseResult
+pub async fn pdf_native_parser_result(@input.InputSource, @parser.ParseContext) -> @parser.ParseResult
 
 // Errors
 

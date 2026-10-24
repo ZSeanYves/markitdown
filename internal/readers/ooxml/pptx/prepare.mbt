@@ -6,9 +6,9 @@ pub struct PreparedPptxDocument {
 }
 
 ///|
-pub fn prepare_pptx_document_from_source(
+pub async fn prepare_pptx_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedPptxDocument, String] {
+) -> Result[PreparedPptxDocument, String] noraise {
   let prepared = match @zsource.prepare_zip_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)

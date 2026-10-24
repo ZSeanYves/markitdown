@@ -5,15 +5,15 @@ priv struct DocxMediaRelationshipRef {
 }
 
 ///|
-fn parse_docx_drawing_anchor(
+async fn parse_docx_drawing_anchor(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceDrawing {
+) -> DocxSourceDrawing noraise {
   let source_xml = xml[start:end_exclusive].to_owned()
   let media = if find_docx_media_relationship_ref(source_xml) is Some(_) {
     Some(
@@ -61,15 +61,15 @@ fn parse_docx_drawing_anchor(
 }
 
 ///|
-fn parse_docx_shape_anchor(
+async fn parse_docx_shape_anchor(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceShape {
+) -> DocxSourceShape noraise {
   let source_xml = xml[start:end_exclusive].to_owned()
   let media = if find_docx_media_relationship_ref(source_xml) is Some(_) {
     Some(
@@ -126,17 +126,17 @@ fn docx_textbox_ref_in_anchor(
 }
 
 ///|
-fn parse_docx_media_ref(
+async fn parse_docx_media_ref(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   container_tag : String,
   container_kind : DocxMediaContainerKind,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceMediaRef {
+) -> DocxSourceMediaRef noraise {
   let source_xml = xml[start:end_exclusive].to_owned()
   docx_media_ref_from_relationship_ref(
     source_xml,
@@ -151,7 +151,7 @@ fn parse_docx_media_ref(
 }
 
 ///|
-fn docx_media_ref_from_relationship_ref(
+async fn docx_media_ref_from_relationship_ref(
   source_xml : String,
   media_ref : DocxMediaRelationshipRef?,
   container_tag : String,
@@ -160,7 +160,7 @@ fn docx_media_ref_from_relationship_ref(
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceMediaRef {
+) -> DocxSourceMediaRef noraise {
   let mut relationship_id : String? = None
   let mut relationship_kind = DocxMediaRelationshipKind::Unknown
   let mut target : String? = None
@@ -252,7 +252,7 @@ fn docx_media_ref_from_relationship_ref(
 }
 
 ///|
-fn parse_docx_alternate_drawing_media_refs(
+async fn parse_docx_alternate_drawing_media_refs(
   source_xml : String,
   container_tag : String,
   container_kind : DocxMediaContainerKind,
@@ -260,7 +260,7 @@ fn parse_docx_alternate_drawing_media_refs(
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> Array[DocxSourceMediaRef] {
+) -> Array[DocxSourceMediaRef] noraise {
   let out : Array[DocxSourceMediaRef] = []
   let refs = find_docx_svg_media_relationship_refs(source_xml)
   for media_ref in refs {
@@ -446,15 +446,15 @@ fn read_docx_non_empty_attr_in_first_tag(
 }
 
 ///|
-fn parse_docx_hyperlink(
+async fn parse_docx_hyperlink(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceHyperlink {
+) -> DocxSourceHyperlink noraise {
   let open_tag = docx_open_tag_at(xml, start)
   let relationship_id = read_docx_attr_value(open_tag, "r:id")
   let anchor = read_docx_attr_value(open_tag, "w:anchor")
@@ -526,12 +526,12 @@ fn docx_hyperlink_resolved_target(
 }
 
 ///|
-fn find_docx_relationship_by_id(
+async fn find_docx_relationship_by_id(
   relationships : Array[@ox.OoxmlRelationship],
   source_part : String,
   relationship_id : String,
   pkg : @ox.OoxmlPackage?,
-) -> @ox.OoxmlRelationship? {
+) -> @ox.OoxmlRelationship? noraise {
   match pkg {
     Some(p) => {
       let indexed = @ox.find_relationship_by_id(p, source_part, relationship_id) catch {
@@ -555,7 +555,7 @@ fn find_docx_relationship_by_id(
 ///|
 fn parse_docx_break_inline(
   xml : String,
-  start : Int,
+  start : Int32,
   key : DocxSourceKey,
 ) -> DocxSourceInline {
   let open_tag = docx_open_tag_at(xml, start)
@@ -577,7 +577,7 @@ fn parse_docx_break_inline(
 }
 
 ///|
-fn is_docx_math_start(xml : String, start : Int) -> Bool {
+fn is_docx_math_start(xml : String, start : Int32) -> Bool {
   is_docx_start_tag_at(xml, start, "m:oMath") ||
   is_docx_start_tag_at(xml, start, "m:oMathPara")
 }
@@ -585,8 +585,8 @@ fn is_docx_math_start(xml : String, start : Int) -> Bool {
 ///|
 fn parse_docx_math_inline(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   tag : String,
   key : DocxSourceKey,
   warnings : Array[DocxSourceWarning],
@@ -609,7 +609,7 @@ fn parse_docx_math_inline(
 ///|
 fn parse_docx_symbol_inline(
   xml : String,
-  start : Int,
+  start : Int32,
   key : DocxSourceKey,
 ) -> DocxSourceInline {
   let open_tag = docx_open_tag_at(xml, start)
@@ -621,15 +621,15 @@ fn parse_docx_symbol_inline(
 }
 
 ///|
-fn parse_docx_fld_simple(
+async fn parse_docx_fld_simple(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceInline {
+) -> DocxSourceInline noraise {
   let open_tag = docx_open_tag_at(xml, start)
   let inner = docx_inner_xml_for_element(
     xml, start, end_exclusive, "w:fldSimple",
@@ -650,7 +650,7 @@ fn parse_docx_fld_simple(
 ///|
 fn parse_docx_fld_char(
   xml : String,
-  start : Int,
+  start : Int32,
   key : DocxSourceKey,
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceInline {
@@ -669,10 +669,10 @@ fn parse_docx_fld_char(
 ///|
 fn parse_docx_instr_text(
   xml : String,
-  start : Int,
+  start : Int32,
   key : DocxSourceKey,
   warnings : Array[DocxSourceWarning],
-) -> (DocxSourceInline, Int)? {
+) -> (DocxSourceInline, Int32)? {
   let open_end_rel = match xml[start:].find(">") {
     Some(rel) => rel
     None => return None
@@ -729,7 +729,7 @@ fn make_docx_field_inline(
 ///|
 fn parse_docx_bookmark(
   xml : String,
-  start : Int,
+  start : Int32,
   key : DocxSourceKey,
   warnings : Array[DocxSourceWarning],
 ) -> DocxSourceInline {
@@ -753,7 +753,7 @@ fn parse_docx_bookmark(
 }
 
 ///|
-fn is_docx_tracked_change_start(xml : String, start : Int) -> Bool {
+fn is_docx_tracked_change_start(xml : String, start : Int32) -> Bool {
   is_docx_start_tag_at(xml, start, "w:ins") ||
   is_docx_start_tag_at(xml, start, "w:del") ||
   is_docx_start_tag_at(xml, start, "w:moveFrom") ||
@@ -761,16 +761,16 @@ fn is_docx_tracked_change_start(xml : String, start : Int) -> Bool {
 }
 
 ///|
-fn parse_docx_tracked_change(
+async fn parse_docx_tracked_change(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   tag : String,
   key : DocxSourceKey,
   relationships : Array[@ox.OoxmlRelationship],
   pkg : @ox.OoxmlPackage?,
   warnings : Array[DocxSourceWarning],
-) -> DocxSourceInline {
+) -> DocxSourceInline noraise {
   warnings.push({
     kind: TrackedChange,
     message: "tracked change inline preserved without review policy: " + tag,
@@ -888,8 +888,8 @@ fn docx_non_empty_text(text : String) -> String? {
 ///|
 fn docx_inner_xml_for_element(
   xml : String,
-  start : Int,
-  end_exclusive : Int,
+  start : Int32,
+  end_exclusive : Int32,
   tag : String,
 ) -> String {
   let open_end = match find_docx_any_tag_end(xml, start) {
@@ -910,7 +910,7 @@ fn docx_inner_xml_for_element(
 fn docx_child_source_key(
   parent : DocxSourceKey,
   kind : String,
-  index : Int,
+  index : Int32,
 ) -> DocxSourceKey {
   {
     part_name: parent.part_name,
@@ -935,7 +935,7 @@ fn docx_source_run_inlines(
 ///|
 fn docx_source_key(
   part_name : String,
-  block_index : Int,
+  block_index : Int32,
   kind : String,
 ) -> DocxSourceKey {
   {
@@ -1077,7 +1077,7 @@ fn docx_source_symbol_text_from_hex(value : String) -> String {
   match docx_parse_hex_codepoint(value) {
     Some(codepoint) =>
       if codepoint >= 0x20 && codepoint <= 0x7E {
-        String::from_array([Int::unsafe_to_char(codepoint)])
+        String::from_array([Int32::unsafe_to_char(codepoint)])
       } else {
         "[symbol: " + value + "]"
       }
@@ -1086,7 +1086,7 @@ fn docx_source_symbol_text_from_hex(value : String) -> String {
 }
 
 ///|
-fn docx_parse_hex_codepoint(value : String) -> Int? {
+fn docx_parse_hex_codepoint(value : String) -> Int32? {
   let chars = value.trim().to_array()
   if chars.length() == 0 {
     return None
@@ -1102,7 +1102,7 @@ fn docx_parse_hex_codepoint(value : String) -> Int? {
 }
 
 ///|
-fn docx_hex_value(ch : Char) -> Int? {
+fn docx_hex_value(ch : Char) -> Int32? {
   if ch >= '0' && ch <= '9' {
     Some(ch.to_int() - '0'.to_int())
   } else if ch >= 'A' && ch <= 'F' {
@@ -1148,7 +1148,11 @@ fn docx_source_media_text(media : DocxSourceMediaRef) -> String {
 }
 
 ///|
-fn skip_docx_element_or_tag(xml : String, start : Int, tag : String) -> Int? {
+fn skip_docx_element_or_tag(
+  xml : String,
+  start : Int32,
+  tag : String,
+) -> Int32? {
   if tag != "" {
     match find_docx_element_end(xml, start, tag) {
       Some(end_exclusive) => return Some(end_exclusive)
@@ -1159,7 +1163,7 @@ fn skip_docx_element_or_tag(xml : String, start : Int, tag : String) -> Int? {
 }
 
 ///|
-fn find_docx_element_end(xml : String, start : Int, tag : String) -> Int? {
+fn find_docx_element_end(xml : String, start : Int32, tag : String) -> Int32? {
   match find_docx_any_tag_end(xml, start) {
     Some(open_end) =>
       if is_docx_start_tag_at(xml, start, tag) &&
@@ -1205,7 +1209,7 @@ fn find_docx_element_end(xml : String, start : Int, tag : String) -> Int? {
 }
 
 ///|
-fn is_docx_start_tag_at(xml : String, start : Int, tag : String) -> Bool {
+fn is_docx_start_tag_at(xml : String, start : Int32, tag : String) -> Bool {
   if start < 0 || start + tag.length() + 1 > xml.length() {
     return false
   }
@@ -1221,7 +1225,7 @@ fn is_docx_start_tag_at(xml : String, start : Int, tag : String) -> Bool {
 }
 
 ///|
-fn find_docx_any_tag_end(xml : String, start : Int) -> Int? {
+fn find_docx_any_tag_end(xml : String, start : Int32) -> Int32? {
   match find_docx_char_from(xml, start, 62) {
     Some(pos) => Some(pos + 1)
     None => None
@@ -1229,7 +1233,7 @@ fn find_docx_any_tag_end(xml : String, start : Int) -> Int? {
 }
 
 ///|
-fn find_docx_char_from(xml : String, from : Int, ch : UInt16) -> Int? {
+fn find_docx_char_from(xml : String, from : Int32, ch : UInt16) -> Int32? {
   let mut i = if from < 0 { 0 } else { from }
   while i < xml.length() {
     if xml.code_unit_at(i) == ch {
@@ -1243,7 +1247,7 @@ fn find_docx_char_from(xml : String, from : Int, ch : UInt16) -> Int? {
 ///|
 fn docx_string_has_prefix_at(
   xml : String,
-  start : Int,
+  start : Int32,
   prefix : String,
 ) -> Bool {
   if start < 0 || start + prefix.length() > xml.length() {
@@ -1260,7 +1264,7 @@ fn docx_string_has_prefix_at(
 }
 
 ///|
-fn find_docx_literal_from(xml : String, from : Int, value : String) -> Int? {
+fn find_docx_literal_from(xml : String, from : Int32, value : String) -> Int32? {
   let mut i = if from < 0 { 0 } else { from }
   while i + value.length() <= xml.length() {
     if docx_string_has_prefix_at(xml, i, value) {
@@ -1278,7 +1282,7 @@ fn is_docx_self_closing_tag(tag : String) -> Bool {
 }
 
 ///|
-fn docx_tag_name_at(xml : String, start : Int) -> String {
+fn docx_tag_name_at(xml : String, start : Int32) -> String {
   if start < 0 || start >= xml.length() || xml.code_unit_at(start) != 60 {
     return ""
   }

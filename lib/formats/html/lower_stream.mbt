@@ -2,15 +2,15 @@
 priv struct HtmlTokenBlockState {
   blocks : Array[@core.CoreBlock]
   mut text : StringBuilder
-  mut text_start_line : Int
-  mut text_end_line : Int
+  mut text_start_line : Int32
+  mut text_end_line : Int32
   mut text_kind : @core.BlockKind
-  mut heading_level : Int
+  mut heading_level : Int32
   mut in_pre : Bool
   mut text_has_content : Bool
-  mut skip_depth : Int
-  mut list_depth : Int
-  mut quote_depth : Int
+  mut skip_depth : Int32
+  mut list_depth : Int32
+  mut quote_depth : Int32
 }
 
 ///|
@@ -175,8 +175,8 @@ fn html_lower_scope_events_to_blocks(
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
   plan : HtmlScopePlan,
-  start_index : Int,
-) -> (Array[@core.CoreBlock], Int) {
+  start_index : Int32,
+) -> (Array[@core.CoreBlock], Int32) {
   let state = {
     blocks: [],
     text: StringBuilder(),
@@ -218,8 +218,8 @@ priv struct HtmlChildInlineState {
   compact_plain : StringBuilder
   compact_markdown : StringBuilder
   mut compact_has_markup : Bool
-  mut text_line_start : Int
-  mut text_line_end : Int
+  mut text_line_start : Int32
+  mut text_line_end : Int32
   mut pending_space : Bool
   mut has_content : Bool
 }
@@ -227,13 +227,13 @@ priv struct HtmlChildInlineState {
 ///|
 priv struct HtmlChildBlockAccumulator {
   kind : @core.BlockKind
-  level : Int
+  level : Int32
   info : String
   html_path : String
-  line_start : Int
-  mut line_end : Int
-  byte_start : Int
-  mut byte_end : Int
+  line_start : Int32
+  mut line_end : Int32
+  byte_start : Int32
+  mut byte_end : Int32
   inline_state : HtmlChildInlineState
 }
 
@@ -242,16 +242,16 @@ priv struct HtmlChildTextState {
   lowering_state : HtmlLoweringState
   diagnostics : @core.Diagnostics
   blocks : Array[@core.CoreBlock]
-  close_index : Map[Int, Int]
+  close_index : Map[Int32, Int32]
   mut current : HtmlChildBlockAccumulator?
-  mut skip_depth : Int
-  mut block_order : Int
-  mut inline_order : Int
-  mut link_depth : Int
+  mut skip_depth : Int32
+  mut block_order : Int32
+  mut inline_order : Int32
+  mut link_depth : Int32
   mut link_text : StringBuilder
   mut link_href : String?
-  mut link_line_start : Int
-  mut link_line_end : Int
+  mut link_line_start : Int32
+  mut link_line_end : Int32
   mut link_pending_space : Bool
   mut link_has_content : Bool
   list_stack : Array[HtmlChildListFrame]
@@ -262,8 +262,8 @@ priv struct HtmlChildTextState {
 ///|
 priv struct HtmlChildListFrame {
   ordered : Bool
-  start_line : Int
-  start_byte : Int
+  start_line : Int32
+  start_byte : Int32
   html_path : String
   items : Array[@core.CoreBlock]
 }
@@ -271,8 +271,8 @@ priv struct HtmlChildListFrame {
 ///|
 priv struct HtmlChildListItemFrame {
   ordered : Bool
-  start_line : Int
-  start_byte : Int
+  start_line : Int32
+  start_byte : Int32
   html_path : String
   body_blocks : Array[@core.CoreBlock]
 }
@@ -296,8 +296,8 @@ fn html_child_inline_state() -> HtmlChildInlineState {
 fn html_child_inline_append_text(
   inline_state : HtmlChildInlineState,
   text : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
 ) -> Unit {
   if text == "" {
     return
@@ -369,7 +369,7 @@ fn html_lower_child_text_blocks(
   text_chars : Array[Char],
   diagnostics : @core.Diagnostics,
   events : Array[@dhtml.HtmlTokenEvent],
-  has_table? : Bool = true,
+  has_table~ : Bool = true,
 ) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
   let state = html_child_text_state(
     diagnostics,
@@ -394,7 +394,7 @@ fn html_lower_child_text_blocks_scanned(
   text : String,
   diagnostics : @core.Diagnostics,
 ) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
-  let close_index : Map[Int, Int] = Map([])
+  let close_index : Map[Int32, Int32] = Map([])
   let state = html_child_text_state(
     diagnostics,
     close_index,
@@ -486,8 +486,8 @@ fn html_lower_child_text_blocks_scanned(
 ///|
 fn html_child_text_state(
   diagnostics : @core.Diagnostics,
-  close_index : Map[Int, Int],
-  compact_provenance? : Bool = false,
+  close_index : Map[Int32, Int32],
+  compact_provenance~ : Bool = false,
 ) -> HtmlChildTextState {
   {
     lowering_state: { assets: [], },
@@ -517,11 +517,11 @@ fn html_child_text_make_block(
   source : @input.InputSource,
   kind : @core.BlockKind,
   text : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   html_path : String,
-  byte_start? : Int = -1,
-  byte_end? : Int = -1,
+  byte_start~ : Int32 = -1,
+  byte_end~ : Int32 = -1,
 ) -> @core.CoreBlock {
   if state.compact_provenance {
     @core.block_with_compact_source_ref(
@@ -564,8 +564,8 @@ fn html_child_text_make_inline_text(
   state : HtmlChildTextState,
   source : @input.InputSource,
   text : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   html_path : String,
 ) -> @core.CoreInline {
   if state.compact_provenance {
@@ -586,8 +586,8 @@ fn html_child_text_make_inline_link(
   source : @input.InputSource,
   text : String,
   href : String,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   html_path : String,
 ) -> @core.CoreInline {
   if state.compact_provenance {
@@ -607,8 +607,8 @@ fn html_child_text_make_inline_link(
 fn html_child_text_make_inline_line_break(
   state : HtmlChildTextState,
   source : @input.InputSource,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   html_path : String,
 ) -> @core.CoreInline {
   if state.compact_provenance {
@@ -635,9 +635,9 @@ fn html_child_text_finish(
 ///|
 fn html_child_token_close_index(
   events : Array[@dhtml.HtmlTokenEvent],
-) -> Map[Int, Int] {
-  let out : Map[Int, Int] = Map([])
-  let stacks : Map[String, Array[Int]] = Map([])
+) -> Map[Int32, Int32] {
+  let out : Map[Int32, Int32] = Map([])
+  let stacks : Map[String, Array[Int32]] = Map([])
   for index in 0..<events.length() {
     let event = events[index]
     match event.kind {
@@ -669,8 +669,8 @@ fn html_child_text_lower_event(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  index : Int,
-) -> Int {
+  index : Int32,
+) -> Int32 {
   let event = events[index]
   if state.skip_depth > 0 {
     if event.kind == StartTag && !event.self_closing {
@@ -699,12 +699,12 @@ fn html_child_text_lower_string_fields(
   tag_name : String,
   attributes : Array[@dhtml.HtmlAttribute],
   self_closing : Bool,
-  source_start : Int,
-  source_end : Int,
-  line_start : Int,
-  line_end : Int,
-  byte_start : Int,
-  byte_end : Int,
+  source_start : Int32,
+  source_end : Int32,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
 ) -> Unit {
   if state.skip_depth > 0 {
     if kind == StartTag && !self_closing {
@@ -741,8 +741,8 @@ fn html_child_text_start_tag(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  index : Int,
-) -> Int {
+  index : Int32,
+) -> Int32 {
   let event = events[index]
   let tag = event.tag_name
   if html_scope_event_should_skip(event) || html_token_skip_tag(tag) {
@@ -918,10 +918,10 @@ fn html_child_text_start_tag_fields(
   tag : String,
   attributes : Array[@dhtml.HtmlAttribute],
   self_closing : Bool,
-  line_start : Int,
-  line_end : Int,
-  byte_start : Int,
-  byte_end : Int,
+  line_start : Int32,
+  line_end : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
 ) -> Unit {
   if html_scope_tag_should_skip(tag, attributes) || html_token_skip_tag(tag) {
     if !self_closing {

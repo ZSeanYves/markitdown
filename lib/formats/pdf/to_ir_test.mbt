@@ -11,8 +11,8 @@ fn pdf_test_core_bbox(
 ///|
 fn pdf_test_source_ref(
   file_id : String,
-  page : Int,
-  line : Int,
+  page : Int32,
+  line : Int32,
   bbox : @core.BBox,
 ) -> @core.SourceRef {
   {
@@ -33,12 +33,12 @@ fn pdf_test_line(
   text : String,
   x : Double,
   y : Double,
-  width? : Double = 90.0,
-  height? : Double = 12.0,
-  file_id? : String = "synthetic.pdf",
-  page? : Int = 1,
-  line? : Int = 1,
-  reading_order_index? : Int? = None,
+  width~ : Double = 90.0,
+  height~ : Double = 12.0,
+  file_id~ : String = "synthetic.pdf",
+  page~ : Int32 = 1,
+  line~ : Int32 = 1,
+  reading_order_index~ : Int32? = None,
 ) -> @dpdfnative.PdfNativeTextLine {
   let bbox = @dpdfnative.make_pdf_bbox(x, y, width, height)
   @dpdfnative.make_pdf_native_text_line(
@@ -59,7 +59,7 @@ fn pdf_test_line(
 ///|
 fn pdf_test_inline_image_asset(
   file_id : String,
-  page : Int,
+  page : Int32,
   bbox : @core.BBox,
   asset_id : String,
 ) -> @core.AssetRef {

@@ -1,20 +1,16 @@
 import {
   "moonbitlang/core/encoding/utf16",
   "moonbitlang/core/encoding/utf8",
-  "horideicom/encoding_sjis",
   "ZSeanYves/markitdown/lib/input",
 }
 
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
+
 options(
-  // `encoding_sjis` is used by cp932_portable.mbt, which is excluded on the
-  // native backend. MoonBit imports are package-scoped and cannot be gated by
-  // backend, so suppress only the package-unused diagnostic here; all other
-  // diagnostics remain enabled.
-  warnings: "-unused_package",
   "preferred-target": "native",
   "native-stub": [ "cp932_native_stub.c" ],
-  targets: {
-    "cp932_native.mbt": [ "native" ],
-    "cp932_portable.mbt": [ "wasm", "wasm-gc", "js" ],
-  },
 )

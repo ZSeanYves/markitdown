@@ -13,14 +13,36 @@ pub async fn convert_input(
 
 ///|
 /// Resolve routing without fully executing conversion.
-pub fn plan_input(
+pub async fn plan_input(
   source : @input.InputSource,
   options : ConvertOptions,
 ) -> Result[RoutePlan, ConvertError] {
-  match detect_and_resolve_execution_plan(source, options) {
+  let session = @input.begin_input_session(
+    source,
+    max_bytes=options.limits.max_input_bytes,
+  )
+  defer @input.end_input_session(session)
+  let cleanup = @input.begin_input_cleanup_scope(session)
+  defer ignore(@input.cleanup_input_scope(cleanup))
+  let source = session.source
+  match apply_conversion_temporary_limit(source, options.limits) {
+    Ok(_) => ()
+    Err(error) => return Err(error)
+  }
+  let result = match detect_and_resolve_execution_plan(source, options) {
     Ok((_effective_source, _detected, execution_plan)) =>
-      Ok(route_plan_from_execution_plan(execution_plan))
-    Err(err) => Err(err)
+      match input_failure_convert_error(source, detect=true) {
+        Some(error) => Err(error)
+        None => Ok(route_plan_from_execution_plan(execution_plan))
+      }
+    Err(err) =>
+      Err(input_failure_convert_error(source, detect=true).unwrap_or(err))
+  }
+  let cleaned = finish_conversion_cleanup(cleanup, source, detect=true)
+  match (result, cleaned) {
+    (Err(error), _) => Err(error)
+    (_, Err(error)) => Err(error)
+    (Ok(value), Ok(_)) => Ok(value)
   }
 }
 
@@ -30,6 +52,7 @@ pub fn plan_input(
 pub async fn convert_input_with_provenance(
   source : @input.InputSource,
   options : ConvertOptions,
+  output_assets~ : OutputAssetDemand = MetadataOnly,
 ) -> Result[ConvertExecution, ConvertError] {
-  execute_conversion(source, options, None)
+  execute_conversion(source, options, None, output_assets~)
 }

@@ -11,7 +11,7 @@ test "runtime converts every parse result public IR shape" {
         diagnostics,
       ),
     ) {
-    Document(_) => ()
+    Ok(Document(_)) => ()
     _ => fail("expected document IR")
   }
   let block = @core.make_block(Paragraph, "block")
@@ -24,7 +24,7 @@ test "runtime converts every parse result public IR shape" {
         diagnostics,
       ),
     ) {
-    BlockStream(blocks) => assert_eq(blocks.length(), 1)
+    Ok(BlockStream(blocks)) => assert_eq(blocks.length(), 1)
     _ => fail("expected block stream")
   }
   let event : @core.CoreEvent = {
@@ -41,8 +41,30 @@ test "runtime converts every parse result public IR shape" {
         diagnostics,
       ),
     ) {
-    EventStream(events) => assert_eq(events.length(), 1)
+    Ok(EventStream(events)) => assert_eq(events.length(), 1)
     _ => fail("expected event stream")
+  }
+}
+
+///|
+test "runtime rejects every missing or ambiguous parser shape" {
+  let document = @core.empty_document_ir()
+  let cases : Array[
+    (@core.DocumentIR?, Array[@core.CoreBlock]?, Array[@core.CoreEvent]?),
+  ] = [
+    (None, None, None),
+    (Some(document), Some([]), None),
+    (Some(document), None, Some([])),
+    (None, Some([]), Some([])),
+    (Some(document), Some([]), Some([])),
+  ]
+  let expected = "parse result must expose exactly one public ir shape: invalid-shape"
+  for (document, blocks, events) in cases {
+    match
+      ir_input_from_parse_shapes("invalid-shape", document, blocks, events) {
+      Err(message) => assert_eq(message, expected)
+      Ok(_) => fail("invalid parser shape was accepted")
+    }
   }
 }
 
@@ -120,7 +142,7 @@ fn runtime_block_parser(name : String) -> @parser.Parser {
 }
 
 ///|
-test "runtime child parsing prefers predecoded block stream for markup" {
+async test "runtime child parsing prefers predecoded block stream for markup" {
   let registry = @parser.empty_registry()
   @parser.registry_register(registry, Html, runtime_document_parser("document"))
   @parser.registry_register(registry, Html, runtime_block_parser("blocks"))
@@ -147,7 +169,7 @@ test "runtime child parsing prefers predecoded block stream for markup" {
 }
 
 ///|
-test "runtime child parsing builds events and preserves document fast path" {
+async test "runtime child parsing builds events and preserves document fast path" {
   let registry = @parser.empty_registry()
   @parser.registry_register(registry, Json, runtime_document_parser("document"))
   let document = parse_child_to_document(
@@ -194,7 +216,7 @@ test "runtime child parsing builds events and preserves document fast path" {
 }
 
 ///|
-test "runtime child parsing propagates missing parser errors and mode options" {
+async test "runtime child parsing propagates missing parser errors and mode options" {
   let registry = @parser.empty_registry()
   let source = @input.input_from_text("fixture")
   let context = @parser.new_parse_context(Zip)

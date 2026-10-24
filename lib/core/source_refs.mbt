@@ -41,8 +41,8 @@ pub fn source_ref_with_lines(
   source_ref : SourceRef,
   file_id : String?,
   format : String?,
-  line_start : Int?,
-  line_end : Int?,
+  line_start : Int32?,
+  line_end : Int32?,
 ) -> SourceRef {
   { ..source_ref, file_id, format, line_start, line_end, }
 }
@@ -94,7 +94,7 @@ pub fn source_ref_with_container_entry(
   format : String?,
   container_path : String?,
   entry_path : String?,
-  entry_index : Int?,
+  entry_index : Int32?,
   entry_format : String?,
   inner_path : String?,
 ) -> SourceRef {
@@ -114,17 +114,17 @@ pub fn source_ref_with_container_entry(
 pub fn make_container_entry(
   entry_path : String,
   entry_kind : ContainerEntryKind,
-  normalized_path? : String? = None,
-  entry_index? : Int? = None,
-  detected_format? : String? = None,
-  media_type? : String? = None,
-  compressed_size? : Int? = None,
-  uncompressed_size? : Int? = None,
-  is_encrypted? : Bool = false,
-  compression_method? : String? = None,
-  crc? : String? = None,
-  source_ref? : SourceRef? = None,
-  security_findings? : Array[ContainerSecurityFinding] = [],
+  normalized_path~ : String? = None,
+  entry_index~ : Int32? = None,
+  detected_format~ : String? = None,
+  media_type~ : String? = None,
+  compressed_size~ : Int32? = None,
+  uncompressed_size~ : Int32? = None,
+  is_encrypted~ : Bool = false,
+  compression_method~ : String? = None,
+  crc~ : String? = None,
+  source_ref~ : SourceRef? = None,
+  security_findings~ : Array[ContainerSecurityFinding] = [],
 ) -> ContainerEntry {
   {
     entry_path,
@@ -177,8 +177,8 @@ pub fn source_ref_with_bytes(
   source_ref : SourceRef,
   file_id : String?,
   format : String?,
-  byte_start : Int?,
-  byte_end : Int?,
+  byte_start : Int32?,
+  byte_end : Int32?,
 ) -> SourceRef {
   { ..source_ref, file_id, format, byte_start, byte_end, }
 }
@@ -212,7 +212,7 @@ pub fn source_ref_with_office_fields(
   inner_path : String?,
   sheet : String?,
   cell_range : String?,
-  slide : Int?,
+  slide : Int32?,
   shape_id : String?,
   relationship_id : String?,
 ) -> SourceRef {

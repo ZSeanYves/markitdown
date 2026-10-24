@@ -7,13 +7,9 @@ import {
   "moonbitlang/async",
 } for "wbtest"
 
-supported_targets = "native+wasm"
+supported_targets = "native"
 
 options(
-  "preferred-target": "wasm",
+  "preferred-target": "native",
   "native-stub": [ "stdin_native_stub.c" ],
-  targets: {
-    "stdin_native.mbt": [ "native" ],
-    "stdin_portable.mbt": [ "wasm", "wasm-gc", "js" ],
-  },
 )

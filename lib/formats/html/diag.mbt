@@ -1,21 +1,21 @@
 ///|
 priv struct HtmlSemanticMetricSummary {
-  link_count : Int
-  image_count : Int
-  table_count : Int
-  max_depth : Int
-  noise_repeated_boilerplate_count : Int
-  warning_count : Int
-  warning_error_count : Int
-  unsupported_fact_count : Int
-  unsupported_script_count : Int
-  unsupported_style_count : Int
-  unsupported_iframe_count : Int
-  unsupported_embed_count : Int
-  unsupported_object_count : Int
-  unsupported_remote_image_count : Int
-  unsupported_data_image_count : Int
-  unsupported_unsafe_url_count : Int
+  link_count : Int32
+  image_count : Int32
+  table_count : Int32
+  max_depth : Int32
+  noise_repeated_boilerplate_count : Int32
+  warning_count : Int32
+  warning_error_count : Int32
+  unsupported_fact_count : Int32
+  unsupported_script_count : Int32
+  unsupported_style_count : Int32
+  unsupported_iframe_count : Int32
+  unsupported_embed_count : Int32
+  unsupported_object_count : Int32
+  unsupported_remote_image_count : Int32
+  unsupported_data_image_count : Int32
+  unsupported_unsafe_url_count : Int32
 }
 
 ///|
@@ -90,9 +90,9 @@ fn html_fill_common_metrics(
   semantic_metrics : HtmlSemanticMetricSummary,
   semantic : @dhtml.HtmlSemanticDocument,
   text : String,
-  event_count : Int,
+  event_count : Int32,
   large_mode : Bool,
-  asset_count : Int,
+  asset_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("node_count", inspect.node_count.to_string())
   diagnostics.metrics.set("element_count", inspect.element_count.to_string())
@@ -229,7 +229,7 @@ fn html_fill_child_semantic_metrics(
   semantic_metrics : HtmlSemanticMetricSummary,
   semantic : @dhtml.HtmlSemanticDocument,
   text : String,
-  asset_count : Int,
+  asset_count : Int32,
 ) -> Unit {
   diagnostics.metrics.set("link_count", semantic_metrics.link_count.to_string())
   diagnostics.metrics.set(
@@ -362,7 +362,7 @@ fn html_selected_content_root_metric(
 ///|
 fn html_boilerplate_skipped_block_count(
   semantic : @dhtml.HtmlSemanticDocument,
-) -> Int {
+) -> Int32 {
   let skipped : Map[String, Bool] = Map([])
   for block in semantic.blocks {
     if block.tag_name == "nav" {

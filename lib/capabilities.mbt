@@ -1,12 +1,12 @@
 ///|
 fn capability(
   format : String,
-  canonical_format? : String = format,
-  input_kinds? : Array[InputKind] = [Path, Text, Bytes, Reader],
-  convert_modes? : Array[ConvertMode] = [Balanced],
-  output_modes? : Array[OutputMode] = [Markdown, Debug, Rag],
-  status? : CapabilityStatus = Stable,
-  external_requirements? : Array[String] = [],
+  canonical_format~ : String = format,
+  input_kinds~ : Array[InputKind] = [Path, Text, Bytes, Reader],
+  convert_modes~ : Array[ConvertMode] = [Balanced],
+  output_modes~ : Array[OutputMode] = [Markdown, Debug, Rag],
+  status~ : CapabilityStatus = Stable,
+  external_requirements~ : Array[String] = [],
 ) -> Capability {
   {
     format,

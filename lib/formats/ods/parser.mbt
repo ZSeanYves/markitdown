@@ -2,7 +2,7 @@
 const ODS_PARSER_NAME : String = "ods_parser"
 
 ///|
-const ODS_MAX_MATERIALIZED_ROW_REPEAT : Int = 10_000
+const ODS_MAX_MATERIALIZED_ROW_REPEAT : Int32 = 10_000
 
 ///|
 pub fn ods_parser_capability() -> @parser.ParserCapability {
@@ -24,7 +24,7 @@ pub fn ods_parser_capability() -> @parser.ParserCapability {
 ///|
 pub fn ods_parser() -> @parser.Parser {
   let capability = ods_parser_capability()
-  @parser.make_parser(ODS_PARSER_NAME, PackageSinglePass, capability, fn(
+  @parser.make_parser(ODS_PARSER_NAME, PackageSinglePass, capability, async fn(
     source : @input.InputSource,
     context : @parser.ParseContext,
   ) -> Result[@parser.ParseResult, String] {
@@ -33,11 +33,11 @@ pub fn ods_parser() -> @parser.Parser {
 }
 
 ///|
-fn parse_ods_document_result(
+async fn parse_ods_document_result(
   source : @input.InputSource,
   context : @parser.ParseContext,
   capability : @parser.ParserCapability,
-) -> Result[@parser.ParseResult, String] {
+) -> Result[@parser.ParseResult, String] noraise {
   let prepared = match @dodf.prepare_ods_document_from_source(source) {
     Ok(value) => value
     Err(err) => {
@@ -313,7 +313,7 @@ fn ods_lower_common(
   document : @dodf.OdsDocument,
   stream : Bool,
   context : @parser.ParseContext,
-  diagnostics : @core.Diagnostics,
+  _diagnostics : @core.Diagnostics,
 ) -> OdsLoweredProduct {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
@@ -464,28 +464,11 @@ fn ods_lower_common(
       let already_materialized = asset_ids_by_href.contains(identity) &&
         asset_paths_by_href.contains(identity)
       if !already_materialized &&
-        !@parser.asset_payload_within_limits(
+        !@parser.require_asset_payload_within_limits(
           context,
           observed,
           @parser.materialized_asset_payload_bytes(assets),
         ) {
-        @parser.record_asset_payload_budget_skip(
-          diagnostics,
-          "ods-image-" + (assets.length() + 1).to_string(),
-          "single_or_total_asset_bytes",
-          observed,
-          @parser.max_asset_payload_bytes(context),
-        )
-        let unavailable = @core.make_block(
-          BlockQuote,
-          "Asset unavailable: " + image.href,
-          source_ref=image_ref,
-        )
-        unavailable.attrs.set("asset_missing", "true")
-        unavailable.attrs.set("asset_source_path", image.href)
-        unavailable.attrs.set("payload_skipped", "asset_limit")
-        unavailable.attrs.set("sheet", sheet.name)
-        blocks.push(unavailable)
         continue
       }
       let (asset_id, output_path) = match
@@ -533,7 +516,7 @@ fn ods_lower_common(
 }
 
 ///|
-fn ods_asset_output_path(href : String, index : Int) -> String {
+fn ods_asset_output_path(href : String, index : Int32) -> String {
   let trimmed = href.trim().replace_all(old="\\", new="/")
   let basename = trimmed.split("/").last().unwrap_or("image.bin").to_owned()
   let slug : Array[Char] = []
@@ -583,7 +566,7 @@ fn ods_sheet_source_ref(
   source : @input.InputSource,
   document : @dodf.OdsDocument,
   sheet : @dodf.OdsSheet,
-  row_index : Int?,
+  row_index : Int32?,
 ) -> @core.SourceRef {
   let container_path = @input.input_path(source).unwrap_or(source.source_name)
   let base = @core.source_ref_with_container_entry(
@@ -707,7 +690,7 @@ fn ods_row_has_visible_content(
 }
 
 ///|
-fn ods_effective_row_repeat(row : @dodf.OdsRow) -> Int {
+fn ods_effective_row_repeat(row : @dodf.OdsRow) -> Int32 {
   if row.repeat_count > ODS_MAX_MATERIALIZED_ROW_REPEAT {
     ODS_MAX_MATERIALIZED_ROW_REPEAT
   } else if row.repeat_count > 0 {
@@ -722,8 +705,8 @@ priv struct OdsEffectiveCell {
   text : String
   formula : String?
   covered : Bool
-  col_span : Int
-  row_span : Int
+  col_span : Int32
+  row_span : Int32
 }
 
 ///|
@@ -766,7 +749,7 @@ fn ods_sheet_has_span_cells(sheet : @dodf.OdsSheet) -> Bool {
 }
 
 ///|
-fn ods_last_used_cell_index(row : @dodf.OdsRow) -> Int {
+fn ods_last_used_cell_index(row : @dodf.OdsRow) -> Int32 {
   let mut flat_index = 0
   let mut last_used_index = -1
   for cell in row.cells {

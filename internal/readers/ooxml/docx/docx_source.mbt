@@ -1,7 +1,8 @@
 ///|
-pub fn parse_docx_source_from_package(
+pub async fn parse_docx_source_from_package(
   pkg : @ox.OoxmlPackage,
 ) -> DocxSourceDocument raise DocxError {
+  ensure_docx_package_integrity(pkg)
   let main_part = locate_docx_main_document_part(pkg)
   let xml = @ox.read_part_text(pkg, main_part) catch {
     e => raise OoxmlFailure(e.to_string())
@@ -19,6 +20,7 @@ pub fn parse_docx_source_from_package(
     Some(pkg),
     warnings,
   )
+  ensure_docx_package_integrity(pkg)
   let part : DocxSourcePart = { part_name: main_part, blocks, warnings, }
   let styles = parse_docx_styles_from_package(
     pkg, main_part, relationships, blocks, warnings,
@@ -40,7 +42,7 @@ pub fn parse_docx_source_from_package(
   for textbox in related_textboxes {
     textboxes.push(textbox)
   }
-  {
+  let result : DocxSourceDocument = {
     main_part,
     metadata,
     part_graph,
@@ -77,15 +79,26 @@ pub fn parse_docx_source_from_package(
     textboxes,
     warnings,
   }
+  ensure_docx_package_integrity(pkg)
+  result
 }
 
 ///|
-fn docx_max_table_nesting_depth() -> Int {
+fn ensure_docx_package_integrity(
+  pkg : @ox.OoxmlPackage,
+) -> Unit raise DocxError {
+  if @dzip.archive_hard_failure(pkg.archive) is Some(message) {
+    raise OoxmlFailure(message)
+  }
+}
+
+///|
+fn docx_max_table_nesting_depth() -> Int32 {
   6
 }
 
 ///|
-pub fn parse_docx_source_document_xml(
+pub async fn parse_docx_source_document_xml(
   part_name : String,
   xml : String,
 ) -> DocxSourceDocument raise DocxError {
@@ -96,11 +109,15 @@ pub fn parse_docx_source_document_xml(
 }
 
 ///|
-fn parse_docx_source_document_xml_with_relationships(
+async fn parse_docx_source_document_xml_with_relationships(
   part_name : String,
   xml : String,
   relationships : Array[@ox.OoxmlRelationship],
 ) -> DocxSourceDocument raise DocxError {
+  match @input.validated_text_utf8_size(xml) {
+    Ok(_) => ()
+    Err(message) => raise MalformedDocument(message)
+  }
   let warnings : Array[DocxSourceWarning] = []
   let blocks = parse_docx_body_blocks(
     part_name,

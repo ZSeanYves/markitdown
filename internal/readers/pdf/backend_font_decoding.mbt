@@ -1,29 +1,24 @@
 ///|
-fn pdf_find_bytes(bytes : Bytes, needle : Bytes, start : Int) -> Int? {
-  let haystack = bytes.to_array()
-  let target = needle.to_array()
-  if target.length() == 0 {
+fn pdf_find_bytes(
+  bytes : BytesView,
+  needle : BytesView,
+  start : Int32,
+) -> Int32? {
+  if needle.length() == 0 {
     return Some(start)
   }
-  let mut index = start
-  while index + target.length() <= haystack.length() {
-    let mut matched = true
-    for offset in 0..<target.length() {
-      if haystack[index + offset] != target[offset] {
-        matched = false
-        break
-      }
-    }
-    if matched {
-      return Some(index)
-    }
-    index += 1
+  // Preserve the old loop's range admission, including empty needles outside
+  // the range and negative starts, before using the pinned SDK byte-view search.
+  if start + needle.length() > bytes.length() {
+    return None
   }
-  None
+  // Slice syntax is clamped; exact_view preserves the old checked-index trap
+  // when a negative nonempty range would have entered the matching loop.
+  bytes.exact_view(start~).find(needle).map(offset => start + offset)
 }
 
 ///|
-fn pdf_bytes_have_prefix(bytes : Bytes, start : Int, prefix : String) -> Bool {
+fn pdf_bytes_have_prefix(bytes : Bytes, start : Int32, prefix : String) -> Bool {
   let needle = pdf_ascii_bytes(prefix)
   if start < 0 || start + needle.length() > bytes.length() {
     return false
@@ -38,12 +33,12 @@ fn pdf_bytes_have_prefix(bytes : Bytes, start : Int, prefix : String) -> Bool {
 }
 
 ///|
-fn pdf_byte_at(bytes : Bytes, index : Int) -> Int {
+fn pdf_byte_at(bytes : BytesView, index : Int32) -> Int32 {
   bytes.unsafe_get(index).to_int()
 }
 
 ///|
-fn pdf_is_ascii_whitespace_byte(byte : Int) -> Bool {
+fn pdf_is_ascii_whitespace_byte(byte : Int32) -> Bool {
   byte == ' '.to_int() ||
   byte == '\t'.to_int() ||
   byte == '\n'.to_int() ||
@@ -54,8 +49,8 @@ fn pdf_is_ascii_whitespace_byte(byte : Int) -> Bool {
 ///|
 fn pdf_skip_ascii_whitespace_and_comments_bytes(
   bytes : Bytes,
-  start : Int,
-) -> Int {
+  start : Int32,
+) -> Int32 {
   let mut index = start
   while index < bytes.length() {
     let byte = pdf_byte_at(bytes, index)
@@ -80,7 +75,7 @@ fn pdf_skip_ascii_whitespace_and_comments_bytes(
 }
 
 ///|
-fn pdf_read_ascii_line(bytes : Bytes, start : Int) -> (String, Int) {
+fn pdf_read_ascii_line(bytes : Bytes, start : Int32) -> (String, Int32) {
   let mut index = start
   while index < bytes.length() {
     let byte = pdf_byte_at(bytes, index)
@@ -132,7 +127,7 @@ fn pdf_stream_suffix_is_single_eol(
 }
 
 ///|
-fn pdf_previous_line_start_bytes(bytes : Bytes, index : Int) -> Int {
+fn pdf_previous_line_start_bytes(bytes : Bytes, index : Int32) -> Int32 {
   let arr = bytes.to_array()
   let mut cursor = index
   while cursor > 0 {
@@ -146,7 +141,10 @@ fn pdf_previous_line_start_bytes(bytes : Bytes, index : Int) -> Int {
 }
 
 ///|
-fn pdf_skip_object_header_whitespace_bytes(bytes : Bytes, start : Int) -> Int {
+fn pdf_skip_object_header_whitespace_bytes(
+  bytes : Bytes,
+  start : Int32,
+) -> Int32 {
   let arr = bytes.to_array()
   let mut index = start
   while index < arr.length() {
@@ -165,7 +163,7 @@ fn pdf_skip_object_header_whitespace_bytes(bytes : Bytes, start : Int) -> Int {
 }
 
 ///|
-fn pdf_find_substring(text : String, needle : String, start : Int) -> Int? {
+fn pdf_find_substring(text : String, needle : String, start : Int32) -> Int32? {
   if start < 0 || start > text.length() {
     return None
   }
@@ -176,7 +174,7 @@ fn pdf_find_substring(text : String, needle : String, start : Int) -> Int? {
 }
 
 ///|
-fn pdf_find_last_substring(text : String, needle : String) -> Int? {
+fn pdf_find_last_substring(text : String, needle : String) -> Int32? {
   if needle == "" || needle.length() > text.length() {
     return None
   }
@@ -194,7 +192,7 @@ fn pdf_find_last_substring(text : String, needle : String) -> Int? {
 }
 
 ///|
-fn pdf_parse_dict_text_at(text : String, start : Int) -> String? {
+fn pdf_parse_dict_text_at(text : String, start : Int32) -> String? {
   if start < 0 || start + 1 >= text.length() {
     return None
   }
@@ -267,7 +265,7 @@ fn pdf_normalize_pdf_text(text : String) -> String {
 fn pdf_fragment_visual_compare(
   left : PdfNativeTextFragment,
   right : PdfNativeTextFragment,
-) -> Int {
+) -> Int32 {
   if left.vertical_writing || right.vertical_writing {
     pdf_fragment_vertical_compare(left, right)
   } else if left.x < right.x {
@@ -283,7 +281,7 @@ fn pdf_fragment_visual_compare(
 fn pdf_fragment_vertical_compare(
   left : PdfNativeTextFragment,
   right : PdfNativeTextFragment,
-) -> Int {
+) -> Int32 {
   let x_gap = pdf_abs_double(left.x - right.x)
   if x_gap > 2.0 {
     if left.x > right.x {
@@ -304,7 +302,7 @@ fn pdf_fragment_vertical_compare(
 fn pdf_fragment_reading_order_compare(
   left : PdfNativeTextFragment,
   right : PdfNativeTextFragment,
-) -> Int {
+) -> Int32 {
   if left.vertical_writing || right.vertical_writing {
     pdf_fragment_vertical_compare(left, right)
   } else {
@@ -410,7 +408,7 @@ fn pdf_font_uses_code_unit_decode(info : PdfNativeFontInfo) -> Bool {
 }
 
 ///|
-fn pdf_font_decode_widths(info : PdfNativeFontInfo) -> Array[Int] {
+fn pdf_font_decode_widths(info : PdfNativeFontInfo) -> Array[Int32] {
   if info.code_hex_widths.length() > 0 {
     info.code_hex_widths
   } else if pdf_font_has_predefined_cid_encoding(info) {
@@ -561,7 +559,7 @@ fn pdf_font_is_winansi(info : PdfNativeFontInfo) -> Bool {
 
 ///|
 fn pdf_decode_raw_cjk_bytes_for_font(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   info : PdfNativeFontInfo,
 ) -> String? {
   let encoding_kind = match pdf_font_raw_cjk_encoding_kind(info) {
@@ -595,7 +593,7 @@ fn pdf_raw_cjk_decode_result_is_safe_gb2312_token(
 }
 
 ///|
-fn pdf_string_from_codepoints(codepoints : Array[Int]) -> String {
+fn pdf_string_from_codepoints(codepoints : Array[Int32]) -> String {
   let chars : Array[Char] = []
   for codepoint in codepoints {
     // PDF mappings are untrusted input.  `unsafe_to_char` can construct a
@@ -605,7 +603,7 @@ fn pdf_string_from_codepoints(codepoints : Array[Int]) -> String {
     if !pdf_codepoint_is_unicode_scalar(codepoint) {
       return ""
     }
-    chars.push(Int::unsafe_to_char(codepoint))
+    chars.push(Int32::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
 }
@@ -619,7 +617,7 @@ fn pdf_normalized_pdf_font_name(name : String?) -> String? {
   if raw == "" {
     return None
   }
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   let mut index = 0
   while index < raw.length() {
     let ch = pdf_char_at(raw, index)
@@ -642,7 +640,7 @@ fn pdf_normalized_pdf_font_name(name : String?) -> String? {
   } else {
     let chars : Array[Char] = []
     for byte in bytes {
-      chars.push(Int::unsafe_to_char(byte))
+      chars.push(Int32::unsafe_to_char(byte))
     }
     Some(String::from_array(chars).to_lower())
   }
@@ -675,7 +673,7 @@ fn pdf_native_source_id(source : @input.InputSource) -> String {
 fn pdf_native_line_reading_order_compare(
   left : PdfNativeTextLine,
   right : PdfNativeTextLine,
-) -> Int {
+) -> Int32 {
   match (left.reading_order_index, right.reading_order_index) {
     (Some(a), Some(b)) =>
       if a < b {
@@ -693,7 +691,7 @@ fn pdf_native_line_reading_order_compare(
 fn pdf_native_line_bbox_compare(
   left : PdfNativeTextLine,
   right : PdfNativeTextLine,
-) -> Int {
+) -> Int32 {
   let y_gap = pdf_abs_double(left.bbox.y - right.bbox.y)
   if y_gap > 2.0 {
     if left.bbox.y < right.bbox.y {
@@ -724,7 +722,7 @@ fn pdf_native_lines_bbox(lines : Array[PdfNativeTextLine]) -> PdfBBox {
 }
 
 ///|
-fn pdf_font_has_multibyte_widths(widths : Array[Int]) -> Bool {
+fn pdf_font_has_multibyte_widths(widths : Array[Int32]) -> Bool {
   for width in widths {
     if width > 1 {
       return true
@@ -829,22 +827,22 @@ fn pdf_is_usable_tounicode_text(text : String) -> Bool {
 // Unicode scalar values exclude the UTF-16 surrogate range.  Keep this
 // predicate separate from the noncharacter check: noncharacters are legal
 // scalar values, while surrogates must never reach a UTF-8 encoder.
-fn pdf_codepoint_is_unicode_scalar(code : Int) -> Bool {
+fn pdf_codepoint_is_unicode_scalar(code : Int32) -> Bool {
   code >= 0 && code <= 0x10FFFF && !(code >= 0xD800 && code <= 0xDFFF)
 }
 
 ///|
-fn pdf_codepoint_is_noncharacter(code : Int) -> Bool {
+fn pdf_codepoint_is_noncharacter(code : Int32) -> Bool {
   (code >= 0xFDD0 && code <= 0xFDEF) || (code & 0xFFFE) == 0xFFFE
 }
 
 ///|
-fn pdf_hex_byte_values(hex : String) -> Array[Int]? {
+fn pdf_hex_byte_values(hex : String) -> Array[Int32]? {
   let normalized = hex.trim().to_upper()
   if normalized == "" || normalized.length() % 2 != 0 {
     return None
   }
-  let bytes : Array[Int] = []
+  let bytes : Array[Int32] = []
   let mut index = 0
   while index + 2 <= normalized.length() {
     match pdf_parse_hex_int(normalized[index:index + 2].to_owned()) {
@@ -867,7 +865,7 @@ fn pdf_string_contains_cjk_char(text : String) -> Bool {
 }
 
 ///|
-fn pdf_native_count_line_spans(lines : Array[PdfNativeTextLine]) -> Int {
+fn pdf_native_count_line_spans(lines : Array[PdfNativeTextLine]) -> Int32 {
   let mut count = 0
   for line in lines {
     count += line.spans.length()
@@ -876,7 +874,7 @@ fn pdf_native_count_line_spans(lines : Array[PdfNativeTextLine]) -> Int {
 }
 
 ///|
-fn pdf_native_page_line_count(page : PdfNativePage) -> Int {
+fn pdf_native_page_line_count(page : PdfNativePage) -> Int32 {
   let mut count = 0
   for block in page.text_blocks {
     count += block.lines.length()
@@ -885,7 +883,7 @@ fn pdf_native_page_line_count(page : PdfNativePage) -> Int {
 }
 
 ///|
-fn pdf_native_page_span_count(page : PdfNativePage) -> Int {
+fn pdf_native_page_span_count(page : PdfNativePage) -> Int32 {
   let mut count = 0
   for block in page.text_blocks {
     for line in block.lines {
@@ -947,6 +945,6 @@ fn pdf_abs_double(value : Double) -> Double {
 }
 
 ///|
-fn pdf_char_at(text : String, index : Int) -> Char {
+fn pdf_char_at(text : String, index : Int32) -> Char {
   text.unsafe_get(index).unsafe_to_char()
 }

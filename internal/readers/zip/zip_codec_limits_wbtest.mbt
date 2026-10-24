@@ -1,8 +1,8 @@
 ///|
 fn codec_slice(
   compressed : Bytes,
-  size : Int,
-  crc32 : Int,
+  size : Int32,
+  crc32 : Int32,
 ) -> ZipEntryDataSlice {
   {
     entry: {
@@ -24,7 +24,7 @@ fn codec_slice(
 }
 
 ///|
-test "incremental ZIP decoder rejects trailing bytes in a later input chunk" {
+async test "incremental ZIP decoder rejects trailing bytes in a later input chunk" {
   let source = b"abc"
   let compressed = @flate.deflate_all(source)
   let payload = compressed.to_array()
@@ -44,7 +44,7 @@ test "incremental ZIP decoder rejects trailing bytes in a later input chunk" {
 }
 
 ///|
-test "incremental ZIP decoder checks size before delivering overflow to consumer" {
+async test "incremental ZIP decoder checks size before delivering overflow to consumer" {
   let compressed = @flate.deflate_all(Bytes::make(100000, b'A'))
   let delivered = Ref(0)
   let result = visit_inflated_entry_chunks_from_slice(

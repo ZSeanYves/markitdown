@@ -1,13 +1,13 @@
 ///|
 fn pdf_product_wbtest_object(
-  object_id : Int,
+  object_id : Int32,
   dict_text : String,
 ) -> PdfNativeObject {
   { object_id, dict_text, stream: None, }
 }
 
 ///|
-fn pdf_product_wbtest_navigation_objects() -> Map[Int, PdfNativeObject] {
+fn pdf_product_wbtest_navigation_objects() -> Map[Int32, PdfNativeObject] {
   Map([
     (
       1,
@@ -87,7 +87,7 @@ fn pdf_product_wbtest_navigation_objects() -> Map[Int, PdfNativeObject] {
 test "pdf navigation extracts outline trees and both destination dictionaries" {
   let source = @input.input_from_text("synthetic", source_name="navigation.pdf")
   let objects = pdf_product_wbtest_navigation_objects()
-  let pages : Map[Int, Int] = Map([(3, 1)])
+  let pages : Map[Int32, Int32] = Map([(3, 1)])
   let outlines = pdf_extract_outline_items(
     source,
     ["<< /Root 1 0 R >>"],
@@ -135,7 +135,7 @@ test "pdf annotation actions surface flags file specs destinations and JSON" {
     source_name="annotations.pdf",
   )
   let objects = pdf_product_wbtest_navigation_objects()
-  let pages : Map[Int, Int] = Map([(3, 1)])
+  let pages : Map[Int32, Int32] = Map([(3, 1)])
   let dictionaries = [
     "<< /Subtype /Link /P 3 0 R /Rect [1 2 30 40] /Contents ( first \\n second ) /T (author) /Subj (subject) /NM (a1) /M (today) /F 4 /A << /S /URI /URI (https://example.test) >> >>",
     "<< /Subtype /Link /Rect [1 2 3 4] /Dest [3 0 R /Fit] >>", "<< /Subtype /FileAttachment /Rect [1 2 3 4] /FS << /UF (report.txt) >> >>",
@@ -200,7 +200,7 @@ test "pdf annotation actions surface flags file specs destinations and JSON" {
 ///|
 test "pdf action summaries cover local remote launch custom and missing actions" {
   let objects = pdf_product_wbtest_navigation_objects()
-  let pages : Map[Int, Int] = Map([(3, 7)])
+  let pages : Map[Int32, Int32] = Map([(3, 7)])
   let uri = pdf_annotation_action_summary(
     "<< /A << /S /URI /URI (https://example.test) >> >>",
     objects,

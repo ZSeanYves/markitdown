@@ -12,7 +12,14 @@ pub fn parse_html_document(text : String) -> HtmlDocument raise {
 ///|
 pub fn analyze_html_source(text : String) -> HtmlSourceAnalysis raise {
   let normalized = normalize_html_source(text)
-  let scan = tokenize_normalized_html_event_scan(normalized)
+  analyze_normalized_html_source(normalized)
+}
+
+///|
+fn analyze_normalized_html_source(
+  normalized : String,
+) -> HtmlSourceAnalysis raise {
+  let scan = tokenize_normalized_html_event_scan(normalized, emit_tokens=true)
   let parser = HtmlParser::{ tokens: scan.tokens, pos: 0, }
   {
     document: parser.parse_document(count_html_source_chars(normalized)),
@@ -21,7 +28,7 @@ pub fn analyze_html_source(text : String) -> HtmlSourceAnalysis raise {
 }
 
 ///|
-fn count_html_source_chars(text : String) -> Int {
+fn count_html_source_chars(text : String) -> Int32 {
   let mut count = 0
   for _ in text {
     count += 1
@@ -60,13 +67,13 @@ pub fn classify_html_error(err : HtmlError) -> HtmlErrorInfo {
 ///|
 priv struct HtmlParser {
   tokens : Array[HtmlToken]
-  mut pos : Int
+  mut pos : Int32
 }
 
 ///|
 fn HtmlParser::parse_document(
   self : HtmlParser,
-  source_length : Int,
+  source_length : Int32,
 ) -> HtmlDocument {
   let nodes : Array[HtmlNode] = []
   let issues : Array[HtmlValidationIssue] = []

@@ -3,6 +3,7 @@ pub(all) suberror EpubError {
   ZipError(String)
   MissingPart(String)
   InvalidXml(String)
+  InvalidEncoding(String)
   InvalidPath(String)
   InvalidPackage(String)
   UnsupportedFeature(String)
@@ -16,6 +17,7 @@ pub(all) enum EpubErrorKind {
   MissingPart
   DuplicateManifestId
   InvalidXml
+  InvalidEncoding
   InvalidPath
   InvalidPackage
   UnsupportedFeature
@@ -64,6 +66,7 @@ pub impl Show for EpubError with fn to_string(self : EpubError) -> String {
     ZipError(msg) => "zip error: " + msg
     MissingPart(path) => "missing EPUB part: " + path
     InvalidXml(msg) => "invalid EPUB xml: " + msg
+    InvalidEncoding(msg) => "invalid EPUB encoding: " + msg
     InvalidPath(path) => "invalid EPUB path: " + path
     InvalidPackage(msg) => "invalid EPUB package: " + msg
     UnsupportedFeature(msg) => "unsupported EPUB feature: " + msg
@@ -91,7 +94,7 @@ pub struct EpubErrorInfo {
 pub struct EpubArchiveEntry {
   raw_path : String
   path : String
-  uncompressed_size : Int
+  uncompressed_size : Int32
 }
 
 ///|
@@ -143,7 +146,7 @@ pub struct EpubManifestItem {
 pub struct EpubSpineItem {
   idref : String
   linear : Bool
-  spine_index : Int
+  spine_index : Int32
   manifest_item : EpubManifestItem?
   resolved_path : String?
 }
@@ -152,7 +155,7 @@ pub struct EpubSpineItem {
 pub struct EpubNavPoint {
   label : String
   href : String
-  depth : Int
+  depth : Int32
   source_path : String?
 }
 
@@ -171,14 +174,14 @@ pub struct EpubPackageInventory {
   source_name : String
   mimetype : String?
   primary_rootfile_path : String
-  part_count : Int
-  rootfile_count : Int
-  manifest_count : Int
-  spine_count : Int
-  spine_linear_count : Int
-  nav_point_count : Int
-  metadata_count : Int
-  cover_candidate_count : Int
+  part_count : Int32
+  rootfile_count : Int32
+  manifest_count : Int32
+  spine_count : Int32
+  spine_linear_count : Int32
+  nav_point_count : Int32
+  metadata_count : Int32
+  cover_candidate_count : Int32
   has_encryption : Bool
   nav_path : String?
   nav_document_path : String?
@@ -197,7 +200,7 @@ pub struct EpubInspectSpineItem {
   href : String
   media_type : String?
   linear : Bool
-  spine_index : Int
+  spine_index : Int32
   action : String
 }
 
@@ -208,8 +211,8 @@ pub struct EpubInspectReport {
   rootfile_path : String
   primary_rootfile : EpubRootfileInfo
   rootfiles : Array[EpubRootfileInfo]
-  manifest_count : Int
-  spine_count : Int
+  manifest_count : Int32
+  spine_count : Int32
   nav_path : String?
   nav_document_path : String?
   ncx_path : String?
@@ -232,20 +235,20 @@ pub struct EpubValidationIssue {
   part_name : String?
   href : String?
   media_type : String?
-  spine_index : Int?
+  spine_index : Int32?
   message : String
 }
 
 ///|
 pub struct EpubValidationReport {
   source_name : String
-  part_count : Int
-  rootfile_count : Int
-  manifest_count : Int
-  spine_count : Int
-  issue_count : Int
-  error_count : Int
-  warning_count : Int
+  part_count : Int32
+  rootfile_count : Int32
+  manifest_count : Int32
+  spine_count : Int32
+  issue_count : Int32
+  error_count : Int32
+  warning_count : Int32
   issues : Array[EpubValidationIssue]
 }
 
@@ -272,10 +275,10 @@ pub struct EpubPackage {
   priv inspect_cache : Ref[EpubInspectReport?]
   priv inventory_cache : Ref[EpubPackageInventory?]
   priv text_part_cache : Map[String, String]
-  priv text_hit_count : Ref[Int]
-  priv text_miss_count : Ref[Int]
-  priv inspect_hit_count : Ref[Int]
-  priv inspect_miss_count : Ref[Int]
-  priv inventory_hit_count : Ref[Int]
-  priv inventory_miss_count : Ref[Int]
+  priv text_hit_count : Ref[Int32]
+  priv text_miss_count : Ref[Int32]
+  priv inspect_hit_count : Ref[Int32]
+  priv inspect_miss_count : Ref[Int32]
+  priv inventory_hit_count : Ref[Int32]
+  priv inventory_miss_count : Ref[Int32]
 }

@@ -126,7 +126,10 @@ fn lower_line_delimited_json_events(
   text : String,
   source : @input.InputSource,
   context : @parser.ParseContext,
-) -> Result[(Array[@core.CoreEvent], Int, Int, Int, Int, Int, Int), String] {
+) -> Result[
+  (Array[@core.CoreEvent], Int32, Int32, Int32, Int32, Int32, Int32),
+  String,
+] {
   let lines = text.split("\n").to_array()
   let events : Array[@core.CoreEvent] = []
   let object_rows : Array[Array[String]] = []
@@ -137,9 +140,10 @@ fn lower_line_delimited_json_events(
   let mut record_index = 0
   let mut blank_line_count = 0
   let max_rows = context.max_rows.unwrap_or(200)
-  let mut header_keys : Array[String]? = None
-  let record_line_numbers : Array[Int] = []
+  let mut columns : LineJsonColumns? = None
+  let record_line_numbers : Array[Int32] = []
   let record_pointers : Array[String] = []
+  let record_ordinals : Array[Int32] = []
   for i in 0..<lines.length() {
     let raw_line = normalize_line_delimited_json_record(lines[i].to_owned())
       .trim()
@@ -174,17 +178,10 @@ fn lower_line_delimited_json_events(
       max_depth = inspect.max_depth
     }
     let pointer = "/" + record_index.to_string()
-    record_line_numbers.push(i + 1)
-    record_pointers.push(pointer)
     match doc.root {
-      Object(members) => {
-        let keys = members.map(fn(m) { m.key })
-        match header_keys {
-          Some(existing) if !@fshared.keys_match_position_index(
-              existing,
-              @fshared.key_position_index(existing),
-              keys,
-            ) =>
+      Object(members) =>
+        match columns {
+          Some(schema) if !schema.matches(members) =>
             events.push({
               kind: StartBlock(Code),
               text: raw_line,
@@ -198,14 +195,23 @@ fn lower_line_delimited_json_events(
               ),
             })
           _ => {
-            if header_keys is None {
-              header_keys = Some(keys)
+            let schema = match columns {
+              Some(schema) => schema
+              None => {
+                let schema = LineJsonColumns::new(members)
+                columns = Some(schema)
+                schema
+              }
             }
-            let row = json_members_to_row(members, header_keys.unwrap_or([]))
+            let row = json_members_to_row(members, schema.keys)
             object_rows.push(row)
+            // Table rows are a filtered projection. Keep their source facts
+            // aligned with those rows, not with earlier scalar/mismatch rows.
+            record_line_numbers.push(i + 1)
+            record_pointers.push(pointer)
+            record_ordinals.push(record_index)
           }
         }
-      }
       _ =>
         events.push({
           kind: StartBlock(Code),
@@ -222,14 +228,14 @@ fn lower_line_delimited_json_events(
     }
     record_index += 1
   }
-  match header_keys {
-    Some(keys) if object_rows.length() > 0 => {
-      let all_rows : Array[Array[String]] = [keys]
+  match columns {
+    Some(schema) if object_rows.length() > 0 => {
+      let all_rows : Array[Array[String]] = [schema.keys]
       for row in object_rows {
         all_rows.push(row)
       }
       let table_events = table_events_from_rows(
-        all_rows, source, format_name, record_line_numbers, record_pointers,
+        all_rows, source, format_name, record_line_numbers, record_pointers, record_ordinals,
       )
       table_events.append(events[:])
       Ok(
@@ -273,9 +279,10 @@ fn normalize_line_delimited_json_record(line : String) -> String {
 fn json_stream_source_ref(
   source : @input.InputSource,
   pointer : String,
-  line : Int,
-  byte_start : Int,
-  byte_end : Int,
+  line : Int32,
+  byte_start : Int32,
+  byte_end : Int32,
+  byte_normalization~ : String = "leading_bom_removed_crlf_to_lf",
 ) -> @core.SourceRef {
   let source_ref = @core.source_ref_with_bytes(
     @core.source_ref_with_lines(
@@ -290,6 +297,8 @@ fn json_stream_source_ref(
     Some(byte_start),
     Some(byte_end),
   )
+  source_ref.extra.set("byte_basis", "normalized_decoded_utf8")
+  source_ref.extra.set("byte_normalization", byte_normalization)
   source_ref
 }
 
@@ -298,8 +307,16 @@ fn merge_stream_bytes_into_source_ref(
   original : @core.SourceRef,
   streamed : @core.SourceRef,
 ) -> @core.SourceRef {
+  let extra = original.extra.copy()
+  for key in ["byte_basis", "byte_normalization"] {
+    match streamed.extra.get(key) {
+      Some(value) => extra.set(key, value)
+      None => extra.remove(key) |> ignore
+    }
+  }
   {
     ..original,
+    extra,
     line_start: streamed.line_start,
     line_end: streamed.line_end,
     byte_start: streamed.byte_start,
@@ -323,14 +340,18 @@ fn json_generic_block_events_from_stream(
 
 ///|
 /// Lower a validated large root array one item at a time. Structural scanning
-/// uses UTF-8 code units only for JSON delimiters, so element slices preserve
-/// the original payload bytes and source offsets.
+/// uses UTF16 indices only for slicing. A separate monotonic counter visits
+/// disjoint lexical ranges to obtain UTF8 offsets without a prefix table or
+/// repeatedly encoding the already consumed input. CRLF remains in this view.
 fn json_compact_root_array_events_direct(
   text : String,
   source : @input.InputSource,
 ) -> Result[Array[@core.CoreEvent], String] {
   let events : Array[@core.CoreEvent] = []
-  let mut index = 0
+  let had_bom = text.has_prefix("\u{FEFF}")
+  let mut index = if had_bom { 1 } else { 0 }
+  let mut counted_index = index
+  let mut counted_bytes = 0L
   let mut line = 1
   let length = text.length()
   while index < length &&
@@ -373,9 +394,23 @@ fn json_compact_root_array_events_direct(
     }
     line += preview_cursor.line_breaks
     index = item_end
+    let byte_start = counted_bytes +
+      json_utf8_lexical_range_size(text, counted_index, item_start)
+    let byte_end = byte_start +
+      json_utf8_lexical_range_size(text, item_start, item_end)
+    if byte_end > 2147483647L {
+      return Err("JSON source position exceeds Int32 UTF8 range")
+    }
+    counted_index = item_end
+    counted_bytes = byte_end
     let pointer = json_append_pointer("/", item_index.to_string())
     let source_ref = json_stream_source_ref(
-      source, pointer, item_line, item_start, item_end,
+      source,
+      pointer,
+      item_line,
+      byte_start.to_int(),
+      byte_end.to_int(),
+      byte_normalization=if had_bom { "leading_bom_removed" } else { "none" },
     )
     source_ref.extra.set("ir_event_encoding", "json_list_v1")
     source_ref.extra.set("ir_block_kind", "list_item")
@@ -395,15 +430,37 @@ fn json_compact_root_array_events_direct(
 }
 
 ///|
-fn json_direct_is_space(ch : Int) -> Bool {
+fn json_utf8_lexical_range_size(
+  text : String,
+  start : Int32,
+  end : Int32,
+) -> Int64 {
+  let mut size = 0L
+  for ch in text[start:end] {
+    let code = ch.to_int()
+    size += if code <= 0x7F {
+      1L
+    } else if code <= 0x7FF {
+      2L
+    } else if code <= 0xFFFF {
+      3L
+    } else {
+      4L
+    }
+  }
+  size
+}
+
+///|
+fn json_direct_is_space(ch : Int32) -> Bool {
   ch == 32 || ch == 9 || ch == 10 || ch == 13
 }
 
 ///|
 priv struct JsonDirectPreviewCursor {
   text : String
-  mut pos : Int
-  mut line_breaks : Int
+  mut pos : Int32
+  mut line_breaks : Int32
 }
 
 ///|
@@ -420,7 +477,7 @@ fn JsonDirectPreviewCursor::skip_ws(self : JsonDirectPreviewCursor) -> Unit {
 ///|
 fn JsonDirectPreviewCursor::value_preview(
   self : JsonDirectPreviewCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   self.skip_ws()
   if self.pos >= self.text.length() {
@@ -449,7 +506,7 @@ fn JsonDirectPreviewCursor::value_preview(
 ///|
 fn JsonDirectPreviewCursor::object_preview(
   self : JsonDirectPreviewCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   self.pos += 1
   self.skip_ws()
@@ -492,7 +549,7 @@ fn JsonDirectPreviewCursor::object_preview(
 ///|
 fn JsonDirectPreviewCursor::array_preview(
   self : JsonDirectPreviewCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   self.pos += 1
   self.skip_ws()
@@ -662,7 +719,7 @@ fn json_compact_root_array_events_from_stream(
 ///|
 fn json_compact_preview_text(
   cursor : JsonStreamCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   let event = cursor.events[cursor.index]
   match event.kind {
@@ -686,7 +743,7 @@ fn json_compact_preview_text(
 ///|
 fn json_compact_object_preview_text(
   cursor : JsonStreamCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   let root_depth = cursor.events[cursor.index].depth
   let member_depth = root_depth + 1
@@ -727,7 +784,7 @@ fn json_compact_object_preview_text(
 ///|
 fn json_compact_array_preview_text(
   cursor : JsonStreamCursor,
-  preview_depth : Int,
+  preview_depth : Int32,
 ) -> String {
   let root_depth = cursor.events[cursor.index].depth
   let item_depth = root_depth + 1

@@ -26,20 +26,19 @@ async test "xlsx parser keeps package-single-pass route diagnostics and source r
 
 ///|
 async test "xlsx accurate fidelity includes hidden sheets instead of skipping them" {
+  let session = @input.begin_input_session(
+    @input.input_from_path(
+      "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
+    ),
+  )
+  defer @input.end_input_session(session)
   let registry = @fmeta.builtin_registry()
   let context = @parser.parse_context_with_product_modes(
     @parser.new_parse_context(Xlsx),
     Accurate,
     Markdown,
   )
-  let result = match
-    @parser.registry_parse(
-      registry,
-      @input.input_from_path(
-        "samples/fixtures/contracts/xlsx/xlsx_hidden_sheets_policy.xlsx",
-      ),
-      context,
-    ) {
+  let result = match @parser.registry_parse(registry, session.source, context) {
     Ok(value) => value
     Err(err) => fail("accurate xlsx parse failed: " + err)
   }

@@ -1,5 +1,5 @@
 ///|
-test "TeX parser lowers headings lists environments tables and includes" {
+async test "TeX parser lowers headings lists environments tables and includes" {
   let text = [
     "\\section{Title}", "Paragraph with \\textbf{bold} and \\href{https://example.test}{link}.",
     "\\begin{itemize}", "\\item First", "\\item Second", "\\end{itemize}", "\\begin{quote}",
@@ -18,7 +18,7 @@ test "TeX parser lowers headings lists environments tables and includes" {
 }
 
 ///|
-test "TeX semantic edge cases keep empty environments and local includes readable" {
+async test "TeX semantic edge cases keep empty environments and local includes readable" {
   let text = [
     "\\input{appendix.tex}", "\\begin{quote}", "\\end{quote}", "\\begin{figure}",
     "\\caption{A retained caption}", "\\end{figure}", "Unknown \\custommacro{visible argument}.",
@@ -172,7 +172,7 @@ test "TeX table rows retain cells and caption context" {
 }
 
 ///|
-test "TeX parser exports includegraphics as a sidecar asset" {
+async test "TeX parser exports includegraphics as a sidecar asset" {
   let result = (tex_parser().parse)(
     @input.input_from_text_with_format(
       "\\includegraphics[width=4cm]{figure.png}",

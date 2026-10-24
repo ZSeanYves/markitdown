@@ -1,14 +1,40 @@
 ///|
-fn pdf_parse_objects(
+async fn pdf_parse_objects(
   bytes : Bytes,
   view : String,
+  decode_context~ : PdfStreamDecodeContext? = None,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
-  match pdf_parse_objects_via_xref(bytes, view) {
+  // A materialized snapshot still borrows the original conversion owner. Do
+  // not allocate/publish identity metadata after its first failure or close.
+  pdf_check_stream_live(decode_context)
+  let loaded_snapshot = decode_context.map(context => {
+    // Native64 field payload: snapshot refs16 + size4 + mutable token Bool4.
+    // Validate against generated C before acceptance; headers/allocator and
+    // temporary parser origins remain unmeasured, not a heap/RSS bound.
+    pdf_session_retain(context, 24L)
+    { authority: Ref(false), source_size: bytes.length(), context, }
+  })
+  match
+    pdf_parse_objects_via_xref(bytes, view, decode_context~, loaded_snapshot~) {
     Ok(Some(store)) => Ok(store)
-    Ok(None) => pdf_scan_object_store(bytes, view, "scan_fallback_v0")
+    Ok(None) =>
+      pdf_scan_object_store(
+        bytes,
+        view,
+        "scan_fallback_v0",
+        decode_context~,
+        loaded_snapshot~,
+      )
+    Err(ReadFailed(message)) => Err(ReadFailed(message))
     Err(err) =>
       match
-        pdf_scan_object_store(bytes, view, "scan_fallback_after_xref_error_v1") {
+        pdf_scan_object_store(
+          bytes,
+          view,
+          "scan_fallback_after_xref_error_v1",
+          decode_context~,
+          loaded_snapshot~,
+        ) {
         Ok(store) => Ok(store)
         Err(_) => Err(err)
       }
@@ -16,15 +42,18 @@ fn pdf_parse_objects(
 }
 
 ///|
-fn pdf_parse_objects_via_xref(
+async fn pdf_parse_objects_via_xref(
   bytes : Bytes,
   view : String,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
 ) -> Result[PdfParsedObjectStore?, PdfNativeError] {
   let startxref = match pdf_find_startxref_offset(view) {
     Some(value) if value >= 0 && value < bytes.length() => value
     _ => return Ok(None)
   }
-  let resolved = match pdf_resolve_xref_chain(bytes, view, startxref) {
+  let resolved = match
+    pdf_resolve_xref_chain(bytes, view, startxref, decode_context~) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
@@ -38,15 +67,18 @@ fn pdf_parse_objects_via_xref(
       Ok(bytes[offset:offset + length].to_owned())
     },
     "materialized_xref",
+    decode_context~,
+    loaded_snapshot~,
   )
 }
 
 ///|
-const PDF_RANDOM_ACCESS_WINDOW_MAX : Int = 32 * 1024 * 1024
+const PDF_RANDOM_ACCESS_WINDOW_MAX : Int32 = 32 * 1024 * 1024
 
 ///|
-fn pdf_parse_objects_via_cursor(
+async fn pdf_parse_objects_via_cursor(
   cursor : @input.SourceCursor,
+  decode_context~ : PdfStreamDecodeContext? = None,
 ) -> Result[PdfParsedObjectStore?, PdfNativeError] {
   let source_size = match cursor.size {
     Some(value) if value > 0L && value <= 512L * 1024L * 1024L => value.to_int()
@@ -64,32 +96,40 @@ fn pdf_parse_objects_via_cursor(
     _ => return Ok(None)
   }
   let resolved = match
-    pdf_resolve_xref_chain_cursor(cursor, source_size, startxref) {
+    pdf_resolve_xref_chain_cursor(
+      cursor,
+      source_size,
+      startxref,
+      decode_context~,
+    ) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   pdf_build_store_from_resolved_xref(
     resolved,
     source_size,
-    fn(offset, length) {
+    async fn(offset, length) {
       match pdf_cursor_read_exact(cursor, offset, length) {
         Ok(value) => Ok(value)
         Err(err) => Err(err.to_string())
       }
     },
     "cursor_xref",
+    decode_context~,
+    range_cursor=Some(cursor),
   )
 }
 
 ///|
-fn pdf_resolve_xref_chain_cursor(
+async fn pdf_resolve_xref_chain_cursor(
   cursor : @input.SourceCursor,
-  source_size : Int,
-  startxref : Int,
+  source_size : Int32,
+  startxref : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
 ) -> Result[PdfResolvedXrefChain, PdfNativeError] {
-  let pending_offsets : Array[Int] = [startxref]
-  let visited_offsets : Map[Int, Bool] = Map([])
-  let entries : Map[Int, PdfNativeXrefEntry] = Map([])
+  let pending_offsets : Array[Int32] = [startxref]
+  let visited_offsets : Map[Int32, Bool] = Map([])
+  let entries : Map[Int32, PdfNativeXrefEntry] = Map([])
   let trailer_hints : Array[String] = []
   let mut used_xref_stream = false
   let mut has_object_stream_refs = false
@@ -106,15 +146,11 @@ fn pdf_resolve_xref_chain_cursor(
     let window_length = (source_size - offset).min(PDF_RANDOM_ACCESS_WINDOW_MAX)
     let window = match pdf_cursor_read_exact(cursor, offset, window_length) {
       Ok(value) => value
-      Err(err) =>
-        if parsed_section_count == 0 && entries.length() == 0 {
-          return Err(err)
-        } else {
-          continue
-        }
+      Err(err) => return Err(err)
     }
     let window_view = pdf_byte_string(window)
-    let section = match pdf_parse_xref_section(window, window_view, 0) {
+    let section = match
+      pdf_parse_xref_section(window, window_view, 0, decode_context~) {
       Ok(value) => value
       Err(err) =>
         if parsed_section_count == 0 && entries.length() == 0 {
@@ -151,33 +187,18 @@ fn pdf_resolve_xref_chain_cursor(
 }
 
 ///|
-fn pdf_cursor_read_exact(
+async fn pdf_cursor_read_exact(
   cursor : @input.SourceCursor,
-  offset : Int,
-  length : Int,
+  offset : Int32,
+  length : Int32,
 ) -> Result[Bytes, PdfNativeError] {
   if offset < 0 || length < 0 {
     return Err(ReadFailed("PDF cursor range is invalid"))
   }
-  let output = Buffer()
-  let mut consumed = 0
-  while consumed < length {
-    let chunk = match
-      @input.source_cursor_read_at(
-        cursor,
-        (offset + consumed).to_int64(),
-        length=length - consumed,
-      ) {
-      Ok(value) => value
-      Err(message) => return Err(ReadFailed(message))
-    }
-    if chunk.length() == 0 || chunk.length() > length - consumed {
-      return Err(ReadFailed("unexpected EOF in PDF cursor"))
-    }
-    output.write_bytes(chunk)
-    consumed += chunk.length()
+  match @input.source_cursor_read_exact_at(cursor, offset.to_int64(), length) {
+    Ok(bytes) => Ok(bytes)
+    Err(message) => Err(ReadFailed(message))
   }
-  Ok(output.to_bytes())
 }
 
 ///|
@@ -186,12 +207,10 @@ fn pdf_parsed_store_is_encrypted(store : PdfParsedObjectStore) -> Bool {
 }
 
 ///|
-fn pdf_build_store_from_resolved_xref(
+fn pdf_xref_object_locations(
   resolved : PdfResolvedXrefChain,
-  source_size : Int,
-  read_range : (Int, Int) -> Result[Bytes, String],
-  input_access_mode : String,
-) -> Result[PdfParsedObjectStore?, PdfNativeError] {
+  source_size : Int32,
+) -> (Array[PdfXrefDirectObjectLocation], Array[PdfXrefCompressedObjectRef]) {
   let direct_locations : Array[PdfXrefDirectObjectLocation] = []
   let compressed_refs : Array[PdfXrefCompressedObjectRef] = []
   for entry in resolved.entries.to_array() {
@@ -203,9 +222,6 @@ fn pdf_build_store_from_resolved_xref(
       Compressed(object_stream_id, _object_index_in_stream) =>
         compressed_refs.push({ object_id: entry.0, object_stream_id, })
     }
-  }
-  if direct_locations.length() == 0 && compressed_refs.length() == 0 {
-    return Ok(None)
   }
   direct_locations.sort_by(fn(left, right) {
     if left.offset < right.offset {
@@ -220,8 +236,36 @@ fn pdf_build_store_from_resolved_xref(
       0
     }
   })
+  (direct_locations, compressed_refs)
+}
+
+///|
+async fn pdf_build_store_from_resolved_xref(
+  resolved : PdfResolvedXrefChain,
+  source_size : Int32,
+  read_range : async (Int32, Int32) -> Result[Bytes, String],
+  input_access_mode : String,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
+  prefetched~ : Map[Int32, PdfNativeObject] = Map([]),
+  object_streams? : PdfObjectStreamResultCache,
+  range_cursor~ : @input.SourceCursor? = None,
+  locations~ : (
+    Array[PdfXrefDirectObjectLocation],
+    Array[PdfXrefCompressedObjectRef],
+  )? = None,
+) -> Result[PdfParsedObjectStore?, PdfNativeError] {
+  let object_streams = object_streams.unwrap_or_else(() => {
+    pdf_make_object_stream_result_cache(decode_context)
+  })
+  let (direct_locations, compressed_refs) = locations.unwrap_or_else(() => {
+    pdf_xref_object_locations(resolved, source_size)
+  })
+  if direct_locations.length() == 0 && compressed_refs.length() == 0 {
+    return Ok(None)
+  }
   let objects : Array[PdfNativeObject] = []
-  let object_index : Map[Int, PdfNativeObject] = Map([])
+  let object_index : Map[Int32, PdfNativeObject] = Map([])
   let mut location_index = 0
   while location_index < direct_locations.length() {
     let location = direct_locations[location_index]
@@ -236,15 +280,60 @@ fn pdf_build_store_from_resolved_xref(
       source_size - location.offset
     }
     let window_length = available.min(PDF_RANDOM_ACCESS_WINDOW_MAX)
-    let window = match read_range(location.offset, window_length) {
-      Ok(value) => value
-      Err(message) => return Err(ReadFailed(message))
-    }
-    let object = match pdf_parse_indirect_object_at(window, 0) {
-      Ok(value) => value
-      Err(_err) => {
-        location_index += 1
-        continue
+    let object = match prefetched.get(location.object_id) {
+      Some(value) => value
+      None => {
+        let lease = if range_cursor is Some(_) {
+          pdf_reserve_decode_scratch(decode_context, window_length.to_int64())
+        } else {
+          None
+        }
+        defer pdf_release_decode_scratch(lease)
+        let window = match read_range(location.offset, window_length) {
+          Ok(value) => value
+          Err(message) => return Err(ReadFailed(message))
+        }
+        let range_source = range_cursor.map(cursor => {
+          cursor,
+          window_start: location.offset.to_int64(),
+          definition_offset: location.offset.to_int64(),
+          generation: match resolved.entries.get(location.object_id) {
+            Some(InUse(_, generation)) => generation
+            _ => 0
+          },
+          metadata_prepaid: false,
+        })
+        let loaded_source = if range_cursor is None {
+          loaded_snapshot.map(snapshot => {
+            snapshot,
+            window_start: location.offset.to_int64(),
+            selected: resolved.entries
+            .get(location.object_id)
+            .bind(entry => {
+              match entry {
+                InUse(offset, generation) =>
+                  Some((offset.to_int64(), generation))
+                _ => None
+              }
+            }),
+          })
+        } else {
+          None
+        }
+        match
+          pdf_parse_indirect_object_at(
+            window,
+            0,
+            decode_context~,
+            range_source~,
+            loaded_source~,
+          ) {
+          Ok(value) => value
+          Err(_err) => {
+            location_index += 1
+            continue
+          }
+        }
       }
     }
     if object.object_id != location.object_id {
@@ -263,9 +352,9 @@ fn pdf_build_store_from_resolved_xref(
     return Ok(None)
   }
   if compressed_refs.length() > 0 {
-    let expected_compressed : Map[Int, Bool] = Map([])
-    let ordered_object_stream_ids : Array[Int] = []
-    let seen_stream_ids : Map[Int, Bool] = Map([])
+    let expected_compressed : Map[Int32, Bool] = Map([])
+    let ordered_object_stream_ids : Array[Int32] = []
+    let seen_stream_ids : Map[Int32, Bool] = Map([])
     for compressed_ref in compressed_refs {
       expected_compressed.set(compressed_ref.object_id, true)
       if !seen_stream_ids.get(compressed_ref.object_stream_id).unwrap_or(false) {
@@ -299,9 +388,10 @@ fn pdf_build_store_from_resolved_xref(
         Some(value) => value
         None => continue
       }
-      let parsed = match pdf_parse_object_stream_entries(object_stream) {
+      let parsed = match
+        pdf_parse_object_stream_entries(object_stream, cache=object_streams) {
         Ok(value) => value
-        Err(err) => return Err(err)
+        Err(error) => return Err(error)
       }
       for embedded in parsed {
         if !expected_compressed.get(embedded.object_id).unwrap_or(false) {
@@ -332,10 +422,12 @@ fn pdf_build_store_from_resolved_xref(
 }
 
 ///|
-fn pdf_scan_object_store(
+async fn pdf_scan_object_store(
   bytes : Bytes,
   view : String,
   xref_mode : String,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  loaded_snapshot~ : PdfLoadedSnapshot? = None,
 ) -> Result[PdfParsedObjectStore, PdfNativeError] {
   let objects : Array[PdfNativeObject] = []
   let mut cursor = 0
@@ -352,8 +444,16 @@ fn pdf_scan_object_store(
           ParseFailed("unterminated PDF object " + header.object_id.to_string()),
         )
     }
-    let object_body = bytes[header.body_start:endobj].to_owned()
-    let stream_slice = match pdf_extract_stream_slice(object_body) {
+    let object_body = bytes[header.body_start:endobj]
+    let stream_slice = match
+      pdf_extract_stream_slice(
+        object_body,
+        decode_context,
+        object_id=header.object_id,
+        loaded_origin=loaded_snapshot.bind(snapshot => {
+          pdf_loaded_body_origin(snapshot, 0L, None, header)
+        }),
+      ) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
@@ -373,7 +473,7 @@ fn pdf_scan_object_store(
     Err(err) => return Err(err)
   }
   objects.append(expanded[:])
-  let object_index : Map[Int, PdfNativeObject] = Map([])
+  let object_index : Map[Int32, PdfNativeObject] = Map([])
   for object in objects {
     object_index.set(object.object_id, object)
   }
@@ -391,11 +491,58 @@ fn pdf_scan_object_store(
 ///|
 fn pdf_build_parsed_object_store(
   objects : Array[PdfNativeObject],
-  object_index : Map[Int, PdfNativeObject],
+  object_index : Map[Int32, PdfNativeObject],
   trailer_hints : Array[String],
   xref_mode : String,
   input_access_mode : String,
-) -> PdfParsedObjectStore {
+) -> PdfParsedObjectStore raise PdfHardDecodeFailure {
+  for i in 0..<objects.length() {
+    let object = objects[i]
+    let reference = match object.stream {
+      Some(value) => value
+      None => continue
+    }
+    guard pdf_extract_dict_value(object.dict_text, "/Length")
+      is Some(Reference(length_id, _generation)) else {
+      continue
+    }
+    let length_object = match object_index.get(length_id) {
+      Some(value) if value.stream is None => value
+      _ => continue
+    }
+    let available = match reference {
+      Loaded(stream) | SelectedLoaded(stream, _) =>
+        stream.endstream_bytes.length() + stream.endstream_eol_length
+      Ranged(range) => range.endstream_length + range.endstream_eol_length
+    }
+    let length = match
+      pdf_parse_int(length_object.dict_text.trim().to_owned()) {
+      Some(value) if value >= 0 && value <= available => value
+      _ => continue
+    }
+    let next_reference = match reference {
+      Loaded(stream) => {
+        let primary_bytes = pdf_stream_precise_payload(stream, length)
+        Loaded({ ..stream, primary_bytes, declared_length: Some(length), })
+      }
+      SelectedLoaded(stream, definition) => {
+        let primary_bytes = pdf_stream_precise_payload(stream, length)
+        SelectedLoaded(
+          { ..stream, primary_bytes, declared_length: Some(length), },
+          definition,
+        )
+      }
+      Ranged(range) =>
+        Ranged({
+          ..range,
+          primary_length: length,
+          declared_length: Some(length),
+        })
+    }
+    let next = { ..object, stream: Some(next_reference), }
+    objects[i] = next
+    object_index.set(object.object_id, next)
+  }
   {
     objects,
     object_index,
@@ -423,7 +570,7 @@ fn pdf_xref_mode_name(
 }
 
 ///|
-fn pdf_find_startxref_offset(view : String) -> Int? {
+fn pdf_find_startxref_offset(view : String) -> Int32? {
   let start = match pdf_find_last_substring(view, "startxref") {
     Some(value) => value
     None => return None
@@ -444,11 +591,12 @@ fn pdf_find_startxref_offset(view : String) -> Int? {
 fn pdf_resolve_xref_chain(
   bytes : Bytes,
   view : String,
-  startxref : Int,
-) -> Result[PdfResolvedXrefChain, PdfNativeError] {
-  let pending_offsets : Array[Int] = [startxref]
-  let visited_offsets : Map[Int, Bool] = Map([])
-  let entries : Map[Int, PdfNativeXrefEntry] = Map([])
+  startxref : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
+) -> Result[PdfResolvedXrefChain, PdfNativeError] raise PdfHardDecodeFailure {
+  let pending_offsets : Array[Int32] = [startxref]
+  let visited_offsets : Map[Int32, Bool] = Map([])
+  let entries : Map[Int32, PdfNativeXrefEntry] = Map([])
   let trailer_hints : Array[String] = []
   let mut used_xref_stream = false
   let mut has_object_stream_refs = false
@@ -462,7 +610,8 @@ fn pdf_resolve_xref_chain(
       continue
     }
     visited_offsets.set(offset, true)
-    let section = match pdf_parse_xref_section(bytes, view, offset) {
+    let section = match
+      pdf_parse_xref_section(bytes, view, offset, decode_context~) {
       Ok(value) => value
       Err(err) =>
         if parsed_section_count == 0 && entries.length() == 0 {
@@ -502,13 +651,14 @@ fn pdf_resolve_xref_chain(
 fn pdf_parse_xref_section(
   bytes : Bytes,
   view : String,
-  offset : Int,
-) -> Result[PdfParsedXrefSection, PdfNativeError] {
+  offset : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
+) -> Result[PdfParsedXrefSection, PdfNativeError] raise PdfHardDecodeFailure {
   let cursor = pdf_skip_ascii_whitespace_and_comments_bytes(bytes, offset)
   if pdf_bytes_have_prefix(bytes, cursor, "xref") {
     pdf_parse_classic_xref_section(bytes, view, cursor)
   } else {
-    pdf_parse_xref_stream_section(bytes, view, cursor)
+    pdf_parse_xref_stream_section(bytes, view, cursor, decode_context~)
   }
 }
 
@@ -516,11 +666,11 @@ fn pdf_parse_xref_section(
 fn pdf_parse_classic_xref_section(
   bytes : Bytes,
   view : String,
-  offset : Int,
+  offset : Int32,
 ) -> Result[PdfParsedXrefSection, PdfNativeError] {
   ignore(view)
   let mut cursor = offset + "xref".length()
-  let entries : Map[Int, PdfNativeXrefEntry] = Map([])
+  let entries : Map[Int32, PdfNativeXrefEntry] = Map([])
   while true {
     cursor = pdf_skip_ascii_whitespace_and_comments_bytes(bytes, cursor)
     if cursor >= bytes.length() {
@@ -611,10 +761,12 @@ fn pdf_parse_classic_xref_section(
 fn pdf_parse_xref_stream_section(
   bytes : Bytes,
   view : String,
-  offset : Int,
-) -> Result[PdfParsedXrefSection, PdfNativeError] {
+  offset : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
+) -> Result[PdfParsedXrefSection, PdfNativeError] raise PdfHardDecodeFailure {
   ignore(view)
-  let object = match pdf_parse_indirect_object_at(bytes, offset) {
+  let object = match
+    pdf_parse_indirect_object_at(bytes, offset, decode_context~) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
@@ -664,11 +816,12 @@ fn pdf_parse_xref_stream_section(
       ),
     )
   }
-  let raw_stream = match pdf_decode_stream_bytes(object, "xref stream") {
+  let raw_stream = match
+    pdf_decode_owned_object_stream_bytes(object, "xref stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
-  let entries : Map[Int, PdfNativeXrefEntry] = Map([])
+  let entries : Map[Int32, PdfNativeXrefEntry] = Map([])
   let mut cursor = 0
   let mut has_object_stream_refs = false
   let mut index = 0
@@ -732,8 +885,11 @@ fn pdf_parse_xref_stream_section(
 ///|
 fn pdf_parse_indirect_object_at(
   bytes : Bytes,
-  offset : Int,
-) -> Result[PdfNativeObject, PdfNativeError] {
+  offset : Int32,
+  decode_context~ : PdfStreamDecodeContext? = None,
+  range_source~ : PdfObjectRangeSource? = None,
+  loaded_source~ : PdfLoadedWindowOrigin? = None,
+) -> Result[PdfNativeObject, PdfNativeError] raise PdfHardDecodeFailure {
   let header = match pdf_find_object_header_at(bytes, offset) {
     Some(value) => value
     None =>
@@ -752,14 +908,39 @@ fn pdf_parse_indirect_object_at(
         ParseFailed("unterminated PDF object " + header.object_id.to_string()),
       )
   }
-  let object_body = bytes[header.body_start:endobj].to_owned()
-  let stream_slice = match pdf_extract_stream_slice(object_body) {
+  let object_body = bytes[header.body_start:endobj]
+  let stream_slice = match
+    pdf_extract_stream_slice(
+      object_body,
+      decode_context,
+      object_id=header.object_id,
+      range_source=range_source.map(source => {
+        ..source,
+        window_start: source.window_start + header.body_start.to_int64(),
+      }),
+      loaded_origin=loaded_source.bind(source => {
+        pdf_loaded_body_origin(
+          source.snapshot,
+          source.window_start,
+          source.selected,
+          header,
+        )
+      }),
+    ) {
     Ok(value) => value
     Err(err) => return Err(err)
   }
   let dict_text = match stream_slice {
     Some(slice) => slice.0
-    None => pdf_byte_string(object_body).trim().to_owned()
+    None => {
+      pdf_retain_range_metadata(
+        range_source,
+        decode_context,
+        object_body.length(),
+        false,
+      )
+      pdf_byte_string(object_body).trim().to_owned()
+    }
   }
   let stream = match stream_slice {
     Some(slice) => Some(slice.1)
@@ -788,14 +969,17 @@ fn pdf_collect_trailer_hints_from_view(view : String) -> Array[String] {
 
 ///|
 priv struct PdfNativeObjectHeader {
-  object_id : Int
-  body_start : Int
+  object_id : Int32
+  generation : Int32
+  header_start : Int32
+  body_start : Int32
+  exact : Bool
 }
 
 ///|
 fn pdf_find_object_header_at(
   bytes : Bytes,
-  start : Int,
+  start : Int32,
 ) -> PdfNativeObjectHeader? {
   let cursor = pdf_skip_ascii_whitespace_and_comments_bytes(bytes, start)
   let marker = match pdf_find_bytes(bytes, pdf_ascii_bytes(" obj"), cursor) {
@@ -811,12 +995,20 @@ fn pdf_find_object_header_at(
   }
   match (pdf_parse_int(parts[0]), pdf_parse_int(parts[1])) {
     (Some(object_id), Some(generation)) => {
-      ignore(generation)
       let body_start = pdf_skip_object_header_whitespace_bytes(
         bytes,
         marker + " obj".length(),
       )
-      Some({ object_id, body_start, })
+      Some({
+        object_id,
+        generation,
+        header_start: cursor,
+        body_start,
+        exact: parts.length() == 2 &&
+        cursor < marker &&
+        bytes[cursor] >= b'0' &&
+        bytes[cursor] <= b'9',
+      })
     }
     _ => None
   }
@@ -825,7 +1017,7 @@ fn pdf_find_object_header_at(
 ///|
 fn pdf_find_next_object_header_bytes(
   bytes : Bytes,
-  start : Int,
+  start : Int32,
 ) -> PdfNativeObjectHeader? {
   let mut cursor = start
   while cursor < bytes.length() {
@@ -841,12 +1033,23 @@ fn pdf_find_next_object_header_bytes(
     if parts.length() >= 2 {
       match (pdf_parse_int(parts[0]), pdf_parse_int(parts[1])) {
         (Some(object_id), Some(generation)) => {
-          ignore(generation)
+          let header_start = pdf_skip_ascii_whitespace_and_comments_bytes(
+            bytes, line_start,
+          )
           let body_start = pdf_skip_object_header_whitespace_bytes(
             bytes,
             marker + " obj".length(),
           )
-          return Some({ object_id, body_start, })
+          return Some({
+            object_id,
+            generation,
+            header_start,
+            body_start,
+            exact: parts.length() == 2 &&
+            header_start < marker &&
+            bytes[header_start] >= b'0' &&
+            bytes[header_start] <= b'9',
+          })
         }
         _ => ()
       }
@@ -858,12 +1061,17 @@ fn pdf_find_next_object_header_bytes(
 
 ///|
 fn pdf_extract_stream_slice(
-  object_body : Bytes,
-) -> Result[(String, PdfNativeStreamSlice)?, PdfNativeError] {
+  object_body : BytesView,
+  decode_context : PdfStreamDecodeContext?,
+  object_id~ : Int32 = 0,
+  range_source~ : PdfObjectRangeSource? = None,
+  loaded_origin~ : PdfLoadedBodyOrigin? = None,
+) -> Result[(String, PdfNativeStreamRef)?, PdfNativeError] raise PdfHardDecodeFailure {
   match pdf_find_bytes(object_body, pdf_ascii_bytes("stream"), 0) {
     None => Ok(None)
     Some(stream_rel) => {
-      let dict_text = pdf_byte_string(object_body[:stream_rel].to_owned())
+      pdf_retain_range_metadata(range_source, decode_context, stream_rel, true)
+      let dict_text = pdf_byte_string(object_body[:stream_rel])
         .trim()
         .to_owned()
       let raw_start0 = stream_rel + "stream".length()
@@ -905,15 +1113,111 @@ fn pdf_extract_stream_slice(
       if trimmed_end < raw_start {
         trimmed_end = raw_start
       }
-      let endstream_bytes = object_body[raw_start:trimmed_end].to_owned()
-      let primary_bytes = match declared_length {
-        Some(length) if length <= object_body.length() - raw_start =>
-          object_body[raw_start:raw_start + length].to_owned()
-        _ => endstream_bytes
+      // Preserve the exact bytes removed by syntax trimming. A payload's final
+      // Adler byte may itself be CR immediately before a separator LF.
+      let endstream_eol_length = endstream_rel - trimmed_end
+      let endstream_eol_suffix = if endstream_eol_length > 0 {
+        object_body[trimmed_end].to_int() |
+        (if endstream_eol_length > 1 {
+          object_body[trimmed_end + 1].to_int() << 8
+        } else {
+          0
+        })
+      } else {
+        0
       }
-      Ok(
-        Some((dict_text, { primary_bytes, endstream_bytes, declared_length, })),
-      )
+      let primary_length = match declared_length {
+        Some(length) if length <= object_body.length() - raw_start => length
+        _ => trimmed_end - raw_start
+      }
+      let reference = match range_source {
+        Some(source) =>
+          Ranged({
+            cursor: source.cursor,
+            definition_offset: source.definition_offset,
+            generation: source.generation,
+            object_id,
+            payload_start: source.window_start + raw_start.to_int64(),
+            primary_length,
+            endstream_length: trimmed_end - raw_start,
+            endstream_eol_suffix,
+            endstream_eol_length,
+            declared_length,
+            decode_context,
+          })
+        None => {
+          let endstream_bytes = object_body[raw_start:trimmed_end].to_owned()
+          let primary_bytes = match declared_length {
+            Some(length) if length <= object_body.length() - raw_start =>
+              object_body[raw_start:raw_start + length].to_owned()
+            _ => endstream_bytes
+          }
+          let slice : PdfNativeStreamSlice = {
+            primary_bytes,
+            endstream_bytes,
+            endstream_eol_suffix,
+            endstream_eol_length,
+            declared_length,
+            decode_context,
+          }
+          match loaded_origin {
+            Some(origin) if origin.body_start + endstream_rel.to_int64() <=
+              origin.snapshot.source_size.to_int64() => {
+              // Native64 retained fields: definition40 + variant refs16.
+              // Postparse metadata admission, not a preallocation/RSS bound.
+              pdf_session_retain(origin.snapshot.context, 56L)
+              let definition : PdfLoadedDefinition = {
+                snapshot: origin.snapshot,
+                object_id,
+                definition_offset: origin.definition_offset,
+                generation: origin.generation,
+                body_start: origin.body_start,
+                payload_start: origin.body_start + raw_start.to_int64(),
+              }
+              SelectedLoaded(
+                { ..slice, decode_context: Some(origin.snapshot.context), },
+                definition,
+              )
+            }
+            _ => Loaded(slice)
+          }
+        }
+      }
+      Ok(Some((dict_text, reference)))
     }
   }
+}
+
+///|
+fn pdf_loaded_body_origin(
+  snapshot : PdfLoadedSnapshot,
+  window_start : Int64,
+  selected : (Int64, Int32)?,
+  header : PdfNativeObjectHeader,
+) -> PdfLoadedBodyOrigin? {
+  if !header.exact ||
+    header.object_id < 0 ||
+    header.generation < 0 ||
+    window_start < 0L ||
+    window_start > snapshot.source_size.to_int64() ||
+    header.header_start < 0 ||
+    header.body_start < header.header_start {
+    return None
+  }
+  let definition_offset = window_start + header.header_start.to_int64()
+  let body_start = window_start + header.body_start.to_int64()
+  if body_start > snapshot.source_size.to_int64() {
+    return None
+  }
+  if selected is Some((offset, generation)) &&
+    (offset != definition_offset || generation != header.generation) {
+    // Keep legacy repair/decode, but never invent an exact selected identity.
+    return None
+  }
+  Some({
+    snapshot,
+    definition_offset,
+    generation: header.generation,
+    body_start,
+  })
 }

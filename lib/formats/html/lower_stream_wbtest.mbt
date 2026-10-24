@@ -55,7 +55,7 @@ test "HTML child text block stream lowers rich nested content and assets" {
 }
 
 ///|
-test "HTML stream switches semantic path for disclosure and figure markup" {
+async test "HTML stream switches semantic path for disclosure and figure markup" {
   let html =
     #|<main><figure><img src="figure.png" alt="plot"><figcaption>Figure one</figcaption></figure>
     #|<details open><summary>More</summary><p>Hidden body</p></details></main>
@@ -82,7 +82,7 @@ test "HTML stream switches semantic path for disclosure and figure markup" {
 }
 
 ///|
-test "HTML huge byte sources lower from the prepared scan summary" {
+async test "HTML huge byte sources lower from the prepared scan summary" {
   let html = "<main>" +
     "<p>plain <a href=\"/x\">link</a></p>".repeat(140_000) +
     "</main>"
@@ -190,7 +190,7 @@ test "HTML block provenance uses exact UTF8 bytes after non-BMP text" {
 }
 
 ///|
-test "HTML DOM route lowers semantic notes tables figures noise and unsupported content" {
+async test "HTML DOM route lowers semantic notes tables figures noise and unsupported content" {
   let html = [
     "<!doctype html><html><head><title>Fixture</title><script>alert(1)</script><style>.x{}</style></head>",
     "<body><header>Repeated header</header><main><article><section>", "<h1 id='top'>Title <em>em</em> <strong>strong</strong> <code>code</code></h1>",

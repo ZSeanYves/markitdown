@@ -18,6 +18,7 @@ pub struct CliOptions {
   convert_mode : @convert.ConvertMode
   output_mode : @convert.OutputMode
   rag_options : @rag.RagOptions
+  max_temporary_bytes : Int64?
 }
 
 ///|
@@ -54,7 +55,7 @@ fn cli_failure(kind : CliFailureKind, message : String) -> CliFailure {
 }
 
 ///|
-fn cli_failure_exit_code(failure : CliFailure) -> Int {
+fn cli_failure_exit_code(failure : CliFailure) -> Int32 {
   match failure.kind {
     UsageFailure => 2
     DetectionFailure => 3
@@ -88,7 +89,7 @@ priv struct BatchTaskResult {
   selected_route : String?
   parser_mode : String?
   route_reason : String?
-  warning_count : Int
+  warning_count : Int32
   degraded_features : Array[String]
   error : String?
   failure_kind : CliFailureKind?
@@ -106,20 +107,20 @@ fn batch_task_status_name(status : BatchTaskStatus) -> String {
 ///|
 fn batch_task_result_to_json(entry : BatchTaskResult) -> Json {
   Json::object({
-    "input_path": entry.input_path.to_json(),
-    "relative_path": entry.relative_path.to_json(),
-    "status": batch_task_status_name(entry.status).to_json(),
-    "detected_format": entry.detected_format.to_json(),
-    "convert_mode": entry.convert_mode.to_json(),
-    "fidelity_mode": entry.fidelity_mode.to_json(),
-    "output_mode": entry.output_mode.to_json(),
-    "output_path": entry.output_path.to_json(),
-    "selected_route": entry.selected_route.to_json(),
-    "parser_mode": entry.parser_mode.to_json(),
-    "route_reason": entry.route_reason.to_json(),
-    "warning_count": entry.warning_count.to_json(),
-    "degraded_features": entry.degraded_features.to_json(),
-    "error": entry.error.to_json(),
+    "input_path": Json(entry.input_path),
+    "relative_path": Json(entry.relative_path),
+    "status": Json(batch_task_status_name(entry.status)),
+    "detected_format": Json(entry.detected_format),
+    "convert_mode": Json(entry.convert_mode),
+    "fidelity_mode": Json(entry.fidelity_mode),
+    "output_mode": Json(entry.output_mode),
+    "output_path": Json(entry.output_path),
+    "selected_route": Json(entry.selected_route),
+    "parser_mode": Json(entry.parser_mode),
+    "route_reason": Json(entry.route_reason),
+    "warning_count": Json(entry.warning_count),
+    "degraded_features": Json(entry.degraded_features),
+    "error": Json(entry.error),
   })
 }
 
@@ -150,7 +151,8 @@ pub fn make_cli_options(
   output_mode : @convert.OutputMode,
   stream_requested : Bool,
   output_format : @convert.OutputFormat,
-  rag_options? : @rag.RagOptions = @rag.default_rag_options(),
+  rag_options~ : @rag.RagOptions = @rag.default_rag_options(),
+  max_temporary_bytes~ : Int64? = None,
 ) -> CliOptions {
   ignore(output_format)
   ignore(fidelity_mode)
@@ -163,5 +165,22 @@ pub fn make_cli_options(
     convert_mode,
     output_mode,
     rag_options,
+    max_temporary_bytes,
   }
+}
+
+///|
+/// Single-file and batch requests share exactly the same byte-ceiling adapter.
+fn cli_resource_limits(opts : CliOptions) -> @convert.ResourceLimits {
+  let defaults = @convert.default_resource_limits()
+  @product.make_resource_limits(
+    defaults.max_rows,
+    defaults.max_cols,
+    defaults.max_cells,
+    max_line_chars=defaults.max_line_chars,
+    max_input_bytes=defaults.max_input_bytes,
+    max_asset_bytes=defaults.max_asset_bytes,
+    max_total_asset_bytes=defaults.max_total_asset_bytes,
+    max_temporary_bytes=opts.max_temporary_bytes,
+  )
 }

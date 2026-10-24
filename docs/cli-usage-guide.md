@@ -1,146 +1,126 @@
-# CLI Usage Guide
+# Native CLI usage guide
 
-This document covers the day-to-day usage of the main CLI. Read
-[environment-dependencies.md](./environment-dependencies.md) first.
+The CLI supports Linux x86_64 and macOS arm64. Install with `moon install`;
+the product does not run as a Wasm/MoonX package. See
+[environment requirements](environment-dependencies.md).
 
-> Notes:
-> - The current CLI uses a unified `mode + options + input/output` shape.
-> - If you omit the mode, it defaults to `balance`.
-> - The removed legacy forms are `convert`, `normal`, `--accurate`, and `--stream`.
-> - OCR and audio options were removed in 0.8 and now produce a usage error.
-> - The current build supports the capability groups `Core`, `Office`, `Containers`, and `PdfText`; formats outside the current support surface fail closed explicitly.
+## Install and inspect
 
-## 1. Build And Help
+From a checkout:
 
-```bash
-moon build --target native --release --package ZSeanYves/markitdown
-./_build/native/release/build/markitdown.exe --help
-./_build/native/release/build/markitdown.exe --version
+```text
+moon install --path .
+markitdown --help
+markitdown --version
+markitdown --capabilities
 ```
 
-## 2. Basic Syntax
+A source build for local development is also available:
+
+```text
+moon build --target native --release .
+./_build/native/release/build/markitdown.exe --help
+```
+
+For installation from a fixed Git SHA or a published exact version, see the
+[README](../README.md). Local builds, installed candidates and published
+versions provide different acceptance evidence.
+
+## Syntax
 
 Single file:
 
-```bash
-./_build/native/release/build/markitdown.exe [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] <input> [output]
+```text
+markitdown [balance|accurate|stream] [--format <format>] [--debug|--rag] [--provenance-out <path>] [--max-temporary-bytes <bytes>] <input> [output]
 ```
 
 Batch:
 
-```bash
-./_build/native/release/build/markitdown.exe batch [balance|accurate|stream] [--format <format>] [--debug|--rag] <input> <output_dir>
+```text
+markitdown batch [balance|accurate|stream] [--format <format>] [--debug|--rag] [--max-temporary-bytes <bytes>] <input> <output_dir>
 ```
 
-If `output` is omitted in single-file mode, the result is written to stdout.
-Because stdout has no asset directory, local asset references are replaced by
-readable placeholders and reported on stderr instead of producing broken links.
+Omitting the mode selects `balance`. Use `-` as input with an explicit
+`--format` for stdin. Removed `convert`, `normal`, `--accurate`,
+`--stream` and recognition flags are usage errors.
 
-For file output in Markdown mode, the CLI uses an atomic unbuffered sink only
-for TXT, CSV/TSV, SRT/VTT, JSON/JSONL/NDJSON, XML, YAML, and TOML. It writes to
-a temporary sibling, commits by rename only after conversion and sink finish,
-and removes the temporary file on write, asset, or empty-failure paths.
-Fail-closed XML raw fences are valid output and are committed even when their
-diagnostics record the parse error that caused the fallback.
+## Examples
 
-## 3. Common Single-File Examples
-
-Regular conversion:
-
-```bash
-./_build/native/release/build/markitdown.exe balance samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
+```text
+markitdown balance input.docx output.md
+markitdown balance --format pdf input.pdf output.md
+markitdown accurate input.xlsx output.md
+markitdown balance --debug input.html output.debug.json
+markitdown balance --rag input.html output.rag.json
+markitdown balance --provenance-out provenance.json input.txt output.md
+markitdown balance --format txt - output.md
+markitdown batch balance input-directory output-directory
 ```
 
-Explicit format:
+`--debug` and `--rag` are mutually exclusive. `--provenance-out` is
+single-file only; batch writes `manifest.json`.
 
-```bash
-./_build/native/release/build/markitdown.exe balance --format pdf samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf.md
-```
+`--max-temporary-bytes N` enables a finite JSONL/NDJSON parser-spool ceiling for
+each conversion. N must be nonnegative decimal Int64 bytes; both space and
+`--max-temporary-bytes=N` forms are accepted. There is no suffix/hex/underscore
+grammar. A negative value, overflow or missing value is usage exit2; actual
+temporary exhaustion is resource exit5 with kind `temporary_bytes`. Zero allows
+empty storage but forbids payload growth. Omit the option for the compatibility
+route. Batch applies the same requested value separately to each input's account,
+not to the whole batch total.
 
-Write provenance:
+This ceiling counts registered parser-spool UTF8/frame bytes, not all disk
+activity. The atomic-output temporary sibling described below is not yet charged
+to it. Ordinary malformed-grammar recovery can still collect full raw text;
+input/encoding/budget/cleanup failures cannot use that fallback. Final IR/RAG and
+metadata may remain resident. This transitional option does not establish full
+P2 bounded memory or finite production defaults.
 
-```bash
-./_build/native/release/build/markitdown.exe balance --provenance-out .tmp/manual/result.provenance.json samples/fixtures/contracts/txt/txt_plain.txt .tmp/manual/out.md
-```
+## Output and assets
 
-## 4. Batch Mode
+Omitting the single-file output path writes to stdout. Stdout has no asset
+directory, so unresolved local image references become readable placeholders
+with diagnostics on stderr. File output materializes safe recoverable assets;
+do not discard its stderr/provenance when checking extraction quality.
 
-Process a directory:
+The existing Markdown file Sink applies to TXT, CSV/TSV, SRT/VTT,
+JSON/JSONL/NDJSON, XML, YAML and TOML. It writes a temporary sibling and commits
+by rename after conversion and Sink completion. Write, asset and empty-failure
+paths abort the temporary file. Other paths may collect before persistence.
+This existing route does not certify end-to-end bounded memory or completion
+of P2's public Sink and resource-lifetime work.
 
-```bash
-./_build/native/release/build/markitdown.exe batch balance samples/fixtures/contracts .tmp/batch-out
-```
+Batch is serial, records every task outcome in its manifest and returns
+nonzero if a task fails. Outputs use `.md`, `.debug.json` or `.rag.json`
+for the selected view. Single-file write/commit or asset-persistence failures
+also return nonzero.
 
-Notes:
+## Modes and PDF
 
-- Batch mode writes results into the output directory.
-- Markdown output ends with `.md`, `--debug` output ends with `.debug.json`, and `--rag` output ends with `.rag.json`.
-- Batch mode does not support `--provenance-out`; it always writes `manifest.json` in the output directory.
-- Batch mode writes every task outcome to the manifest and returns non-zero if any task fails.
-- Single-file conversion returns non-zero when conversion produces no output
-  and has errors, when sink/commit fails, or when asset persistence fails.
+- `balance` is the default semantic route.
+- `accurate` enables declared additional Office/ODF semantics and PDF text
+  policies.
+- `stream` is available only where the format declares it and preserves
+  promised output meaning.
+- Unsupported mode/format combinations fail explicitly. Provenance records
+  the requested mode and effective route.
 
-## 5. Output Views
+See the [capability matrix](capabilities-and-limitations.md) for exact formats.
+ZIP accepts balance only. PDF requires recoverable text and never starts OCR.
+Image-only pages, encrypted input and unsupported content retain explicit
+diagnostics. Top-level recognition inputs return an unsupported capability.
 
-The default output is Markdown.
+## Troubleshooting and validation
 
-Debug JSON:
+Read stderr and the per-file/batch outcome before interpreting an output.
+Use `--provenance-out` to inspect routing, or Debug/RAG views to inspect
+structure. A small readable Markdown result does not prove full extraction.
 
-```bash
-./_build/native/release/build/markitdown.exe balance --debug samples/fixtures/contracts/html/html_simple.html
-```
+Run [Native regression tooling](../tools/regression/README.md) against the
+actual installed executable. It records output channels and asset hashes
+separately. The old `moonx_benchmark.mbtx` is retired.
 
-RAG JSON:
-
-```bash
-./_build/native/release/build/markitdown.exe balance --rag samples/fixtures/contracts/html/html_simple.html
-```
-
-`--debug` and `--rag` cannot be used together.
-
-## 6. `balance`, `accurate`, And `stream`
-
-- `balance`: the default mode.
-- `accurate`: requests a higher-fidelity route.
-- `stream`: requests a productized streaming or block-streaming route when one exists for the active format.
-
-Examples:
-
-```bash
-./_build/native/release/build/markitdown.exe accurate samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf-accurate.md
-./_build/native/release/build/markitdown.exe stream samples/fixtures/contracts/html/html_semantic_sectioning.html .tmp/manual/html-stream.md
-```
-
-Current behavior:
-
-- If a format does not productize `accurate`, the CLI rejects the request with a non-zero exit status.
-- If a format does not productize `stream`, the CLI rejects the request with a non-zero exit status.
-- Provenance keeps both the requested mode and the effective execution route.
-
-## 7. PDF text and capability diagnostics
-
-Regular PDF conversion:
-
-```bash
-./_build/native/release/build/markitdown.exe balance samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf.md
-```
-
-Request accurate PDF text policies:
-
-```bash
-./_build/native/release/build/markitdown.exe accurate samples/fixtures/contracts/pdf/text_simple.pdf .tmp/manual/pdf-accurate.md
-```
-
-Notes:
-
-- PDFs without a recoverable text layer report an explicit unsupported text-layer diagnostic.
-- `--capabilities` prints the machine-readable capability registry.
-- Image and audio inputs return `UnsupportedCapability`; no external recognizer is started.
-
-## 8. Troubleshooting
-
-- For package-consumer timing evidence, run
-  `moonx tools/regression/moonx_benchmark.mbtx <owner/module@version> --target wasm`.
-- Then check CLI stderr.
-- If you need to confirm the real execution route, use `--provenance-out` in single-file mode.
-- The conversion path has no runtime Python, model or system-tool setup.
+The [Native plan](architecture/native-performance-plan.md) still requires
+P2–P4 implementation gates, P5 full cross-platform quality/performance/load
+acceptance and P6 exact-version post-publication confirmation. CLI smoke and
+current local unit tests do not complete those gates.

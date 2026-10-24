@@ -1,11 +1,20 @@
 import {
   "moonbit-community/flate/checksum",
   "moonbit-community/flate",
+  "ZSeanYves/markitdown/internal/resource_budget" @budget,
+  "ZSeanYves/markitdown/internal/inflate",
 }
 
 import {
+  "moonbitlang/async",
   "moonbitlang/x/fs",
 } for "test"
+
+import {
+  "moonbitlang/async",
+} for "wbtest"
+
+supported_targets = "native"
 
 options(
   "preferred-target": "native",

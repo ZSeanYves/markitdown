@@ -75,15 +75,15 @@ fn inspect_toml_document_with_fast_array(
 
 ///|
 priv struct TomlInspectStats {
-  node_count : Int
-  scalar_count : Int
-  array_count : Int
-  table_like_count : Int
-  max_depth : Int
+  node_count : Int32
+  scalar_count : Int32
+  array_count : Int32
+  table_like_count : Int32
+  max_depth : Int32
 }
 
 ///|
-fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
+fn inspect_toml_value(value : TomlValue, depth : Int32) -> TomlInspectStats {
   match value {
     Table(members) | InlineTable(members) => {
       let mut node_count = 1
@@ -133,7 +133,7 @@ fn inspect_toml_value(value : TomlValue, depth : Int) -> TomlInspectStats {
 }
 
 ///|
-fn path_depth(path : String) -> Int {
+fn path_depth(path : String) -> Int32 {
   if path == "/" || path == "" {
     return 1
   }

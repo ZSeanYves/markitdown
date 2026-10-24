@@ -1,5 +1,10 @@
 # ADR 0005: Official Compatibility Laboratory and Capability Tiers
 
+> Historical record. Current product targets, delivery and acceptance
+> instructions are superseded by the [Native upgrade plan](../architecture/native-performance-plan.md)
+> and [ADR 0008](0008-native-only-delivery-and-acceptance.md).
+> Original evidence below is preserved and does not certify P2–P6 completion.
+
 > Superseded on 2026-10-09. The local compatibility lab and its Python
 > adapters were removed; current evidence comes from the MoonX `.mbtx`
 > manifests documented in `docs/phase-2-compatibility-lab.md`.

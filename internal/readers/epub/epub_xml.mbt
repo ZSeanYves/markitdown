@@ -1,7 +1,15 @@
 ///|
-fn bytes_to_xml_text(bytes : Bytes, path : String) -> String raise EpubError {
+fn bytes_to_xml_text(
+  archive : @zip.ZipArchive,
+  bytes : Bytes,
+  path : String,
+) -> String raise EpubError {
   @utf8.decode(bytes, ignore_bom=false) catch {
-    _ => raise InvalidXml("utf8 decode failed for `" + path + "`")
+    _ => {
+      let message = "utf8 decode failed for `" + path + "`"
+      @zip.record_hard_failure(archive, message)
+      raise InvalidEncoding(message)
+    }
   }
 }
 
@@ -414,8 +422,8 @@ fn start_tag_is_self_closing(tag : String) -> Bool {
 fn find_closing_tag_by_local_name(
   xml : String,
   local_name : String,
-  start : Int,
-) -> Int? {
+  start : Int32,
+) -> Int32? {
   let chars = xml.to_array()
   let n = chars.length()
   let mut i = start
@@ -458,9 +466,9 @@ fn find_closing_tag_by_local_name(
 fn advance_past_non_start_tag(
   xml : String,
   chars : Array[Char],
-  i : Int,
-  n : Int,
-) -> Int {
+  i : Int32,
+  n : Int32,
+) -> Int32 {
   if i + 1 >= n {
     return i
   }
@@ -476,9 +484,9 @@ fn advance_past_non_start_tag(
 fn advance_past_special_markup(
   xml : String,
   chars : Array[Char],
-  i : Int,
-  n : Int,
-) -> Int {
+  i : Int32,
+  n : Int32,
+) -> Int32 {
   if i + 1 >= n {
     return i
   }
@@ -501,9 +509,9 @@ fn advance_past_special_markup(
 fn advance_to_sequence_end(
   xml : String,
   marker : String,
-  start : Int,
-  n : Int,
-) -> Int {
+  start : Int32,
+  n : Int32,
+) -> Int32 {
   match find_substring(xml, marker, start) {
     Some(pos) => pos + marker.length()
     None => n
@@ -511,7 +519,7 @@ fn advance_to_sequence_end(
 }
 
 ///|
-fn advance_to_tag_close(chars : Array[Char], start : Int, n : Int) -> Int {
+fn advance_to_tag_close(chars : Array[Char], start : Int32, n : Int32) -> Int32 {
   let mut i = start
   while i < n && chars[i] != '>' {
     i += 1
@@ -524,7 +532,7 @@ fn advance_to_tag_close(chars : Array[Char], start : Int, n : Int) -> Int {
 }
 
 ///|
-fn find_substring(s : String, pat : String, start : Int) -> Int? {
+fn find_substring(s : String, pat : String, start : Int32) -> Int32? {
   let n = s.length()
   let m = pat.length()
   if m == 0 {

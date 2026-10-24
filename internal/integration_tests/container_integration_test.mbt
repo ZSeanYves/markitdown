@@ -38,7 +38,7 @@ fn container_test_nested_office_zip_bytes() -> Bytes raise {
 ///|
 async fn container_test_convert_nested_office_zip(
   zip_bytes : Bytes,
-  mode? : @convert.ConvertMode = Balanced,
+  mode~ : @convert.ConvertMode = Balanced,
 ) -> @convert.ConvertResult {
   let options = @convert.make_convert_options(
     mode,

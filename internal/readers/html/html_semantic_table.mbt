@@ -3,8 +3,8 @@ fn collect_html_semantic_table_fact(
   element : HtmlElement,
   ctx : HtmlSemanticCollectCtx,
   block_source_key : String,
-  source_order : Int,
-  depth : Int,
+  source_order : Int32,
+  depth : Int32,
   parent_block_source_key : String?,
   attributes : Array[HtmlSemanticAttributeSummary],
   text_preview : String,
@@ -28,8 +28,8 @@ fn collect_html_semantic_table_fact(
     html_semantic_text_preview(caption_element.children).0
   })
 
-  let row_count : Ref[Int] = { val: 0, }
-  let cell_count : Ref[Int] = { val: 0, }
+  let row_count : Ref[Int32] = { val: 0, }
+  let cell_count : Ref[Int32] = { val: 0, }
   for child in element.children {
     match child {
       Element(child_element) =>
@@ -198,12 +198,12 @@ fn collect_html_semantic_table_section_fact(
   table_source_key : String,
   block_source_key : String,
   kind : HtmlTableSectionKind,
-  depth : Int,
+  depth : Int32,
   table_sections : Array[String],
   table_rows : Array[String],
   table_cells : Array[String],
-  row_count : Ref[Int],
-  cell_count : Ref[Int],
+  row_count : Ref[Int32],
+  cell_count : Ref[Int32],
 ) -> Unit {
   ctx.next_table_section_order += 1
   let source_order = ctx.next_table_section_order
@@ -307,11 +307,11 @@ fn collect_html_semantic_table_nested_rows(
   table_source_key : String,
   section_source_key : String?,
   table_block_source_key : String,
-  depth : Int,
+  depth : Int32,
   table_rows : Array[String],
   table_cells : Array[String],
-  row_count : Ref[Int],
-  cell_count : Ref[Int],
+  row_count : Ref[Int32],
+  cell_count : Ref[Int32],
 ) -> Unit {
   if element.tag_name == "table" {
     return
@@ -360,11 +360,11 @@ fn collect_html_semantic_table_row_fact(
   table_source_key : String,
   section_source_key : String?,
   table_block_source_key : String,
-  depth : Int,
+  depth : Int32,
   table_rows : Array[String],
   table_cells : Array[String],
-  row_count : Ref[Int],
-  cell_count : Ref[Int],
+  row_count : Ref[Int32],
+  cell_count : Ref[Int32],
 ) -> String? {
   row_count.val += 1
   let row_index = row_count.val - 1
@@ -471,9 +471,9 @@ fn collect_html_semantic_table_cell_fact(
   section_source_key : String?,
   row_source_key : String,
   block_source_key : String,
-  depth : Int,
-  row_index : Int,
-  cell_index : Int,
+  depth : Int32,
+  row_index : Int32,
+  cell_index : Int32,
   kind : HtmlTableCellKind,
 ) -> String? {
   ctx.next_table_cell_order += 1

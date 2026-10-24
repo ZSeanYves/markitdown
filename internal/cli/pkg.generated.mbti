@@ -8,11 +8,11 @@ import {
 }
 
 // Values
-pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @product.FidelityMode, @product.ConvertMode, @product.OutputMode, Bool, @product.OutputMode, rag_options? : @rag.RagOptions) -> CliOptions
+pub fn make_cli_options(String, String?, String?, @input.DetectedFormat?, @product.FidelityMode, @product.ConvertMode, @product.OutputMode, Bool, @product.OutputMode, rag_options? : @rag.RagOptions, max_temporary_bytes? : Int64?) -> CliOptions
 
 pub async fn run_cli(CliOptions) -> Result[String, String]
 
-pub async fn run_cli_app(Array[String]) -> Int
+pub async fn run_cli_app(Array[String]) -> Int32
 
 // Errors
 
@@ -37,6 +37,7 @@ pub struct CliOptions {
   convert_mode : @product.ConvertMode
   output_mode : @product.OutputMode
   rag_options : @rag.RagOptions
+  max_temporary_bytes : Int64?
 }
 
 // Type aliases

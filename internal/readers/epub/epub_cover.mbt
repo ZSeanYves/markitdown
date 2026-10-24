@@ -205,7 +205,7 @@ fn dedupe_cover_candidates(
   candidates : Array[EpubCoverCandidate],
 ) -> Array[EpubCoverCandidate] {
   let out : Array[EpubCoverCandidate] = []
-  let seen : Map[String, Int] = Map([])
+  let seen : Map[String, Int32] = Map([])
   for candidate in candidates {
     let key = cover_candidate_sort_key(candidate)
     if !seen.contains(key) {

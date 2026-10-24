@@ -4,6 +4,8 @@ import {
   "ZSeanYves/markitdown/internal/readers/zip_source" @zsource,
 }
 
+supported_targets = "native"
+
 options(
   "preferred-target": "native",
 )

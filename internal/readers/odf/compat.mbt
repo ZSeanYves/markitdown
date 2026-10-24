@@ -101,42 +101,42 @@ pub fn inspect_odt_document(document : OdtDocument) -> OdtInspectReport {
 }
 
 ///|
-pub fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo raise {
+pub async fn inspect_odt_package(bytes : Bytes) -> OdfPackageInfo {
   @odt.inspect_odt_package(bytes)
 }
 
 ///|
-pub fn open_odp_document(bytes : Bytes) -> OdpDocument raise {
+pub async fn open_odp_document(bytes : Bytes) -> OdpDocument {
   @odp.open_odp_document(bytes)
 }
 
 ///|
-pub fn open_ods_document(bytes : Bytes) -> OdsDocument raise {
+pub async fn open_ods_document(bytes : Bytes) -> OdsDocument {
   @ods.open_ods_document(bytes)
 }
 
 ///|
-pub fn open_odt_document(bytes : Bytes) -> OdtDocument raise {
+pub async fn open_odt_document(bytes : Bytes) -> OdtDocument {
   @odt.open_odt_document(bytes)
 }
 
 ///|
-pub fn prepare_odp_document_from_source(
+pub async fn prepare_odp_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedOdpDocument, String] {
+) -> Result[PreparedOdpDocument, String] noraise {
   @odp.prepare_odp_document_from_source(source)
 }
 
 ///|
-pub fn prepare_ods_document_from_source(
+pub async fn prepare_ods_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedOdsDocument, String] {
+) -> Result[PreparedOdsDocument, String] noraise {
   @ods.prepare_ods_document_from_source(source)
 }
 
 ///|
-pub fn prepare_odt_document_from_source(
+pub async fn prepare_odt_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedOdtDocument, String] {
+) -> Result[PreparedOdtDocument, String] noraise {
   @odt.prepare_odt_document_from_source(source)
 }

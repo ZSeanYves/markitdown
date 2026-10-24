@@ -14,7 +14,7 @@ async test "pipeline assigns stable block ids and assembly summary" {
   let document = @pipeline.build_document_with_default_pipeline(
     BlockStream([heading, paragraph]),
     @pipeline.make_pass_context(false, "balanced"),
-  )
+  ).unwrap()
   assert_true(heading.block_id != "")
   assert_true(paragraph.block_id != "")
   let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
@@ -43,7 +43,7 @@ async test "assembler resolves asset ownership from block asset ids" {
   let document = @pipeline.build_document_with_default_pipeline(
     Document({ ..@core.document_from_blocks([image]), assets: [asset], }),
     @pipeline.make_pass_context(false, "balanced"),
-  )
+  ).unwrap()
   let assembly = document.assembly.unwrap_or(@core.empty_document_assembly())
   assert_true(assembly.asset_bindings.length() == 1)
   assert_true(assembly.asset_bindings[0].asset_id == "asset-image-1")

@@ -46,10 +46,10 @@ pub struct YamlDocument {
 ///|
 /// Source location for a YAML-subset structure event.
 pub struct YamlStructureSource {
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   path : String
-  depth : Int
+  depth : Int32
 }
 
 ///|
@@ -97,11 +97,11 @@ pub struct YamlErrorInfo {
 /// Structural summary for a parsed YAML-subset document.
 pub struct YamlInspectReport {
   is_empty : Bool
-  node_count : Int
-  mapping_count : Int
-  sequence_count : Int
-  scalar_count : Int
-  max_depth : Int
+  node_count : Int32
+  mapping_count : Int32
+  sequence_count : Int32
+  scalar_count : Int32
+  max_depth : Int32
   root_kind : String?
 }
 
@@ -112,8 +112,8 @@ pub struct YamlInspectReport {
 pub struct YamlCompactSequenceSummary {
   key : String
   value_summary : String
-  line_start : Int
-  line_end : Int
+  line_start : Int32
+  line_end : Int32
   inspect : YamlInspectReport
 }
 

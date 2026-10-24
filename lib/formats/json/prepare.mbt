@@ -9,7 +9,7 @@ pub struct PreparedJsonText {
 }
 
 ///|
-pub fn prepare_json_document_from_source(
+pub async fn prepare_json_document_from_source(
   source : @input.InputSource,
 ) -> Result[PreparedJsonText, String] {
   let text_payload = match @sourceio.read_source_text(source) {
@@ -32,7 +32,7 @@ pub fn prepare_json_document_from_source(
         256_000 {
         Err("json DOM preparation skipped above the streaming limit")
       } else {
-        try parse_json_document(text_payload.text) |> Ok catch {
+        try json_document_from_prepared_stream(stream_doc) |> Ok catch {
           e => Err(e.to_string())
         }
       }

@@ -87,9 +87,9 @@ fn rst_simple_table_separator(line : String) -> Bool {
 }
 
 ///|
-fn rst_simple_table_columns(line : String) -> Array[(Int, Int)] {
+fn rst_simple_table_columns(line : String) -> Array[(Int32, Int32)] {
   let chars = line.to_array()
-  let columns : Array[(Int, Int)] = []
+  let columns : Array[(Int32, Int32)] = []
   let mut i = 0
   while i < chars.length() {
     while i < chars.length() && (chars[i] == ' ' || chars[i] == '\t') {
@@ -112,7 +112,7 @@ fn rst_simple_table_columns(line : String) -> Array[(Int, Int)] {
 ///|
 fn split_rst_simple_table_row_at_columns(
   line : String,
-  columns : Array[(Int, Int)],
+  columns : Array[(Int32, Int32)],
 ) -> Array[String] {
   let chars = line.to_array()
   let cells : Array[String] = []

@@ -107,7 +107,7 @@ fn safe_inline_code_fence(text : String) -> String {
 }
 
 ///|
-fn repeat_char_string(ch : Char, width : Int) -> String {
+fn repeat_char_string(ch : Char, width : Int32) -> String {
   if width <= 0 {
     return ""
   }
@@ -195,7 +195,7 @@ fn escape_markdown_line_prefix(text : String) -> String {
 }
 
 ///|
-fn ordered_list_marker_parts(text : String) -> (Int, Int)? {
+fn ordered_list_marker_parts(text : String) -> (Int32, Int32)? {
   let chars = text.to_array()
   let mut i = 0
 
@@ -313,7 +313,7 @@ fn literal_text_block(block : @core.CoreBlock) -> Bool {
 }
 
 ///|
-fn clamp_heading_level(raw : String) -> Int {
+fn clamp_heading_level(raw : String) -> Int32 {
   let parsed = @string.parse_int(raw.trim()) catch { _ => 1 }
   if parsed < 1 {
     1

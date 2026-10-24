@@ -8,13 +8,13 @@
 ///
 /// Non-goal:
 /// - no DOCX/PPTX/XLSX final block recovery in this layer
-pub fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
+pub async fn open_ooxml_package(bytes : Bytes) -> OoxmlPackage raise OoxmlError {
   open_ooxml_archive(ensure_archive(bytes))
 }
 
 ///|
 /// Open OOXML semantics over an already validated ZIP archive.
-pub fn open_ooxml_archive(
+pub async fn open_ooxml_archive(
   archive : @zip.ZipArchive,
 ) -> OoxmlPackage raise OoxmlError {
   let part_cache = new_ooxml_part_cache()
@@ -22,18 +22,20 @@ pub fn open_ooxml_archive(
 
   let (part_index, part_size_index) = build_ooxml_part_index(archive)
 
-  let content_types_payload = read_archive_xml_payload_or_raise(
-    archive, "[Content_Types].xml",
-  )
-  let (defaults, overrides) = parse_content_types(content_types_payload.text)
+  let content_types = read_archive_content_types(archive)
   {
     archive,
     part_index,
     part_size_index,
-    content_types_default: defaults,
-    content_types_override: overrides,
+    content_types_default: content_types.defaults,
+    content_types_override: content_types.overrides,
+    content_types_scan: content_types.stats,
     part_cache,
     relationship_cache,
+    core_properties_cache: Ref(None),
+    app_properties_cache: Ref(None),
+    custom_properties_cache: Ref(None),
+    custom_projections_cache: Map([]),
     sorted_parts_cache: Ref(None),
     inventory_cache: Ref(None),
   }
@@ -42,9 +44,9 @@ pub fn open_ooxml_archive(
 ///|
 fn build_ooxml_part_index(
   archive : @zip.ZipArchive,
-) -> (Map[String, String], Map[String, Int]) raise OoxmlError {
+) -> (Map[String, String], Map[String, Int32]) raise OoxmlError {
   let part_index : Map[String, String] = Map([])
-  let part_size_index : Map[String, Int] = Map([])
+  let part_size_index : Map[String, Int32] = Map([])
   for entry in @zip.list_entries(archive) {
     let raw_name = entry.name
     if raw_name == "" || raw_name == "[Content_Types].xml" {
@@ -80,6 +82,7 @@ fn new_ooxml_part_cache() -> OoxmlPartCache {
 ///|
 fn new_ooxml_relationship_cache() -> OoxmlRelationshipCache {
   {
+    rows_by_rels_part: Map([]),
     index_by_rels_part: Map([]),
     relationships_hit_count: { val: 0, },
     relationships_miss_count: { val: 0, },
@@ -99,14 +102,14 @@ pub fn has_part(pkg : OoxmlPackage, part_name : String) -> Bool {
 ///|
 /// Return the declared uncompressed size for a normalized package part.
 /// Callers can reject oversized binary parts before decompression.
-pub fn part_declared_size(pkg : OoxmlPackage, part_name : String) -> Int? {
+pub fn part_declared_size(pkg : OoxmlPackage, part_name : String) -> Int32? {
   let normalized = normalize_part_name(part_name) catch { _ => return None }
   pkg.part_size_index.get(normalized)
 }
 
 ///|
 /// Read raw bytes for a package part.
-pub fn read_part_bytes(
+pub async fn read_part_bytes(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> Bytes raise OoxmlError {
@@ -118,7 +121,7 @@ pub fn read_part_bytes(
 /// Read raw bytes for a package part without populating the package-local
 /// part cache. This is intended for one-shot large-part scans where cache
 /// reuse would only increase peak memory.
-pub fn read_part_bytes_transient(
+pub async fn read_part_bytes_transient(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> Bytes raise OoxmlError {
@@ -134,12 +137,12 @@ pub fn read_part_bytes_transient(
 /// Visit a package part as validated decompressed chunks without materializing
 /// the complete part. The ZIP reader still verifies decoded size and CRC after
 /// the callback has consumed the stream.
-pub fn visit_part_inflated_chunks(
+pub async fn visit_part_inflated_chunks(
   pkg : OoxmlPackage,
   part_name : String,
-  chunk_size? : Int = 64 * 1024,
-  on_chunk : (Bytes) -> Result[Unit, String],
-) -> Result[Unit, String] {
+  chunk_size~ : Int32 = 64 * 1024,
+  on_chunk : async (Bytes) -> Result[Unit, String],
+) -> Result[Unit, String] noraise {
   let normalized = normalize_part_name(part_name) catch {
     err => return Err(err.to_string())
   }
@@ -150,7 +153,7 @@ pub fn visit_part_inflated_chunks(
 }
 
 ///|
-fn read_part_bytes_normalized(
+async fn read_part_bytes_normalized(
   pkg : OoxmlPackage,
   normalized : String,
 ) -> Bytes raise OoxmlError {
@@ -181,7 +184,7 @@ fn resolve_part_raw_name(
 }
 
 ///|
-fn read_archive_entry_or_raise(
+async fn read_archive_entry_or_raise(
   archive : @zip.ZipArchive,
   path : String,
 ) -> Bytes raise OoxmlError {
@@ -199,26 +202,12 @@ fn ensure_archive(archive_bytes : Bytes) -> @zip.ZipArchive raise OoxmlError {
 }
 
 ///|
-fn read_archive_xml_payload_or_raise(
-  archive : @zip.ZipArchive,
-  path : String,
-) -> OoxmlXmlPartPayload raise OoxmlError {
-  let bytes = read_archive_entry_or_raise(archive, path)
-  {
-    part_name: path,
-    bytes,
-    text: bytes_to_xml_text(bytes),
-    structure_scan: @xml.scan_xml_structure_bytes(bytes),
-  }
-}
-
-///|
 /// Read a package part as lightweight XML/text content.
 ///
 /// This helper uses the package-local XML text decoding path. It is intended
 /// for OOXML package parts such as `.xml`, `.rels`, and small metadata parts,
 /// not as a general semantic text-decoding policy for converters.
-pub fn read_part_text(
+pub async fn read_part_text(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> String raise OoxmlError {
@@ -232,7 +221,7 @@ pub fn read_part_text(
   }
 
   let bytes = read_part_bytes_normalized(pkg, normalized)
-  let text = bytes_to_xml_text(bytes)
+  let text = decode_archive_xml_text(pkg.archive, bytes)
   pkg.part_cache.text_decode_count.val += 1
   pkg.part_cache.text_by_part.set(normalized, text)
   text
@@ -242,16 +231,16 @@ pub fn read_part_text(
 /// Read a package part as XML/text content without populating the package-local
 /// text/byte cache. This keeps large one-shot XML parts from remaining pinned
 /// in memory after the caller finishes scanning them.
-pub fn read_part_text_transient(
+pub async fn read_part_text_transient(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> String raise OoxmlError {
   let bytes = read_part_bytes_transient(pkg, part_name)
-  bytes_to_xml_text(bytes)
+  decode_archive_xml_text(pkg.archive, bytes)
 }
 
 ///|
-pub fn read_xml_part_payload(
+pub async fn read_xml_part_payload(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> OoxmlXmlPartPayload raise OoxmlError {
@@ -263,7 +252,7 @@ pub fn read_xml_part_payload(
       value
     }
     None => {
-      let decoded = bytes_to_xml_text(bytes)
+      let decoded = decode_archive_xml_text(pkg.archive, bytes)
       pkg.part_cache.text_decode_count.val += 1
       pkg.part_cache.text_by_part.set(normalized, decoded)
       decoded
@@ -278,7 +267,7 @@ pub fn read_xml_part_payload(
 }
 
 ///|
-pub fn read_xml_part_payload_transient(
+pub async fn read_xml_part_payload_transient(
   pkg : OoxmlPackage,
   part_name : String,
 ) -> OoxmlXmlPartPayload raise OoxmlError {
@@ -286,9 +275,24 @@ pub fn read_xml_part_payload_transient(
   let bytes = read_part_bytes_transient(pkg, normalized)
   {
     part_name: normalized,
-    text: bytes_to_xml_text(bytes),
+    text: decode_archive_xml_text(pkg.archive, bytes),
     structure_scan: @xml.scan_xml_structure_bytes(bytes),
     bytes,
+  }
+}
+
+///|
+fn decode_archive_xml_text(
+  archive : @zip.ZipArchive,
+  bytes : Bytes,
+) -> String raise OoxmlError {
+  bytes_to_xml_text(bytes) catch {
+    InvalidEncoding(message) => {
+      let error = InvalidEncoding(message)
+      @zip.record_hard_failure(archive, error.to_string())
+      raise error
+    }
+    error => raise error
   }
 }
 

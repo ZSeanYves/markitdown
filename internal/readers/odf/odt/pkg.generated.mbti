@@ -9,11 +9,11 @@ import {
 // Values
 pub fn inspect_odt_document(@shared.OdtDocument) -> @shared.OdtInspectReport
 
-pub fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo raise
+pub async fn inspect_odt_package(Bytes) -> @shared.OdfPackageInfo
 
-pub fn open_odt_document(Bytes) -> @shared.OdtDocument raise
+pub async fn open_odt_document(Bytes) -> @shared.OdtDocument
 
-pub fn prepare_odt_document_from_source(@input.InputSource) -> Result[PreparedOdtDocument, String]
+pub async fn prepare_odt_document_from_source(@input.InputSource) -> Result[PreparedOdtDocument, String] noraise
 
 // Errors
 

@@ -1,49 +1,47 @@
-# Runtime
+# Internal Native runtime
 
-> Internal/extension boundary for target-isolated process FFI and commands.
-> Runtime types must not cross the stable `api` façade.
+`internal/runtime` owns shared coordination between parsing, pipeline and
+rendering. These types and helpers do not cross the stable
+`ZSeanYves/markitdown/lib` façade.
 
-`runtime/` contains repository-wide runtime glue. It centralizes recurring coordination logic shared by parser, pipeline, and render, and isolates concerns such as command resolution, nested-document reuse, and diagnostics merging that do not belong to one format package alone.
+## Current responsibilities
 
-## Responsibilities
+- Normalize `ParseResult` into the shared IR input.
+- Merge diagnostics across parent and child documents.
+- Reuse the root registry and pipeline for nested/container documents.
+- Keep repository process helpers separate from format semantics.
 
-- Normalize `ParseResult` into the unified `core.IRInput`
-- Merge `Diagnostics` across parent and child document flows
-- Reuse the root `ParserRegistry` and default pipeline for containers, nested documents, and child resources
-- Resolve repo-managed commands, `PATH` commands, and shell command assembly rules
+`runtime.mbt` provides `parse_result_to_ir_input`,
+`merge_diagnostics_unique`, `merge_diagnostics_append`,
+`parse_child_to_block_product` and `parse_child_to_document`.
+`ChildBlockProduct` bundles blocks, assets and diagnostics for nested input.
 
-## Key Entry Points
+The current child-document adapters include synchronous internals. The
+single async Reader/Registry/pull/Sink protocol, deterministic session cleanup
+and cumulative budgets remain P2 work in the
+[Native plan](../../docs/architecture/native-performance-plan.md). The current
+async public entrypoint does not prove that all internal execution is unified.
 
-- `runtime.mbt`
-  `parse_result_to_ir_input`, `merge_diagnostics_unique`, `merge_diagnostics_append`
-- `runtime.mbt`
-  `parse_child_to_block_product`, `parse_child_to_document`
-- `command/command.mbt`
-  `resolve_executable_path`, `resolve_repo_managed_command`, `join_shell_command`
+## Process support
 
-## Key Types
+`command/` contains executable resolution and bounded direct-argv process
+helpers. Its current consumer is the repository's hermetic test support;
+conversion does not require an external converter, OCR/audio process or
+runtime installer. The C ownership and removal conditions are in the
+[FFI inventory](../../docs/ffi-inventory.md).
 
-- `ChildBlockProduct`
-  The smallest complete block, asset, and diagnostics bundle returned from child-document parsing
-- `ResolvedCommand`
-  A unified description of an external command source, path, arguments, and fallback context
-
-`runtime/command` is the only shared external-process boundary. Repo-managed
-records contain exactly one absolute executable path under the selected module
-root; empty, relative, multiline, missing, and non-executable records are
-ignored. Child processes receive argv directly and bounded timeout/output
-limits rather than document-derived shell strings.
-
-## Maintenance Rules
-
-- Keep only cross-package, cross-format runtime glue here; format-private logic should stay in `formats/*` or `internal/readers/*`
-- Child-document parsing must continue to use the root registry and default pipeline to avoid format-private side paths
-- Runtime helpers may coordinate external commands, but should not introduce new product-level routing policy
-- The conversion product has no optional runtime installer. Package behavior is
-  validated through the MoonX `.mbtx` entrypoints.
+Keep format-private logic in its format package. Child parsing must use the
+shared registry/pipeline rather than establish another conversion chain.
+Do not convert I/O, cancellation, integrity or resource failures into a more
+permissive provider.
 
 ## Validation
 
 ```text
-moon test --package ZSeanYves/markitdown/internal/runtime --target native --no-parallelize
+moon test --target native internal/runtime --no-parallelize
 ```
+
+Installed Native products and independent public consumers are checked through
+[repository regression tools](../../tools/regression/README.md). P2–P6 remain
+separate implementation, platform, performance, reliability and publication
+gates.

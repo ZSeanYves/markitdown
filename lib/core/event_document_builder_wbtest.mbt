@@ -2,13 +2,13 @@
 fn event_builder_event(
   kind : EventKind,
   text : String,
-  source_ref? : SourceRef? = None,
+  source_ref~ : SourceRef? = None,
 ) -> CoreEvent {
   { kind, text, source_ref, }
 }
 
 ///|
-fn event_builder_ref(line : Int, cell_range? : String? = None) -> SourceRef {
+fn event_builder_ref(line : Int32, cell_range~ : String? = None) -> SourceRef {
   {
     ..empty_source_ref(),
     file_id: Some("fixture"),
@@ -82,7 +82,7 @@ test "event document builder materializes code paragraphs and tables" {
 }
 
 ///|
-fn generic_builder_ref(inline_kind? : String? = None) -> SourceRef {
+fn generic_builder_ref(inline_kind~ : String? = None) -> SourceRef {
   let source_ref = { ..empty_source_ref(), page: Some(2), }
   source_ref.extra.set("ir_event_encoding", "generic_block")
   source_ref.extra.set("keep", "yes")

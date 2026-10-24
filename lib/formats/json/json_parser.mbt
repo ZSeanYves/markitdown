@@ -9,7 +9,7 @@ pub fn parse_json_document(text : String) -> JsonDocument raise {
 /// result back into the source-native model used by format readers.
 pub fn parse_json_document_native(
   text : String,
-  preserve_number_lexemes? : Bool = true,
+  preserve_number_lexemes~ : Bool = true,
 ) -> JsonDocument raise {
   let parsed = @corejson.parse(text) catch {
     err => raise ParseError(err.to_string())
@@ -19,7 +19,7 @@ pub fn parse_json_document_native(
   } else {
     []
   }
-  let number_index : Ref[Int] = { val: 0, }
+  let number_index : Ref[Int32] = { val: 0, }
   { root: json_value_from_native(parsed, number_lexemes, number_index), }
 }
 
@@ -27,7 +27,7 @@ pub fn parse_json_document_native(
 fn json_value_from_native(
   value : Json,
   number_lexemes : Array[String],
-  number_index : Ref[Int],
+  number_index : Ref[Int32],
 ) -> JsonValue {
   match value {
     Object(members) => {
@@ -222,23 +222,23 @@ pub fn classify_json_error(err : JsonError) -> JsonErrorInfo {
 ///|
 priv struct JsonParser {
   chars : Array[Char]
-  mut pos : Int
+  mut pos : Int32
   profile_totals : JsonParseProfileTotals?
 }
 
 ///|
 priv struct JsonStreamParser {
   chars : Array[Char]
-  mut pos : Int
-  mut line : Int
-  mut column : Int
-  mut byte_offset : Int
+  mut pos : Int32
+  mut line : Int32
+  mut column : Int32
+  mut byte_offset : Int32
   events : Array[JsonStreamEvent]
-  mut token_count : Int
-  mut object_count : Int
-  mut array_count : Int
-  mut scalar_count : Int
-  mut max_depth : Int
+  mut token_count : Int32
+  mut object_count : Int32
+  mut array_count : Int32
+  mut scalar_count : Int32
+  mut max_depth : Int32
   track_pointers : Bool
   collect_events : Bool
 }
@@ -326,7 +326,7 @@ fn new_json_stream_parser(
 fn JsonStreamParser::parse_stream_value(
   self : JsonStreamParser,
   pointer : String,
-  depth : Int,
+  depth : Int32,
 ) -> String raise {
   self.skip_ws()
   self.observe_depth(depth)
@@ -343,9 +343,10 @@ fn JsonStreamParser::parse_stream_value(
       "array"
     }
     '"' => {
+      let start = self.current_source_start()
       let value = self.parse_string()
       self.scalar_count += 1
-      self.push_scalar_event(StringValue, pointer, depth, value)
+      self.push_event(StringValue, pointer, depth, Some(value), start)
       "string"
     }
     't' => {
@@ -370,16 +371,18 @@ fn JsonStreamParser::parse_stream_value(
       "null"
     }
     '-' => {
+      let start = self.current_source_start()
       let number = self.parse_number()
       self.scalar_count += 1
-      self.push_scalar_event(NumberValue, pointer, depth, number)
+      self.push_event(NumberValue, pointer, depth, Some(number), start)
       "number"
     }
     ch =>
       if is_digit(ch) {
+        let start = self.current_source_start()
         let number = self.parse_number()
         self.scalar_count += 1
-        self.push_scalar_event(NumberValue, pointer, depth, number)
+        self.push_event(NumberValue, pointer, depth, Some(number), start)
         "number"
       } else {
         raise ParseError("unexpected character")
@@ -391,7 +394,7 @@ fn JsonStreamParser::parse_stream_value(
 fn JsonStreamParser::parse_stream_object(
   self : JsonStreamParser,
   pointer : String,
-  depth : Int,
+  depth : Int32,
 ) -> Unit raise {
   self.object_count += 1
   let start = self.current_source_start()
@@ -431,7 +434,7 @@ fn JsonStreamParser::parse_stream_object(
 fn JsonStreamParser::parse_stream_array(
   self : JsonStreamParser,
   pointer : String,
-  depth : Int,
+  depth : Int32,
 ) -> Unit raise {
   self.array_count += 1
   let start = self.current_source_start()
@@ -461,30 +464,11 @@ fn JsonStreamParser::parse_stream_array(
 }
 
 ///|
-fn JsonStreamParser::push_scalar_event(
-  self : JsonStreamParser,
-  kind : JsonStreamEventKind,
-  pointer : String,
-  depth : Int,
-  text : String,
-) -> Unit {
-  let end = self.current_source_end()
-  let length = text.length()
-  let start = {
-    line: end.line,
-    column: max_int(end.column - length, 1),
-    byte_start: max_int(end.byte_end - length, 0),
-    byte_end: max_int(end.byte_end - length, 0),
-  }
-  self.push_event(kind, pointer, depth, Some(text), start)
-}
-
-///|
 fn JsonStreamParser::push_event(
   self : JsonStreamParser,
   kind : JsonStreamEventKind,
   pointer : String,
-  depth : Int,
+  depth : Int32,
   text : String?,
   start : JsonStreamSource,
 ) -> Unit {
@@ -510,7 +494,7 @@ fn JsonStreamParser::push_event(
 ///|
 fn JsonStreamParser::observe_depth(
   self : JsonStreamParser,
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   if depth > self.max_depth {
     self.max_depth = depth
@@ -547,10 +531,22 @@ fn JsonStreamParser::is_eof(self : JsonStreamParser) -> Bool {
 }
 
 ///|
-fn JsonStreamParser::advance_char(self : JsonStreamParser) -> Char {
+fn JsonStreamParser::advance_char(self : JsonStreamParser) -> Char raise {
   let ch = self.chars[self.pos]
+  let width = if ch.to_int() <= 0x7F {
+    1
+  } else if ch.to_int() <= 0x7FF {
+    2
+  } else if ch.to_int() <= 0xFFFF {
+    3
+  } else {
+    4
+  }
+  if self.byte_offset > 2147483647 - width {
+    raise ParseError("JSON source position exceeds Int32 UTF8 range")
+  }
   self.pos += 1
-  self.byte_offset += 1
+  self.byte_offset += width
   if ch == '\n' {
     self.line += 1
     self.column = 1
@@ -938,7 +934,7 @@ fn JsonParser::skip_ws(self : JsonParser) -> Unit {
 }
 
 ///|
-fn JsonStreamParser::skip_ws(self : JsonStreamParser) -> Unit {
+fn JsonStreamParser::skip_ws(self : JsonStreamParser) -> Unit raise {
   while self.pos < self.chars.length() {
     match self.chars[self.pos] {
       ' ' | '\t' => ignore(self.advance_char())
@@ -1007,7 +1003,10 @@ fn JsonParser::consume_char(self : JsonParser, ch : Char) -> Bool {
 }
 
 ///|
-fn JsonStreamParser::consume_char(self : JsonStreamParser, ch : Char) -> Bool {
+fn JsonStreamParser::consume_char(
+  self : JsonStreamParser,
+  ch : Char,
+) -> Bool raise {
   if self.pos < self.chars.length() && self.chars[self.pos] == ch {
     ignore(self.advance_char())
     true
@@ -1037,7 +1036,7 @@ fn JsonParser::parse_unicode_escape(
       raise ParseError("invalid unicode surrogate pair")
     }
     let cp = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
-    out.push(Int::unsafe_to_char(cp))
+    out.push(Int32::unsafe_to_char(cp))
     return
   }
 
@@ -1045,7 +1044,7 @@ fn JsonParser::parse_unicode_escape(
     raise ParseError("lone low surrogate")
   }
 
-  out.push(Int::unsafe_to_char(code))
+  out.push(Int32::unsafe_to_char(code))
 }
 
 ///|
@@ -1069,7 +1068,7 @@ fn JsonStreamParser::parse_unicode_escape(
       raise ParseError("invalid unicode surrogate pair")
     }
     let cp = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
-    out.push(Int::unsafe_to_char(cp))
+    out.push(Int32::unsafe_to_char(cp))
     return
   }
 
@@ -1077,11 +1076,11 @@ fn JsonStreamParser::parse_unicode_escape(
     raise ParseError("lone low surrogate")
   }
 
-  out.push(Int::unsafe_to_char(code))
+  out.push(Int32::unsafe_to_char(code))
 }
 
 ///|
-fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
+fn JsonParser::read_hex_quad(self : JsonParser) -> Int32 raise {
   let mut code = 0
   for _ in 0..<4 {
     self.pos += 1
@@ -1094,7 +1093,7 @@ fn JsonParser::read_hex_quad(self : JsonParser) -> Int raise {
 }
 
 ///|
-fn JsonStreamParser::read_hex_quad(self : JsonStreamParser) -> Int raise {
+fn JsonStreamParser::read_hex_quad(self : JsonStreamParser) -> Int32 raise {
   let mut code = 0
   for _ in 0..<4 {
     if self.pos >= self.chars.length() || !is_hex(self.chars[self.pos]) {
@@ -1139,8 +1138,8 @@ fn normalize_json_chars(text : String) -> Array[Char] {
 ///|
 fn slice_chars_to_string(
   chars : Array[Char],
-  start : Int,
-  end_ : Int,
+  start : Int32,
+  end_ : Int32,
 ) -> String {
   String::from_array(chars[start:end_].to_owned())
 }
@@ -1163,17 +1162,17 @@ fn is_hex(ch : Char) -> Bool {
 }
 
 ///|
-fn is_high_surrogate(code : Int) -> Bool {
+fn is_high_surrogate(code : Int32) -> Bool {
   code >= 0xD800 && code <= 0xDBFF
 }
 
 ///|
-fn is_low_surrogate(code : Int) -> Bool {
+fn is_low_surrogate(code : Int32) -> Bool {
   code >= 0xDC00 && code <= 0xDFFF
 }
 
 ///|
-fn hex_value(ch : Char) -> Int {
+fn hex_value(ch : Char) -> Int32 {
   if ch >= '0' && ch <= '9' {
     return ch.to_int() - '0'.to_int()
   }
@@ -1203,14 +1202,5 @@ fn json_stream_append_pointer(pointer : String, segment : String) -> String {
     "/" + escaped
   } else {
     pointer + "/" + escaped
-  }
-}
-
-///|
-fn max_int(left : Int, right : Int) -> Int {
-  if left > right {
-    left
-  } else {
-    right
   }
 }

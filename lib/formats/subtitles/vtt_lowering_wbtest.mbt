@@ -1,5 +1,5 @@
 ///|
-test "VTT event lowering preserves headers directives settings and malformed cues" {
+async test "VTT event lowering preserves headers directives settings and malformed cues" {
   let source = @input.input_from_text_with_format(
     "\u{FEFF}WEBVTT Demo\r\n\r\nNOTE editor note\r\nkeep this\r\n\r\nSTYLE\r\n::cue { color: lime }\r\n\r\nREGION\r\nid:bottom\r\n\r\ncue-a\r\n00:00:01.000 --> 00:00:03.500 line:90% align:start\r\n<v Speaker>Hello &amp; welcome</v>\r\nsecond line\r\n\r\nbroken\r\nnot a timestamp\r\nrecover me\r\n",
     "features.vtt",
@@ -98,7 +98,7 @@ test "VTT large streaming path preserves cue metadata directives and recovery" {
 }
 
 ///|
-test "VTT pull stream covers directives malformed cues and truncation" {
+async test "VTT pull stream covers directives malformed cues and truncation" {
   let context = @parser.parse_context_with_limits(
     @parser.new_parse_context(Vtt),
     None,

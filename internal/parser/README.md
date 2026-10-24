@@ -10,10 +10,9 @@
 - Define parser modes, streaming granularity, and capability declarations
 - Define the shared parse-stage `ParseContext`
 - Define the unified `ParseResult`
-- Keep parser implementation code synchronous where it is pure computation while
-  exposing one `UnifiedParserRegistry` at the product resource boundary. The
-  façade dispatches both existing sync adapters and future async readers without
-  exposing third-party handles or creating a second conversion executor.
+- Use one `ParserRegistry` with asynchronous `Parser.parse` and optional
+  `Parser.open_stream` callbacks. Pure scanning and semantic lowering helpers
+  remain synchronous; they run inside the same parser protocol.
 - Expose controlled pull streams for formats that can preserve canonical line
   or table semantics without materializing an event array
 
@@ -26,11 +25,7 @@
 - `context.mbt`
   `new_parse_context`, `parse_context_with_product_modes`, `parse_context_with_limits`
 - `registry.mbt`
-  `registry_register`, `registry_parse`, `registry_open_event_stream`,
-  `async_registry_from_sync`
-- `unified_registry.mbt`
-  `unified_registry_register`, `unified_registry_register_async`,
-  `unified_registry_parse`, `unified_registry_open_event_stream`
+  `registry_register`, `registry_parse`, `registry_open_event_stream`
 - `constructors.mbt`
   `make_parser`, `parse_result_with_*`
 
@@ -42,11 +37,18 @@
   Carries mode, fidelity, PDF policy, and resource limits
 - `ParseResult`
   Carries exactly one of event stream, block stream, or `DocumentIR`, plus diagnostics, assets, metadata, and source map side channels
+- `ParseEventStream`
+  Offers asynchronous `next` and `finish`; each consumer awaits one operation
+  before requesting the next event. `finish` supplies the final side channels.
 
 Parser pull is an internal producer/consumer contract. It is not the same as
 the product `stream` mode, and it is not the renderer's incremental sink. A
 pull implementation must return an equivalent final parse summary, including
 diagnostics, metadata, assets, source map, mode, and provenance inputs.
+
+The asynchronous parser protocol does not yet imply asynchronous input I/O.
+`AsyncReader` normalization still materializes the input before parsing; its
+replacement with asynchronous source reads is a separate migration.
 
 ## Maintenance Rules
 

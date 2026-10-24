@@ -40,14 +40,14 @@ test "docx marker spacing inlines do not inherit note ref metadata" {
 }
 
 ///|
-test "DOCX parser capability and malformed package fail closed with full metrics" {
+async test "DOCX parser capability and malformed package fail closed with full metrics" {
   let capability = docx_parser_capability()
   assert_true(capability.requires_random_access)
   assert_true(capability.supports_document_ir)
   assert_true(capability.produces_tables)
   assert_eq(docx_parser().name, "docx_parser")
   let source = @input.input_from_bytes_with_format(
-    Bytes::from_array([1, 2, 3].map(Int::to_byte)),
+    Bytes::from_array([1, 2, 3].map(Int32::to_byte)),
     "broken.docx",
     Some(Docx),
   )
@@ -68,14 +68,23 @@ test "DOCX parser capability and malformed package fail closed with full metrics
 }
 
 ///|
-test "DOCX parser lowers repository complex image list and code fixtures" {
+async test "DOCX parser lowers repository complex image list and code fixtures" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/docx/docx_textbox_basic.docx", "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
     "samples/fixtures/contracts/docx/docx_nested_lists_mixed.docx", "samples/fixtures/contracts/docx/docx_codeblock_basic.docx",
   ]
   for path in fixtures {
     let result = (docx_parser().parse)(
-      @input.input_from_path(path),
+      owned_input_path(path),
       @parser.new_parse_context(Docx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -85,7 +94,16 @@ test "DOCX parser lowers repository complex image list and code fixtures" {
 }
 
 ///|
-test "DOCX parser covers headings quotes line breaks and baseline package" {
+async test "DOCX parser covers headings quotes line breaks and baseline package" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/docx/docx_blockquote_basic.docx", "samples/fixtures/contracts/docx/docx_heading_levels.docx",
     "samples/fixtures/contracts/docx/docx_paragraph_linebreak.docx", "samples/fixtures/contracts/docx/golden.docx",
@@ -94,7 +112,7 @@ test "DOCX parser covers headings quotes line breaks and baseline package" {
   let mut quote_count = 0
   for path in fixtures {
     let result = (docx_parser().parse)(
-      @input.input_from_path(path),
+      owned_input_path(path),
       @parser.new_parse_context(Docx),
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -112,7 +130,16 @@ test "DOCX parser covers headings quotes line breaks and baseline package" {
 }
 
 ///|
-test "DOCX full contract corpus covers combined accurate feature lowering" {
+async test "DOCX full contract corpus covers combined accurate feature lowering" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "docx_blockquote_basic.docx", "docx_codeblock_basic.docx", "docx_heading_levels.docx",
     "docx_image_alt_title.docx", "docx_image_alt_title_basic.docx", "docx_multiple_notes_order.docx",
@@ -138,7 +165,7 @@ test "DOCX full contract corpus covers combined accurate feature lowering" {
   let mut total_blocks = 0
   for fixture in fixtures {
     let result = (docx_parser().parse)(
-      @input.input_from_path("samples/fixtures/contracts/docx/" + fixture),
+      owned_input_path("samples/fixtures/contracts/docx/" + fixture),
       context,
     ).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
@@ -148,7 +175,16 @@ test "DOCX full contract corpus covers combined accurate feature lowering" {
 }
 
 ///|
-test "DOCX parser lowers repository accurate note table and textbox contracts" {
+async test "DOCX parser lowers repository accurate note table and textbox contracts" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let fixtures = [
     "samples/fixtures/contracts/docx/docx_multiple_notes_order.docx", "samples/fixtures/contracts/docx/docx_note_comment_rich_content_boundary.docx",
     "samples/fixtures/contracts/docx/docx_table_merged_cells_boundary.docx", "samples/fixtures/contracts/docx/docx_textbox_basic.docx",
@@ -169,7 +205,7 @@ test "DOCX parser lowers repository accurate note table and textbox contracts" {
     ]),
   )
   for path in fixtures {
-    let result = (docx_parser().parse)(@input.input_from_path(path), context).unwrap()
+    let result = (docx_parser().parse)(owned_input_path(path), context).unwrap()
     assert_eq(result.diagnostics.errors.length(), 0)
     assert_true(result.document.unwrap().blocks.length() > 0)
     assert_true(result.diagnostics.metrics.get("block_count") != Some("0"))
@@ -180,9 +216,18 @@ test "DOCX parser lowers repository accurate note table and textbox contracts" {
 }
 
 ///|
-test "DOCX parser extracts repository image contract assets" {
+async test "DOCX parser extracts repository image contract assets" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let result = (docx_parser().parse)(
-    @input.input_from_path(
+    owned_input_path(
       "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
     ),
     @parser.new_parse_context(Docx),
@@ -192,27 +237,42 @@ test "DOCX parser extracts repository image contract assets" {
 }
 
 ///|
-test "DOCX parser rejects lazy media references over the request asset budget" {
+async test "DOCX parser rejects lazy media references over the request asset budget" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
   let context = @parser.parse_context_with_asset_limits(
     @parser.new_parse_context(Docx),
     1L,
     1L,
   )
   let result = (docx_parser().parse)(
-    @input.input_from_path(
+    owned_input_path(
       "samples/fixtures/contracts/docx/docx_image_alt_title.docx",
     ),
     context,
-  ).unwrap()
-  assert_eq(result.document.unwrap().assets.length(), 0)
-  assert_true(
-    result.diagnostics.degraded_features.contains("asset_payload_limit_skip"),
   )
+  assert_true(result is Err(_))
 }
 
 ///|
-test "DOCX advanced synthetic contract covers auxiliary parts rich objects and accurate lowering" {
-  let source = @input.input_from_path(
+async test "DOCX advanced synthetic contract covers auxiliary parts rich objects and accurate lowering" {
+  let owned_sessions : Array[@input.InputSession] = []
+  defer (for session in owned_sessions {
+    @input.end_input_session(session)
+  })
+  let owned_input_path = fn(path : String) {
+    let session = @input.begin_input_session(@input.input_from_path(path))
+    owned_sessions.push(session)
+    session.source
+  }
+  let source = owned_input_path(
     "samples/fixtures/contracts/docx/docx_advanced_synthetic.docx",
   )
   let balanced = (docx_parser().parse)(source, @parser.new_parse_context(Docx)).unwrap()

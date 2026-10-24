@@ -89,7 +89,7 @@ fn resolve_reading_order_blocks(
   if ordered.length() <= 1 {
     return ordered
   }
-  let hinted_blocks : Array[(Int, @core.CoreBlock)] = []
+  let hinted_blocks : Array[(Int32, @core.CoreBlock)] = []
   for index in 0..<ordered.length() {
     if block_has_explicit_reading_order_hint(ordered[index]) {
       hinted_blocks.push((index, ordered[index]))
@@ -107,8 +107,8 @@ fn resolve_reading_order_blocks(
           block_reading_order_boundary_key(hinted_blocks[end].1) == boundary {
       end += 1
     }
-    let group_indexes : Array[Int] = []
-    let local_group : Array[(Int, @core.CoreBlock)] = []
+    let group_indexes : Array[Int32] = []
+    let local_group : Array[(Int32, @core.CoreBlock)] = []
     for index in start..<end {
       local_group.push(hinted_blocks[index])
       group_indexes.push(hinted_blocks[index].0)
@@ -139,7 +139,7 @@ fn remove_header_footer_blocks(
   blocks : Array[@core.CoreBlock],
   cleanup_enabled : Bool,
   debug : Bool,
-) -> (Array[@core.CoreBlock], Int) {
+) -> (Array[@core.CoreBlock], Int32) {
   let kept : Array[@core.CoreBlock] = []
   let mut removed = 0
   for block in blocks {
@@ -282,7 +282,7 @@ fn merge_source_bbox(left : @core.BBox?, right : @core.BBox?) -> @core.BBox? {
 }
 
 ///|
-fn min_optional_int(left : Int?, right : Int?) -> Int? {
+fn min_optional_int(left : Int32?, right : Int32?) -> Int32? {
   match (left, right) {
     (Some(lhs), Some(rhs)) => Some(if lhs < rhs { lhs } else { rhs })
     (Some(lhs), None) => Some(lhs)
@@ -292,7 +292,7 @@ fn min_optional_int(left : Int?, right : Int?) -> Int? {
 }
 
 ///|
-fn max_optional_int(left : Int?, right : Int?) -> Int? {
+fn max_optional_int(left : Int32?, right : Int32?) -> Int32? {
   match (left, right) {
     (Some(lhs), Some(rhs)) => Some(if lhs > rhs { lhs } else { rhs })
     (Some(lhs), None) => Some(lhs)
@@ -305,7 +305,7 @@ fn max_optional_int(left : Int?, right : Int?) -> Int? {
 fn compare_blocks_by_reading_order(
   left : @core.CoreBlock,
   right : @core.CoreBlock,
-) -> Int {
+) -> Int32 {
   let left_ref = @core.block_source_ref(left).unwrap_or(
     @core.empty_source_ref(),
   )
@@ -381,7 +381,7 @@ fn block_reading_order_rank(
 }
 
 ///|
-fn left_pad_numeric_string(value : String, width : Int) -> String {
+fn left_pad_numeric_string(value : String, width : Int32) -> String {
   let trimmed = value.trim().to_owned()
   let negative = trimmed.has_prefix("-")
   let digits = if negative { trimmed[1:].to_owned() } else { trimmed }
@@ -448,7 +448,7 @@ fn pdf_merge_group_key(source_ref : @core.SourceRef) -> String? {
 fn merged_text_line_count(
   before : Array[@core.CoreBlock],
   after : Array[@core.CoreBlock],
-) -> Int {
+) -> Int32 {
   let before_count = paragraph_leaf_count(before)
   let after_count = paragraph_leaf_count(after)
   if before_count > after_count {
@@ -459,7 +459,7 @@ fn merged_text_line_count(
 }
 
 ///|
-fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
+fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int32 {
   let mut total = 0
   for block in blocks {
     if block.kind == Paragraph && block.children.length() == 0 {
@@ -471,7 +471,7 @@ fn paragraph_leaf_count(blocks : Array[@core.CoreBlock]) -> Int {
 }
 
 ///|
-fn reading_order_hint_block_count(blocks : Array[@core.CoreBlock]) -> Int {
+fn reading_order_hint_block_count(blocks : Array[@core.CoreBlock]) -> Int32 {
   let mut total = 0
   for block in blocks {
     let source_ref = @core.block_source_ref(block).unwrap_or(

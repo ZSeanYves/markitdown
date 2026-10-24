@@ -11,25 +11,25 @@ pub extend PdfRawCjkEncodingKind with Eq::{equal, not_equal}
 ///|
 pub(all) struct PdfRawCjkDecodeResult {
   text : String
-  decoded_cjk_count : Int
-  decoded_two_byte_count : Int
-  invalid_byte_count : Int
+  decoded_cjk_count : Int32
+  decoded_two_byte_count : Int32
+  invalid_byte_count : Int32
   has_high_bytes : Bool
 }
 
 ///|
 pub fn pdf_decode_gb2312_first_bytes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
 ) -> PdfRawCjkDecodeResult {
   pdf_decode_raw_cjk_bytes(bytes, Gb2312)
 }
 
 ///|
 pub fn pdf_decode_raw_cjk_bytes(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   encoding_kind : PdfRawCjkEncodingKind,
 ) -> PdfRawCjkDecodeResult {
-  let codepoints : Array[Int] = []
+  let codepoints : Array[Int32] = []
   let mut decoded_cjk_count = 0
   let mut decoded_two_byte_count = 0
   let mut invalid_byte_count = 0
@@ -93,7 +93,7 @@ pub fn pdf_raw_cjk_decode_result_is_confident(
 
 ///|
 pub fn pdf_raw_cjk_bytes_need_decode(
-  bytes : Array[Int],
+  bytes : Array[Int32],
   encoding_kind : PdfRawCjkEncodingKind,
 ) -> Bool {
   let mut index = 0
@@ -121,9 +121,9 @@ pub fn pdf_raw_cjk_bytes_need_decode(
 ///|
 fn pdf_raw_cjk_lookup_codepoint(
   encoding_kind : PdfRawCjkEncodingKind,
-  lead : Int,
-  trail : Int,
-) -> Int? {
+  lead : Int32,
+  trail : Int32,
+) -> Int32? {
   match encoding_kind {
     Gb2312 => pdf_native_gb2312_lookup_codepoint(lead, trail)
     EucJp => pdf_native_euc_jp_lookup_codepoint(lead, trail)
@@ -132,7 +132,7 @@ fn pdf_raw_cjk_lookup_codepoint(
 }
 
 ///|
-fn pdf_raw_cjk_is_safe_ascii_byte(byte : Int) -> Bool {
+fn pdf_raw_cjk_is_safe_ascii_byte(byte : Int32) -> Bool {
   byte == '\t'.to_int() ||
   byte == '\n'.to_int() ||
   byte == '\r'.to_int() ||
@@ -140,7 +140,7 @@ fn pdf_raw_cjk_is_safe_ascii_byte(byte : Int) -> Bool {
 }
 
 ///|
-fn pdf_raw_cjk_is_cjk_signal_codepoint(codepoint : Int) -> Bool {
+fn pdf_raw_cjk_is_cjk_signal_codepoint(codepoint : Int32) -> Bool {
   (codepoint >= 0x4E00 && codepoint <= 0x9FFF) ||
   (codepoint >= 0x3400 && codepoint <= 0x4DBF) ||
   (codepoint >= 0x3040 && codepoint <= 0x30FF) ||
@@ -150,16 +150,16 @@ fn pdf_raw_cjk_is_cjk_signal_codepoint(codepoint : Int) -> Bool {
 }
 
 ///|
-fn pdf_raw_cjk_string_from_codepoints(codepoints : Array[Int]) -> String {
+fn pdf_raw_cjk_string_from_codepoints(codepoints : Array[Int32]) -> String {
   let chars : Array[Char] = []
   for codepoint in codepoints {
-    chars.push(Int::unsafe_to_char(codepoint))
+    chars.push(Int32::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
 }
 
 ///|
-fn pdf_native_euc_jp_lookup_codepoint(lead : Int, trail : Int) -> Int? {
+fn pdf_native_euc_jp_lookup_codepoint(lead : Int32, trail : Int32) -> Int32? {
   match lead {
     0xA1 => pdf_native_euc_jp_row_a1(trail)
     0xA3 =>
@@ -189,7 +189,7 @@ fn pdf_native_euc_jp_lookup_codepoint(lead : Int, trail : Int) -> Int? {
 }
 
 ///|
-fn pdf_native_shift_jis_lookup_codepoint(lead : Int, trail : Int) -> Int? {
+fn pdf_native_shift_jis_lookup_codepoint(lead : Int32, trail : Int32) -> Int32? {
   match lead {
     0x81 => pdf_native_shift_jis_row_81(trail)
     0x82 =>
@@ -217,7 +217,7 @@ fn pdf_native_shift_jis_lookup_codepoint(lead : Int, trail : Int) -> Int? {
 }
 
 ///|
-fn pdf_native_euc_jp_row_a1(trail : Int) -> Int? {
+fn pdf_native_euc_jp_row_a1(trail : Int32) -> Int32? {
   match trail {
     0xA1 => Some(0x3000)
     0xA2 => Some(0x3001)
@@ -252,7 +252,7 @@ fn pdf_native_euc_jp_row_a1(trail : Int) -> Int? {
 }
 
 ///|
-fn pdf_native_shift_jis_row_81(trail : Int) -> Int? {
+fn pdf_native_shift_jis_row_81(trail : Int32) -> Int32? {
   match trail {
     0x40 => Some(0x3000)
     0x41 => Some(0x3001)

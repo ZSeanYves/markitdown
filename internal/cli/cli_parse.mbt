@@ -27,7 +27,7 @@ async fn cli_requested_format_label(opts : CliOptions) -> String {
 }
 
 ///|
-fn cli_requested_format_from_input(
+async fn cli_requested_format_from_input(
   input_path : String,
   explicit_format : @input.DetectedFormat?,
 ) -> @input.DetectedFormat {
@@ -161,7 +161,7 @@ fn normalize_cli_args(args : Array[String]) -> Array[String] {
 }
 
 ///|
-fn find_first_eq(s : String) -> Int? {
+fn find_first_eq(s : String) -> Int32? {
   let chars = s.to_array()
   let mut i = 0
   while i < chars.length() {
@@ -179,14 +179,31 @@ fn parse_cli_options(args : Array[String]) -> Result[CliOptions, String] {
 }
 
 ///|
+fn parse_temporary_byte_limit(value : String) -> Result[Int64, String] {
+  if value == "" {
+    return Err("missing value for --max-temporary-bytes")
+  }
+  for character in value.to_array() {
+    if character < '0' || character > '9' {
+      return Err("--max-temporary-bytes requires non-negative decimal bytes")
+    }
+  }
+  let limit = @string.parse_int64(value, base=10) catch {
+    _ => return Err("--max-temporary-bytes exceeds Int64 byte range")
+  }
+  Ok(limit)
+}
+
+///|
 fn parse_cli_options_from_index(
   args : Array[String],
-  start_index : Int,
-  mode? : @convert.ConvertMode = Balanced,
+  start_index : Int32,
+  mode~ : @convert.ConvertMode = Balanced,
 ) -> Result[CliOptions, String] {
   let positionals : Array[String] = []
   let mut explicit_format_raw : String? = None
   let mut provenance_output : String? = None
+  let mut max_temporary_bytes : Int64? = None
   let fidelity_mode = cli_mode_fidelity_mode(mode)
   let convert_mode = mode
   let mut output_mode = @convert.OutputMode::Markdown
@@ -214,6 +231,18 @@ fn parse_cli_options_from_index(
     }
     if arg == "--accurate" || arg == "--stream" {
       return Err(removed_cli_flag_message(arg))
+    }
+    if arg == "--max-temporary-bytes" {
+      if i + 1 >= args.length() {
+        return Err("missing value for --max-temporary-bytes")
+      }
+      let value = args[i + 1].trim().to_owned()
+      max_temporary_bytes = match parse_temporary_byte_limit(value) {
+        Ok(limit) => Some(limit)
+        Err(message) => return Err(message)
+      }
+      i += 2
+      continue
     }
     if is_cli_mode_word(arg.to_lower()) {
       return Err(
@@ -269,7 +298,7 @@ fn parse_cli_options_from_index(
 
   if positionals.length() < 1 || positionals.length() > 2 {
     return Err(
-      "usage: [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf] [--debug|--rag] [--provenance-out <path>] <input> [output]",
+      "usage: [balance|accurate|stream] [--format txt|csv|tsv|srt|vtt|json|jsonl|ndjson|ipynb|xml|yaml|yml|toml|html|htm|markdown|md|eml|msg|tex|latex|rst|adoc|asciidoc|zip|epub|odt|ods|odp|docx|xlsx|pptx|pdf] [--debug|--rag] [--provenance-out <path>] [--max-temporary-bytes <bytes>] <input> [output]",
     )
   }
   let effective_positionals = positionals
@@ -297,6 +326,7 @@ fn parse_cli_options_from_index(
       stream_requested,
       output_format,
       rag_options=@rag.default_rag_options(),
+      max_temporary_bytes~,
     ),
   )
 }

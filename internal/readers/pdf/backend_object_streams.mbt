@@ -7,11 +7,11 @@ priv enum PdfNativeDictValue {
   HexString(String)
   Array(Array[PdfNativeContentToken])
   Dict(String)
-  Reference(Int, Int)
+  Reference(Int32, Int32)
 }
 
 ///|
-fn pdf_expand_object_streams(
+async fn pdf_expand_object_streams(
   objects : Array[PdfNativeObject],
 ) -> Result[Array[PdfNativeObject], PdfNativeError] {
   let expanded : Array[PdfNativeObject] = []
@@ -31,13 +31,77 @@ fn pdf_expand_object_streams(
 }
 
 ///|
-fn pdf_parse_object_stream_entries(
+async fn pdf_parse_object_stream_entries(
+  object : PdfNativeObject,
+  cache? : PdfObjectStreamResultCache,
+) -> Result[Array[PdfNativeObject], PdfNativeError] {
+  let context = object.stream.bind(pdf_stream_context)
+  pdf_check_stream_live(context)
+  if cache is Some(cache) {
+    pdf_check_stream_live(cache.context)
+  }
+  let key = match cache {
+    Some(cache) if cache.context is Some(_) =>
+      pdf_object_stream_result_key(object)
+    _ => None
+  }
+  if cache is Some(cache) && key is Some(key) {
+    if cache.entries.get(key) is Some(result) {
+      return result
+    }
+  }
+  let result = pdf_parse_object_stream_entries_uncached(object) catch {
+    PdfHardDecodeFailure(error) => {
+      // Ordinary Result errors remain recoverable; this catch is only the
+      // separate hard channel, including errors raised by embedded slices.
+      if context is Some(context) {
+        @input.record_input_failure(context.source, error.to_string())
+      }
+      raise PdfHardDecodeFailure(error)
+    }
+    error => raise error
+  }
+  if cache is Some(cache) &&
+    key is Some(key) &&
+    pdf_object_stream_result_is_cacheable(result) &&
+    cache.context is Some(cache_context) {
+    pdf_check_stream_live(context)
+    pdf_check_stream_live(Some(cache_context))
+    let payload = pdf_object_stream_result_retained_payload(
+      cache_context, cache, key, result,
+    )
+    match (cache_context.budget.retain_resident)(CacheBytes, payload) {
+      Ok(_) => cache.entries.set(key, result)
+      Err(error) => pdf_raise_budget_failure(Some(cache_context), error)
+    }
+  }
+  result
+}
+
+///|
+async fn pdf_parse_object_stream_entries_uncached(
   object : PdfNativeObject,
 ) -> Result[Array[PdfNativeObject], PdfNativeError] {
   let stream_text = match pdf_decode_stream_text(object, "object stream") {
     Ok(value) => value
     Err(err) => return Err(err)
   }
+  if object.stream.bind(pdf_stream_context) is Some(context) {
+    // The existing 4N+16 is a conservative logical scope-retained admission,
+    // not measured heap/RSS. Loaded repair must share it and ParseWork with
+    // the original conversion too. An ordinary local Err still holds this
+    // amount until the owning session ends; it does not create a cache entry.
+    pdf_session_retain(context, stream_text.length().to_int64() * 4L + 16L)
+    pdf_session_work(context, stream_text.length().to_int64())
+  }
+  pdf_parse_object_stream_entries_from_text(object, stream_text)
+}
+
+///|
+fn pdf_parse_object_stream_entries_from_text(
+  object : PdfNativeObject,
+  stream_text : String,
+) -> Result[Array[PdfNativeObject], PdfNativeError] raise PdfHardDecodeFailure {
   let first = match pdf_extract_int_after(object.dict_text, "/First") {
     Some(value) if value >= 0 && value <= stream_text.length() => value
     _ =>
@@ -70,7 +134,7 @@ fn pdf_parse_object_stream_entries(
       ),
     )
   }
-  let entries : Array[(Int, Int)] = []
+  let entries : Array[(Int32, Int32)] = []
   let mut index = 0
   while index + 1 < count * 2 {
     match
@@ -109,7 +173,11 @@ fn pdf_parse_object_stream_entries(
     }
     let embedded_body = body_text[offset:next_offset].trim().to_owned()
     let embedded_bytes = pdf_ascii_bytes(embedded_body)
-    let stream_slice = match pdf_extract_stream_slice(embedded_bytes) {
+    let stream_slice = match
+      pdf_extract_stream_slice(
+        embedded_bytes,
+        object.stream.bind(pdf_stream_context),
+      ) {
       Ok(value) => value
       Err(err) => return Err(err)
     }
@@ -253,8 +321,8 @@ fn pdf_stream_decode_params_from_dict(
 ///|
 fn pdf_collect_reference_ids_from_tokens(
   tokens : Array[PdfNativeContentToken],
-) -> Array[Int] {
-  let refs : Array[Int] = []
+) -> Array[Int32] {
+  let refs : Array[Int32] = []
   let mut index = 0
   while index + 2 < tokens.length() {
     match (tokens[index], tokens[index + 1], tokens[index + 2]) {
@@ -321,8 +389,8 @@ fn pdf_parse_dict_entries(
 ///|
 fn pdf_dict_value_from_tokens(
   tokens : Array[PdfNativeContentToken],
-  start : Int,
-) -> (PdfNativeDictValue, Int) {
+  start : Int32,
+) -> (PdfNativeDictValue, Int32) {
   if start >= tokens.length() {
     return (Word(""), start)
   }

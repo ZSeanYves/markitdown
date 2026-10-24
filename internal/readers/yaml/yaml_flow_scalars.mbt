@@ -1,11 +1,11 @@
 ///|
 fn parse_block_scalar(
   lines : Array[YamlLine],
-  line_index : Int,
+  line_index : Int32,
   header : String,
-  parent_indent : Int,
-  line_no : Int,
-) -> (Int, YamlValue) raise {
+  parent_indent : Int32,
+  line_no : Int32,
+) -> (Int32, YamlValue) raise {
   let style = header[0]
   let stripped = header[1:].trim().to_owned()
   if stripped != "" {
@@ -31,7 +31,7 @@ fn parse_block_scalar(
       )
     }
   }
-  let mut explicit_indent : Int? = None
+  let mut explicit_indent : Int32? = None
   let mut chomping = 'c'
   for ch in stripped {
     if ch >= '1' && ch <= '9' {
@@ -57,14 +57,14 @@ fn parse_block_scalar(
 ///|
 fn collect_block_scalar_lines(
   lines : Array[YamlLine],
-  start : Int,
-  parent_indent : Int,
-  explicit_indent : Int?,
-) -> (Int, String) {
+  start : Int32,
+  parent_indent : Int32,
+  explicit_indent : Int32?,
+) -> (Int32, String) {
   if start >= lines.length() {
     return (start, "")
   }
-  let mut scalar_indent : Int? = explicit_indent.map(fn(value) {
+  let mut scalar_indent : Int32? = explicit_indent.map(fn(value) {
     parent_indent + value
   })
   let parts : Array[String] = []
@@ -172,7 +172,7 @@ fn yaml_is_number_scalar(text : String) -> Bool {
 ///|
 fn parse_flow_value(
   text : String,
-  line_no : Int,
+  line_no : Int32,
   profile_totals : YamlParseProfileTotals?,
 ) -> YamlValue raise {
   let trimmed = text.trim().to_owned()
@@ -185,7 +185,7 @@ fn parse_flow_value(
 ///|
 fn parse_flow_sequence(
   text : String,
-  line_no : Int,
+  line_no : Int32,
   profile_totals : YamlParseProfileTotals?,
 ) -> YamlValue raise {
   let chars = text.to_array()
@@ -213,7 +213,7 @@ fn parse_flow_sequence(
 ///|
 fn parse_flow_mapping(
   text : String,
-  line_no : Int,
+  line_no : Int32,
   profile_totals : YamlParseProfileTotals?,
 ) -> YamlValue raise {
   let chars = text.to_array()
@@ -249,7 +249,7 @@ fn parse_flow_mapping(
 }
 
 ///|
-fn split_flow_items(text : String, line_no : Int) -> Array[String] raise {
+fn split_flow_items(text : String, line_no : Int32) -> Array[String] raise {
   let chars = text.to_array()
   let items : Array[String] = []
   let mut start = 0
@@ -343,7 +343,7 @@ fn split_flow_items(text : String, line_no : Int) -> Array[String] raise {
 }
 
 ///|
-fn find_flow_mapping_colon(text : String, line_no : Int) -> Int raise {
+fn find_flow_mapping_colon(text : String, line_no : Int32) -> Int32 raise {
   let chars = text.to_array()
   let mut i = 0
   let mut bracket_depth = 0
@@ -417,7 +417,7 @@ fn find_flow_mapping_colon(text : String, line_no : Int) -> Int raise {
 }
 
 ///|
-fn parse_double_quoted_scalar(text : String, line_no : Int) -> String raise {
+fn parse_double_quoted_scalar(text : String, line_no : Int32) -> String raise {
   let chars = text.to_array()
   if chars.length() < 2 || chars[0] != '"' || chars[chars.length() - 1] != '"' {
     raise ParseError(
@@ -453,7 +453,7 @@ fn parse_double_quoted_scalar(text : String, line_no : Int) -> String raise {
 }
 
 ///|
-fn parse_single_quoted_scalar(text : String, line_no : Int) -> String raise {
+fn parse_single_quoted_scalar(text : String, line_no : Int32) -> String raise {
   let chars = text.to_array()
   if chars.length() < 2 || chars[0] != '\'' || chars[chars.length() - 1] != '\'' {
     raise ParseError(

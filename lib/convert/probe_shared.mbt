@@ -3,9 +3,9 @@ fn probe_outcome(
   summary_format : String,
   summary_parts : Array[String],
   prepared_source : @input.InputSource,
-  probe_signals? : Array[ProbeSignal] = [],
-  probe_failures? : Array[ProbeFailure] = [],
-  probe_artifacts? : Array[RouteProbeArtifact] = [],
+  probe_signals~ : Array[ProbeSignal] = [],
+  probe_failures~ : Array[ProbeFailure] = [],
+  probe_artifacts~ : Array[RouteProbeArtifact] = [],
 ) -> ProbeOutcome {
   {
     probe_signals,
@@ -18,7 +18,7 @@ fn probe_outcome(
 }
 
 ///|
-fn probe_summary_line(label : String, value : Int, limit : Int?) -> String {
+fn probe_summary_line(label : String, value : Int32, limit : Int32?) -> String {
   match limit {
     Some(limit_value) =>
       label + "=" + value.to_string() + "/limit=" + limit_value.to_string()

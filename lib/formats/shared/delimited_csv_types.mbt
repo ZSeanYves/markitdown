@@ -27,9 +27,9 @@ pub struct CsvParseOptions {
 /// Parsed CSV rows with original line provenance.
 pub struct CsvRow {
   fields : Array[String]
-  original_field_count : Int
-  line_start : Int
-  line_end : Int
+  original_field_count : Int32
+  line_start : Int32
+  line_end : Int32
 }
 
 ///|
@@ -37,8 +37,8 @@ pub struct CsvRow {
 pub struct CsvDocument {
   delimiter : CsvDelimiter
   rows : Array[CsvRow]
-  column_count : Int
-  line_count : Int
+  column_count : Int32
+  line_count : Int32
 }
 
 ///|
@@ -79,20 +79,20 @@ pub extend CsvValidationIssueKind with Eq::{equal, not_equal}
 pub struct CsvValidationIssue {
   kind : CsvValidationIssueKind
   severity : CsvValidationSeverity
-  row_index : Int
-  actual_field_count : Int
-  expected_field_count : Int
+  row_index : Int32
+  actual_field_count : Int32
+  expected_field_count : Int32
   message : String
 }
 
 ///|
 /// Aggregated CSV validation report.
 pub struct CsvValidationReport {
-  row_count : Int
-  column_count : Int
-  issue_count : Int
-  warning_count : Int
-  error_count : Int
+  row_count : Int32
+  column_count : Int32
+  issue_count : Int32
+  warning_count : Int32
+  error_count : Int32
   issues : Array[CsvValidationIssue]
 }
 
@@ -100,16 +100,16 @@ pub struct CsvValidationReport {
 /// Structural summary for a parsed CSV document.
 pub struct CsvInspectReport {
   delimiter : CsvDelimiter
-  row_count : Int
-  column_count : Int
-  line_count : Int
-  min_field_count : Int
-  max_field_count : Int
-  empty_cell_count : Int
-  blank_row_count : Int
-  ragged_row_count : Int
-  multiline_row_count : Int
-  multiline_field_count : Int
+  row_count : Int32
+  column_count : Int32
+  line_count : Int32
+  min_field_count : Int32
+  max_field_count : Int32
+  empty_cell_count : Int32
+  blank_row_count : Int32
+  ragged_row_count : Int32
+  multiline_row_count : Int32
+  multiline_field_count : Int32
 }
 
 ///|

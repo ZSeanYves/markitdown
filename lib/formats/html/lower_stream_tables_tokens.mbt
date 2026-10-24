@@ -4,8 +4,8 @@ fn html_child_text_append_table(
   source : @input.InputSource,
   _text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  open_index : Int,
-) -> Int {
+  open_index : Int32,
+) -> Int32 {
   match state.close_index.get(open_index) {
     Some(close_index) => {
       let open_event = events[open_index]
@@ -59,9 +59,9 @@ fn html_child_table_block(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  open_index : Int,
-  close_index : Int,
-  block_order : Int,
+  open_index : Int32,
+  close_index : Int32,
+  block_order : Int32,
 ) -> @core.CoreBlock? {
   let open_event = events[open_index]
   let close_event = events[close_index]
@@ -131,7 +131,7 @@ fn html_child_table_block(
 ///|
 fn html_child_compact_table_markdown(
   rows : Array[@core.CoreBlock],
-  header_rows : Int,
+  header_rows : Int32,
 ) -> String? {
   if rows.length() == 0 || header_rows <= 0 {
     return None
@@ -201,9 +201,9 @@ fn html_child_table_row_block(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  open_index : Int,
-  close_index : Int,
-  row_order : Int,
+  open_index : Int32,
+  close_index : Int32,
+  row_order : Int32,
 ) -> (@core.CoreBlock, Bool)? {
   let open_event = events[open_index]
   let close_event = events[close_index]
@@ -269,9 +269,9 @@ fn html_child_table_cell_block(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  open_index : Int,
-  close_index : Int,
-  cell_order : Int,
+  open_index : Int32,
+  close_index : Int32,
+  cell_order : Int32,
 ) -> @core.CoreBlock? {
   let open_event = events[open_index]
   let close_event = events[close_index]
@@ -313,8 +313,8 @@ fn html_child_table_collect_inlines(
   source : @input.InputSource,
   text_chars : Array[Char],
   events : Array[@dhtml.HtmlTokenEvent],
-  start_index : Int,
-  end_index : Int,
+  start_index : Int32,
+  end_index : Int32,
 ) -> Array[@core.CoreInline] {
   let out : Array[@core.CoreInline] = []
   let mut index = start_index
@@ -517,7 +517,7 @@ fn html_child_table_append_image_inline(
 }
 
 ///|
-fn html_child_table_header_rows(rows : Array[@core.CoreBlock]) -> Int {
+fn html_child_table_header_rows(rows : Array[@core.CoreBlock]) -> Int32 {
   if rows.length() == 0 {
     return 0
   }
@@ -525,7 +525,7 @@ fn html_child_table_header_rows(rows : Array[@core.CoreBlock]) -> Int {
 }
 
 ///|
-fn html_child_table_column_count(rows : Array[@core.CoreBlock]) -> Int {
+fn html_child_table_column_count(rows : Array[@core.CoreBlock]) -> Int32 {
   let mut best = 0
   for row in rows {
     if row.children.length() > best {
@@ -830,11 +830,11 @@ fn html_token_source_ref(
 ///|
 fn html_token_lines_source_ref(
   source : @input.InputSource,
-  line_start : Int,
-  line_end : Int,
+  line_start : Int32,
+  line_end : Int32,
   html_path : String,
-  byte_start? : Int = -1,
-  byte_end? : Int = -1,
+  byte_start~ : Int32 = -1,
+  byte_end~ : Int32 = -1,
 ) -> @core.SourceRef {
   let source_ref = @core.source_ref_with_html_path(
     @core.source_ref_with_lines(

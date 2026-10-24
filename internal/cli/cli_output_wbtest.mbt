@@ -43,7 +43,7 @@ fn cli_output_assert_contains_all(
 }
 
 ///|
-fn cli_output_zero_pad_int(value : Int, width : Int) -> String {
+fn cli_output_zero_pad_int(value : Int32, width : Int32) -> String {
   let raw = value.to_string()
   if raw.length() >= width {
     raw
@@ -65,10 +65,10 @@ fn cli_output_pdf_stream_object(stream : String) -> String {
 ///|
 fn cli_output_minimal_pdf_bytes(
   object_bodies : Array[String],
-  root_object_number : Int,
+  root_object_number : Int32,
 ) -> Bytes {
   let sections : Array[String] = ["%PDF-1.4\n"]
-  let offsets : Array[Int] = [0]
+  let offsets : Array[Int32] = [0]
   let mut current_offset = sections[0].length()
 
   for index in 0..<object_bodies.length() {
@@ -1088,18 +1088,6 @@ async test "main cli persists TeX RST and AsciiDoc sidecar images" {
     }
     assert_true(persisted_bytes.to_array() == source_bytes.to_array())
   }
-}
-
-///|
-async test "CLI ZIP asset lookup normalizes safe dot segments" {
-  assert_eq(
-    normalized_zip_asset_entry("./ObjectReplacements/Object 1"),
-    "ObjectReplacements/Object 1",
-  )
-  assert_eq(
-    normalized_zip_asset_entry("Pictures/./image.png"),
-    "Pictures/image.png",
-  )
 }
 
 ///|

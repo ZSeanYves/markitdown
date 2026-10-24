@@ -1,5 +1,5 @@
 ///|
-test "DOCX body recovery preserves mixed structures and diagnoses unknown nodes" {
+async test "DOCX body recovery preserves mixed structures and diagnoses unknown nodes" {
   let warnings : Array[DocxSourceWarning] = []
   let xml = "<w:document><w:body>" +
     "<w:bookmarkStart w:id=\"1\" w:name=\"start\"/>" +
@@ -29,7 +29,7 @@ test "DOCX body recovery preserves mixed structures and diagnoses unknown nodes"
 }
 
 ///|
-test "DOCX nested table recovery retains cells spans headers and depth" {
+async test "DOCX nested table recovery retains cells spans headers and depth" {
   let warnings : Array[DocxSourceWarning] = []
   let xml = "<w:document><w:body><w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr>" +
     "<w:tc><w:tcPr><w:gridSpan w:val=\"2\"/><w:vMerge w:val=\"restart\"/></w:tcPr>" +
@@ -60,7 +60,7 @@ test "DOCX nested table recovery retains cells spans headers and depth" {
 }
 
 ///|
-test "DOCX inline relationship recovery preserves labels and source diagnostics" {
+async test "DOCX inline relationship recovery preserves labels and source diagnostics" {
   let key = docx_source_key("word/document.xml", 0, "inline")
   let warnings : Array[DocxSourceWarning] = []
 
@@ -108,7 +108,7 @@ test "DOCX inline relationship recovery preserves labels and source diagnostics"
 }
 
 ///|
-test "DOCX drawing and VML metadata survive unresolved media relationships" {
+async test "DOCX drawing and VML metadata survive unresolved media relationships" {
   let key = docx_source_key("word/document.xml", 1, "media")
   let warnings : Array[DocxSourceWarning] = []
   let drawing_xml = "<w:drawing><wp:inline><wp:docPr id=\"3\" name=\"Diagram\"/>" +
@@ -166,7 +166,7 @@ test "DOCX drawing and VML metadata survive unresolved media relationships" {
 }
 
 ///|
-test "DOCX run scanner preserves the supported inline vocabulary in source order" {
+async test "DOCX run scanner preserves the supported inline vocabulary in source order" {
   let key = docx_source_key("word/document.xml", 2, "run")
   let warnings : Array[DocxSourceWarning] = []
   let xml = "<w:rPr><w:b/></w:rPr><w:t>A &amp; B</w:t><w:tab/>" +
@@ -226,7 +226,7 @@ test "DOCX run scanner preserves the supported inline vocabulary in source order
 }
 
 ///|
-test "DOCX paragraph scanner retains fields smart tags controls and tracked changes" {
+async test "DOCX paragraph scanner retains fields smart tags controls and tracked changes" {
   let key = docx_source_key("word/document.xml", 3, "paragraph")
   let warnings : Array[DocxSourceWarning] = []
   let xml = "<w:pPr><w:pStyle w:val=\"BodyText\"/></w:pPr>" +

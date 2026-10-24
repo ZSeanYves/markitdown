@@ -1,6 +1,7 @@
 ///|
 priv struct RagRenderPayload {
   public_source_map : @core.SourceMap?
+  assets : Array[@core.AssetRef]
   chunks : Array[@rag.RagChunk]
 }
 
@@ -16,6 +17,7 @@ fn rag_payload(
     } else {
       None
     },
+    assets: document.assets,
     chunks,
   }
 }
@@ -31,20 +33,17 @@ fn rag_payload_for_direct_input(
     } else {
       None
     },
+    assets: context.assets.unwrap_or([]),
     chunks,
   }
 }
 
 ///|
-fn render_rag_json_events(
+fn rag_json_cursor(
   metadata : @core.DocumentMetadata,
   payload : RagRenderPayload,
   diagnostics : @core.Diagnostics,
-) -> String {
-  let chunk_items : Array[String] = []
-  for chunk in payload.chunks {
-    chunk_items.push(render_rag_chunk_json(chunk))
-  }
+) -> () -> String? raise JsonEncodingError {
   let fields : Array[String] = []
   fields.push("\"output_format\": " + @core.json_string("rag_json"))
   fields.push(
@@ -63,17 +62,53 @@ fn render_rag_json_events(
     "\"output_mode\": " + @core.json_string_opt(diagnostics.output_mode),
   )
   fields.push("\"metadata\": " + render_document_metadata_json(metadata))
-  fields.push("\"assets\": []")
-  fields.push("\"diagnostics\": " + render_diagnostics_json(diagnostics))
-  fields.push(
-    "\"source_map\": " + render_source_map_json(payload.public_source_map),
-  )
-  fields.push("\"chunks\": " + @core.array_json(chunk_items))
-  @core.object_json(fields)
+  let header = "{" + fields.join(", ") + ", \"assets\": ["
+  let phase = Ref(0)
+  let position = Ref(0)
+  fn() raise JsonEncodingError {
+    if phase.val == 0 {
+      phase.val = 1
+      return Some(header)
+    }
+    if phase.val == 1 {
+      if position.val < payload.assets.length() {
+        let index = position.val
+        position.val += 1
+        return Some(
+          (if index == 0 { "" } else { ", " }) +
+          render_asset_json(payload.assets[index]),
+        )
+      }
+      phase.val = 2
+      position.val = 0
+      return Some(
+        "], \"diagnostics\": " +
+        render_diagnostics_json(diagnostics) +
+        ", \"source_map\": " +
+        render_source_map_json(payload.public_source_map) +
+        ", \"chunks\": [",
+      )
+    }
+    if phase.val == 2 {
+      if position.val < payload.chunks.length() {
+        let index = position.val
+        position.val += 1
+        return Some(
+          (if index == 0 { "" } else { ", " }) +
+          render_rag_chunk_json(payload.chunks[index]),
+        )
+      }
+      phase.val = 3
+      return Some("]}")
+    }
+    None
+  }
 }
 
 ///|
-fn render_rag_chunk_json(chunk : @rag.RagChunk) -> String {
+fn render_rag_chunk_json(
+  chunk : @rag.RagChunk,
+) -> String raise JsonEncodingError {
   let fields : Array[String] = []
   fields.push("\"id\": " + @core.json_string(chunk.id))
   fields.push(
@@ -97,7 +132,7 @@ fn render_rag_chunk_json(chunk : @rag.RagChunk) -> String {
 fn chunk_kind_count(
   chunks : Array[@rag.RagChunk],
   kind : @rag.ChunkKind,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for chunk in chunks {
     if chunk.kind == kind {

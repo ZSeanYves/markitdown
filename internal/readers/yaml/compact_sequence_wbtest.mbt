@@ -22,7 +22,7 @@ test "YAML compact sequence validates the official homogeneous fixture shape" {
 }
 
 ///|
-test "YAML compact sequence accepts a self-contained huge-shaped fixture" {
+async test "YAML compact sequence accepts a self-contained huge-shaped fixture" {
   let out = StringBuilder()
   out.write_string("items:\n")
   let padding = "x".repeat(900)

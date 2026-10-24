@@ -1,7 +1,7 @@
 ///|
 fn profile_context(
   profile : @product.RenderProfile,
-  assets? : Array[@core.AssetRef]? = None,
+  assets~ : Array[@core.AssetRef]? = None,
 ) -> RenderContext {
   make_render_context(false, render_profile=profile, assets~)
 }

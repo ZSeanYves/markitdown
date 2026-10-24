@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "ZSeanYves/markitdown/internal/inflate"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub const HUFFMAN_CHUNK_BITS : Int32 = 9
+
+pub const HUFFMAN_VALUE_SHIFT : Int32 = 4
+
+pub const MAX_NUM_DIST : Int32 = 30
+
+pub const MAX_NUM_LIT : Int32 = 286
+
+pub const NUM_CODES : Int32 = 19
+
+pub const WINDOW_SIZE : Int32 = 32768
+
+pub fn inflater_payload_upper_bound() -> Int64
+
+// Errors
+pub suberror InflateError {
+  InflateError(InflateErrorKind, String)
+}
+
+// Types and methods
+pub(all) enum InflateErrorKind {
+  Truncated
+  Corrupt
+  TrailingData
+  OutputLimitExceeded
+  Cancelled
+} derive(Eq, @debug.Debug)
+pub fn InflateErrorKind::equal(Self, Self) -> Bool
+pub fn InflateErrorKind::not_equal(Self, Self) -> Bool
+pub fn InflateErrorKind::to_repr(Self) -> @debug.Repr
+
+pub struct Inflater {
+  // private fields
+}
+pub fn Inflater::Inflater(dictionary? : BytesView) -> Self
+pub fn Inflater::is_finished(Self) -> Bool
+pub fn Inflater::last_consumed(Self) -> Int32
+pub fn Inflater::last_produced(Self) -> Int32
+pub fn Inflater::reset(Self, dictionary? : BytesView) -> Unit
+pub fn Inflater::step(Self, BytesView, MutArrayView[Byte], end? : Bool) -> Status raise InflateError
+pub fn Inflater::step_into(Self, BytesView, FixedArray[Byte], end? : Bool) -> Status raise InflateError
+
+pub(all) enum Status {
+  Done
+  NeedMoreInput
+  NeedMoreOutput
+} derive(Eq, @debug.Debug)
+pub fn Status::equal(Self, Self) -> Bool
+pub fn Status::not_equal(Self, Self) -> Bool
+pub fn Status::to_repr(Self) -> @debug.Repr
+
+// Type aliases
+
+// Traits

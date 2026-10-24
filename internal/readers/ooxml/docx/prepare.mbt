@@ -6,9 +6,9 @@ pub struct PreparedDocxDocument {
 }
 
 ///|
-pub fn prepare_docx_document_from_source(
+pub async fn prepare_docx_document_from_source(
   source : @input.InputSource,
-) -> Result[PreparedDocxDocument, String] {
+) -> Result[PreparedDocxDocument, String] noraise {
   let prepared = match @zsource.prepare_zip_from_source(source) {
     Ok(value) => value
     Err(err) => return Err(err)

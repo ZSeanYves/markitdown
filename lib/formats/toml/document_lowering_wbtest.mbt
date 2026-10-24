@@ -1,5 +1,5 @@
 ///|
-test "TOML parser and lowering cover rich tables arrays and scalar kinds" {
+async test "TOML parser and lowering cover rich tables arrays and scalar kinds" {
   let text =
     #|title = "TOML Contract"
     #|unicode = "snowman \u2603"
@@ -58,7 +58,7 @@ test "TOML parser and lowering cover rich tables arrays and scalar kinds" {
 }
 
 ///|
-test "TOML malformed structures fail closed with classified diagnostics" {
+async test "TOML malformed structures fail closed with classified diagnostics" {
   for
     text in [
       "key = \"unterminated", "key = \"bad \\u12xz\"", "key = [1, 2", "key = { a = 1",
@@ -80,7 +80,7 @@ test "TOML malformed structures fail closed with classified diagnostics" {
 }
 
 ///|
-test "TOML lowering covers empty and heterogeneous table product shapes" {
+async test "TOML lowering covers empty and heterogeneous table product shapes" {
   for text in ["", "[empty]\n", "items = []\n"] {
     let result = (toml_parser().parse)(
       @input.input_from_text_with_format(text, "edge.toml", Some(Toml)),

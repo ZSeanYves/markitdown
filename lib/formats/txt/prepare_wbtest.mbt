@@ -17,7 +17,7 @@ test "TXT shared cleanup normalizes line endings spaces ligatures and zero-width
 }
 
 ///|
-test "TXT prepare preserves valid source and reports invalid UTF8 without throwing" {
+async test "TXT prepare preserves valid source and rejects invalid UTF8" {
   let valid = @input.input_from_text_with_format(
     "one\r\ntwo",
     "valid.txt",
@@ -32,16 +32,28 @@ test "TXT prepare preserves valid source and reports invalid UTF8 without throwi
     Err(error) => fail(error)
   }
   let invalid = @input.input_from_bytes_with_format(
-    Bytes::from_array([0xC3, 0x28].map(Int::to_byte)),
+    Bytes::from_array([0xC3, 0x28].map(Int32::to_byte)),
     "invalid.txt",
     Some(Txt),
   )
   match prepare_text_document_from_source(invalid) {
-    Ok(prepared) => {
-      assert_true(prepared.document is None)
-      assert_true(prepared.inspect is None)
-      assert_true(prepared.parse_error is Some(_))
-    }
-    Err(error) => fail(error)
+    Ok(_) =>
+      fail("invalid encoding must not become a successful prepared placeholder")
+    Err(error) => assert_eq(error, "utf8 decode failed")
+  }
+}
+
+///|
+async test "TXT prepare rejects malformed UTF16 BOM payloads instead of successful placeholders" {
+  for bytes in [b"\xff\xfe\x00\xd8", b"\xff\xfeA", b"\xfe\xff\xdc\x00"] {
+    let source = @input.input_from_bytes_with_format(
+      bytes,
+      "invalid-utf16.txt",
+      Some(Txt),
+    )
+    assert_true(prepare_text_document_from_source(source) is Err(_))
+    assert_true(
+      (txt_parser().parse)(source, @parser.new_parse_context(Txt)) is Err(_),
+    )
   }
 }

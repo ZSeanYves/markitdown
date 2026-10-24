@@ -195,7 +195,7 @@ fn docx_sortable_note_label(label : String) -> String {
 }
 
 ///|
-fn docx_zero_pad_int(value : Int, width : Int) -> String {
+fn docx_zero_pad_int(value : Int32, width : Int32) -> String {
   let raw = value.to_string()
   if raw.length() >= width {
     raw
@@ -468,7 +468,7 @@ fn docx_flatten_blocks_to_paragraph_like(
   state : DocxLoweringState,
   blocks : Array[@core.CoreBlock],
   source_key : @ddocx.DocxSourceKey,
-  prefix? : String = "",
+  prefix~ : String = "",
 ) -> @core.CoreBlock? {
   let rich : Array[@core.CoreInline] = []
   let plain = StringBuilder()
@@ -671,7 +671,9 @@ fn docx_trim_leading_line_breaks(
 }
 
 ///|
-fn docx_first_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? {
+fn docx_first_non_break_inline_index(
+  inlines : Array[@core.CoreInline],
+) -> Int32? {
   for i in 0..<inlines.length() {
     if inlines[i].kind != LineBreak {
       return Some(i)
@@ -681,7 +683,9 @@ fn docx_first_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? 
 }
 
 ///|
-fn docx_last_non_break_inline_index(inlines : Array[@core.CoreInline]) -> Int? {
+fn docx_last_non_break_inline_index(
+  inlines : Array[@core.CoreInline],
+) -> Int32? {
   let mut i = inlines.length() - 1
   while i >= 0 {
     if inlines[i].kind != LineBreak {

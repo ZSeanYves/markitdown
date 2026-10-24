@@ -191,8 +191,8 @@ pub struct ModeStrategyPolicy {
   canonical : StrategyRouteSpec
   explicit_stream_supported : Bool
   explicit_stream : StrategyRouteSpec?
-  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
-  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int)]
+  soft_limit_thresholds : Array[(@product.ProbeSignalKind, Int32)]
+  hard_limit_thresholds : Array[(@product.ProbeSignalKind, Int32)]
   soft_limit_render_profile : @product.RenderProfile?
   hard_limit_route : StrategyRouteSpec?
   lowering_profile : @product.LoweringProfile

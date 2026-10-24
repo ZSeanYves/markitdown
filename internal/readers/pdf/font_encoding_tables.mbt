@@ -4,11 +4,11 @@
 ///|
 priv struct PdfFontStaticTables {
   glyph_unicode_map : Map[String, String]
-  standard_encoding_map : Map[Int, String]
-  winansi_encoding_map : Map[Int, String]
-  macroman_encoding_map : Map[Int, String]
-  symbol_encoding_map : Map[Int, String]
-  dingbats_encoding_map : Map[Int, String]
+  standard_encoding_map : Map[Int32, String]
+  winansi_encoding_map : Map[Int32, String]
+  macroman_encoding_map : Map[Int32, String]
+  symbol_encoding_map : Map[Int32, String]
+  dingbats_encoding_map : Map[Int32, String]
 }
 
 ///|
@@ -56,13 +56,15 @@ fn pdf_font_encoding_strip_leading_slash(name : String) -> String {
 }
 
 ///|
-fn pdf_font_encoding_string_from_codepoints(codepoints : Array[Int]) -> String {
+fn pdf_font_encoding_string_from_codepoints(
+  codepoints : Array[Int32],
+) -> String {
   let chars : Array[Char] = []
   for codepoint in codepoints {
     if !pdf_codepoint_is_unicode_scalar(codepoint) {
       return ""
     }
-    chars.push(Int::unsafe_to_char(codepoint))
+    chars.push(Int32::unsafe_to_char(codepoint))
   }
   String::from_array(chars)
 }
@@ -75,7 +77,7 @@ fn pdf_font_parse_uni_glyph_name(name : String) -> String? {
     if hex.length() == 0 || hex.length() % 4 != 0 {
       return None
     }
-    let codepoints : Array[Int] = []
+    let codepoints : Array[Int32] = []
     let mut index = 0
     while index + 4 <= hex.length() {
       match pdf_parse_hex_int(hex[index:index + 4].to_owned()) {
@@ -107,7 +109,7 @@ fn pdf_font_parse_uni_glyph_name(name : String) -> String? {
 
 ///|
 fn pdf_font_decode_hex_codepoint_sequence(text : String) -> String? {
-  let codepoints : Array[Int] = []
+  let codepoints : Array[Int32] = []
   for raw in text.split(",").to_array() {
     if raw == "" {
       continue
@@ -137,7 +139,7 @@ fn pdf_font_glyph_name_to_unicode(name : String) -> String? {
 ///|
 fn pdf_font_base_encoding_code_to_glyph_map(
   encoding_name : String,
-) -> Map[Int, String] {
+) -> Map[Int32, String] {
   let tables = pdf_font_static_tables.force()
   let source = match encoding_name {
     "StandardEncoding" => tables.standard_encoding_map
@@ -152,9 +154,9 @@ fn pdf_font_base_encoding_code_to_glyph_map(
 
 ///|
 fn pdf_font_clone_code_to_glyph_map(
-  source : Map[Int, String],
-) -> Map[Int, String] {
-  let out : Map[Int, String] = Map([])
+  source : Map[Int32, String],
+) -> Map[Int32, String] {
+  let out : Map[Int32, String] = Map([])
   for entry in source.to_array() {
     out.set(entry.0, entry.1)
   }
@@ -167,11 +169,11 @@ fn pdf_font_decode_static_tables() -> PdfFontStaticTables {
     pdf_font_static_tables_blob_base64, "pdf_font_static_tables",
   )
   let glyph_unicode_map : Map[String, String] = Map([])
-  let standard_encoding_map : Map[Int, String] = Map([])
-  let winansi_encoding_map : Map[Int, String] = Map([])
-  let macroman_encoding_map : Map[Int, String] = Map([])
-  let symbol_encoding_map : Map[Int, String] = Map([])
-  let dingbats_encoding_map : Map[Int, String] = Map([])
+  let standard_encoding_map : Map[Int32, String] = Map([])
+  let winansi_encoding_map : Map[Int32, String] = Map([])
+  let macroman_encoding_map : Map[Int32, String] = Map([])
+  let symbol_encoding_map : Map[Int32, String] = Map([])
+  let dingbats_encoding_map : Map[Int32, String] = Map([])
   for raw_line in text.split("\n").to_array() {
     if raw_line == "" {
       continue

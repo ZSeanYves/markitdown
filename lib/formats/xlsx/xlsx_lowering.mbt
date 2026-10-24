@@ -1,10 +1,10 @@
 ///|
-fn xlsx_collect_package_media_assets(
+async fn xlsx_collect_package_media_assets(
   source : @input.InputSource,
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
   context : @parser.ParseContext,
-) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) {
+) -> (Array[@core.CoreBlock], Array[@core.AssetRef]) noraise {
   let blocks : Array[@core.CoreBlock] = []
   let assets : Array[@core.AssetRef] = []
   let inventory = @ox.inspect_ooxml_inventory(pkg)
@@ -83,34 +83,9 @@ fn xlsx_append_package_media_asset(
   let index = assets.length() + 1
   let observed = part.size.to_int64()
   let materialized = xlsx_declared_asset_bytes(assets)
-  if !@parser.asset_payload_within_limits(context, observed, materialized) {
-    let asset_id = "xlsx:" + part.part_name
-    @parser.record_asset_payload_budget_skip(
-      diagnostics,
-      asset_id,
-      "single_or_total_asset_bytes",
-      observed,
-      @parser.max_asset_payload_bytes(context),
-    )
-    let source_ref = @core.source_ref_with_container_entry(
-      @core.empty_source_ref(),
-      @input.input_path(source),
-      Some("xlsx"),
-      @input.input_path(source),
-      Some(part.part_name),
-      Some(index - 1),
-      Some(ext),
-      None,
-    )
-    let unavailable = @core.make_block(
-      BlockQuote,
-      "Asset unavailable: " + part.part_name,
-      source_ref~,
-    )
-    unavailable.attrs.set("asset_missing", "true")
-    unavailable.attrs.set("asset_source_path", part.part_name)
-    unavailable.attrs.set("payload_skipped", "asset_limit")
-    blocks.push(unavailable)
+  if !@parser.require_asset_payload_within_limits(
+      context, observed, materialized,
+    ) {
     return
   }
   let output_path = "assets/xlsx-image" +
@@ -192,9 +167,9 @@ fn xlsx_inventory_part(
 }
 
 ///|
-fn xlsx_drawing_media_order(
+async fn xlsx_drawing_media_order(
   pkg : @ox.OoxmlPackage,
-) -> Array[(String, String, String)] {
+) -> Array[(String, String, String)] noraise {
   let ordered : Array[(String, String, String)] = []
   let shared = xlsx_load_workbook_shared_state(pkg) catch {
     _ => return ordered
@@ -260,7 +235,7 @@ fn xlsx_media_basename(path : String) -> String {
 }
 
 ///|
-fn xlsx_asset_two_digits(value : Int) -> String {
+fn xlsx_asset_two_digits(value : Int32) -> String {
   if value < 10 {
     "0" + value.to_string()
   } else {
@@ -269,7 +244,7 @@ fn xlsx_asset_two_digits(value : Int) -> String {
 }
 
 ///|
-fn xlsx_lower_block_stream_document(
+async fn xlsx_lower_block_stream_document(
   source : @input.InputSource,
   pkg : @ox.OoxmlPackage,
   diagnostics : @core.Diagnostics,
@@ -663,13 +638,13 @@ fn xlsx_build_sheet_table_block(
 fn xlsx_build_table_block_from_bounds(
   source_name : String,
   sheet : XlsxSheet,
-  min_row : Int,
-  min_col : Int,
-  max_row : Int,
-  max_col : Int,
+  min_row : Int32,
+  min_col : Int32,
+  max_row : Int32,
+  max_col : Int32,
   table_ref : @core.SourceRef,
-  sparse_rows? : Bool = false,
-  covered? : Map[String, Bool]? = None,
+  sparse_rows~ : Bool = false,
+  covered~ : Map[String, Bool]? = None,
 ) -> @core.CoreBlock? {
   let table = @core.make_block(Table, "table", source_ref=table_ref)
   table.attrs.set("header_rows", "1")

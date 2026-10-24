@@ -76,6 +76,112 @@ test "EML reader honors common MIME charsets" {
 }
 
 ///|
+test "EML known text charsets reject malformed decoded bytes" {
+  for
+    (charset, transfer, body) in [
+      ("utf-8", "base64", "gA=="),
+      ("utf-16le", "base64", "ANg="),
+      ("utf-16be", "base64", "2AA="),
+      ("utf-16le", "base64", "ANw="),
+      ("utf-16be", "base64", "3AA="),
+      ("utf-16le", "base64", "QQ=="),
+      ("utf-16be", "base64", "QQ=="),
+      ("utf-16", "base64", "//5B"),
+      ("us-ascii", "base64", "gA=="),
+      ("utf-8", "quoted-printable", "=80"),
+    ] {
+    let input = "Content-Type: text/plain; charset=" +
+      charset +
+      "\nContent-Transfer-Encoding: " +
+      transfer +
+      "\n\n" +
+      body
+    let rejected = try {
+      ignore(parse_eml_message(input))
+      false
+    } catch {
+      InvalidEncoding(_) => true
+      _ => false
+    }
+    assert_true(rejected, msg=charset + ": " + body)
+  }
+}
+
+///|
+test "EML malformed text encoding cannot recover as a raw multipart child" {
+  let input = "Content-Type: multipart/mixed; boundary=boundary\n\n" +
+    "--boundary\nContent-Type: text/plain; charset=utf-16le\nContent-Transfer-Encoding: base64\n\nANg=\n" +
+    "--boundary\nContent-Type: text/plain\n\nvalid sibling\n--boundary--"
+  let rejected = try {
+    ignore(parse_eml_message(input))
+    false
+  } catch {
+    InvalidEncoding(_) => true
+    _ => false
+  }
+  assert_true(rejected)
+}
+
+///|
+async test "EML prepare returns malformed supported encoding as a hard error" {
+  for
+    input in [
+      "Content-Type: text/plain; charset=utf-16le\nContent-Transfer-Encoding: base64\n\nANg=",
+      "Content-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: base64\n\ngA==",
+    ] {
+    let prepared = prepare_eml_message_from_source(
+      @input.input_from_text_with_format(input, "bad-encoding.eml", Some(Eml)),
+    )
+    match prepared {
+      Err(message) => assert_true(message.has_prefix("eml encoding error: "))
+      Ok(_) => fail("invalid supported encoding must bypass syntax fallback")
+    }
+  }
+}
+
+///|
+test "EML declared header charsets reject invalid bytes" {
+  for
+    input in [
+      "Subject: =?UTF-8?B?gA==?=\n\nbody", "Content-Disposition: attachment; filename*=UTF-8''bad%80.txt\n\nbody",
+    ] {
+    let rejected = try {
+      ignore(parse_eml_message(input))
+      false
+    } catch {
+      InvalidEncoding(_) => true
+      _ => false
+    }
+    assert_true(rejected)
+  }
+}
+
+///|
+test "EML strict text decoding keeps valid UTF16 pairs and binary attachment bytes" {
+  let text = parse_eml_message(
+    "Content-Type: text/plain; charset=utf-16le\nContent-Transfer-Encoding: base64\n\nPdgA3g==",
+  )
+  assert_eq(text.text_plain[0].body_text.unwrap().text, "😀")
+  let binary = parse_eml_message(
+    "Content-Type: image/png\nContent-Disposition: attachment; filename=opaque.png\nContent-Transfer-Encoding: base64\n\n/wA=",
+  )
+  let payload = materialize_attachment_payload(
+    binary.attachments[0],
+    false,
+    true,
+  )
+  assert_eq(payload.bytes, Some(b"\xff\x00"))
+  assert_true(!payload.payload_decoded)
+  let nested = parse_eml_message(
+    "Content-Type: message/rfc822\nContent-Transfer-Encoding: base64\n\nQ29udGVudC1UeXBlOiB0ZXh0L3BsYWluCgpmgG8=",
+  )
+  assert_eq(
+    nested.children[0].child_message.unwrap().text_plain[0].body_text.unwrap().text,
+    "f\u{80}o",
+  )
+}
+
+///|
 test "EML reader decodes RFC 2047 headers and RFC 2231 filenames" {
   let message = parse_eml_message(
     "From: =?UTF-8?Q?Jos=C3=A9?= <jose@example.test>\r\n" +
@@ -147,7 +253,7 @@ test "EML reader parses nested message and fails closed on malformed multipart" 
 }
 
 ///|
-fn deeply_nested_eml(depth : Int) -> String {
+fn deeply_nested_eml(depth : Int32) -> String {
   if depth <= 0 {
     return "Content-Type: text/plain\n\nleaf"
   }
@@ -167,7 +273,8 @@ test "EML reader enforces nesting depth and preserves invalid UTF-8 bytes" {
     ignore(parse_eml_message(deeply_nested_eml(10)))
     false
   } catch {
-    ParseError(message) => message.contains("maximum eml nesting depth")
+    LimitExceeded(NestingDepth, observed~, limit~) =>
+      observed == 9L && limit == 8L
     _ => false
   }
   assert_true(depth_failed)
@@ -211,7 +318,8 @@ test "EML reader enforces multipart child count budget" {
     ignore(parse_eml_message(parts.join("\n")))
     false
   } catch {
-    ParseError(message) => message.contains("multipart child count")
+    LimitExceeded(MultipartParts, observed~, limit~) =>
+      observed == 1025L && limit == 1024L
     _ => false
   }
   assert_true(failed)
