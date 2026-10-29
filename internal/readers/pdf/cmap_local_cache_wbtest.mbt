@@ -808,6 +808,16 @@ async test "Native64 local CMap model counts packed optional slots result Info a
       usecmap_name: Some("P"),
       builtin_parent_name: None,
     }
-    assert_eq(pdf_local_cmap_retained_payload(context, key, Ok(info)), 304L)
+    // The constructor capacity hint counts entries, while capacity() reports
+    // actual buckets. Keep the fixed payload expectation independent of the
+    // core map's load-factor/reservation policy.
+    // Key/result92 + Info40 + mapping entry/text22 + invalid entry/key16
+    // + one width4 + parent name2 = 176 bytes, excluding the map buffers.
+    let map_buffers = (info.mapping.capacity() + info.invalid_keys.capacity()).to_int64() *
+      8L
+    assert_eq(
+      pdf_local_cmap_retained_payload(context, key, Ok(info)),
+      176L + map_buffers,
+    )
   }
 }

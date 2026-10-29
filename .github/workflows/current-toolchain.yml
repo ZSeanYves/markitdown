@@ -1,0 +1,23 @@
+name: Current MoonBit toolchain
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install nightly MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash -s -- nightly
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+      - name: Validate current toolchain
+        run: |
+          moon version --all
+          moon update
+          moon check --target native --deny-warn
+          moon test --target native --release -j 1
